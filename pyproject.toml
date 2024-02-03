@@ -37,3 +37,125 @@ lstrip_blocks = true
 
 [tool.semantic_release.branches.release]
 match = "(mainline|release)"
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "deadline-cloud-for-unreal"
+dynamic = ["version"]
+readme = "README.md"
+license = ""
+requires-python = ">=3.7"
+
+dependencies = [
+    "deadline == 0.37.*",
+    "openjd-adaptor-runtime == 0.4.*",
+]
+
+[project.scripts]
+UnrealAdaptor = "deadline.unreal_adaptor.UnrealAdaptor:main"
+
+[tool.hatch.build]
+artifacts = [
+  "*_version.py",
+]
+
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.version.raw-options]
+version_scheme = "post-release"
+local_scheme = "no-local-version"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "_version.py"
+
+[tool.hatch.build.hooks.custom]
+path = "hatch_custom_hook.py"
+
+[tool.hatch.build.hooks.custom.copy_version_py]
+destinations = [
+  "src/deadline/unreal_adaptor",
+  "src/deadline/unreal_submitter",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/*",
+    "hatch_custom_hook.py",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = [
+  "src/deadline",
+]
+
+[tool.mypy]
+python_version = 3.9
+check_untyped_defs = true
+show_error_codes = true
+pretty = true
+files = [ "src/**/*.py" ]
+ignore_missing_imports = true
+# Tell mypy that there's a namespace package at src/deadline
+namespace_packages = true
+explicit_package_bases = true
+mypy_path = "src"
+
+[tool.ruff]
+ignore = [
+  "E501",
+]
+line-length = 100
+
+[tool.ruff.isort]
+known-first-party = [
+  "deadline_worker_agent"
+]
+
+[tool.black]
+line-length = 100
+
+[tool.pytest.ini_options]
+xfail_strict = true
+addopts = [
+    "--durations=5",
+    "--cov=src/deadline/unreal_adaptor",
+    "--cov=src/deadline/unreal_submitter",
+    "--color=yes",
+    "--cov-report=html:build/coverage",
+    "--cov-report=xml:build/coverage/coverage.xml",
+    "--cov-report=term-missing"  # ,
+    # "--numprocesses=auto",
+]
+testpaths = [ "test" ]
+looponfailroots = [
+    "src",
+    "test",
+]
+# looponfailroots is deprecated, this removes the deprecation from the test output
+filterwarnings = [
+    "ignore::DeprecationWarning"
+]
+
+
+[tool.coverage.run]
+source_pkgs = [ "deadline/unreal_adaptor", "deadline/unreal_submitter" ]
+branch = true
+parallel = true
+omit = [
+  "**/__main__.py",
+  "**/_version.py"
+]
+
+
+[tool.coverage.paths]
+source = [
+  "src/"
+]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 45
