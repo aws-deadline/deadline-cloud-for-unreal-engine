@@ -1,0 +1,2 @@
+handler: render
+queue_manifest_path: C:\Users\Administrator\git-dev\deadline-cloud-for-unreal-engine\test_projects\Saved\MovieRenderPipeline\QueueManifest.utxt

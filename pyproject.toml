@@ -104,6 +104,10 @@ namespace_packages = true
 explicit_package_bases = true
 mypy_path = "src"
 
+[[tool.mypy.overrides]]
+module = ["unreal.*"]
+ignore_missing_imports = true
+
 [tool.ruff]
 ignore = [
   "E501",
@@ -142,7 +146,7 @@ filterwarnings = [
 
 
 [tool.coverage.run]
-source_pkgs = [ "deadline/unreal_adaptor", "deadline/unreal_submitter" ]
+source_pkgs = [ "src/deadline/unreal_adaptor", "src/deadline/unreal_submitter" ]
 branch = true
 parallel = true
 omit = [
