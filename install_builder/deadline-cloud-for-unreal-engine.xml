@@ -16,8 +16,8 @@
                     <origin>components/deadline-cloud-for-unreal-engine/src/*</origin>
                     <filterEvaluationLogic>or</filterEvaluationLogic>
                     <onPackingFilterList>
-                        <fileNameFilter pattern="*/deadline/unreal_submitter/*" logic="matches" patternType="glob"/
-			<fileNameFilter pattern="*/unreal_plugin/*" logic="matches" patternType="glob"/>
+                        <fileNameFilter pattern="*/deadline/unreal_submitter/*" logic="matches" patternType="glob"/>
+			            <fileNameFilter pattern="*/unreal_plugin/*" logic="matches" patternType="glob"/>
                     </onPackingFilterList>
                 </distributionDirectory>
             </distributionFileList>
