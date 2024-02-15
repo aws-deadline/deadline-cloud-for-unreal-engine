@@ -42,12 +42,13 @@
     </folderList>
     <initializationActionList>
         <setInstallerVariable name="all_components" value="${all_components} deadline_cloud_for_unreal_engine"/>
+        <setInstallerVariable name="nuke_deps_platform" value="windows"/>
 	</initializationActionList>
 	<parameterList>
 		<stringParameter name="deadline_cloud_for_unreal_engine_summary" ask="0" cliOptionShow="0">
 			<value>Deadline Cloud for Unreal Engine 5.2.1
 - Compatible with Unreal Engine 5.2.1
-- Install the integrated Unreal Engine submitter files to the installation directory
+- Install the integrated Unreal Engine submitter files to the Plugin directory
 </value>
 		</stringParameter>
         <directoryParameter>
