@@ -20,7 +20,7 @@
         <folder>
             <description>Submitter Files</description>
             <destination>${unreal_plugin_dir}/DeadlineCloudPlugin/Content/Python/libraries/deadline/unreal_submitter</destination>
-            <name>unreal</name>
+            <name>unreal-submitter</name>
             <platforms>all</platforms>
             <distributionFileList>
                 <distributionDirectory allowWildcards="1">
