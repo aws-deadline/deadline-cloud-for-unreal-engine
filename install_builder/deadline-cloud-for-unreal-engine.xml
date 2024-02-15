@@ -13,12 +13,18 @@
             <platforms>all</platforms>
             <distributionFileList>
                 <distributionDirectory allowWildcards="1">
-                    <origin>components/deadline-cloud-for-unreal-engine/src/*</origin>
-                    <filterEvaluationLogic>or</filterEvaluationLogic>
-                    <onPackingFilterList>
-                        <fileNameFilter pattern="*/deadline/unreal_submitter/*" logic="matches" patternType="glob"/>
-			            <fileNameFilter pattern="*/unreal_plugin/*" logic="matches" patternType="glob"/>
-                    </onPackingFilterList>
+                    <origin>components/deadline-cloud-for-unreal-engine/src/unreal_plugin/*</origin>
+                </distributionDirectory>
+            </distributionFileList>
+        </folder>
+        <folder>
+            <description>Submitter Files</description>
+            <destination>${unreal_plugin_dir}/DeadlineCloudPlugin/Content/Python/libraries/deadline/unreal_submitter</destination>
+            <name>unreal</name>
+            <platforms>all</platforms>
+            <distributionFileList>
+                <distributionDirectory allowWildcards="1">
+                    <origin>components/deadline-cloud-for-unreal-engine/src/deadline/unreal_submitter/*</origin>∂
                 </distributionDirectory>
             </distributionFileList>
         </folder>
