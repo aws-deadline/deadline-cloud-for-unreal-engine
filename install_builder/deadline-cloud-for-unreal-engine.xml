@@ -8,7 +8,7 @@
     <folderList>
         <folder>
             <description>Program Files</description>
-            <destination>${unreal_installdir}</destination>
+            <destination>${unreal_plugin_dir}</destination>
             <name>unreal</name>
             <platforms>all</platforms>
             <distributionFileList>
@@ -24,7 +24,7 @@
         </folder>
         <folder>
              <description>Dependency Files</description>
-             <destination>${installdir}/tmp/unreal_deps</destination>
+             <destination>${unreal_plugin_dir}/tmp/unreal_deps</destination>
              <name>unrealdeps</name>
              <platforms>all</platforms>
              <distributionFileList>
@@ -37,17 +37,6 @@
     <initializationActionList>
         <setInstallerVariable name="all_components" value="${all_components} deadline_cloud_for_unreal_engine"/>
 	</initializationActionList>
-    <readyToInstallActionList>
-		<setInstallerVariable name="unreal_installdir" value="${installdir}/Submitters/Unreal"/>
-        <if>
-             <conditionRuleList>
-                 <platformTest type="windows"/>
-             </conditionRuleList>
-             <actionList>
-                 <setInstallerVariable name="unreal_deps_platform" value="windows"/>
-             </actionList>
-         </if>
-	</readyToInstallActionList>
 	<parameterList>
 		<stringParameter name="deadline_cloud_for_unreal_engine_summary" ask="0" cliOptionShow="0">
 			<value>Deadline Cloud for Unreal Engine 5.2.1
@@ -58,11 +47,24 @@
 	</parameterList>
     <postInstallationActionList>
         <unzip>
-            <destinationDirectory>${unreal_installdir}</destinationDirectory>
-            <zipFile>${installdir}/tmp/unreal_deps/dependency_bundle/deadline_cloud_for_unreal_engine_submitter-deps-${unreal_deps_platform}.zip</zipFile>
+            <destinationDirectory>${unreal_plugin_dir}</destinationDirectory>
+            <zipFile>${unreal_plugin_dir}/tmp/unreal_deps/dependency_bundle/deadline_cloud_for_unreal_engine_submitter-deps-${unreal_deps_platform}.zip</zipFile>
         </unzip>
         <deleteFile>
-            <path>${installdir}/tmp/unreal_deps</path>
+            <path>${unreal_plugin_dir}/tmp/unreal_deps</path>
         </deleteFile>
     </postInstallationActionList>
+    <directoryParameter>
+            <name>unreal_plugin_dir</name>
+            <description>Installer.Parameter.installdir.description</description>
+            <explanation>Installer.Parameter.installdir.explanation</explanation>
+            <value></value>
+            <default>C:\Program Files\Epic Games\UE_5.2\Engine\Plugins</default>
+            <allowEmptyValue>0</allowEmptyValue>
+            <ask>yes</ask>
+            <cliOptionName>prefix</cliOptionName>
+            <mustBeWritable>yes</mustBeWritable>
+            <mustExist>1</mustExist>
+            <width>40</width>
+        </directoryParameter>
 </component>
