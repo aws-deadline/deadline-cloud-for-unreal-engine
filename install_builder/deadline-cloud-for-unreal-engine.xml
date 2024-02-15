@@ -41,8 +41,21 @@
          </folder>
     </folderList>
     <initializationActionList>
-        <setInstallerVariable name="all_components" value="${all_components} deadline_cloud_for_unreal_engine"/>
-        <setInstallerVariable name="unreal_deps_platform" value="windows"/>
+    <if>
+        <conditionRuleList>
+            <compareText>
+                <logic>contains</logic>
+                <text>${platform_name}</text>
+                <value>windows</value>
+            </compareText>
+        </conditionRuleList>
+        <actionList>
+            <setInstallerVariable name="all_components" value="${all_components} deadline_cloud_for_unreal_engine"/>
+        </actionList>
+        <elseActionList>
+            <setInstallerVariable name="component(deadline_cloud_for_unreal_engine).show" value="0"/>
+        </elseActionList>
+    </if>
 	</initializationActionList>
 	<parameterList>
 		<stringParameter name="deadline_cloud_for_unreal_engine_summary" ask="0" cliOptionShow="0">
@@ -68,11 +81,17 @@
     <postInstallationActionList>
         <unzip>
             <destinationDirectory>${unreal_plugin_dir}/DeadlineCloudPlugin/Content/Python/libraries/</destinationDirectory>
-            <zipFile>${unreal_plugin_dir}/tmp/unreal_deps/dependency_bundle/deadline_cloud_for_unreal_submitter-deps-${unreal_deps_platform}.zip</zipFile>
+            <zipFile>${unreal_plugin_dir}/tmp/unreal_deps/dependency_bundle/deadline_cloud_for_unreal_submitter-deps-${platform_name}.zip</zipFile>
         </unzip>
         <deleteFile>
             <path>${unreal_plugin_dir}/tmp/unreal_deps</path>
         </deleteFile>
     </postInstallationActionList>
-    
+    <shouldPackRuleList>
+        <compareText>
+               <logic>contains</logic>
+               <text>${platform_name}</text>
+               <value>windows</value>
+        </compareText>
+    </shouldPackRuleList>
 </component>
