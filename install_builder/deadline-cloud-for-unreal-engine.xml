@@ -8,7 +8,7 @@
     <folderList>
         <folder>
             <description>Program Files</description>
-            <destination>${unreal_plugin_dir}</destination>
+            <destination>${unreal_plugin_dir}/DeadlineCloudPlugin</destination>
             <name>unreal</name>
             <platforms>all</platforms>
             <distributionFileList>
@@ -44,6 +44,19 @@
 - Install the integrated Unreal Engine submitter files to the installation directory
 </value>
 		</stringParameter>
+        <directoryParameter>
+            <name>unreal_plugin_dir</name>
+            <description>Path to the Unreal Plugin directory</description>
+            <explanation>Path to the Unreal Plugin directory</explanation>
+            <value></value>
+            <default>C:\Program Files\Epic Games\UE_5.2\Engine\Plugins</default>
+            <allowEmptyValue>0</allowEmptyValue>
+            <ask>yes</ask>
+            <cliOptionName>prefix</cliOptionName>
+            <mustBeWritable>yes</mustBeWritable>
+            <mustExist>1</mustExist>
+            <width>40</width>
+        </directoryParameter>
 	</parameterList>
     <postInstallationActionList>
         <unzip>
@@ -54,17 +67,5 @@
             <path>${unreal_plugin_dir}/tmp/unreal_deps</path>
         </deleteFile>
     </postInstallationActionList>
-    <directoryParameter>
-            <name>unreal_plugin_dir</name>
-            <description>Installer.Parameter.installdir.description</description>
-            <explanation>Installer.Parameter.installdir.explanation</explanation>
-            <value></value>
-            <default>C:\Program Files\Epic Games\UE_5.2\Engine\Plugins</default>
-            <allowEmptyValue>0</allowEmptyValue>
-            <ask>yes</ask>
-            <cliOptionName>prefix</cliOptionName>
-            <mustBeWritable>yes</mustBeWritable>
-            <mustExist>1</mustExist>
-            <width>40</width>
-        </directoryParameter>
+    
 </component>
