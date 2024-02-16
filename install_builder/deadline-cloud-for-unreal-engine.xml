@@ -70,7 +70,7 @@
 	</parameterList>
     <postInstallationActionList>
         <unzip>
-            <destinationDirectory>${unreal_plugin_library}</destinationDirectory>
+            <destinationDirectory>${unreal_plugin_dir}/DeadlineCloudPlugin/Content/Python/libraries/</destinationDirectory>
             <zipFile>${unreal_plugin_dir}/tmp/unreal_deps/dependency_bundle/deadline_cloud_for_unreal_submitter-deps-${unreal_deps_platform}.zip</zipFile>
         </unzip>
         <deleteFile>
