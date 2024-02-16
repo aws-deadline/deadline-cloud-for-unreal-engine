@@ -19,7 +19,7 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudGlobalPluginSettings
 	 * Selected AWS profile. List of the available profiles is returned by "get_aws_profiles"
 	 * method of DeadlineCloudDeveloperSettingsImplementation
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_aws_profiles", DisplayPriority=0))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_aws_profiles", DisplayPriority=0), Category="Setting")
 	FString AWS_Profile;
 };
 
@@ -34,14 +34,14 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudProfilePluginSettings
 	/**
 	 * Path to directory where all generated Deadline Cloud job bundles will be places
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(DisplayPriority=1))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(DisplayPriority=1), Category = "Setting")
 	FDirectoryPath JobHistoryDir;
 
 	/**
 	 * Selected Deadline cloud farm. List of the available farms is returned by "get_farms"
 	 * method of DeadlineCloudDeveloperSettingsImplementation
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_farms", DisplayPriority=2))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_farms", DisplayPriority=2), Category = "Setting")
 	FString DefaultFarm;
 };
 
@@ -57,21 +57,21 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudFarmPluginSettings
 	 * Selected Deadline cloud queue. List of the available queues is returned by "get_queues"
 	 * method of DeadlineCloudDeveloperSettingsImplementation
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_queues", DisplayPriority=3))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_queues", DisplayPriority=3), Category = "Setting")
 	FString DefaultQueue;
 
 	/**
 	 * Selected Deadline cloud storage profiles. List of the available storage profiles is returned by "get_storage_profiles"
 	 * method of DeadlineCloudDeveloperSettingsImplementation
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_storage_profiles", DisplayPriority=4))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_storage_profiles", DisplayPriority=4), Category = "Setting")
 	FString DefaultStorageProfile; 
 
 	/**
 	 * Selected Deadline cloud job attachment mode. List of the available job attachment modes is returned by "get_job_attachment_modes"
 	 * method of DeadlineCloudDeveloperSettingsImplementation
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_job_attachment_modes", DisplayPriority=5))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_job_attachment_modes", DisplayPriority=5), Category = "Setting")
 	FString JobAttachmentFilesystemOptions;
 };
 
@@ -86,21 +86,21 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudGeneralPluginSettings
 	/**
 	 * Deadline Cloud auto accept confirmation prompts setting
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(DisplayPriority=6))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(DisplayPriority=6), Category = "Setting")
 	bool AutoAcceptConfirmationPrompts = false;
 
 	/**
 	 * Selected files conflict resolution strategy. List of the available strategies is returned by "get_conflict_resolution_options"
 	 * method of DeadlineCloudDeveloperSettingsImplementation
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_conflict_resolution_options", DisplayPriority=7))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_conflict_resolution_options", DisplayPriority=7), Category = "Setting")
 	FString ConflictResolutionOption;
 
 	/**
 	 * Selected Deadline cloud logging level. List of the available strategies is returned by "get_conflict_resolution_options"
 	 * method of DeadlineCloudDeveloperSettingsImplementation
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_logging_levels", DisplayPriority=8))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_logging_levels", DisplayPriority=8), Category = "Setting")
 	FString CurrentLoggingLevel;
 
 };
@@ -114,15 +114,15 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudStatus
 	GENERATED_BODY()
 
 	/** AwsCredentialsType: NOT_VALID, HOST_PROVIDED, DEADLINE_CLOUD_MONITOR_LOGIN */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setting")
 	FString CredsType;
 
 	/** AwsCredentialsStatus: CONFIGURATION_ERROR, AUTHENTICATED, NEEDS_LOGIN */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setting")
 	FString CredsStatus;
 
 	/** AWS API availability status: AUTHORIZED, NOT AUTHORIZED */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setting")
 	FString ApiAvailability;
 };
 

@@ -15,7 +15,7 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudCustomScriptStepParameters :
 	GENERATED_BODY()
 
 	/** Path to custom python script to execute */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(RelativeToGameDir))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(RelativeToGameDir), Category = "Setting")
 	FFilePath Script;
 };
 
@@ -31,7 +31,7 @@ class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudCustomScriptStepSetting : pub
 
 public:
 	/** List of custom script steps */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setting")
 	TArray<FDeadlineCloudCustomScriptStepParameters> DeadlineCloudSteps;
 
 #if WITH_EDITOR
