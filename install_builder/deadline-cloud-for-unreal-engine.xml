@@ -8,7 +8,7 @@
     <folderList>
         <folder>
             <description>Submitter Files</description>
-            <destination>${unreal_plugin_dir}/DeadlineCloudPlugin/Content/Python/libraries/deadline/unreal_submitter</destination>
+            <destination>${unreal_plugin_dir}/Content/Python/libraries/deadline/unreal_submitter</destination>
             <name>unreal-submitter</name>
             <platforms>all</platforms>
             <distributionFileList>
@@ -20,7 +20,7 @@
         <folder>
              <description>Dependency Files</description>
              <destination>${unreal_plugin_dir}/tmp/unreal_deps</destination>
-             <name>unrealdeps</name>
+             <name>unreal_deps</name>
              <platforms>all</platforms>
              <distributionFileList>
                  <distributionDirectory allowWildcards="1">
@@ -70,11 +70,11 @@
 	</parameterList>
     <postInstallationActionList>
         <unzip>
-            <destinationDirectory>${unreal_plugin_dir}/Content/Python/libraries/</destinationDirectory>
-            <zipFile>${unreal_plugin_dir}/tmp/unreal_deps/dependency_bundle/deadline_cloud_for_unreal_submitter-deps-${unreal_deps_platform}.zip</zipFile>
+            <destinationDirectory>${unreal_plugin_library}</destinationDirectory>
+            <zipFile>${unreal_deps}/dependency_bundle/deadline_cloud_for_unreal_submitter-deps-${unreal_deps_platform}.zip</zipFile>
         </unzip>
         <deleteFile>
-            <path>${unreal_plugin_dir}/tmp/unreal_deps</path>
+            <path>${unreal_deps}</path>
         </deleteFile>
     </postInstallationActionList>
     <shouldPackRuleList>
