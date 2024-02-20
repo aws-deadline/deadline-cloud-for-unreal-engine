@@ -33,7 +33,7 @@ void FDeadlineCloudSettingsDetails::CustomizeDetails(IDetailLayoutBuilder& Detai
 		[
 			SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot()
-			.Padding(5)
+			.Padding(FMargin(5, 5, 5, 5))
 			.AutoWidth()
 			[
 				SNew(SButton)
@@ -66,7 +66,7 @@ void FDeadlineCloudSettingsDetails::CustomizeDetails(IDetailLayoutBuilder& Detai
 			]
 		];
 	
-	DetailBuilder.HideCategory(TEXT("Cache"));
+	DetailBuilder.HideCategory(TEXT("cache"));
 
 	IDetailCategoryBuilder& StatusCategory = DetailBuilder.EditCategory("DeadlineCloud Status");
 	StatusCategory.AddCustomRow(LOCTEXT("DeadlineCloudStatus", "DeadlineCloudStatus"))
@@ -134,6 +134,12 @@ void FDeadlineCloudSettingsDetails::CustomizeDetails(IDetailLayoutBuilder& Detai
 				]
 			]
 		];
+
+	const auto WorkStationProperty = DetailBuilder.GetProperty(
+		FName("WorkStationConfiguration"), UDeadlineCloudDeveloperSettings::StaticClass());
+
+	const auto StateProperty = WorkStationProperty->GetChildHandle("State");
+	StateProperty->MarkHiddenByCustomization();
 }
 
 #undef LOCTEXT_NAMESPACE

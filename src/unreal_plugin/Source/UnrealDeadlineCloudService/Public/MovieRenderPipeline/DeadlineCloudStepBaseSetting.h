@@ -46,10 +46,10 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudCompositeStepParameters
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setting")
-	FString Name = "Before";
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Rendering)
+	FString Name = "";
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (GetOptions = "GetStepOptions"), Category = "Setting")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (GetOptions = "GetStepOptions", Category=Rendering))
 	TArray<FString> DependsOn;
 };
 

@@ -62,3 +62,21 @@
    Errors: 0
    Failures: []
    ```
+
+## Building the Plugin
+
+In order to use this plugin with Unreal Engine, you will need to build the plugin manually. To do this:  
+
+0. Install Visual Studio with C++ components. 
+1. Download this repository.
+2. Open a command line window
+3. Change the directory to Unreal Engine's Batchfiles folder.
+    - eg. [installed UE location]\Engine\Build\Batchfiles
+4. Run the following command:
+    - `RunUAT.bat BuildPlugin -plugin="[root of this repository]\src\unreal_plugin\UnrealDeadlineCloudService.uplugin" -package="[temporary directory]"` 
+5. Copy the temporary directory to Unreal Engine's plugins folder.
+6. Open the uproject in Unreal and enable the UnrealDeadlineCloudService plugin. 
+
+## Installing the Submitter and Adaptor client
+
+Run the Deadline Cloud Submitter Installer and select the Unreal component then follow the prompts.

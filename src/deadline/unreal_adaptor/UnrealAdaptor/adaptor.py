@@ -279,7 +279,7 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         unreal_exe = "UnrealEditor-Cmd"
         unreal_project_path = self.init_data.get('project_path')
         client_path = self.unreal_client_path.replace("\\", "/")
-        log_args = '-log -unattended -stdout -allowstdoutlogverbosity'.split(' ')
+        log_args = '-log -unattended -stdout -NoLoadingScreen -NoScreenMessages -RenderOffscreen -allowstdoutlogverbosity'.split(' ')
 
         args = [unreal_exe, unreal_project_path]
         args.extend(log_args)

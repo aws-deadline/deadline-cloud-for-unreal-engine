@@ -19,7 +19,7 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudGlobalPluginSettings
 	 * Selected AWS profile. List of the available profiles is returned by "get_aws_profiles"
 	 * method of DeadlineCloudDeveloperSettingsImplementation
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_aws_profiles", DisplayPriority=0), Category="Setting")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_aws_profiles", DisplayPriority=0, Category="Global Settings"))
 	FString AWS_Profile;
 };
 
@@ -34,14 +34,14 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudProfilePluginSettings
 	/**
 	 * Path to directory where all generated Deadline Cloud job bundles will be places
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(DisplayPriority=1), Category = "Setting")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(DisplayPriority=1, Category="Profile Settings"))
 	FDirectoryPath JobHistoryDir;
 
 	/**
 	 * Selected Deadline cloud farm. List of the available farms is returned by "get_farms"
 	 * method of DeadlineCloudDeveloperSettingsImplementation
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_farms", DisplayPriority=2), Category = "Setting")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_farms", DisplayPriority=2, Category="Profile Settings"))
 	FString DefaultFarm;
 };
 
@@ -57,21 +57,21 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudFarmPluginSettings
 	 * Selected Deadline cloud queue. List of the available queues is returned by "get_queues"
 	 * method of DeadlineCloudDeveloperSettingsImplementation
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_queues", DisplayPriority=3), Category = "Setting")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_queues", DisplayPriority=3, Category="Farm Settings"))
 	FString DefaultQueue;
 
 	/**
 	 * Selected Deadline cloud storage profiles. List of the available storage profiles is returned by "get_storage_profiles"
 	 * method of DeadlineCloudDeveloperSettingsImplementation
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_storage_profiles", DisplayPriority=4), Category = "Setting")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_storage_profiles", DisplayPriority=4, Category="Farm Settings"))
 	FString DefaultStorageProfile; 
 
 	/**
 	 * Selected Deadline cloud job attachment mode. List of the available job attachment modes is returned by "get_job_attachment_modes"
 	 * method of DeadlineCloudDeveloperSettingsImplementation
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_job_attachment_modes", DisplayPriority=5), Category = "Setting")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_job_attachment_modes", DisplayPriority=5, Category="Farm Settings"))
 	FString JobAttachmentFilesystemOptions;
 };
 
@@ -86,21 +86,21 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudGeneralPluginSettings
 	/**
 	 * Deadline Cloud auto accept confirmation prompts setting
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(DisplayPriority=6), Category = "Setting")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(DisplayPriority=6, Category="General Settings"))
 	bool AutoAcceptConfirmationPrompts = false;
 
 	/**
 	 * Selected files conflict resolution strategy. List of the available strategies is returned by "get_conflict_resolution_options"
 	 * method of DeadlineCloudDeveloperSettingsImplementation
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_conflict_resolution_options", DisplayPriority=7), Category = "Setting")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_conflict_resolution_options", DisplayPriority=7, Category="General Settings"))
 	FString ConflictResolutionOption;
 
 	/**
 	 * Selected Deadline cloud logging level. List of the available strategies is returned by "get_conflict_resolution_options"
 	 * method of DeadlineCloudDeveloperSettingsImplementation
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_logging_levels", DisplayPriority=8), Category = "Setting")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_logging_levels", DisplayPriority=8, Category="General Settings"))
 	FString CurrentLoggingLevel;
 
 };
@@ -114,15 +114,15 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudStatus
 	GENERATED_BODY()
 
 	/** AwsCredentialsType: NOT_VALID, HOST_PROVIDED, DEADLINE_CLOUD_MONITOR_LOGIN */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setting")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="cache")
 	FString CredsType;
 
 	/** AwsCredentialsStatus: CONFIGURATION_ERROR, AUTHENTICATED, NEEDS_LOGIN */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setting")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="cache")
 	FString CredsStatus;
 
 	/** AWS API availability status: AUTHORIZED, NOT AUTHORIZED */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setting")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="cache")
 	FString ApiAvailability;
 };
 
@@ -191,22 +191,22 @@ public:
 	 * Method is implemented in Python, see "on_settings_modified" in DeadlineCloudDeveloperSettingsImplementation
 	 * @param PropertyPath path to modified property in Unreal reflection system properties naming format.
 	 */
-	UFUNCTION(BlueprintImplementableEvent, Category = Python)
+	UFUNCTION(BlueprintImplementableEvent, Category = DeadlineCloud)
 	void OnSettingsModified(const FString& PropertyPath);
 
 	/**
 	 * Delegate method which is called on each external Deadline Cloud settings directory update.
 	 * Settings directory update is handled by FDeadlineCloudStatusHandler
 	 */
-	UFUNCTION(BlueprintImplementableEvent, Category = Python)
+	UFUNCTION(BlueprintImplementableEvent, Category = DeadlineCloud)
 	void RefreshState();
 
 	/** Deadline cloud login */
-	UFUNCTION(BlueprintImplementableEvent)
+	UFUNCTION(BlueprintImplementableEvent, Category = DeadlineCloud)
 	void Login();
 
 	/** Deadline cloud logout */
-	UFUNCTION(BlueprintImplementableEvent)
+	UFUNCTION(BlueprintImplementableEvent, Category = DeadlineCloud)
 	void Logout();
 
 
