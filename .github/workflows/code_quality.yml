@@ -1,0 +1,17 @@
+name: Code Quality
+
+on:
+  pull_request:
+    branches: [ mainline, release ]
+  workflow_call:
+    inputs:
+      branch:
+        required: false
+        type: string
+
+jobs:
+  TestPython:
+    name: Code Quality
+    uses: ./.github/workflows/reuse_python_build.yml
+    secrets: inherit
+
