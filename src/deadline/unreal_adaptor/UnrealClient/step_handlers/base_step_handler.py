@@ -6,12 +6,8 @@ from abc import abstractmethod, ABC
 
 
 class BaseStepHandler(ABC):
-
     def __init__(self):
-        self.action_dict = dict(
-            run_script=self.run_script,
-            wait_result=self.wait_result
-        )
+        self.action_dict = dict(run_script=self.run_script, wait_result=self.wait_result)
 
     @abstractmethod
     def run_script(self, args: Optional[dict] = None) -> bool:
@@ -39,17 +35,17 @@ class BaseStepHandler(ABC):
     @staticmethod
     @abstractmethod
     def regex_pattern_progress() -> list[re.Pattern]:
-        """ Returns a list of regex Patterns that match the progress messages """
+        """Returns a list of regex Patterns that match the progress messages"""
         raise NotImplementedError("Abstract method, need to be implemented")
 
     @staticmethod
     @abstractmethod
     def regex_pattern_complete() -> list[re.Pattern]:
-        """ Returns a list of regex Patterns that match the complete messages """
+        """Returns a list of regex Patterns that match the complete messages"""
         raise NotImplementedError("Abstract method, need to be implemented")
 
     @staticmethod
     @abstractmethod
     def regex_pattern_error() -> list[re.Pattern]:
-        """ Returns a list of regex Patterns that match the errors messages """
+        """Returns a list of regex Patterns that match the errors messages"""
         raise NotImplementedError("Abstract method, need to be implemented")

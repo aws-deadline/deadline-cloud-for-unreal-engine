@@ -27,7 +27,7 @@ class DependencyFilters:
         :rtype: bool
         """
 
-        return '/Game/' in str(dependency_path)
+        return "/Game/" in str(dependency_path)
 
 
 def os_path_from_unreal_path(unreal_path, with_ext: bool = False):
@@ -46,20 +46,24 @@ def os_path_from_unreal_path(unreal_path, with_ext: bool = False):
     :return: the OS path of the asset
     :rtype: str
     """
-    os_path = str(unreal_path).replace('/Game/', content_dir)
+    os_path = str(unreal_path).replace("/Game/", content_dir)
 
     if with_ext:
         asset_data = unreal.EditorAssetLibrary.find_asset_data(unreal_path)
-        asset_class_name = asset_data.asset_class_path.asset_name \
-            if hasattr(asset_data, 'asset_class_path') \
-            else asset_data.asset_class  # support older version of UE python API
+        asset_class_name = (
+            asset_data.asset_class_path.asset_name
+            if hasattr(asset_data, "asset_class_path")
+            else asset_data.asset_class
+        )  # support older version of UE python API
 
-        if not asset_class_name.is_none():  # AssetData not found - asset not in the project / on disk
-            os_path += '.umap' if asset_class_name == 'World' else '.uasset'
+        if (
+            not asset_class_name.is_none()
+        ):  # AssetData not found - asset not in the project / on disk
+            os_path += ".umap" if asset_class_name == "World" else ".uasset"
         else:
-            os_path += '.uasset'
+            os_path += ".uasset"
     else:
-        os_path += '.*'
+        os_path += ".*"
 
     return os_path
 
@@ -70,7 +74,7 @@ def os_abs_from_relative(os_path):
     return project_dir + os_path
 
 
-def sync_assets_with_ue_source_control(asset_paths: list[str], sync_description='Sync Assets'):
+def sync_assets_with_ue_source_control(asset_paths: list[str], sync_description="Sync Assets"):
     """
     Sync the given assets with Unreal Source Control plugin, which handle all connection parameters.
 
@@ -84,19 +88,19 @@ def sync_assets_with_ue_source_control(asset_paths: list[str], sync_description=
     synced = True
 
     if not unreal.SourceControl.is_available():
-        unreal.log('SourceControl is not available')
+        unreal.log("SourceControl is not available")
         return
 
-    unreal.log('Sync assets: {}'.format(asset_paths))
-    if 'IS_RENDER_MODE' not in os.environ:
+    unreal.log("Sync assets: {}".format(asset_paths))
+    if "IS_RENDER_MODE" not in os.environ:
         with unreal.ScopedSlowTask(len(asset_paths), sync_description) as slow_task:
             slow_task.make_dialog(True)
             for i in range(len(asset_paths)):
-                unreal.log('Sync asset: {}'.format(asset_paths[i]))
+                unreal.log("Sync asset: {}".format(asset_paths[i]))
                 synced = unreal.SourceControl.sync_files([asset_paths[i]])
                 slow_task.enter_progress_frame(1, asset_paths[i])
     else:
         synced = unreal.SourceControl.sync_files(asset_paths)
 
-    unreal.log(f'Assets synced: {synced}')
+    unreal.log(f"Assets synced: {synced}")
     return synced

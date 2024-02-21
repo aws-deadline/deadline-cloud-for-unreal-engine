@@ -13,8 +13,8 @@ def add_module_to_pythonpath(module_path: str):
     # can be passed the __init__.py file or the parent directory
     module_directory = os.path.dirname(module_path) if os.path.isfile(module_path) else module_path
 
-    if 'PYTHONPATH' in os.environ:
-        os.environ['PYTHONPATH'] = f'{os.environ["PYTHONPATH"]}{os.pathsep}{module_directory}'
+    if "PYTHONPATH" in os.environ:
+        os.environ["PYTHONPATH"] = f'{os.environ["PYTHONPATH"]}{os.pathsep}{module_directory}'
     else:
         os.environ["PYTHONPATH"] = module_directory
 

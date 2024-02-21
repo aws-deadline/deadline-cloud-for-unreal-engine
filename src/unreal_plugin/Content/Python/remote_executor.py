@@ -5,14 +5,12 @@ from deadline.unreal_submitter.submitter import UnrealSubmitter
 
 @unreal.uclass()
 class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelineExecutorBase):
-
     # The queue we are working on, null if no queue has been provided.
     pipeline_queue = unreal.uproperty(unreal.MoviePipelineQueue)
     job_ids = unreal.uproperty(unreal.Array(str))
 
     @unreal.ufunction(override=True)
     def execute(self, pipeline_queue):
-
         unreal.log(f"Asked to execute Queue: {pipeline_queue}")
         unreal.log(f"Queue has {len(pipeline_queue.get_jobs())} jobs")
 
@@ -55,17 +53,11 @@ class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelineExecutorBase)
 
     def check_dirty_packages(self) -> bool:
         dirty_packages = []
-        dirty_packages.extend(
-            unreal.EditorLoadingAndSavingUtils.get_dirty_content_packages()
-        )
-        dirty_packages.extend(
-            unreal.EditorLoadingAndSavingUtils.get_dirty_map_packages()
-        )
+        dirty_packages.extend(unreal.EditorLoadingAndSavingUtils.get_dirty_content_packages())
+        dirty_packages.extend(unreal.EditorLoadingAndSavingUtils.get_dirty_map_packages())
 
         if dirty_packages:
-            if not unreal.EditorLoadingAndSavingUtils.save_dirty_packages_with_dialog(
-                True, True
-            ):
+            if not unreal.EditorLoadingAndSavingUtils.save_dirty_packages_with_dialog(True, True):
                 message = (
                     "One or more jobs in the queue have an unsaved map/content. "
                     "{packages} "
@@ -83,10 +75,8 @@ class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelineExecutorBase)
         return True
 
     def check_maps(self, pipeline_queue) -> bool:
-        has_valid_map = (
-            unreal.MoviePipelineEditorLibrary.is_map_valid_for_remote_render(
-                pipeline_queue.get_jobs()
-            )
+        has_valid_map = unreal.MoviePipelineEditorLibrary.is_map_valid_for_remote_render(
+            pipeline_queue.get_jobs()
         )
         if not has_valid_map:
             message = (
@@ -96,9 +86,7 @@ class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelineExecutorBase)
                 "and the render has been aborted."
             )
             unreal.log_error(message)
-            unreal.EditorDialog.show_message(
-                "Unsaved Maps", message, unreal.AppMsgType.OK
-            )
+            unreal.EditorDialog.show_message("Unsaved Maps", message, unreal.AppMsgType.OK)
             self.on_executor_finished_impl()
             return False
 

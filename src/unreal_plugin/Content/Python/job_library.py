@@ -4,8 +4,13 @@ import unreal
 
 from deadline.unreal_submitter.common import soft_obj_path_to_str
 from deadline.unreal_submitter.unreal_dependency_collector.collector import DependencyCollector
-from deadline.unreal_submitter.unreal_dependency_collector.common import DependencyFilters, os_path_from_unreal_path
+from deadline.unreal_submitter.unreal_dependency_collector.common import (
+    DependencyFilters,
+    os_path_from_unreal_path,
+)
+
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
 
 @unreal.uclass()
 class DeadlineCloudJobBundleLibraryImplementation(unreal.DeadlineCloudJobBundleLibrary):
@@ -23,17 +28,18 @@ class DeadlineCloudJobBundleLibraryImplementation(unreal.DeadlineCloudJobBundleL
 
         unreal_dependencies = dependency_collector.collect(
             asset_path=level_sequence_path,
-            filter_method=DependencyFilters.dependency_in_game_folder
+            filter_method=DependencyFilters.dependency_in_game_folder,
         )
 
         unreal_dependencies += dependency_collector.collect(
-            asset_path=level_path,
-            filter_method=DependencyFilters.dependency_in_game_folder
+            asset_path=level_path, filter_method=DependencyFilters.dependency_in_game_folder
         )
 
         unreal_dependencies += [level_sequence_path, level_path]
 
-        unreal.log(f"Converted level path: {os_path_from_unreal_path(level_sequence_path, with_ext=True)}")
+        unreal.log(
+            f"Converted level path: {os_path_from_unreal_path(level_sequence_path, with_ext=True)}"
+        )
 
         unreal_dependencies = list(set(unreal_dependencies))
 

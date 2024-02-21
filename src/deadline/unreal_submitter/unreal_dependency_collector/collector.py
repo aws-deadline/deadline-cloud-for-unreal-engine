@@ -1,5 +1,3 @@
-
-
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import unreal
@@ -27,11 +25,11 @@ class DependencyCollector:
         self._collected_dependencies = list()
 
     def collect(
-            self,
-            asset_path: str,
-            dependency_options=DependencySearchOptions(),
-            filter_method: Callable = None,
-            on_found_dependency_callback: Callable = None
+        self,
+        asset_path: str,
+        dependency_options=DependencySearchOptions(),
+        filter_method: Callable = None,
+        on_found_dependency_callback: Callable = None,
     ):
         """
         Collect all dependencies recursively of the given unreal asset.
@@ -50,35 +48,39 @@ class DependencyCollector:
         """
         self._collected_dependencies.clear()
 
-        udependency_options = unreal.AssetRegistryDependencyOptions(
-                **dependency_options.as_dict()
-            )
+        udependency_options = unreal.AssetRegistryDependencyOptions(**dependency_options.as_dict())
 
         source_control_available = unreal.SourceControl.is_available()
-        unreal.log('DependencyCollector: Source control is available: {}'.format(source_control_available))
+        unreal.log(
+            "DependencyCollector: Source control is available: {}".format(source_control_available)
+        )
 
         if source_control_available:
             if not unreal.EditorAssetLibrary.does_asset_exist(asset_path):
-                os_asset_path = os_path_from_unreal_path(asset_path) + '.*'
+                os_asset_path = os_path_from_unreal_path(asset_path) + ".*"
                 unreal.SourceControl.sync_file(os_asset_path)
-                unreal.AssetRegistryHelpers().get_asset_registry().scan_modified_asset_files([asset_path])
-                unreal.AssetRegistryHelpers().get_asset_registry().scan_paths_synchronous([asset_path], True, True)
+                unreal.AssetRegistryHelpers().get_asset_registry().scan_modified_asset_files(
+                    [asset_path]
+                )
+                unreal.AssetRegistryHelpers().get_asset_registry().scan_paths_synchronous(
+                    [asset_path], True, True
+                )
 
         dependencies = self._get_dependencies(
             asset_path=asset_path,
             udependency_options=udependency_options,
             filter_method=filter_method,
-            on_found_dependency_callback=on_found_dependency_callback
+            on_found_dependency_callback=on_found_dependency_callback,
         )
 
         return dependencies
 
     def _get_dependencies(
-            self,
-            asset_path: str,
-            udependency_options: unreal.AssetRegistryDependencyOptions,
-            filter_method: Callable = None,
-            on_found_dependency_callback: Callable = None
+        self,
+        asset_path: str,
+        udependency_options: unreal.AssetRegistryDependencyOptions,
+        filter_method: Callable = None,
+        on_found_dependency_callback: Callable = None,
     ):
         """
         Inner method that gets called recursively and execute the main collecting process
@@ -97,8 +99,7 @@ class DependencyCollector:
         """
 
         dependencies_raw = asset_registry.get_dependencies(
-            package_name=asset_path,
-            dependency_options=udependency_options
+            package_name=asset_path, dependency_options=udependency_options
         )
 
         dependencies = list()
@@ -114,14 +115,19 @@ class DependencyCollector:
             self._collected_dependencies.extend(dependencies)
 
         if on_found_dependency_callback:
-            unreal.log(f'Execute callable {on_found_dependency_callback.__name__} on the dependencies')
+            unreal.log(
+                f"Execute callable {on_found_dependency_callback.__name__} on the dependencies"
+            )
             on_found_dependency_callback(dependencies)
 
         unreal.AssetRegistryHelpers().get_asset_registry().scan_modified_asset_files(dependencies)
-        unreal.AssetRegistryHelpers().get_asset_registry().scan_paths_synchronous(dependencies, True, True)
+        unreal.AssetRegistryHelpers().get_asset_registry().scan_paths_synchronous(
+            dependencies, True, True
+        )
 
         for dependency in dependencies:
-            self._get_dependencies(dependency, udependency_options, filter_method, on_found_dependency_callback)
+            self._get_dependencies(
+                dependency, udependency_options, filter_method, on_found_dependency_callback
+            )
 
         return [str(d) for d in self._collected_dependencies]
-

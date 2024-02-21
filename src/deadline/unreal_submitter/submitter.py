@@ -34,9 +34,9 @@ class UnrealSubmitter:
         self.submit_message: str = "Start submitting..."
         self.progress_list: list[float] = []
 
-        self.continue_submission = True         # affect all not submitted jobs
-        self.submitted_job_ids = []             # use after submit loop is ended
-        self._submission_failed_message = ''     # reset after each job in the loop
+        self.continue_submission = True  # affect all not submitted jobs
+        self.submitted_job_ids = []  # use after submit loop is ended
+        self._submission_failed_message = ""  # reset after each job in the loop
 
     @property
     def submission_failed_message(self) -> str:
@@ -49,11 +49,7 @@ class UnrealSubmitter:
         :param mrq_job: unreal.MoviePipelineExecutorJob instance
         :type mrq_job: unreal.MoviePipelineExecutorJob
         """
-        self._jobs.append(
-            OpenJobDescription(
-                mrq_job=mrq_job
-            )
-        )
+        self._jobs.append(OpenJobDescription(mrq_job=mrq_job))
 
     def _display_progress(self, check_submit_status, message):
         """
@@ -68,7 +64,7 @@ class UnrealSubmitter:
         with unreal.ScopedSlowTask(100, message) as submit_task:
             submit_task.make_dialog(True)
             while self.submit_status == check_submit_status:
-                if self.submission_failed_message != '':
+                if self.submission_failed_message != "":
                     break
 
                 if submit_task.should_cancel():
@@ -93,10 +89,12 @@ class UnrealSubmitter:
             job_id = create_job_from_job_bundle(
                 job_bundle_dir=job_bundle_path,
                 hashing_progress_callback=lambda hash_metadata: self._hash_progress(hash_metadata),
-                upload_progress_callback=lambda upload_metadata: self._upload_progress(upload_metadata),
-                create_job_result_callback=lambda: self._create_job_result()
+                upload_progress_callback=lambda upload_metadata: self._upload_progress(
+                    upload_metadata
+                ),
+                create_job_result_callback=lambda: self._create_job_result(),
             )
-            unreal.log(f'Job creation result: {job_id}')
+            unreal.log(f"Job creation result: {job_id}")
             self.submitted_job_ids.append(job_id)
 
         except AssetSyncCancelledError as e:
@@ -116,7 +114,9 @@ class UnrealSubmitter:
         :rtype: bool
         """
         self.submit_status = UnrealSubmitStatus.HASHING
-        unreal.log('Hash progress: {} {}'.format(hash_metadata.progress, hash_metadata.progressMessage))
+        unreal.log(
+            "Hash progress: {} {}".format(hash_metadata.progress, hash_metadata.progressMessage)
+        )
         self.submit_message = hash_metadata.progressMessage
         self.progress_list.append(hash_metadata.progress)
         return self.continue_submission
@@ -132,7 +132,11 @@ class UnrealSubmitter:
         """
 
         self.submit_status = UnrealSubmitStatus.UPLOADING
-        unreal.log('Upload progress: {} {}'.format(upload_metadata.progress, upload_metadata.progressMessage))
+        unreal.log(
+            "Upload progress: {} {}".format(
+                upload_metadata.progress, upload_metadata.progressMessage
+            )
+        )
         self.submit_message = upload_metadata.progressMessage
         self.progress_list.append(upload_metadata.progress)
         return self.continue_submission
@@ -144,10 +148,12 @@ class UnrealSubmitter:
         """
 
         self.submit_status = UnrealSubmitStatus.COMPLETED
-        unreal.log('Create job result...')
+        unreal.log("Create job result...")
         return True
 
-    def show_message_dialog(self, message: str, title='Job Submission', message_type=unreal.AppMsgType.OK):
+    def show_message_dialog(
+        self, message: str, title="Job Submission", message_type=unreal.AppMsgType.OK
+    ):
         """
         Show message dialog in the Unreal Editor UI
 
@@ -162,49 +168,50 @@ class UnrealSubmitter:
         if self._silent_mode:
             return
 
-        unreal.EditorDialog.show_message(
-            title=title,
-            message=message,
-            message_type=message_type
-        )
+        unreal.EditorDialog.show_message(title=title, message=message, message_type=message_type)
 
     def submit_jobs(self):
         """
         Submit OpenJobs to the Deadline Cloud
         """
         for job in self._jobs:
-            unreal.log(f'Creating job from bundle...')
+            unreal.log("Creating job from bundle...")
             self.submit_status = UnrealSubmitStatus.HASHING
             self.progress_list = []
             self.submit_message = "Start submitting..."
-            self._submission_failed_message = ''
+            self._submission_failed_message = ""
 
-            t = threading.Thread(target=self._start_submit, args=(job.job_bundle_path,), daemon=True)
+            t = threading.Thread(
+                target=self._start_submit, args=(job.job_bundle_path,), daemon=True
+            )
             t.start()
 
-            self._display_progress(check_submit_status=UnrealSubmitStatus.HASHING, message="Hashing")
+            self._display_progress(
+                check_submit_status=UnrealSubmitStatus.HASHING, message="Hashing"
+            )
             if self.continue_submission:
-                self._display_progress(check_submit_status=UnrealSubmitStatus.UPLOADING, message="Uploading")
+                self._display_progress(
+                    check_submit_status=UnrealSubmitStatus.UPLOADING, message="Uploading"
+                )
             t.join()
 
             # current job failed, notify and continue
-            if self.submission_failed_message != '':
+            if self.submission_failed_message != "":
                 self.show_message_dialog(
-                    f'Job {job.name} unsubmitted for the reason:\n {self.submission_failed_message}'
+                    f"Job {job.name} unsubmitted for the reason:\n {self.submission_failed_message}"
                 )
 
             # User cancel submission, notify and quit submission queue
             if not self.continue_submission:
                 self.show_message_dialog(
-                    f'Jobs submission canceled.\n'
-                    f'Number of unsubmitted jobs: {len(self._jobs) - len(self.submitted_job_ids)}'
+                    f"Jobs submission canceled.\n"
+                    f"Number of unsubmitted jobs: {len(self._jobs) - len(self.submitted_job_ids)}"
                 )
                 break
 
         # Summary notification about submission process
         self.show_message_dialog(
-            f'Submitted jobs ({len(self.submitted_job_ids)}):\n' +
-            '\n'.join(self.submitted_job_ids)
+            f"Submitted jobs ({len(self.submitted_job_ids)}):\n" + "\n".join(self.submitted_job_ids)
         )
 
         del self.submitted_job_ids[:]

@@ -18,9 +18,7 @@ def get_project_file_path() -> str:
         )
         return project_file_path
     else:
-        raise RuntimeError(
-            "Failed to get a project name. Please set a project!"
-        )
+        raise RuntimeError("Failed to get a project name. Please set a project!")
 
 
 def get_project_directory() -> str:
@@ -32,7 +30,7 @@ def get_project_directory() -> str:
     """
 
     project_file_path = get_project_file_path()
-    project_directory = str(Path(project_file_path).parent).replace('\\', '/')
+    project_directory = str(Path(project_file_path).parent).replace("\\", "/")
     return project_directory
 
 

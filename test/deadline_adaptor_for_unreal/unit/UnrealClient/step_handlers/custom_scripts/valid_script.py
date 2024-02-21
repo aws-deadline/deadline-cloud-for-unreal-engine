@@ -2,4 +2,4 @@
 
 
 def main(**kwargs):
-    return f'Im valid, get next kwargs: {kwargs}'
+    return f"Im valid, get next kwargs: {kwargs}"

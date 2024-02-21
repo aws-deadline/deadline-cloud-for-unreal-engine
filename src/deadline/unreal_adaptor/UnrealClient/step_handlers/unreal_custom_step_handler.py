@@ -13,7 +13,6 @@ from .base_step_handler import BaseStepHandler
 
 
 class UnrealCustomStepHandler(BaseStepHandler):
-
     @staticmethod
     def regex_pattern_progress() -> list[re.Pattern]:
         return [re.compile(".*Custom Step Executor: Progress: ([0-9.]+)")]
@@ -46,7 +45,7 @@ class UnrealCustomStepHandler(BaseStepHandler):
         has_main_method = False
 
         for name, obj in inspect.getmembers(script_module, predicate=inspect.isfunction):
-            if name == 'main':
+            if name == "main":
                 has_main_method = True
                 break
 
@@ -66,14 +65,14 @@ class UnrealCustomStepHandler(BaseStepHandler):
         import unreal
 
         try:
-            script_module = UnrealCustomStepHandler.validate_script(script_path=args['script_path'])
-            script_args = args.get('script_args', {})
+            script_module = UnrealCustomStepHandler.validate_script(script_path=args["script_path"])
+            script_args = args.get("script_args", {})
             result = script_module.main(**script_args)
             unreal.log(f"Custom Step Executor: Complete: {result}")
             return True
         except Exception as e:
             unreal.log(
-                f'Custom Step Executor: Error: '
+                f"Custom Step Executor: Error: "
                 f'Error occured while executing the given script {args.get("script_path")}: {str(e)}\n'
             )
             unreal.log(traceback.format_exc())
@@ -88,5 +87,6 @@ class UnrealCustomStepHandler(BaseStepHandler):
         :meth:`deadline.unreal_adaptor.UnrealClient.step_handlers.unreal_custom_step_handler.UnrealCustomStepHandler.run_script()`.
         """
         import unreal
-        unreal.log('Render wait start')
-        unreal.log('Render wait finish')
+
+        unreal.log("Render wait start")
+        unreal.log("Render wait finish")

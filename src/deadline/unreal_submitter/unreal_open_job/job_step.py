@@ -3,14 +3,14 @@ import yaml
 import unreal
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import List, Dict, Any, Optional
+from typing import Any, Optional
 
 from deadline.unreal_submitter.settings import DEFAULT_JOB_STEP_TEMPLATE_FILE_PATH
 from deadline.unreal_submitter.unreal_dependency_collector.common import os_abs_from_relative
 
 
 class HostRequirements:
-    """ OpenJob host requirements representation """
+    """OpenJob host requirements representation"""
 
     def __init__(self, host_requirements):
         self.source_host_requirements = host_requirements
@@ -135,9 +135,9 @@ class JobStep:
         """
         new_name = step_settings.name
         if not new_name:
-            raise Exception('Job step name could not be empty')
+            raise Exception("Job step name could not be empty")
 
-        self._job_step['name'] = new_name
+        self._job_step["name"] = new_name
 
     def _set_step_path_parameter(self, parameter_name: str, path_value: str):
         """
@@ -150,13 +150,15 @@ class JobStep:
         """
         parameter_space = self._job_step["parameterSpace"]
         parameter_definition = next(
-            (parameter_definition
-             for parameter_definition in parameter_space["taskParameterDefinitions"]
-             if parameter_definition["name"] == parameter_name),
-            None
+            (
+                parameter_definition
+                for parameter_definition in parameter_space["taskParameterDefinitions"]
+                if parameter_definition["name"] == parameter_name
+            ),
+            None,
         )
         if parameter_definition is not None:
-            parameter_definition['range'] = [path_value]
+            parameter_definition["range"] = [path_value]
 
     def _fill_step_dependency_list(self, step_settings):
         """
@@ -179,7 +181,7 @@ class JobStep:
         return []
 
     def as_dict(self):
-        """ Returns a dictionary representation of this Step """
+        """Returns a dictionary representation of this Step"""
         return self._job_step
 
 
@@ -194,9 +196,7 @@ class CustomScriptJobStep(JobStep):
         """
         super().__init__(step_template, step_settings, host_requirements, queue_manifest_path)
 
-        self._set_script_path_parameter(
-            os_abs_from_relative(step_settings.script.file_path)
-        )
+        self._set_script_path_parameter(os_abs_from_relative(step_settings.script.file_path))
 
     def _set_script_path_parameter(self, script_path):
         """
@@ -208,12 +208,9 @@ class CustomScriptJobStep(JobStep):
         :type script_path: str
         """
         if not os.path.exists(script_path):
-            raise Exception(f'Script path does not exist on the disk: {script_path}')
+            raise Exception(f"Script path does not exist on the disk: {script_path}")
 
-        self._set_step_path_parameter(
-            parameter_name='ScriptPath',
-            path_value=script_path
-        )
+        self._set_step_path_parameter(parameter_name="ScriptPath", path_value=script_path)
 
     def get_step_input_files(self) -> list[str]:
         """
@@ -226,13 +223,15 @@ class CustomScriptJobStep(JobStep):
 
         parameter_space = self._job_step["parameterSpace"]
         parameter_definition = next(
-            (parameter_definition
-             for parameter_definition in parameter_space["taskParameterDefinitions"]
-             if parameter_definition["name"] == 'ScriptPath'),
-            None
+            (
+                parameter_definition
+                for parameter_definition in parameter_space["taskParameterDefinitions"]
+                if parameter_definition["name"] == "ScriptPath"
+            ),
+            None,
         )
         if parameter_definition is not None:
-            script_attachments = [attachment for attachment in parameter_definition['range']]
+            script_attachments = [attachment for attachment in parameter_definition["range"]]
 
         return script_attachments
 
@@ -241,6 +240,7 @@ class RenderJobStep(JobStep):
     """
     Represents a OpenJob Step for Render executing
     """
+
     def __init__(self, step_template, step_settings, host_requirements, queue_manifest_path):
         """
         Build JobStep, set its name, fill dependencies list and set queue manifest path parameter
@@ -253,20 +253,19 @@ class RenderJobStep(JobStep):
         """
         Override the behavior of the JobStep._set_name() method and setup name as "Render"
         """
-        self._job_step['name'] = 'Render'
+        self._job_step["name"] = "Render"
 
     def _set_queue_manifest_path_parameter(self, queue_manifest_path):
         """
-       Fill the necessary parameter "QueueManifestPath" with the given script path.
+        Fill the necessary parameter "QueueManifestPath" with the given script path.
 
-       Use :meth:`deadline.unreal_submitter.unreal_open_job.job_step.JobStep._set_step_path_parameter`
+        Use :meth:`deadline.unreal_submitter.unreal_open_job.job_step.JobStep._set_step_path_parameter`
 
-       :param script_path: Path to the script
-       :type script_path: str
-       """
+        :param script_path: Path to the script
+        :type script_path: str
+        """
         self._set_step_path_parameter(
-            parameter_name='QueueManifestPath',
-            path_value=queue_manifest_path
+            parameter_name="QueueManifestPath", path_value=queue_manifest_path
         )
 
 
@@ -285,7 +284,7 @@ class JobStepDescriptor:
 
 
 class JobStepFactory:
-    """ Build JobStep with the given context """
+    """Build JobStep with the given context"""
 
     with open(DEFAULT_JOB_STEP_TEMPLATE_FILE_PATH) as f:
         #: Job Step default template that contains unfilled description of the Job's steps
@@ -294,12 +293,20 @@ class JobStepFactory:
     #: Common Step mapping list of the :class:`deadline.unreal_submitter.unreal_open_job.job_step.JobStepDescriptor`
     #: instances for the Render and CustomScript steps
     JOB_STEP_MAPPING = [
-        JobStepDescriptor('Render', RenderJobStep, unreal.DeadlineCloudRenderStepSetting().static_class()),
-        JobStepDescriptor('CustomScript', CustomScriptJobStep, unreal.DeadlineCloudCustomScriptStepSetting().static_class())
+        JobStepDescriptor(
+            "Render", RenderJobStep, unreal.DeadlineCloudRenderStepSetting().static_class()
+        ),
+        JobStepDescriptor(
+            "CustomScript",
+            CustomScriptJobStep,
+            unreal.DeadlineCloudCustomScriptStepSetting().static_class(),
+        ),
     ]
 
     @staticmethod
-    def get_step_descriptor_by_setting_class(setting_class: unreal.Class) -> Optional[JobStepDescriptor]:
+    def get_step_descriptor_by_setting_class(
+        setting_class: unreal.Class,
+    ) -> Optional[JobStepDescriptor]:
         """
         Returns the :class:`deadline.unreal_submitter.unreal_open_job.job_step.JobStepDescriptor` instance that kept in
         :class:`deadline.unreal_submitter.unreal_open_job.job_step.JobStepFactory.JOB_STEP_MAPPING`
@@ -313,11 +320,11 @@ class JobStepFactory:
         """
         return next(
             (
-                step_descriptor for step_descriptor
-                in JobStepFactory.JOB_STEP_MAPPING
+                step_descriptor
+                for step_descriptor in JobStepFactory.JOB_STEP_MAPPING
                 if step_descriptor.setting_class == setting_class
             ),
-            None
+            None,
         )
 
     @staticmethod
@@ -334,20 +341,20 @@ class JobStepFactory:
 
         step_template = next(
             (
-                step_template for step_template
-                in JobStepFactory.DEFAULT_JOB_STEP_TEMPLATE['steps']
+                step_template
+                for step_template in JobStepFactory.DEFAULT_JOB_STEP_TEMPLATE["steps"]
                 if step_template["name"] == step_descriptor.step_type
             ),
-            None
+            None,
         )
         return step_template
 
     @classmethod
     def create_steps(
-            cls,
-            job_settings: list[unreal.MoviePipelineSetting],
-            queue_manifest_path: str,
-            host_requirements
+        cls,
+        job_settings: list[unreal.MoviePipelineSetting],
+        queue_manifest_path: str,
+        host_requirements,
     ) -> list[JobStep]:
         """
         Create the Job Steps list using the provided job settings and other parameters
@@ -365,19 +372,20 @@ class JobStepFactory:
         steps = []
 
         for setting in job_settings:
-
-            step_descriptor = JobStepFactory.get_step_descriptor_by_setting_class(setting.get_class())
+            step_descriptor = JobStepFactory.get_step_descriptor_by_setting_class(
+                setting.get_class()
+            )
             if not step_descriptor:
                 continue
 
-            if hasattr(setting, 'deadline_cloud_steps'):
+            if hasattr(setting, "deadline_cloud_steps"):
                 for script_step_setting in setting.deadline_cloud_steps:
                     steps.append(
                         step_descriptor.step_class(
                             step_template=JobStepFactory.get_step_template(step_descriptor),
                             step_settings=script_step_setting,
                             host_requirements=host_requirements,
-                            queue_manifest_path=queue_manifest_path
+                            queue_manifest_path=queue_manifest_path,
                         )
                     )
 
@@ -387,7 +395,7 @@ class JobStepFactory:
                         step_template=JobStepFactory.get_step_template(step_descriptor),
                         step_settings=setting,
                         host_requirements=host_requirements,
-                        queue_manifest_path=queue_manifest_path
+                        queue_manifest_path=queue_manifest_path,
                     )
                 )
 

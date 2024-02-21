@@ -20,13 +20,13 @@ def get_step_handler_class(handler: str = "base") -> Type[BaseStepHandler]:
     """
 
     handlers_map = dict(
-        base=BaseStepHandler,
-        render=UnrealRenderStepHandler,
-        custom=UnrealCustomStepHandler
+        base=BaseStepHandler, render=UnrealRenderStepHandler, custom=UnrealCustomStepHandler
     )
 
-    print(f'Trying to get step handler class, defined as "{handler}" in the handlers map: {handlers_map}')
+    print(
+        f'Trying to get step handler class, defined as "{handler}" in the handlers map: {handlers_map}'
+    )
     handler_class = handlers_map.get(handler, BaseStepHandler)
-    print(f'Got step handler class: {handler_class}')
+    print(f"Got step handler class: {handler_class}")
 
     return handler_class

@@ -12,56 +12,53 @@ from deadline.unreal_submitter.unreal_open_job import open_job_description
 from deadline.unreal_submitter.unreal_dependency_collector import collector, common
 
 UNREAL_PROJECT_DIRECTORY = str(
-    Path(
-        unreal.Paths.convert_relative_path_to_full(unreal.Paths.get_project_file_path())
-    ).parent
-).replace('\\', '/')
+    Path(unreal.Paths.convert_relative_path_to_full(unreal.Paths.get_project_file_path())).parent
+).replace("\\", "/")
 
 PIPELINE_QUEUE = unreal.get_editor_subsystem(unreal.MoviePipelineQueueSubsystem).get_queue()
-EXPECTED_JOB_BUNDLE_PATH = f'{Path(__file__).parent.parent}/expected_job_bundle'
+EXPECTED_JOB_BUNDLE_PATH = f"{Path(__file__).parent.parent}/expected_job_bundle"
 
 
 class TestUnrealOpenJob(unittest.TestCase):
-
     mrq_job: unreal.MoviePipelineExecutorJob = None
     open_job: open_job_description.OpenJobDescription = None
 
     @staticmethod
     def get_expected_job_bundle():
-        with open(f'{EXPECTED_JOB_BUNDLE_PATH}/template.yaml', 'r') as f:
+        with open(f"{EXPECTED_JOB_BUNDLE_PATH}/template.yaml", "r") as f:
             expected_template = yaml.safe_load(f)
 
-        with open(f'{EXPECTED_JOB_BUNDLE_PATH}/parameter_values.yaml', 'r') as f:
+        with open(f"{EXPECTED_JOB_BUNDLE_PATH}/parameter_values.yaml", "r") as f:
             expected_parameter_values = yaml.safe_load(f)
 
-        with open(f'{EXPECTED_JOB_BUNDLE_PATH}/asset_references.yaml', 'r') as f:
+        with open(f"{EXPECTED_JOB_BUNDLE_PATH}/asset_references.yaml", "r") as f:
             expected_asset_references = yaml.safe_load(f)
 
         return expected_template, expected_parameter_values, expected_asset_references
 
     @staticmethod
     def get_open_job_bundle_path(open_job: open_job_description.OpenJobDescription):
-        with open(f'{open_job.job_bundle_path}/template.yaml', 'r') as f:
+        with open(f"{open_job.job_bundle_path}/template.yaml", "r") as f:
             template = yaml.safe_load(f)
 
-        with open(f'{open_job.job_bundle_path}/parameter_values.yaml', 'r') as f:
+        with open(f"{open_job.job_bundle_path}/parameter_values.yaml", "r") as f:
             parameter_values = yaml.safe_load(f)
 
-        with open(f'{open_job.job_bundle_path}/asset_references.yaml', 'r') as f:
+        with open(f"{open_job.job_bundle_path}/asset_references.yaml", "r") as f:
             asset_references = yaml.safe_load(f)
 
         return template, parameter_values, asset_references
 
     @staticmethod
     def get_step_by_name(step_name, template):
-        return next((s for s in template['steps'] if s['name'] == step_name), None)
+        return next((s for s in template["steps"] if s["name"] == step_name), None)
 
     @staticmethod
     def check_input_file_parameter(param_name: str, parameters: list[dict]):
-        param = next((param for param in parameters if param['name'] == param_name), None)
+        param = next((param for param in parameters if param["name"] == param_name), None)
         if param is None:
             return False
-        param_value = param['range'][0]
+        param_value = param["range"][0]
 
         return os.path.exists(param_value)
 
@@ -96,32 +93,35 @@ class TestUnrealOpenJob(unittest.TestCase):
         return level_sequence_dependencies + level_dependencies + [level_sequence_path, level_path]
 
     def test_open_job_template(self):
-
         self._build_open_job()
 
         expected_template, *_ = TestUnrealOpenJob.get_expected_job_bundle()
         template, *_ = TestUnrealOpenJob.get_open_job_bundle_path(self.open_job)
 
-        expected_parameter_names = [p['name'] for p in expected_template['parameterDefinitions']]
-        for parameter in template['parameterDefinitions']:
-            self.assertIn(parameter['name'], expected_parameter_names)
+        expected_parameter_names = [p["name"] for p in expected_template["parameterDefinitions"]]
+        for parameter in template["parameterDefinitions"]:
+            self.assertIn(parameter["name"], expected_parameter_names)
 
-        expected_environment_names = [e['name'] for e in expected_template['jobEnvironments']]
-        for environment in template['jobEnvironments']:
-            self.assertIn(environment['name'], expected_environment_names)
+        expected_environment_names = [e["name"] for e in expected_template["jobEnvironments"]]
+        for environment in template["jobEnvironments"]:
+            self.assertIn(environment["name"], expected_environment_names)
 
-        render_step = TestUnrealOpenJob.get_step_by_name('Render', template)
-        assert TestUnrealOpenJob.check_input_file_parameter(
-            'QueueManifestPath',
-            render_step['parameterSpace']['taskParameterDefinitions']
-        ) is True
+        render_step = TestUnrealOpenJob.get_step_by_name("Render", template)
+        assert (
+            TestUnrealOpenJob.check_input_file_parameter(
+                "QueueManifestPath", render_step["parameterSpace"]["taskParameterDefinitions"]
+            )
+            is True
+        )
 
-        for step in template['steps']:
-            if step['name'] != 'Render':
-                assert TestUnrealOpenJob.check_input_file_parameter(
-                    'ScriptPath',
-                    step['parameterSpace']['taskParameterDefinitions']
-                ) is True
+        for step in template["steps"]:
+            if step["name"] != "Render":
+                assert (
+                    TestUnrealOpenJob.check_input_file_parameter(
+                        "ScriptPath", step["parameterSpace"]["taskParameterDefinitions"]
+                    )
+                    is True
+                )
 
     def test_open_job_parameter_values(self):
         self._build_open_job()
@@ -129,11 +129,11 @@ class TestUnrealOpenJob(unittest.TestCase):
         e_t, expected_parameter_values, e_a = TestUnrealOpenJob.get_expected_job_bundle()
         t, parameter_values, a = TestUnrealOpenJob.get_open_job_bundle_path(self.open_job)
 
-        for parameter in expected_parameter_values['parameterValues']:
-            parameter['value'] = 'mocked value'
+        for parameter in expected_parameter_values["parameterValues"]:
+            parameter["value"] = "mocked value"
 
-        for parameter in parameter_values['parameterValues']:
-            parameter['value'] = 'mocked value'
+        for parameter in parameter_values["parameterValues"]:
+            parameter["value"] = "mocked value"
 
         self.assertEqual(parameter_values, expected_parameter_values)
 
@@ -143,8 +143,7 @@ class TestUnrealOpenJob(unittest.TestCase):
         *_, asset_references = TestUnrealOpenJob.get_open_job_bundle_path(self.open_job)
 
         self.assertIn(
-            self.open_job._manifest_path,
-            asset_references['assetReferences']['inputs']['filenames']
+            self.open_job._manifest_path, asset_references["assetReferences"]["inputs"]["filenames"]
         )
 
         job_dependencies = self._get_job_dependencies()
@@ -155,16 +154,18 @@ class TestUnrealOpenJob(unittest.TestCase):
                 os_dependencies.append(os_dependency)
 
         os_dependencies = set(os_dependencies)
-        assert len(os_dependencies) != 0 and os_dependencies.issubset(asset_references['assetReferences']['inputs']['filenames'])
-
-        input_directories = set(asset_references['assetReferences']['inputs']['directories'])
-        assert input_directories.issubset(
-            {f'{UNREAL_PROJECT_DIRECTORY}/Config', f'{UNREAL_PROJECT_DIRECTORY}/Binaries'}
+        assert len(os_dependencies) != 0 and os_dependencies.issubset(
+            asset_references["assetReferences"]["inputs"]["filenames"]
         )
 
-        assert len(asset_references['assetReferences']['outputs']['directories']) != 0
+        input_directories = set(asset_references["assetReferences"]["inputs"]["directories"])
+        assert input_directories.issubset(
+            {f"{UNREAL_PROJECT_DIRECTORY}/Config", f"{UNREAL_PROJECT_DIRECTORY}/Binaries"}
+        )
+
+        assert len(asset_references["assetReferences"]["outputs"]["directories"]) != 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(TestUnrealOpenJob)
     unittest.TextTestRunner(stream=sys.stdout, buffer=True).run(suite)

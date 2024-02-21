@@ -3,14 +3,18 @@ import yaml
 import unreal
 from copy import deepcopy
 
-from deadline.client.job_bundle import (
-    deadline_yaml_dump,
-    create_job_history_bundle_dir
-)
+from deadline.client.job_bundle import deadline_yaml_dump, create_job_history_bundle_dir
 from deadline.client.job_bundle.submission import AssetReferences
 from deadline.unreal_submitter.settings import DEFAULT_JOB_TEMPLATE_FILE_PATH
-from deadline.unreal_submitter.common import get_project_directory, get_project_file_path, soft_obj_path_to_str
-from deadline.unreal_submitter.unreal_dependency_collector.common import DependencyFilters, os_path_from_unreal_path
+from deadline.unreal_submitter.common import (
+    get_project_directory,
+    get_project_file_path,
+    soft_obj_path_to_str,
+)
+from deadline.unreal_submitter.unreal_dependency_collector.common import (
+    DependencyFilters,
+    os_path_from_unreal_path,
+)
 from deadline.unreal_submitter.unreal_dependency_collector.common import os_abs_from_relative
 from deadline.unreal_submitter.unreal_dependency_collector.collector import DependencyCollector
 
@@ -142,7 +146,7 @@ class OpenJobDescription:
         """
         Returns the OpenJob name
         """
-        return self._open_job.get('name')
+        return self._open_job.get("name")
 
     @property
     def job_bundle_path(self):
@@ -164,16 +168,18 @@ class OpenJobDescription:
         self._open_job = deepcopy(self.default_job_template)
         shared_settings = mrq_job.preset_overrides.job_shared_settings
 
-        self._open_job['name'] = mrq_job.job_name \
-            if shared_settings.name == '' or shared_settings.name == 'Untitled' else shared_settings.name
+        self._open_job["name"] = (
+            mrq_job.job_name
+            if shared_settings.name == "" or shared_settings.name == "Untitled"
+            else shared_settings.name
+        )
 
-        self._open_job['description'] = shared_settings.description
+        self._open_job["description"] = shared_settings.description
 
         self._save_manifest_file(mrq_job)
 
         self._build_steps(mrq_job)
-        self._open_job['steps'] = [step.as_dict() for step in self._steps]
-
+        self._open_job["steps"] = [step.as_dict() for step in self._steps]
 
         self._build_parameter_values_dict(mrq_job)
         self._build_asset_references(mrq_job)
@@ -230,7 +236,7 @@ class OpenJobDescription:
         )
         output_path = output_setting.output_directory.path
         # TODO Slava handling unreal substitution templates
-        output_path = output_path.replace('{project_dir}', project_directory)
+        output_path = output_path.replace("{project_dir}", project_directory)
 
         parameter_values = [
             {
@@ -249,13 +255,12 @@ class OpenJobDescription:
                 "name": "ProjectDirectory",
                 "value": project_directory,
             },
-            {
-                "name": "OutputPath",
-                "value": output_path
-            }
+            {"name": "OutputPath", "value": output_path},
         ]
 
-        shared_parameter_values = JobSharedSettings(mrq_job.preset_overrides.job_shared_settings).to_dict()
+        shared_parameter_values = JobSharedSettings(
+            mrq_job.preset_overrides.job_shared_settings
+        ).to_dict()
         parameter_values += shared_parameter_values
 
         self._parameter_values_dict = dict(parameterValues=parameter_values)
@@ -305,7 +310,7 @@ class OpenJobDescription:
                 self._asset_references.input_filenames.add(input_file)
 
         # required input directories
-        for sub_dir in ['Config', 'Binaries']:
+        for sub_dir in ["Config", "Binaries"]:
             input_directory = os_abs_from_relative(sub_dir)
             if os.path.exists(input_directory):
                 self._asset_references.input_directories.add(input_directory)
@@ -334,7 +339,7 @@ class OpenJobDescription:
             unreal.MoviePipelineOutputSetting
         )
         output_path = output_setting.output_directory.path
-        output_path = output_path.replace('{project_dir}', project_directory).rstrip('/')
+        output_path = output_path.replace("{project_dir}", project_directory).rstrip("/")
         self._asset_references.output_directories.update([output_path])
 
         return self._asset_references
@@ -357,15 +362,13 @@ class OpenJobDescription:
             self._steps = JobStepFactory.create_steps(
                 job_settings=mrq_job.get_configuration().get_all_settings(),
                 host_requirements=preset_overrides.host_requirements,
-                queue_manifest_path=self._manifest_path
+                queue_manifest_path=self._manifest_path,
             )
             return self._steps
 
         except Exception as e:
             unreal.EditorDialog.show_message(
-                "Custom step validate failed",
-                str(e),
-                unreal.AppMsgType.OK
+                "Custom step validate failed", str(e), unreal.AppMsgType.OK
             )
             raise e
 
@@ -377,8 +380,8 @@ class OpenJobDescription:
         :rtype: str
         """
 
-        job_bundle_path = create_job_history_bundle_dir("Unreal", self._open_job['name'])
-        unreal.log(f'Job bundle path: {job_bundle_path}')
+        job_bundle_path = create_job_history_bundle_dir("Unreal", self._open_job["name"])
+        unreal.log(f"Job bundle path: {job_bundle_path}")
 
         with open(job_bundle_path + "/template.yaml", "w", encoding="utf8") as f:
             deadline_yaml_dump(self._open_job, f, indent=1)
@@ -399,12 +402,13 @@ class OpenJobDescription:
 
         # In duplicated job remove empty auto-detected files since we don't want them to be saved in manifest
         # List of the files is moved to OpenJob attachments
-        new_job.preset_overrides.job_attachments.input_files.auto_detected = unreal.DeadlineCloudFileAttachmentsArray()
+        new_job.preset_overrides.job_attachments.input_files.auto_detected = (
+            unreal.DeadlineCloudFileAttachmentsArray()
+        )
 
-        duplicated_queue, manifest_path = unreal.MoviePipelineEditorLibrary.save_queue_to_manifest_file(
-            new_queue
-        )
-        manifest_path = unreal.Paths.convert_relative_path_to_full(
-            manifest_path
-        )
+        (
+            duplicated_queue,
+            manifest_path,
+        ) = unreal.MoviePipelineEditorLibrary.save_queue_to_manifest_file(new_queue)
+        manifest_path = unreal.Paths.convert_relative_path_to_full(manifest_path)
         self._manifest_path = manifest_path

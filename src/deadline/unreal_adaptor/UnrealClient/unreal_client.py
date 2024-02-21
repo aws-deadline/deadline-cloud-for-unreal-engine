@@ -4,18 +4,18 @@ import os
 import sys
 from http import HTTPStatus
 
-if 'PYTHONPATH' in os.environ:
-    for p in os.environ['PYTHONPATH'].split(os.pathsep):
-        if p not in sys.path:
-            sys.path.insert(0, p.replace('\\', '/'))
-
-for p in sys.path:
-    print(p)
-
 from typing import Optional
 
 from openjd.adaptor_runtime_client.win_client_interface import WinClientInterface
 from deadline.unreal_adaptor.UnrealClient.step_handlers import get_step_handler_class
+
+if "PYTHONPATH" in os.environ:
+    for p in os.environ["PYTHONPATH"].split(os.pathsep):
+        if p not in sys.path:
+            sys.path.insert(0, p.replace("\\", "/"))
+
+for p in sys.path:
+    print(p)
 
 
 class UnrealClient(WinClientInterface):
@@ -26,29 +26,27 @@ class UnrealClient(WinClientInterface):
     def __init__(self, socket_path: str) -> None:
         super().__init__(socket_path)
         self.handler = None
-        self.actions.update(
-            {
-                'set_handler': self.set_handler
-            }
-        )
+        self.actions.update({"set_handler": self.set_handler})
 
     def set_handler(self, handler_dict: dict) -> None:
-        """ Set the current Step Handler """
+        """Set the current Step Handler"""
 
-        handler_class = get_step_handler_class(handler_dict.get('handler', 'base'))
+        handler_class = get_step_handler_class(handler_dict.get("handler", "base"))
         self.handler = handler_class()
         self.actions.update(self.handler.action_dict)
 
     def close(self, args: Optional[dict] = None) -> None:
-        """ Close the Unreal Engine """
+        """Close the Unreal Engine"""
         import unreal
-        unreal.log(f"Quit the Editor: normal shutdown")
+
+        unreal.log("Quit the Editor: normal shutdown")
         unreal.SystemLibrary.quit_editor()
 
     def graceful_shutdown(self, *args, **kwargs) -> None:
-        """ Close the Unreal Engine if the UnrealAdaptor terminate the client with 0s grace time """
+        """Close the Unreal Engine if the UnrealAdaptor terminate the client with 0s grace time"""
         import unreal
-        unreal.log(f"Quit the Editor: graceful shutdown")
+
+        unreal.log("Quit the Editor: graceful shutdown")
         unreal.SystemLibrary.quit_editor()
 
     def poll(self) -> None:
@@ -65,7 +63,6 @@ class UnrealClient(WinClientInterface):
                     flush=True,
                 )
                 self._perform_action(action)
-                run = action.name != "close"
         else:  # Any other status or reason
             print(
                 f"ERROR: An error was raised when trying to connect to the server: {status} "
@@ -77,8 +74,9 @@ class UnrealClient(WinClientInterface):
 
 def main():
     import unreal
+
     socket_path = os.environ.get("UNREAL_ADAPTOR_SOCKET_PATH")
-    print(f'SOCKET_PATH: {socket_path}')
+    print(f"SOCKET_PATH: {socket_path}")
     if not socket_path:
         raise OSError(
             "UnrealClient cannot connect to the Adaptor because the environment variable "

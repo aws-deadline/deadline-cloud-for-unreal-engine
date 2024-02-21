@@ -12,7 +12,7 @@ from typing import Callable
 
 from openjd.adaptor_runtime_client import Action
 from openjd.adaptor_runtime.process import LoggingSubprocess
-from openjd.adaptor_runtime.adaptors import Adaptor, AdaptorDataValidators
+from openjd.adaptor_runtime.adaptors import Adaptor
 from openjd.adaptor_runtime.app_handlers import RegexCallback, RegexHandler
 from openjd.adaptor_runtime.application_ipc import ActionsQueue, AdaptorServer
 from openjd.adaptor_runtime.adaptors.configuration import AdaptorConfiguration
@@ -156,22 +156,23 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         """
         is_not_timed_out = self.get_timer(self._UNREAL_START_TIMEOUT_SECONDS)
         while (
-                self._unreal_is_running
-                and not self._has_exception
-                and len(self._action_queue) > 0  # for now the initializing actions in the action queue, defined by
-                                                 # _populate_action_queue() method.
-                                                 # So we wait for them to be done or for time is out.
-                and is_not_timed_out()
+            self._unreal_is_running
+            and not self._has_exception
+            and len(self._action_queue)
+            > 0  # for now the initializing actions in the action queue, defined by
+            # _populate_action_queue() method.
+            # So we wait for them to be done or for time is out.
+            and is_not_timed_out()
         ):
             time.sleep(0.1)
 
         if len(self._action_queue) > 0:  # if for some reason, all the actions are not complete
-            if is_not_timed_out():       # and timeout is not reached
-                raise RuntimeError(      # <- we catch some exception - self._has_exception is True
+            if is_not_timed_out():  # and timeout is not reached
+                raise RuntimeError(  # <- we catch some exception - self._has_exception is True
                     "Unreal encountered an error and was not able to complete initialization actions."
                 )
             else:
-                raise TimeoutError(     # All the actions are note complete and timeout reached
+                raise TimeoutError(  # All the actions are note complete and timeout reached
                     "Unreal did not complete initialization actions in "
                     f"{self._UNREAL_START_TIMEOUT_SECONDS} seconds and failed to start."
                 )
@@ -208,31 +209,20 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
 
         from deadline.unreal_adaptor.UnrealClient.step_handlers import get_step_handler_class
 
-        for handler_name in ['render', 'custom']:
+        for handler_name in ["render", "custom"]:
             handler_class = get_step_handler_class(handler_name)
 
-            logger.info(f'Gettings regex pattertns from step handler: {handler_class}...')
+            logger.info(f"Gettings regex pattertns from step handler: {handler_class}...")
 
             callbacks.append(
-                RegexCallback(
-                    handler_class.regex_pattern_progress(),
-                    self._handle_progress
-                )
+                RegexCallback(handler_class.regex_pattern_progress(), self._handle_progress)
             )
 
             callbacks.append(
-                RegexCallback(
-                    handler_class.regex_pattern_complete(),
-                    self._handle_complete
-                )
+                RegexCallback(handler_class.regex_pattern_complete(), self._handle_complete)
             )
 
-            callbacks.append(
-                RegexCallback(
-                    handler_class.regex_pattern_error(),
-                    self._handle_error
-                )
-            )
+            callbacks.append(RegexCallback(handler_class.regex_pattern_error(), self._handle_error))
 
         return callbacks
 
@@ -277,15 +267,15 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         """
 
         unreal_exe = "UnrealEditor-Cmd"
-        unreal_project_path = self.init_data.get('project_path')
+        unreal_project_path = self.init_data.get("project_path")
         client_path = self.unreal_client_path.replace("\\", "/")
-        log_args = '-log -unattended -stdout -NoLoadingScreen -NoScreenMessages -RenderOffscreen -allowstdoutlogverbosity'.split(' ')
+        log_args = "-log -unattended -stdout -NoLoadingScreen -NoScreenMessages -RenderOffscreen -allowstdoutlogverbosity".split(
+            " "
+        )
 
         args = [unreal_exe, unreal_project_path]
         args.extend(log_args)
-        args.append(
-            f'-execcmds=r.HLOD 0,py {client_path}'
-        )
+        args.append(f"-execcmds=r.HLOD 0,py {client_path}")
 
         regexhandler = RegexHandler(self._get_regex_callbacks())
         self._unreal_client = UnrealSubprocessWithLogs(
@@ -327,7 +317,7 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         self.data_validation.validate_init_data(self.init_data)
 
         # Notify worker agent about starting Unreal
-        self.update_status(progress=0, status_message='Initializing Unreal Engine')
+        self.update_status(progress=0, status_message="Initializing Unreal Engine")
 
         # Starts the unreal adaptor server
         self._start_unreal_server_thread()
@@ -338,17 +328,19 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         # will be available directly to the adaptor client.
 
         import openjd.adaptor_runtime_client
+
         add_module_to_pythonpath(
             os.path.dirname(os.path.dirname(openjd.adaptor_runtime_client.__file__))
         )
         add_module_to_pythonpath(
-            os.path.dirname(os.path.dirname(os.path.dirname(openjd.adaptor_runtime_client.__file__)))
+            os.path.dirname(
+                os.path.dirname(os.path.dirname(openjd.adaptor_runtime_client.__file__))
+            )
         )
 
         import deadline.unreal_adaptor
-        add_module_to_pythonpath(
-            os.path.dirname(os.path.dirname(deadline.unreal_adaptor.__file__))
-        )
+
+        add_module_to_pythonpath(os.path.dirname(os.path.dirname(deadline.unreal_adaptor.__file__)))
 
         self._start_unreal_client()
 
@@ -368,13 +360,11 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
 
         # Set up the step handler
         self._action_queue.enqueue_action(
-            Action(
-                'set_handler', {'handler': run_data.get('handler', 'base')}
-            )
+            Action("set_handler", {"handler": run_data.get("handler", "base")})
         )
 
         self._unreal_is_rendering = True
-        self._action_queue.enqueue_action(Action('run_script', run_data))
+        self._action_queue.enqueue_action(Action("run_script", run_data))
 
         while self._unreal_is_rendering and not self._has_exception:
             time.sleep(1)
@@ -384,11 +374,11 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
             # by UnrealClient and don't spam before
             if len(self._action_queue) == 0:
                 logger.info("Enqueue wait result")
-                self._action_queue.enqueue_action(
-                    Action('wait_result', {})
-                )
+                self._action_queue.enqueue_action(Action("wait_result", {}))
 
-        if not self._unreal_is_running and self._unreal_client:  # Unreal Client will always exist here.
+        if (
+            not self._unreal_is_running and self._unreal_client
+        ):  # Unreal Client will always exist here.
             #  This is always an error case because the Unreal Client should still be running and
             #  waiting for the next command. If the thread finished, then we cannot continue
             exit_code = self._unreal_client.returncode

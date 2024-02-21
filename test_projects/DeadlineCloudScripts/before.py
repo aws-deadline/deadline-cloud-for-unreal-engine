@@ -3,8 +3,8 @@ import inspect
 
 
 def preparing_scene_fake(**kwargs):
-    unreal.log(f'Executing {inspect.currentframe().f_code.co_name} with args: {kwargs}')
-    unreal.log(f'Got kwargs: {kwargs}')
+    unreal.log(f"Executing {inspect.currentframe().f_code.co_name} with args: {kwargs}")
+    unreal.log(f"Got kwargs: {kwargs}")
     total_frames = 100
     text_label = "Preparing the scene..."
     with unreal.ScopedSlowTask(total_frames, text_label) as slow_task:
@@ -14,7 +14,7 @@ def preparing_scene_fake(**kwargs):
                 break
 
             slow_task.enter_progress_frame(1)
-            unreal.log(f'Preparing progress: {i}/{total_frames}')
+            unreal.log(f"Preparing progress: {i}/{total_frames}")
 
 
 def main(**kwargs):

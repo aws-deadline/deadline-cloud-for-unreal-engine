@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-import os
 import re
-from collections import namedtuple
 from unittest.mock import Mock, PropertyMock, patch
 
 import pytest
 import jsonschema  # type: ignore
-from openjd.adaptor_runtime_client import PathMappingRule
 
 
-from deadline.unreal_adaptor.UnrealAdaptor import adaptor as adaptor_module
 from deadline.unreal_adaptor.UnrealAdaptor import UnrealAdaptor
 from deadline.unreal_adaptor.UnrealAdaptor.adaptor import UnrealNotRunningError
 
@@ -45,10 +41,7 @@ def run_data() -> dict:
         "job_configuration_path": "/Game/Test/Config",
         "queue_manifest_path": "C:/LocalProjects/AWS_RND/Saved/MovieRenderPipeline/QueueManifest.utxt",
         "script_path": "C:/path/to/custom_script.py",
-        "script_args": {
-            "foo": 1,
-            "bar": '2'
-        }
+        "script_args": {"foo": 1, "bar": "2"},
     }
 
 
@@ -168,7 +161,9 @@ class TestUnrealAdaptor_on_start:
             adaptor.on_start()
 
         # THEN
-        error_msg = "Unreal encountered an error and was not able to complete initialization actions."
+        error_msg = (
+            "Unreal encountered an error and was not able to complete initialization actions."
+        )
         assert str(exc_info.value) == error_msg
 
     @patch.object(UnrealAdaptor, "_unreal_is_running", False)
@@ -301,7 +296,6 @@ class TestUnrealAdaptor_on_run:
 
 
 class TestUnrealAdaptor_on_stop:
-
     @patch("time.sleep")
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.ActionsQueue.__len__", return_value=0)
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
@@ -493,7 +487,9 @@ class TestUnrealAdaptor_on_cleanup:
         else:
             assert not adaptor._has_exception
 
-    @patch.object(UnrealAdaptor, "_unreal_is_running", new_callable=PropertyMock(return_value=False))
+    @patch.object(
+        UnrealAdaptor, "_unreal_is_running", new_callable=PropertyMock(return_value=False)
+    )
     def test_raises_if_unreal_not_running(
         self,
         init_data: dict,
