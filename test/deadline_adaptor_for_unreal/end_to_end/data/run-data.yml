@@ -1,0 +1,2 @@
+handler: custom
+script_path: /Users/morgane/dev/github/deadline-cloud-for-unreal-engine/test/deadline_adaptor_for_unreal/unit/UnrealClient/step_handlers/custom_scripts/valid_script.py

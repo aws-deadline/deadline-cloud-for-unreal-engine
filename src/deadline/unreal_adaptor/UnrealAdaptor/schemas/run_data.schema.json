@@ -1,0 +1,16 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+        "handler": { "type":  "string" },
+        "level_path": { "type": "string" },
+        "level_sequence_path": { "type": "string" },
+        "job_configuration_path": { "type": "string" },
+        "queue_manifest_path": { "type":  "string" },
+        "script_path": { "type": "string" },
+        "script_args": { "type": "object" }
+    },
+    "required": [
+        "handler"
+    ]
+}

@@ -1,0 +1,86 @@
+<component>
+    <name>deadline_cloud_for_unreal_engine</name>
+    <description>Deadline Cloud for Unreal Engine 5</description>
+    <detailedDescription>Unreal Engine plugin for submitting jobs to Amazon Deadline Cloud. Compatible with Unreal Engine 5</detailedDescription>
+    <canBeEdited>1</canBeEdited>
+    <selected>0</selected>
+    <show>1</show>
+    <folderList>
+        <folder>
+            <description>Submitter Files</description>
+            <destination>${unreal_plugin_dir}/Content/Python/libraries/deadline/unreal_submitter</destination>
+            <name>unreal-submitter</name>
+            <platforms>all</platforms>
+            <distributionFileList>
+                <distributionDirectory allowWildcards="1">
+                    <origin>components/deadline-cloud-for-unreal-engine/src/deadline/unreal_submitter/*</origin>∂
+                </distributionDirectory>
+            </distributionFileList>
+        </folder>
+        <folder>
+             <description>Dependency Files</description>
+             <destination>${unreal_plugin_dir}/tmp/unreal_deps</destination>
+             <name>unreal_deps</name>
+             <platforms>all</platforms>
+             <distributionFileList>
+                 <distributionDirectory allowWildcards="1">
+                     <origin>components/deadline-cloud-for-unreal-engine/dependency_bundle</origin>
+                 </distributionDirectory>
+             </distributionFileList>
+         </folder>
+    </folderList>
+    <initializationActionList>
+    <if>
+        <conditionRuleList>
+            <compareText>
+                <logic>contains</logic>
+                <text>${platform_name}</text>
+                <value>windows</value>
+            </compareText>
+        </conditionRuleList>
+        <actionList>
+            <setInstallerVariable name="all_components" value="${all_components} deadline_cloud_for_unreal_engine"/>
+            <setInstallerVariable name="unreal_deps_platform" value="windows"/>
+        </actionList>
+        <elseActionList>
+            <setInstallerVariable name="component(deadline_cloud_for_unreal_engine).show" value="0"/>
+        </elseActionList>
+    </if>
+	</initializationActionList>
+	<parameterList>
+		<stringParameter name="deadline_cloud_for_unreal_engine_summary" ask="0" cliOptionShow="0">
+			<value>Deadline Cloud for Unreal Engine 5.2.1
+- Compatible with Unreal Engine 5
+- Install the Unreal Engine submitter files to the Plugin directory
+</value>
+		</stringParameter>
+        <directoryParameter>
+            <name>unreal_plugin_dir</name>
+            <description>Path to the Deadline Cloud Unreal Plugin directory</description>
+            <explanation>Deadline Cloud Unreal Plugin directory</explanation>
+            <value></value>
+            <default>C:\Program Files\Epic Games\UE_5.2\Engine\Plugins\UnrealDeadlineCloudService</default>
+            <allowEmptyValue>0</allowEmptyValue>
+            <ask>yes</ask>
+            <cliOptionName>prefix</cliOptionName>
+            <mustBeWritable>yes</mustBeWritable>
+            <mustExist>1</mustExist>
+        </directoryParameter>
+	</parameterList>
+    <postInstallationActionList>
+        <unzip>
+            <destinationDirectory>${unreal_plugin_dir}/Content/Python/libraries/</destinationDirectory>
+            <zipFile>${unreal_plugin_dir}/tmp/unreal_deps/dependency_bundle/deadline_cloud_for_unreal_submitter-deps-${unreal_deps_platform}.zip</zipFile>
+        </unzip>
+        <deleteFile>
+            <path>${unreal_plugin_dir}/tmp/unreal_deps</path>
+        </deleteFile>
+    </postInstallationActionList>
+    <shouldPackRuleList>
+        <compareText>
+            <logic>contains</logic>
+            <text>${platform_name}</text>
+            <value>windows</value>
+        </compareText>
+    </shouldPackRuleList>
+</component>
