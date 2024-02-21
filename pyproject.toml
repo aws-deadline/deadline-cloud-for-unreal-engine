@@ -42,7 +42,7 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
-name = "deadline-cloud-for-unreal"
+name = "deadline-cloud-for-unreal-engine"
 dynamic = ["version"]
 readme = "README.md"
 license = ""
@@ -54,6 +54,8 @@ dependencies = [
 ]
 
 [project.scripts]
+openjd-unreal-engine = "deadline.unreal_adaptor.UnrealAdaptor:main"
+# TODO: This is deprecated, use openjd-unreal-engine
 UnrealAdaptor = "deadline.unreal_adaptor.UnrealAdaptor:main"
 
 [tool.hatch.build]
