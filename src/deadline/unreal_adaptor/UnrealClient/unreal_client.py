@@ -7,6 +7,7 @@ from http import HTTPStatus
 from typing import Optional
 
 from openjd.adaptor_runtime_client.win_client_interface import WinClientInterface
+from step_handlers.base_step_handler import BaseStepHandler
 from deadline.unreal_adaptor.UnrealClient.step_handlers import get_step_handler_class
 
 if "PYTHONPATH" in os.environ:
@@ -25,7 +26,7 @@ class UnrealClient(WinClientInterface):
 
     def __init__(self, socket_path: str) -> None:
         super().__init__(socket_path)
-        self.handler = None
+        self.handler: BaseStepHandler
         self.actions.update({"set_handler": self.set_handler})
 
     def set_handler(self, handler_dict: dict) -> None:
@@ -33,7 +34,9 @@ class UnrealClient(WinClientInterface):
 
         handler_class = get_step_handler_class(handler_dict.get("handler", "base"))
         self.handler = handler_class()
-        self.actions.update(self.handler.action_dict)
+        # This is an abstract method in a base class and isn't callable but the actual handler will implement this as callable.
+        # TODO: Properly type hint self.handler
+        self.actions.update(self.handler.action_dict)  # type: ignore
 
     def close(self, args: Optional[dict] = None) -> None:
         """Close the Unreal Engine"""
@@ -75,7 +78,7 @@ class UnrealClient(WinClientInterface):
 def main():
     import unreal
 
-    socket_path = os.environ.get("UNREAL_ADAPTOR_SOCKET_PATH")
+    socket_path = os.environ.get("UNREAL_ADAPTOR_SOCKET_PATH", "")
     print(f"SOCKET_PATH: {socket_path}")
     if not socket_path:
         raise OSError(

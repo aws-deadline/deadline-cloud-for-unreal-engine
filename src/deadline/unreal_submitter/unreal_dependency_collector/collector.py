@@ -1,7 +1,7 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import unreal
-from typing import Callable
+from typing import Callable, Optional
 
 from .common import os_path_from_unreal_path
 from .dependency_search_options import DependencySearchOptions
@@ -28,8 +28,8 @@ class DependencyCollector:
         self,
         asset_path: str,
         dependency_options=DependencySearchOptions(),
-        filter_method: Callable = None,
-        on_found_dependency_callback: Callable = None,
+        filter_method: Optional[Callable] = None,
+        on_found_dependency_callback: Optional[Callable] = None,
     ):
         """
         Collect all dependencies recursively of the given unreal asset.
@@ -79,8 +79,8 @@ class DependencyCollector:
         self,
         asset_path: str,
         udependency_options: unreal.AssetRegistryDependencyOptions,
-        filter_method: Callable = None,
-        on_found_dependency_callback: Callable = None,
+        filter_method: Optional[Callable] = None,
+        on_found_dependency_callback: Optional[Callable] = None,
     ):
         """
         Inner method that gets called recursively and execute the main collecting process

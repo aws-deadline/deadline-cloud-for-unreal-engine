@@ -26,7 +26,7 @@ class UnrealCustomStepHandler(BaseStepHandler):
         return [re.compile(".*Exception:.*|.*Custom Step Executor: Error:.*")]
 
     @staticmethod
-    def validate_script(script_path: str) -> Optional[ModuleType]:
+    def validate_script(script_path: str) -> ModuleType:
         """
         This method is responsible for validating the script
 
@@ -54,7 +54,7 @@ class UnrealCustomStepHandler(BaseStepHandler):
 
         return script_module
 
-    def run_script(self, args: Optional[dict] = None) -> bool:
+    def run_script(self, args: dict) -> bool:
         """
         Executing a script using the provided arguments.
 

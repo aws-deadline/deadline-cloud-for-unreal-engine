@@ -10,7 +10,7 @@ class BaseStepHandler(ABC):
         self.action_dict = dict(run_script=self.run_script, wait_result=self.wait_result)
 
     @abstractmethod
-    def run_script(self, args: Optional[dict] = None) -> bool:
+    def run_script(self, args: dict) -> bool:
         """
         :param args: A dictionary that contains the arguments for running the script.
         :return: boolean indicating the script run successfully or not.

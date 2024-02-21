@@ -88,7 +88,7 @@ class HostRequirements:
         :return: Amount requirement as dictionary
         :rtype: dict
         """
-        requirement = None
+        requirement = {}
         if source_interval.min > 0 or source_interval.max > 0:
             requirement = {"name": name}
             if source_interval.min > 0:

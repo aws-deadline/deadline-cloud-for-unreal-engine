@@ -21,7 +21,7 @@ EXPECTED_JOB_BUNDLE_PATH = f"{Path(__file__).parent.parent}/expected_job_bundle"
 
 class TestUnrealOpenJob(unittest.TestCase):
     mrq_job: unreal.MoviePipelineExecutorJob = None
-    open_job: open_job_description.OpenJobDescription = None
+    open_job: open_job_description.OpenJobDescription
 
     @staticmethod
     def get_expected_job_bundle():
@@ -153,8 +153,7 @@ class TestUnrealOpenJob(unittest.TestCase):
             if os.path.exists(os_dependency):
                 os_dependencies.append(os_dependency)
 
-        os_dependencies = set(os_dependencies)
-        assert len(os_dependencies) != 0 and os_dependencies.issubset(
+        assert len(os_dependencies) != 0 and set(os_dependencies).issubset(
             asset_references["assetReferences"]["inputs"]["filenames"]
         )
 

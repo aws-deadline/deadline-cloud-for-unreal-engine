@@ -2,6 +2,7 @@ import os
 import yaml
 import unreal
 from copy import deepcopy
+from typing import Dict, Any, List
 
 from deadline.client.job_bundle import deadline_yaml_dump, create_job_history_bundle_dir
 from deadline.client.job_bundle.submission import AssetReferences
@@ -29,7 +30,7 @@ class JobSharedSettings:
 
     def __init__(self, job_shared_settings):
         self.source_shared_settings = job_shared_settings
-        self.parameter_values = [
+        self.parameter_values: List[Dict[Any, Any]] = [
             {
                 "name": "deadline:targetTaskRunStatus",
                 "type": "STRING",
@@ -131,13 +132,13 @@ class OpenJobDescription:
 
         self._dependency_collector = DependencyCollector()
 
-        self._open_job = None
-        self._manifest_path = None
+        self._open_job: Dict
+        self._manifest_path: str
 
         self._steps: list[JobStep] = []
-        self._parameter_values_dict = []
+        self._parameter_values_dict: Dict[Any, Any] = {}
         self._asset_references = AssetReferences()
-        self._job_bundle_path = None
+        self._job_bundle_path: str
 
         self._create_open_job_from_mrq_job(mrq_job)
 

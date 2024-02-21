@@ -93,8 +93,8 @@ class TestUnrealAdaptor:
             stderr=subprocess.PIPE,
         )
 
-        out, err = process.communicate()
-        out, err = out.decode("utf-8"), err.decode("utf-8")
+        output = process.communicate()
+        out, err = output[0].decode("utf-8"), output[1].decode("utf-8")
 
         assert err == ""
         assert "Done UnrealAdaptor main" in out

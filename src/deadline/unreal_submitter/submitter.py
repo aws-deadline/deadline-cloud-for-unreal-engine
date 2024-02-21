@@ -35,7 +35,7 @@ class UnrealSubmitter:
         self.progress_list: list[float] = []
 
         self.continue_submission = True  # affect all not submitted jobs
-        self.submitted_job_ids = []  # use after submit loop is ended
+        self.submitted_job_ids: list[str] = []  # use after submit loop is ended
         self._submission_failed_message = ""  # reset after each job in the loop
 
     @property
@@ -60,7 +60,7 @@ class UnrealSubmitter:
         :param message: Message to display
         :type message: str
         """
-        last_progress = 0
+        last_progress: float = 0
         with unreal.ScopedSlowTask(100, message) as submit_task:
             submit_task.make_dialog(True)
             while self.submit_status == check_submit_status:
@@ -94,8 +94,9 @@ class UnrealSubmitter:
                 ),
                 create_job_result_callback=lambda: self._create_job_result(),
             )
-            unreal.log(f"Job creation result: {job_id}")
-            self.submitted_job_ids.append(job_id)
+            if job_id:
+                unreal.log(f"Job creation result: {job_id}")
+                self.submitted_job_ids.append(job_id)
 
         except AssetSyncCancelledError as e:
             unreal.log(str(e))

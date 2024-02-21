@@ -155,7 +155,7 @@ class UnrealRenderStepHandler(BaseStepHandler):
         level_sequence_path: str,
         level_path: str,
         job_configuration_path: str,
-        job_name: str = None,
+        job_name: Optional[str] = None,
     ):
         """
         Create the unreal.MoviePipelineQueue object from the given job arguments
@@ -187,7 +187,7 @@ class UnrealRenderStepHandler(BaseStepHandler):
         name = job_name or Path(level_sequence_path).stem
         render_job.job_name = name
 
-    def run_script(self, args: Optional[dict] = None) -> bool:
+    def run_script(self, args: dict) -> bool:
         """
         Create the unreal.MoviePipelineQueue object and render it with the render executor
 
@@ -210,9 +210,9 @@ class UnrealRenderStepHandler(BaseStepHandler):
         else:
             UnrealRenderStepHandler.create_queue_from_job_args(
                 movie_pipeline_queue_subsystem=subsystem,
-                level_sequence_path=args.get("level_sequence_path"),
-                level_path=args.get("level_path"),
-                job_configuration_path=args.get("job_configuration_path"),
+                level_sequence_path=args.get("level_sequence_path", ""),
+                level_path=args.get("level_path", ""),
+                job_configuration_path=args.get("job_configuration_path", ""),
             )
 
         # Initialize Render executor
