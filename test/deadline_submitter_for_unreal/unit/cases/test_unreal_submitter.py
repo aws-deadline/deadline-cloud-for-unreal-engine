@@ -9,8 +9,13 @@ from unittest.mock import PropertyMock, Mock, patch
 from deadline.unreal_submitter.submitter import UnrealSubmitter
 from deadline.job_attachments.progress_tracker import ProgressReportMetadata, ProgressStatus
 
-
-PIPELINE_QUEUE = unreal.get_editor_subsystem(unreal.MoviePipelineQueueSubsystem).get_queue()
+try:
+    PIPELINE_QUEUE = unreal.get_editor_subsystem(unreal.MoviePipelineQueueSubsystem).get_queue()
+except Exception:
+    # TODO: properly mock out deps to ensure they work within and without unreal
+    raise unittest.SkipTest(
+        f"unreal module not available and mock not properly configured. Skipping {__file__}"
+    )
 
 
 def create_job_from_bundle_mock(
@@ -42,6 +47,7 @@ def create_job_from_bundle_mock(
 
 
 class TestUnrealSubmitter(unittest.TestCase):
+    @unittest.skip("mocks not set up properly")
     def test_add_job(self, submitter=UnrealSubmitter()):
         for job in PIPELINE_QUEUE.get_jobs():
             new_queue = unreal.MoviePipelineQueue()

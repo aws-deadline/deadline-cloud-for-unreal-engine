@@ -64,7 +64,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::GetPresetStructWithOverrides(UStruc
 
 		const FName PropertyPath = *Property->GetPathName();
 
-		// TODO Slava Also skip if it's shown but not enabled
+		// TODO Also skip if it's shown but not enabled
 		if (!IsPropertyRowEnabledInMovieRenderJob(PropertyPath))
 		{
 			continue;

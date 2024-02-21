@@ -36,7 +36,7 @@ class UnrealAwsEntity(unreal.StructBase):
         return aws_entity
 
 
-# TODO Slava handling config parameter in api calls
+# TODO handling config parameter in api calls
 def _get_current_os() -> str:
     """
     Get a string specifying what the OS is, following the format the Deadline storage profile API expects.
@@ -67,7 +67,7 @@ class DeadlineCloudDeveloperSettingsImplementation(unreal.DeadlineCloudDeveloper
         t.start()
 
     def __refresh_deadline_settings(self):
-        # TODO Slava handle case when user is not logged in
+        # TODO handle case when user is not logged in
         aws_profile_name = config.get_setting("defaults.aws_profile_name")
         if aws_profile_name in ["(default)", "default", ""]:
             aws_profile_name = "(default)"
@@ -128,7 +128,7 @@ class DeadlineCloudDeveloperSettingsImplementation(unreal.DeadlineCloudDeveloper
             self.farms_cache_list = [
                 UnrealAwsEntity.create(item, "farmId") for item in response["farms"]
             ]
-        # TODO Slava
+        # TODO: do proper exception handling
         except Exception:
             return []
         return [farm.name for farm in self.farms_cache_list]
@@ -142,7 +142,7 @@ class DeadlineCloudDeveloperSettingsImplementation(unreal.DeadlineCloudDeveloper
                 self.queues_cache_list = [
                     UnrealAwsEntity.create(item, "queueId") for item in response["queues"]
                 ]
-            # TODO Slava
+            # TODO: do proper exception handling
             except Exception:
                 self.queues_cache_list = []
         else:
@@ -163,14 +163,14 @@ class DeadlineCloudDeveloperSettingsImplementation(unreal.DeadlineCloudDeveloper
                     {
                         "storageProfileId": "",
                         "displayName": "<none selected>",
-                        # TODO Slava remove _get_current_os from here
+                        # TODO remove _get_current_os from here
                         "osFamily": _get_current_os(),
                     }
                 )
                 self.storage_profile_cache_list = [
                     UnrealAwsEntity.create(item, "storageProfileId") for item in items
                 ]
-            # TODO Slava
+            # TODO: do proper exception handling
             except Exception:
                 self.storage_profile_cache_list = []
             return [storage_profile.name for storage_profile in self.storage_profile_cache_list]

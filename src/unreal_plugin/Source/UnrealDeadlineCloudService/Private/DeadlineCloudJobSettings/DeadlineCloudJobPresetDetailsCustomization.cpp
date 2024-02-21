@@ -223,10 +223,10 @@ void FDeadlineCloudAttachmentDetailsCustomization::CustomizeChildren(
 	UMoviePipelineDeadlineCloudExecutorJob* OuterJob = FPropertyAvailabilityHandler::GetOuterJob(StructHandle);
 	PropertyOverrideHandler = MakeShared<FPropertyAvailabilityHandler>(OuterJob);
 
-	// Slava Auto-detected are not enabled for overrides
+	// Auto-detected are not enabled for overrides
 	// PropertyOverrideHandler->EnableOverridesInMovieRenderQueue(ShowAutoDetectedRow);
 
-	// Slava Auto-detected are not enabled for overrides
+	// Auto-detected are not enabled for overrides
 	// PropertyOverrideHandler->EnableOverridesInMovieRenderQueue(AutoDetectedPathsRow);
 
 	if (OuterJob)
@@ -246,7 +246,7 @@ void FDeadlineCloudAttachmentDetailsCustomization::CustomizeChildren(
 	else
 		PropertyOverrideHandler->DisableRowInDataAsset(AutoDetectedPathsRow);
 
-	// TODO Slava: bad place for updating auto-detected files
+	// TODO: bad place for updating auto-detected files
 	// But since we do it mostly to show them in the UI. We don't want to put it into job initialization methods
 	if (OuterJob && StructHandle->GetProperty()->GetName() == "InputFiles")
 	{

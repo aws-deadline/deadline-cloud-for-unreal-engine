@@ -236,7 +236,7 @@ class OpenJobDescription:
             unreal.MoviePipelineOutputSetting
         )
         output_path = output_setting.output_directory.path
-        # TODO Slava handling unreal substitution templates
+        # TODO handling unreal substitution templates
         output_path = output_path.replace("{project_dir}", project_directory)
 
         parameter_values = [
@@ -333,7 +333,7 @@ class OpenJobDescription:
         for output_dir in job_output_directories:
             self._asset_references.input_directories.add(output_dir)
 
-        # TODO Slava handling unreal substitution templates (output directory)
+        # TODO handling unreal substitution templates (output directory)
         # TODO Think about it. Maybe we need to move files from Unreal output to Deadline cloud output on worker side
         # or we should override output directory with the output defined in DataAsset
         output_setting = mrq_job.get_configuration().find_setting_by_class(
