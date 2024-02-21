@@ -3,11 +3,12 @@ import sys
 import unreal
 import unittest
 
-from test_unreal_dependency_collector import TestUnrealDependencyCollector
-from test_unreal_open_job import TestUnrealOpenJob
-from test_unreal_submitter import TestUnrealSubmitter
-
 sys.path.insert(0, f"{os.path.dirname(__file__)}/cases")
+
+from test_unreal_dependency_collector import TestUnrealDependencyCollector  # noqa: E402
+from test_unreal_open_job import TestUnrealOpenJob  # noqa: E402
+from test_unreal_submitter import TestUnrealSubmitter  # noqa: E402
+
 
 if __name__ == "__main__":
     test_results = []

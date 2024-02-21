@@ -15,7 +15,9 @@ for p in sys.path:
     print(p)
 
 from openjd.adaptor_runtime_client.win_client_interface import WinClientInterface  # noqa: E402
-from deadline.unreal_adaptor.UnrealClient.step_handlers.base_step_handler import BaseStepHandler  # noqa: E402
+from deadline.unreal_adaptor.UnrealClient.step_handlers.base_step_handler import (  # noqa: E402
+    BaseStepHandler,
+)
 from deadline.unreal_adaptor.UnrealClient.step_handlers import get_step_handler_class  # noqa: E402
 
 

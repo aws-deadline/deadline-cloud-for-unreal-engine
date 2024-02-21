@@ -13,7 +13,9 @@ from deadline.unreal_submitter.unreal_dependency_collector import (
 
 
 UNREAL_PROJECT_DIRECTORY = str(
-    Path(unreal.Paths.convert_relative_path_to_full(unreal.Paths.get_project_file_path())).parent
+    Path(
+        str(unreal.Paths.convert_relative_path_to_full(unreal.Paths.get_project_file_path()))
+    ).parent
 ).replace("\\", "/")
 
 UNREAL_ASSET_PATH = "/Game/Test/TestLevelSequence"

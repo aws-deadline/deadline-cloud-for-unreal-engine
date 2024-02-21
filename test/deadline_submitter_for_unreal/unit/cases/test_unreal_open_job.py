@@ -12,7 +12,9 @@ from deadline.unreal_submitter.unreal_open_job import open_job_description
 from deadline.unreal_submitter.unreal_dependency_collector import collector, common
 
 UNREAL_PROJECT_DIRECTORY = str(
-    Path(unreal.Paths.convert_relative_path_to_full(unreal.Paths.get_project_file_path())).parent
+    Path(
+        str(unreal.Paths.convert_relative_path_to_full(unreal.Paths.get_project_file_path()))
+    ).parent
 ).replace("\\", "/")
 
 PIPELINE_QUEUE = unreal.get_editor_subsystem(unreal.MoviePipelineQueueSubsystem).get_queue()
