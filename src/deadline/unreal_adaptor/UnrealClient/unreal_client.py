@@ -6,10 +6,6 @@ from http import HTTPStatus
 
 from typing import Optional
 
-from openjd.adaptor_runtime_client.win_client_interface import WinClientInterface
-from step_handlers.base_step_handler import BaseStepHandler
-from deadline.unreal_adaptor.UnrealClient.step_handlers import get_step_handler_class
-
 if "PYTHONPATH" in os.environ:
     for p in os.environ["PYTHONPATH"].split(os.pathsep):
         if p not in sys.path:
@@ -17,6 +13,10 @@ if "PYTHONPATH" in os.environ:
 
 for p in sys.path:
     print(p)
+
+from openjd.adaptor_runtime_client.win_client_interface import WinClientInterface  # noqa: E402
+from deadline.unreal_adaptor.UnrealClient.step_handlers.base_step_handler import BaseStepHandler  # noqa: E402
+from deadline.unreal_adaptor.UnrealClient.step_handlers import get_step_handler_class  # noqa: E402
 
 
 class UnrealClient(WinClientInterface):
