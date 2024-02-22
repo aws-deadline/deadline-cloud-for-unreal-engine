@@ -54,8 +54,8 @@ dependencies = [
 ]
 
 [project.scripts]
-openjd-unreal-engine = "deadline.unreal_adaptor.UnrealAdaptor:main"
-# TODO: This is deprecated, use openjd-unreal-engine
+unreal-engine-openjd = "deadline.unreal_adaptor.UnrealAdaptor:main"
+# TODO: This is deprecated, use unreal-engine-openjd
 UnrealAdaptor = "deadline.unreal_adaptor.UnrealAdaptor:main"
 
 [tool.hatch.build]
