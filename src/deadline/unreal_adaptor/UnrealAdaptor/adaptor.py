@@ -12,7 +12,7 @@ from typing import Callable
 
 from openjd.adaptor_runtime_client import Action
 from openjd.adaptor_runtime.process import LoggingSubprocess
-from openjd.adaptor_runtime.adaptors import Adaptor
+from openjd.adaptor_runtime.adaptors import Adaptor, SemanticVersion
 from openjd.adaptor_runtime.app_handlers import RegexCallback, RegexHandler
 from openjd.adaptor_runtime.application_ipc import ActionsQueue, AdaptorServer
 from openjd.adaptor_runtime.adaptors.configuration import AdaptorConfiguration
@@ -28,8 +28,7 @@ class UnrealNotRunningError(Exception):
     pass
 
 
-class UnrealSubprocessWithLogs(LoggingSubprocess):
-    ...
+class UnrealSubprocessWithLogs(LoggingSubprocess): ...
 
 
 class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
@@ -60,6 +59,10 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         super().__init__(*args, **kwargs)
 
         self.data_validation = DataValidation()
+
+    @property
+    def integration_data_interface_version(self) -> SemanticVersion:
+        return SemanticVersion(major=0, minor=1)
 
     @staticmethod
     def get_timer(timeout: int | float) -> Callable[[], bool]:
