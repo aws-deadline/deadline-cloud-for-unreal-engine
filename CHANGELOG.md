@@ -1,3 +1,13 @@
+## 0.1.0 (2024-03-08)
+
+### BREAKING CHANGES
+* **deps**: update openjd-adaptor-runtime to 0.5 (#21) ([`1c52c77`](https://github.com/casillas2/deadline-cloud-for-unreal-engine/commit/1c52c778b46558a6e212775f8884471a83bf63de))
+* renamed openjd-unreal-engine to unreal-engine-openjd (#11) ([`2a6bd76`](https://github.com/casillas2/deadline-cloud-for-unreal-engine/commit/2a6bd76d269ce3cfe30028d73f29d4ecc616024b))
+
+
+### Bug Fixes
+* Add imports to init_unreal to fully load the plugin. (#18) ([`affa98f`](https://github.com/casillas2/deadline-cloud-for-unreal-engine/commit/affa98f12989bed4a92eba58e1e4db5d405a7dc2))
+
 ## 0.0.3 (2024-02-22)
 
 
