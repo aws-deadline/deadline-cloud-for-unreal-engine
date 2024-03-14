@@ -8,7 +8,7 @@ import boto3
 import deadline.client.config as config
 
 from deadline.client import api
-from deadline.client.api import AwsCredentialsType, AwsCredentialsStatus
+from deadline.client.api import AwsCredentialsSource, AwsAuthenticationStatus
 from deadline.client.config import config_file
 from deadline.job_attachments.models import FileConflictResolution
 
@@ -197,14 +197,14 @@ class DeadlineCloudDeveloperSettingsImplementation(unreal.DeadlineCloudDeveloper
 
     def __refresh_deadline_status(self):
         config_parser = config_file.read_config()
-        self.work_station_configuration.state.creds_type = api.get_credentials_type(
+        self.work_station_configuration.state.creds_type = api.get_credentials_source(
             config=config_parser
         ).name
 
-        creds_status = api.check_credentials_status(config=config_parser)
+        creds_status = api.check_authentication_status(config=config_parser)
         self.work_station_configuration.state.creds_status = creds_status.name
 
-        if creds_status == AwsCredentialsStatus.AUTHENTICATED:
+        if creds_status == AwsAuthenticationStatus.AUTHENTICATED:
             self.work_station_configuration.state.api_availability = (
                 "AUTHORIZED"
                 if api.check_deadline_api_available(config=config_parser)
@@ -352,7 +352,7 @@ class DeadlineCloudDeveloperSettingsImplementation(unreal.DeadlineCloudDeveloper
         unreal.log("login")
 
         def on_pending_authorization(**kwargs):
-            if kwargs["credential_type"] == AwsCredentialsType.DEADLINE_CLOUD_MONITOR_LOGIN:
+            if kwargs["credential_type"] == AwsCredentialsSource.DEADLINE_CLOUD_MONITOR_LOGIN:
                 unreal.EditorDialog.show_message(
                     "Deadline Cloud",
                     "Opening Deadline Cloud Monitor. Please login before returning here.",
