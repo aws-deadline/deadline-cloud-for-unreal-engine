@@ -1,4 +1,4 @@
-# Amazon Deadline Cloud for Unreal
+# AWS Deadline Cloud for Unreal
 
 This package has two active branches:
 
