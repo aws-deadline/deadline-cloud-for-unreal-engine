@@ -113,11 +113,11 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudStatus
 {
 	GENERATED_BODY()
 
-	/** AwsCredentialsType: NOT_VALID, HOST_PROVIDED, DEADLINE_CLOUD_MONITOR_LOGIN */
+	/** AwsCredentialsSource: NOT_VALID, HOST_PROVIDED, DEADLINE_CLOUD_MONITOR_LOGIN */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="cache")
 	FString CredsType;
 
-	/** AwsCredentialsStatus: CONFIGURATION_ERROR, AUTHENTICATED, NEEDS_LOGIN */
+	/** AwsAuthenticationStatus: CONFIGURATION_ERROR, AUTHENTICATED, NEEDS_LOGIN */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="cache")
 	FString CredsStatus;
 
