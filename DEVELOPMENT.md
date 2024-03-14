@@ -1,4 +1,4 @@
-# Amazon Deadline Cloud for Unreal Development
+# AWS Deadline Cloud for Unreal Development
 
 ## Building the docs
 
