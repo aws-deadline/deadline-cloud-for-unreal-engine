@@ -1,3 +1,8 @@
+## 0.1.1 (2024-03-15)
+
+### Chores
+* update deps deadline-cloud 0.40 (#25) ([`cebd1c4`](https://github.com/casillas2/deadline-cloud-for-unreal-engine/commit/8817e0ffd4c65ced11f4c09645367894793ef43f))
+
 ## 0.1.0 (2024-03-08)
 
 ### BREAKING CHANGES
