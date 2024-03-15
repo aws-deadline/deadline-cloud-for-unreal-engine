@@ -48,7 +48,10 @@ def create_job_from_bundle_mock(
 
 class TestUnrealSubmitter(unittest.TestCase):
     @unittest.skip("mocks not set up properly")
-    def test_add_job(self, submitter=UnrealSubmitter()):
+    @patch("deadline.unreal_submitter.submitter.get_deadline_cloud_library_telemetry_client")
+    def test_add_job(self, mock_telemetry_client: Mock, submitter=None):
+        if not submitter:
+            submitter = UnrealSubmitter()
         for job in PIPELINE_QUEUE.get_jobs():
             new_queue = unreal.MoviePipelineQueue()
             new_job = new_queue.duplicate_job(job)
@@ -61,7 +64,8 @@ class TestUnrealSubmitter(unittest.TestCase):
         "deadline.unreal_submitter.submitter.create_job_from_job_bundle",
         side_effect=create_job_from_bundle_mock,
     )
-    def test_submit_jobs(self, create_job_from_bundle_mock: Mock):
+    @patch("deadline.unreal_submitter.submitter.get_deadline_cloud_library_telemetry_client")
+    def test_submit_jobs(self, mock_telemetry_client: Mock, create_job_from_bundle_mock: Mock):
         submitter = UnrealSubmitter(silent_mode=True)
         self.test_add_job(submitter)
         submitter.submit_jobs()
@@ -72,7 +76,10 @@ class TestUnrealSubmitter(unittest.TestCase):
         "deadline.unreal_submitter.submitter.create_job_from_job_bundle",
         side_effect=create_job_from_bundle_mock,
     )
-    def test_cancel_submit_jobs(self, create_job_from_bundle_mock: Mock):
+    @patch("deadline.unreal_submitter.submitter.get_deadline_cloud_library_telemetry_client")
+    def test_cancel_submit_jobs(
+        self, mock_telemetry_client: Mock, create_job_from_bundle_mock: Mock
+    ):
         submitter = UnrealSubmitter(silent_mode=True)
         self.test_add_job(submitter)
 
@@ -89,7 +96,13 @@ class TestUnrealSubmitter(unittest.TestCase):
         "deadline.unreal_submitter.submitter.create_job_from_job_bundle",
         side_effect=create_job_from_bundle_mock,
     )
-    def test_fail_submit_jobs(self, create_job_from_bundle_mock: Mock, failed_message_mock: Mock):
+    @patch("deadline.unreal_submitter.submitter.get_deadline_cloud_library_telemetry_client")
+    def test_fail_submit_jobs(
+        self,
+        mock_telemetry_client: Mock,
+        create_job_from_bundle_mock: Mock,
+        failed_message_mock: Mock,
+    ):
         fail_message = "Test interrupt submission"
         failed_message_mock.side_effect = [fail_message, fail_message, fail_message]
 
