@@ -1,3 +1,10 @@
+## 0.1.2 (2024-03-26)
+
+
+### Features
+* Adds telemetry events to submitter and adaptor (#27) ([`62c5e9e`](https://github.com/casillas2/deadline-cloud-for-unreal-engine/commit/62c5e9e1aa39775d6e531755b3e99ef13c28714f))
+
+
 ## 0.1.1 (2024-03-15)
 
 ### Chores
