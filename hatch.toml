@@ -1,14 +1,3 @@
-
-
-[envs.release]
-detached = true
-dependencies = [
-  "python-semantic-release == 8.7.*"
-]
-
-[envs.release.scripts]
-bump = "semantic-release -v --strict version --no-push --no-commit --no-tag --skip-build {args}"
-version = "semantic-release -v --strict version --print {args}"
 [envs.default]
 pre-install-commands = [
   "pip install -r requirements-testing.txt"
@@ -45,8 +34,10 @@ build = "hatch build"
 PIP_INDEX_URL=""
 SKIP_BOOTSTRAP_TEST_RESOURCES="True"
 
-[envs.integ.scripts]
-test = "pytest --no-cov {args:test/*/integ}"
+[envs.release]
+detached = true
 
-[envs.e2e.scripts]
-test = "pytest --no-cov {args:test/*/e2e}"
+[envs.release.scripts]
+deps = "pip install -r requirements-release.txt"
+bump = "semantic-release -v --strict version --no-push --no-commit --no-tag --skip-build {args}"
+version = "semantic-release -v --strict version --print {args}"
