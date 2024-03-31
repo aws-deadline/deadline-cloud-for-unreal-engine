@@ -6,8 +6,23 @@ build-backend = "hatchling.build"
 name = "deadline-cloud-for-unreal-engine"
 dynamic = ["version"]
 readme = "README.md"
-license = ""
+license = "Apache-2.0"
 requires-python = ">=3.7"
+description = "The submitter and adaptor to enable Unreal Engine support for AWS Deadline Cloud"
+# https://pypi.org/classifiers/
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Operating System :: Microsoft :: Windows",
+  "License :: OSI Approved :: Apache Software License",
+  "Intended Audience :: Developers",
+  "Intended Audience :: End Users/Desktop"
+]
 
 dependencies = [
     "deadline == 0.45.*",
