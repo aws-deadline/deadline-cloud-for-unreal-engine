@@ -35,7 +35,7 @@ public:
 	TArray<FDeadlineCloudCustomScriptStepParameters> DeadlineCloudSteps;
 
 #if WITH_EDITOR
-	virtual FText GetDisplayText() const override { return NSLOCTEXT("MovieRenderPipeline", "BeaLineRenderStepSettingDisplayName", "Custom Scripts"); }
+	virtual FText GetDisplayText() const override { return NSLOCTEXT("MovieRenderPipeline", "DeadlineCloudRenderStepSettingDisplayName", "Custom Scripts"); }
 #endif
-
 };
+
