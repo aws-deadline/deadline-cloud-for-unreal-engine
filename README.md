@@ -57,7 +57,7 @@ versions will increment during this initial development stage, they are describe
 
 ## Security
 
-See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
+See [CONTRIBUTING](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/release/CONTRIBUTING.md#security-issue-notifications) for more information.
 
 ## Telemetry
 
