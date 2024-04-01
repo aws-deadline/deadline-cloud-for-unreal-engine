@@ -1,3 +1,14 @@
+## 0.2.0 (2024-04-01)
+
+### BREAKING CHANGES
+* public release (#38) ([`815940b`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/815940b5eb10681896d5e9422129cd2d62ec31ba))
+* update minimum python version to 3.9 in hatch.toml (#38) ([`815940b`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/815940b5eb10681896d5e9422129cd2d62ec31ba))
+
+
+### Bug Fixes
+* Naming cleanup. (#42) ([`704b3d4`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/704b3d4988096a45341dfe17a845b5ef66b5fd53))
+
+
 ## 0.1.2 (2024-03-26)
 
 
