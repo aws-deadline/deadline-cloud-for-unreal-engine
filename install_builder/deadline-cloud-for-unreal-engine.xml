@@ -9,7 +9,7 @@
         <folder>
             <description>Submitter Files</description>
             <destination>${unreal_plugin_dir}/Content/Python/libraries/deadline/unreal_submitter</destination>
-            <name>unreal-submitter</name>
+            <name>unreal_submitter</name>
             <platforms>all</platforms>
             <distributionFileList>
                 <distributionDirectory allowWildcards="1">
