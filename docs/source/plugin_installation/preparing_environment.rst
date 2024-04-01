@@ -5,7 +5,7 @@ Preparing Environment
 #. Get the UE test project. Go to the any folder, where you want to keep your Unreal projects and pull the UE project from GitHub, for example:
 
     a. Open Command Line and run next commands
-    #. git clone https://github.com/casillas2/deadline-cloud-for-unreal
+    #. git clone https://github.com/aws-deadline/deadline-cloud-for-unreal-engine
     #. cd deadline-cloud-for-unreal/test_projects
     #. git lfs fetch --all
 
