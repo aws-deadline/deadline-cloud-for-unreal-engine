@@ -1,8 +1,9 @@
+# AWS Deadline Cloud for Unreal Engine
+
 [![pypi](https://img.shields.io/pypi/v/deadline-cloud-for-unreal-engine.svg?style=flat)](https://pypi.python.org/pypi/deadline-cloud-for-unreal-engine)
 [![python](https://img.shields.io/pypi/pyversions/deadline-cloud-for-unreal-engine.svg?style=flat)](https://pypi.python.org/pypi/deadline-cloud-for-unreal-engine)
 [![license](https://img.shields.io/pypi/l/deadline-cloud-for-unreal-engine.svg?style=flat)](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/LICENSE)
 
-# AWS Deadline Cloud for Unreal
 
 [deadline-cloud]: https://docs.aws.amazon.com/deadline-cloud/latest/userguide/what-is-deadline-cloud.html
 [deadline-cloud-client]: https://github.com/aws-deadline/deadline-cloud

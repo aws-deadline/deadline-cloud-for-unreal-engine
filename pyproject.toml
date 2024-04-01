@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "deadline-cloud-for-unreal-engine"
-description = "The submitter and adaptor to enable Unreal Engine support for AWS Deadline Cloud"
+description = "AWS Deadline Cloud for Unreal Engine"
 authors = [
   {name = "Amazon Web Services"},
 ]
