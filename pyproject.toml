@@ -4,11 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "deadline-cloud-for-unreal-engine"
+description = "The submitter and adaptor to enable Unreal Engine support for AWS Deadline Cloud"
+authors = [
+  {name = "Amazon Web Services"},
+]
 dynamic = ["version"]
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.7"
-description = "The submitter and adaptor to enable Unreal Engine support for AWS Deadline Cloud"
 # https://pypi.org/classifiers/
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -28,6 +31,10 @@ dependencies = [
     "deadline == 0.45.*",
     "openjd-adaptor-runtime == 0.6.*",
 ]
+
+[project.urls]
+Homepage = "https://github.com/aws-deadline/deadline-cloud-for-unreal-engine"
+Source = "https://github.com/aws-deadline/deadline-cloud-for-unreal-engine"
 
 [project.scripts]
 unreal-engine-openjd = "deadline.unreal_adaptor.UnrealAdaptor:main"
