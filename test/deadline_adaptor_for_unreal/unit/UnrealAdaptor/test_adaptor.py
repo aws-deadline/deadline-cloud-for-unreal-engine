@@ -102,9 +102,10 @@ class TestUnrealAdaptor_on_start:
         # GIVEN
         adaptor = UnrealAdaptor(init_data)
 
-        with patch.object(adaptor, "_SERVER_START_TIMEOUT_SECONDS", 0.01), pytest.raises(
-            RuntimeError
-        ) as exc_info:
+        with (
+            patch.object(adaptor, "_SERVER_START_TIMEOUT_SECONDS", 0.01),
+            pytest.raises(RuntimeError) as exc_info,
+        ):
             # WHEN
             adaptor.on_start()
 
@@ -137,9 +138,10 @@ class TestUnrealAdaptor_on_start:
         mock_server.return_value.server_path = "/tmp/9999"
         new_timeout = 0.01
 
-        with patch.object(adaptor, "_UNREAL_START_TIMEOUT_SECONDS", new_timeout), pytest.raises(
-            TimeoutError
-        ) as exc_info:
+        with (
+            patch.object(adaptor, "_UNREAL_START_TIMEOUT_SECONDS", new_timeout),
+            pytest.raises(TimeoutError) as exc_info,
+        ):
             # WHEN
             adaptor.on_start()
 
@@ -364,12 +366,14 @@ class TestUnrealAdaptor_on_cleanup:
         # GIVEN
         adaptor = UnrealAdaptor(init_data)
 
-        with patch(
-            "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._unreal_is_running",
-            new_callable=lambda: True,
-        ), patch.object(adaptor, "_UNREAL_END_TIMEOUT_SECONDS", 0.01), patch.object(
-            adaptor, "_unreal_client"
-        ) as mock_client:
+        with (
+            patch(
+                "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._unreal_is_running",
+                new_callable=lambda: True,
+            ),
+            patch.object(adaptor, "_UNREAL_END_TIMEOUT_SECONDS", 0.01),
+            patch.object(adaptor, "_unreal_client") as mock_client,
+        ):
             # WHEN
             adaptor.on_cleanup()
 
@@ -388,12 +392,14 @@ class TestUnrealAdaptor_on_cleanup:
         # GIVEN
         adaptor = UnrealAdaptor(init_data)
 
-        with patch(
-            "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._unreal_is_running",
-            new_callable=lambda: False,
-        ), patch.object(adaptor, "_SERVER_END_TIMEOUT_SECONDS", 0.01), patch.object(
-            adaptor, "_server_thread"
-        ) as mock_server_thread:
+        with (
+            patch(
+                "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._unreal_is_running",
+                new_callable=lambda: False,
+            ),
+            patch.object(adaptor, "_SERVER_END_TIMEOUT_SECONDS", 0.01),
+            patch.object(adaptor, "_server_thread") as mock_server_thread,
+        ):
             mock_server_thread.is_alive.return_value = True
             # WHEN
             adaptor.on_cleanup()
