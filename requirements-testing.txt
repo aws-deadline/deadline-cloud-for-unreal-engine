@@ -5,5 +5,5 @@ pytest-xdist == 3.*
 twine == 5.*
 mypy == 1.*
 black == 24.*
-ruff == 0.3.*
+ruff == 0.4.*
 types-pyyaml == 6.*
