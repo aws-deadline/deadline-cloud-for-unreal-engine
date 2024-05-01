@@ -1,3 +1,9 @@
+## 0.2.1 (2024-05-01)
+
+### Dependencies
+* update deadline requirement from ==0.47.* to ==0.48.* (#52) ([`bf6ae92`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/bf6ae92a303a2f5b57fafef7a8a34939257a99bf))
+
+
 ## 0.2.0 (2024-04-01)
 
 ### BREAKING CHANGES
