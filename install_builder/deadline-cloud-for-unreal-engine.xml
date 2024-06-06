@@ -56,13 +56,14 @@
 		</stringParameter>
         <directoryParameter>
             <name>unreal_plugin_dir</name>
-            <description>Path to the Deadline Cloud Unreal Plugin directory</description>
-            <explanation>Deadline Cloud Unreal Plugin directory</explanation>
+            <description>Deadline Cloud Unreal Plugin directory</description>
+            <explanation>Path to the Deadline Cloud Unreal Plugin directory</explanation>
             <value></value>
             <default>C:\Program Files\Epic Games\UE_5.2\Engine\Plugins\UnrealDeadlineCloudService</default>
             <allowEmptyValue>0</allowEmptyValue>
             <ask>yes</ask>
-            <cliOptionName>prefix</cliOptionName>
+            <cliOptionName>unreal-plugin-directory</cliOptionName>
+            <cliOptionText>Path to the Deadline Cloud Unreal Plugin directory</cliOptionText>
             <mustBeWritable>yes</mustBeWritable>
             <mustExist>1</mustExist>
         </directoryParameter>
