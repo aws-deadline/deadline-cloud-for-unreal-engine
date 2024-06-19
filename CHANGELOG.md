@@ -1,3 +1,10 @@
+## 0.2.2 (2024-06-19)
+
+
+
+### Bug Fixes
+* rename duplicate prefix argument to unreal-plugin-directory (#62) ([`22bf103`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/22bf103a60b4647a3e4af0c951d68380c9100ca4))
+
 ## 0.2.1 (2024-05-01)
 
 ### Dependencies
