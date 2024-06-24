@@ -17,8 +17,9 @@ AWS Deadline Cloud for Unreal Engine is a python package that allows users to cr
 
 This library requires:
 
-1. Python 3.9 or higher; and
+1. Python 3.9 or higher; and Unreal Engine 5.2.1 or higher.
 2. Windows operating system.
+
 
 ## Submitter
 
