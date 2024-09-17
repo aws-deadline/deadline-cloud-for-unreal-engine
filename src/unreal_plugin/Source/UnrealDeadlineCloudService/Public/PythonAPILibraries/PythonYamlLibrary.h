@@ -1,9 +1,8 @@
-// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-
 #pragma once
 
 #include "CoreMinimal.h"
 #include "PythonAPILibrary.h"
+//#include "Kismet/BlueprintFunctionLibrary.h"
 #include "UObject/Object.h"
 #include "PythonYamlLibrary.generated.h"
 
@@ -18,34 +17,30 @@
 UENUM(BlueprintType)
 enum class EValueType : uint8
 {
-    INT UMETA(DisplayName = "Integer"),
-    FLOAT   UMETA(DisplayName = "Float"),
-    STRING UMETA(DisplayName = "String"),
-    PATH    UMETA(DisplayName = "Path")
+	INT UMETA(DisplayName = "Integer"),
+	FLOAT   UMETA(DisplayName = "Float"),
+	STRING UMETA(DisplayName = "String"),
+	PATH    UMETA(DisplayName = "Path")
 };
 
 USTRUCT(BlueprintType)
 struct FParameterDefinition
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
 
-    // Name
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
-    FString Name;
-	// Type	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
+	// Name
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
+	FString Name;
+
+	// Value	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
 	EValueType Type;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
-	FString Value;
 
 	FParameterDefinition()
 		: Name("DefaultName"),
-		 Type(EValueType::STRING),
-		 Value("")
+		Type(EValueType::STRING)
 	{}
-
-
 };
 /*
 Step .yaml struct
@@ -56,62 +51,36 @@ struct FStepTaskParameterDefinition
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
-	FString Name;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
-	EValueType Type = EValueType::STRING;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
-	TArray <FString> Range;
-
-};
-/**/
-USTRUCT(BlueprintType)
-struct FEnvVariable
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Environment")
-	FString Name;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Environment")
-	FString Value;
-
-};
-
-/*
-Env .yaml struct
- */
-
-
-USTRUCT(BlueprintType)
-struct FStepStruct
-{
-	GENERATED_BODY()
-
 	// Name
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Environment")
-	FString Name;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
-	TArray <FStepTaskParameterDefinition> Parameters;
-};
-
-USTRUCT(BlueprintType)
-struct FEnvironmentStruct
-{
-	GENERATED_BODY()
-
-	// Name
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Environment")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
 	FString Name;
 
 	// Value	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Environment")
-	FString Description;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
+	EValueType Type;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
-	TArray <FEnvVariable> Variables;
+	// Value	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
+	FString Range;
+
+};
+USTRUCT(BlueprintType)
+struct FStepParameterDefinition
+{
+	GENERATED_BODY()
+
+	// Name
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
+	FString Name;
+
+	// Value	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
+	FStepTaskParameterDefinition Task;
+
+	// Value	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
+	FString Script;
+
 };
 
 
@@ -125,19 +94,12 @@ class UNREALDEADLINECLOUDSERVICE_API UPythonYamlLibrary: public UObject, public 
 
 public:
 
-	UFUNCTION(BlueprintImplementableEvent)
-	FString ReadName(const FString& Path);
-
 	// job
 	UFUNCTION(BlueprintImplementableEvent)
 	TArray <FParameterDefinition> OpenJobFile(const FString& Path);
 
-	// steps 
+	// step
 	UFUNCTION(BlueprintImplementableEvent)
-	FStepStruct OpenStepFile(const FString& Path);
-
-	// env
-	UFUNCTION(BlueprintImplementableEvent)
-	FEnvironmentStruct OpenEnvFile(const FString& Path);
+	TArray <FStepParameterDefinition> OpenStepFile(const FString& Path);
 };
 	
