@@ -9,39 +9,66 @@ from openjd.model.v2023_09 import *
 from openjd.model import DocumentType
 
 
-Template = Union[JobTemplate, StepTemplate, EnvironmentTemplate]
-TemplateClass = Union[Type[JobTemplate], Type[StepTemplate], Type[EnvironmentTemplate]]
+Template = Union[JobTemplate, StepTemplate, Environment]
+TemplateClass = Union[Type[JobTemplate], Type[StepTemplate], Type[Environment]]
 
 
 class UnrealOpenJobEntityBase(ABC):
+    """
+    Base class for Unreal Open Job entities
+    """
     
     @property
     @abstractmethod
     def template_class(self) -> TemplateClass:
-        pass
+        """
+        Returns the template class for the entity
+        """
 
     @property
     @abstractmethod
     def file_path(self) -> str:
-        pass
+        """
+        Returns the file path of the entity descriptor
+        """
 
     @property
     @abstractmethod
     def name(self) -> str:
-        pass
+        """
+        Returns the name of the entity
+        """
 
     @abstractmethod
     def get_template_object(self) -> dict:
-        pass
+        """
+        Returns the template object from the entity descriptor
+        """
 
     @abstractmethod
     def build(self) -> Template:
-        pass
+        """
+        Builds the entity template
+        """
 
 
 class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
+    """
+    Base class for Unreal Open Job entities
+    """
 
     def __init__(self, template_class: TemplateClass, file_path: str, name: str = None):
+        """
+        :param template_class: The template class for the entity
+        :type template_class: TemplateClass
+        
+        :param file_path: The file path of the entity descriptor
+        :type file_path: str
+        
+        :param name: The name of the entity
+        :type name: str
+        """
+        
         self._template_class = template_class
         self._file_path = file_path
         self._name = name
@@ -74,5 +101,7 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
         return template
 
     def build(self) -> Template:
-        raise NotImplementedError
+        # TODO: Validate the template object
+        template_object = self.get_template_object()
+        return self.template_class(**template_object)
         

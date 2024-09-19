@@ -1,15 +1,49 @@
-from openjd.model.v2023_09 import EnvironmentTemplate
+from openjd.model.v2023_09 import *
 
-from src.deadline.unreal_submitter.unreal_open_job import UnrealOpenJobEntity
+from src.deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import UnrealOpenJobEntity
 
 
 class UnrealOpenJobEnvironment(UnrealOpenJobEntity):
+    """
+    Unreal Open Job Environment entity
+    """
 
     def __init__(self, file_path: str, name: str = None):
-        super().__init__(EnvironmentTemplate, file_path, name)
+        """
+        :param file_path: The file path of the environment descriptor
+        :type file_path: str
+        
+        :param name: The name of the environment
+        :type name: str
+        """
+        
+        super().__init__(Environment, file_path, name)
+        
+    def build(self) -> Environment:
+        environment_template_object = self.get_template_object()
+        
+        if not self.name:
+            self._name = environment_template_object.get('name')
+            
+        environment_creation_kwargs = {
+            'name': self.name
+        }
+        
+        if environment_template_object.get('script', {}):
+            environment_creation_kwargs['script'] = EnvironmentScript(
+                **environment_template_object['script']
+            )
+            
+        if environment_template_object.get('variables', {}):
+            environment_creation_kwargs['variables'] = environment_template_object['variables']
+            
+        return self.template_class(**environment_creation_kwargs)
 
 
 class LaunchEditorUnrealOpenJobEnvironment(UnrealOpenJobEnvironment):
+    """
+    Unreal Open Job Environment entity for launching Unreal Editor
+    """
 
     def __init__(
             self,
@@ -19,6 +53,22 @@ class LaunchEditorUnrealOpenJobEnvironment(UnrealOpenJobEnvironment):
             unreal_project_path: str = None,
             unreal_cmd_args: list[str] = None
     ):
+        """
+        :param file_path: The file path of the environment descriptor
+        :type file_path: str
+        
+        :param name: The name of the environment
+        :type name: str
+        
+        :param unreal_executable: The Unreal Editor executable
+        :type unreal_executable: str
+        
+        :param unreal_project_path: The Unreal project path
+        :type unreal_project_path: str
+        
+        :param unreal_cmd_args: The Unreal command line arguments
+        :type unreal_cmd_args: list[str]
+        """
 
         self.ue_executable = unreal_executable or 'UnrealEditor-Cmd.exe'
 
@@ -29,8 +79,8 @@ class LaunchEditorUnrealOpenJobEnvironment(UnrealOpenJobEnvironment):
 
         super().__init__(file_path, name)
 
-    def build(self):
-        environment_entity = super().build()
+    def build(self) -> Environment:
+        environment_object = self.get_template_object()
 
         launch_script = {
             'actions': {
@@ -40,10 +90,19 @@ class LaunchEditorUnrealOpenJobEnvironment(UnrealOpenJobEnvironment):
                 }
             }
         }
-        if environment_entity.get('script', {}):
-            environment_entity['script'].update(launch_script)
+        if environment_object.get('script', {}):
+            environment_object['script'].update(launch_script)
         else:
-            environment_entity['script'] = launch_script
+            environment_object['script'] = launch_script
 
-        return environment_entity
-
+        environment_created_kwargs = {
+            'name': self.name,
+            'script': EnvironmentScript(
+                **environment_object['script']
+            )
+        }
+        
+        if environment_object.get('variables', {}):
+            environment_created_kwargs['variables'] = environment_object['variables']
+            
+        return self.template_class(**environment_created_kwargs)
