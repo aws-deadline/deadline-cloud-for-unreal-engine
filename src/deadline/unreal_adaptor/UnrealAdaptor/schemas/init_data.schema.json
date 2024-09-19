@@ -3,11 +3,12 @@
     "type": "object",
     "properties": {
         "project_path": { "type": "string" },
-        "extra_cmd_args": { "type": [ "string", "null" ] },
-        "extra_cmd_args_file": { "type": "string" },
-        "executable": {"type":  "string"}
+        "extra_cmd_args": { "type": "string" },
+        "chunk_size": { "type": "integer" }
     },
     "required": [
-        "project_path"
+        "project_path",
+        "extra_cmd_args",
+        "chunk_size"
     ]
 }
