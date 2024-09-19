@@ -2,7 +2,6 @@
 
 #include "CoreMinimal.h"
 #include "PythonAPILibrary.h"
-//#include "Kismet/BlueprintFunctionLibrary.h"
 #include "UObject/Object.h"
 #include "PythonYamlLibrary.generated.h"
 
@@ -64,6 +63,52 @@ struct FStepTaskParameterDefinition
 	FString Range;
 
 };
+
+USTRUCT(BlueprintType)
+struct FStepScriptEmbeddedFiles
+{
+	GENERATED_BODY()
+
+	// Name
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
+	FString Name;
+
+	// Name
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
+	FString FileName;
+
+	// Value	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
+	FString Type;
+
+	// Value	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
+	FString Data;
+
+};
+
+USTRUCT(BlueprintType)
+struct FStepParameterSpace
+{
+	GENERATED_BODY()
+
+	// Name
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
+	TArray<FStepScriptEmbeddedFiles> EmbeddedFiles;
+	TArray<FString> Actions;
+};
+
+USTRUCT(BlueprintType)
+struct FStepScript
+{
+	GENERATED_BODY()
+
+	// Name
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
+	TArray<FStepTaskParameterDefinition> TaskParameterDefinitions;
+
+};
+
 USTRUCT(BlueprintType)
 struct FStepParameterDefinition
 {

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "PythonAPILibraries/PythonYamlLibrary.h"
-//#include "DeadlineCloudStatusHandler.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudJob.h"
 #include "DetailLayoutBuilder.h"
 #include "IDetailCustomization.h"
@@ -9,16 +8,35 @@
 
 class UDeadlineCloudJob;
 
+
 class FDeadlineCloudJobDetails : public IDetailCustomization
 {
 private:
-    TWeakObjectPtr<UDeadlineCloudJob> CustomizedSettings;
-//    TUniquePtr<FDeadlineCloudStatusHandler> DeadlineCloudStatusHandler;
+    TWeakObjectPtr<UDeadlineCloudJob> Settings;
+    TArray <FParameterDefinition> Parameters;
 
 public:
     static TSharedRef<IDetailCustomization> MakeInstance();
+    virtual  void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
+   
+private:
+    FString CurrentFilePath;
+    FString GetCurrentFilePath() const
+    {
+        return CurrentFilePath;
+    }
 
-    // this method is called when we open UDeadlineCloudJob in UI
-    virtual void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
+    void OnFilePathPicked(const FString& PickedPath)
+    {
+        CurrentFilePath = PickedPath;
+    }
+
+    TSharedRef<SWidget> CreateNameWidget(FString Parameter);
+    TSharedRef<SWidget> CreateStringValueWidget(FString Parameter);
+    TSharedRef<SWidget> CreateValuePathWidget(FString Parameter);
+    TSharedRef<SWidget> CreateValuePathDefaultWidget(FString Parameter);
+
+
+
 
 };

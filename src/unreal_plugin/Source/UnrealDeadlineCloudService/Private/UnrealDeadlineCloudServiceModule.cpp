@@ -1,12 +1,10 @@
-﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+﻿// Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealDeadlineCloudServiceModule.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudDeveloperSettings.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudSettingsDetails.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudJobPresetDetailsCustomization.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudJobDetails.h"
-#include "DeadlineCloudJobSettings/DeadlineCloudStepDetails.h"
-#include "DeadlineCloudJobSettings/DeadlineCloudEnvironmentDetails.h"
 
 #include "MovieRenderPipeline/MoviePipelineDeadlineCloudExecutorJob.h"
 
@@ -14,25 +12,15 @@
 
 void FUnrealDeadlineCloudServiceModule::StartupModule()
 {
-    FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
-    PropertyModule.RegisterCustomClassLayout(
-        UDeadlineCloudDeveloperSettings::StaticClass()->GetFName(),
-        FOnGetDetailCustomizationInstance::CreateStatic(&FDeadlineCloudSettingsDetails::MakeInstance)
-    );
-    //job step, environment object details
-    PropertyModule.RegisterCustomClassLayout(
-        UDeadlineCloudJob::StaticClass()->GetFName(),
+	FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
+	PropertyModule.RegisterCustomClassLayout(
+		UDeadlineCloudDeveloperSettings::StaticClass()->GetFName(),
+		FOnGetDetailCustomizationInstance::CreateStatic(&FDeadlineCloudSettingsDetails::MakeInstance)
+	);
+	//
+	PropertyModule.RegisterCustomClassLayout(
+		UDeadlineCloudJob::StaticClass()->GetFName(),
 		FOnGetDetailCustomizationInstance::CreateStatic(&FDeadlineCloudJobDetails::MakeInstance));
-
-	PropertyModule.RegisterCustomClassLayout(
-		UDeadlineCloudStep::StaticClass()->GetFName(),
-		FOnGetDetailCustomizationInstance::CreateStatic(&FDeadlineCloudStepDetails::MakeInstance));
-
-	PropertyModule.RegisterCustomClassLayout(
-		UDeadlineCloudEnvironment::StaticClass()->GetFName(),
-		FOnGetDetailCustomizationInstance::CreateStatic(&FDeadlineCloudEnvironmentDetails::MakeInstance));
-
-
 
 	PropertyModule.RegisterCustomClassLayout(
 		UMoviePipelineDeadlineCloudExecutorJob::StaticClass()->GetFName(),
@@ -47,24 +35,6 @@ void FUnrealDeadlineCloudServiceModule::StartupModule()
 	PropertyModule.RegisterCustomPropertyTypeLayout(
 		FDeadlineCloudHostRequirementsStruct::StaticStruct()->GetFName(),
 		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FDeadlineCloudJobPresetDetailsCustomization::MakeInstance));
-
-	PropertyModule.RegisterCustomPropertyTypeLayout(
-		FDeadlineCloudJobParametersArray::StaticStruct()->GetFName(),
-		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FDeadlineCloudJobParametersArrayCustomization::MakeInstance));
-
-	//Step details arrays 
-	PropertyModule.RegisterCustomPropertyTypeLayout(
-		FDeadlineCloudStepParametersArray::StaticStruct()->GetFName(),
-		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FDeadlineCloudStepParametersArrayCustomization::MakeInstance));
-
-	PropertyModule.RegisterCustomPropertyTypeLayout(
-		FStepTaskParameterDefinition::StaticStruct()->GetFName(),
-		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FDeadlineCloudStepParameterListCustomization::MakeInstance));
-
-	// Environment details customization
-	PropertyModule.RegisterCustomPropertyTypeLayout(
-		FDeadlineCloudEnvironmentVariablesMap::StaticStruct()->GetFName(),
-		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FDeadlineCloudEnvironmentParametersMapCustomization::MakeInstance));
 
 	// Paths details
 	PropertyModule.RegisterCustomPropertyTypeLayout(
