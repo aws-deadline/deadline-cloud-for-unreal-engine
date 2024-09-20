@@ -30,13 +30,10 @@ private:
     {
         CurrentFilePath = PickedPath;
     }
-
+public:
     TSharedRef<SWidget> CreateNameWidget(FString Parameter);
     TSharedRef<SWidget> CreateStringValueWidget(FString Parameter);
     TSharedRef<SWidget> CreateValuePathWidget(FString Parameter);
     TSharedRef<SWidget> CreateValuePathDefaultWidget(FString Parameter);
-
-
-
 
 };

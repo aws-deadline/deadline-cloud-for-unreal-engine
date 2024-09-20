@@ -5,6 +5,7 @@
 #include "DeadlineCloudJobSettings/DeadlineCloudSettingsDetails.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudJobPresetDetailsCustomization.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudJobDetails.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudStepDetails.h"
 
 #include "MovieRenderPipeline/MoviePipelineDeadlineCloudExecutorJob.h"
 
@@ -17,10 +18,15 @@ void FUnrealDeadlineCloudServiceModule::StartupModule()
 		UDeadlineCloudDeveloperSettings::StaticClass()->GetFName(),
 		FOnGetDetailCustomizationInstance::CreateStatic(&FDeadlineCloudSettingsDetails::MakeInstance)
 	);
-	//
+	//job and step object details
 	PropertyModule.RegisterCustomClassLayout(
 		UDeadlineCloudJob::StaticClass()->GetFName(),
 		FOnGetDetailCustomizationInstance::CreateStatic(&FDeadlineCloudJobDetails::MakeInstance));
+
+	PropertyModule.RegisterCustomClassLayout(
+		UDeadlineCloudStep::StaticClass()->GetFName(),
+		FOnGetDetailCustomizationInstance::CreateStatic(&FDeadlineCloudStepDetails::MakeInstance));
+
 
 	PropertyModule.RegisterCustomClassLayout(
 		UMoviePipelineDeadlineCloudExecutorJob::StaticClass()->GetFName(),

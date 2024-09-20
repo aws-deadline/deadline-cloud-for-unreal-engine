@@ -35,41 +35,44 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
         file = open(path, 'r')
         result = yaml.safe_load(file)
 
-        struct = unreal.StepParameterDefinition() # get struct
-        structs = list()
+        step_struct = unreal.StepParameterSpace() # get struct
+        step_structs = list()
         struct_task = unreal.StepTaskParameterDefinition()  # get struct
+        struct_tasks = list()
+        enum_value = unreal.ValueType  # get enum for struct
 
-        data = result['steps']
+        steps_ = result['steps'] #steps = parameterSpaces
 
         # check if list
-        if isinstance(data, list):
-            for index, item in enumerate(data):
+        if isinstance(steps_, list):
+            for index, item in enumerate(steps_):
                 name_ = (item['name'])
-                struct.name = name_
+                step_struct.name = name_
 
-                data_space = item['parameterSpace']
-                data_def = data_space['taskParameterDefinitions']
-                if isinstance(data_def, list):
-                    for index, item_ in enumerate(data_def):
-                        name_t = (item['name'])
+                step_space = item['parameterSpace']
+                task_def = step_space['taskParameterDefinitions']
+                if isinstance(task_def, list):
+                    for index, item_ in enumerate(task_def):
+                        name_t = (item_['name'])
                         struct_task.name = name_t
-                        #todo: function to parse enums
-                        #struct_task.type
-                        range_t = (item['range'])
-                        struct_task.range = range_t
 
-                struct.task = struct_task
+                        stype = (item_['type'])
+                        enum_value = getattr(unreal.ValueType, stype)
+                        struct_task.type = enum_value
 
+                        struct_tasks.append(struct_task.copy())
+
+                step_struct.step_task_parameter_definition = struct_tasks
                 
-                script_ = (item['script'])
-                struct.script = script_
-                structs.append(struct.copy())
+               # script_ = (item['script'])
+               # struct.script = script_
+                step_structs.append(step_struct.copy())
         else:
             print("parameterDefinitions is not a list")
 
 
 
-        return structs
+        return step_structs
 
 
 

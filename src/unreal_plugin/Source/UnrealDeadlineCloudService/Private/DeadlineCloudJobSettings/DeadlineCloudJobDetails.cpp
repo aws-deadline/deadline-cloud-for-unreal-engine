@@ -129,9 +129,7 @@ TSharedRef<SWidget> FDeadlineCloudJobDetails::CreateValuePathDefaultWidget(FStri
         .AutoWidth()
         [
             SNew(SFilePathPicker)
-                // .BrowseButtonToolTip(LOCTEXT("BrowseButtonToolTip", "Âûבונטעו פאיכ"))
-                // .FilePath(this, &FDeadlineCloudJobDetails::GetCurrentFilePath)
-                // .OnPathPicked(this, &FDeadlineCloudJobDetails::OnFilePathPicked)
+
                 .BrowseDirectory(TEXT("C:/"))
                 .BrowseTitle(LOCTEXT("BinaryPathBrowseTitle", "File picker..."))
                 .FilePath(TEXT("C:/"))

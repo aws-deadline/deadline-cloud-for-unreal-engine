@@ -12,12 +12,12 @@ class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudStep : public UObject
 public:
 
 	UDeadlineCloudStep();
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
+	//Config,
+	UPROPERTY( EditAnywhere, BlueprintReadWrite, Category = "Parameters")
 	FFilePath PathToTemplate;
 
 	/** Read path */
 	UFUNCTION()
-	TArray <FStepParameterDefinition> OpenStepFile(const FString& Path);
+	TArray <FStepParameterSpace> OpenStepFile(const FString& Path);
 
 };

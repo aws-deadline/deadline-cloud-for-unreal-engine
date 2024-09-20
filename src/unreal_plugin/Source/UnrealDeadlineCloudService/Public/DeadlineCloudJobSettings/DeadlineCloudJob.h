@@ -20,6 +20,4 @@ public:
 	UFUNCTION()
 	TArray <FParameterDefinition> OpenJobFile(const FString& Path);
 
-	//TArray <FParameterDefinition> jobParameters;
-
 };

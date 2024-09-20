@@ -51,39 +51,16 @@ struct FStepTaskParameterDefinition
 	GENERATED_BODY()
 
 	// Name
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
 	FString Name;
 
 	// Value	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
 	EValueType Type;
 
 	// Value	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
-	FString Range;
-
-};
-
-USTRUCT(BlueprintType)
-struct FStepScriptEmbeddedFiles
-{
-	GENERATED_BODY()
-
-	// Name
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
-	FString Name;
-
-	// Name
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
-	FString FileName;
-
-	// Value	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
-	FString Type;
-
-	// Value	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
-	FString Data;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
+	TArray <FString> Range;
 
 };
 
@@ -93,40 +70,19 @@ struct FStepParameterSpace
 	GENERATED_BODY()
 
 	// Name
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
-	TArray<FStepScriptEmbeddedFiles> EmbeddedFiles;
-	TArray<FString> Actions;
-};
-
-USTRUCT(BlueprintType)
-struct FStepScript
-{
-	GENERATED_BODY()
-
-	// Name
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
-	TArray<FStepTaskParameterDefinition> TaskParameterDefinitions;
-
-};
-
-USTRUCT(BlueprintType)
-struct FStepParameterDefinition
-{
-	GENERATED_BODY()
-
-	// Name
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
 	FString Name;
 
 	// Value	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
-	FStepTaskParameterDefinition Task;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
+	TArray<FStepTaskParameterDefinition> StepTaskParameterDefinition;
 
 	// Value	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
-	FString Script;
+	//UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
+	//FString Script;
 
 };
+
 
 
 
@@ -143,8 +99,8 @@ public:
 	UFUNCTION(BlueprintImplementableEvent)
 	TArray <FParameterDefinition> OpenJobFile(const FString& Path);
 
-	// step
+	// steps (FStepParameterSpace> array
 	UFUNCTION(BlueprintImplementableEvent)
-	TArray <FStepParameterDefinition> OpenStepFile(const FString& Path);
+	TArray <FStepParameterSpace> OpenStepFile(const FString& Path);
 };
 	
