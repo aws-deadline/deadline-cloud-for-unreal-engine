@@ -1,6 +1,8 @@
 #pragma once
 
 #include "PythonAPILibraries/PythonYamlLibrary.h"
+#include "DeadlineCloudStep.h"
+#include "DeadlineCloudEnvironment.h"
 #include "DeadlineCloudJob.generated.h"
 
 
@@ -15,6 +17,11 @@ public:
 
 	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Parameters")
 	FFilePath PathToTemplate;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
+	//UDeadlineCloudStep* Step;
+	TArray<UDeadlineCloudStep*> Steps;
+	UDeadlineCloudEnvironment* Environment;
 	
 	/*Read path */
 	UFUNCTION()

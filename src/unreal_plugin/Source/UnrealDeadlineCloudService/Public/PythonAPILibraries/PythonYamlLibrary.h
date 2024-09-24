@@ -28,11 +28,11 @@ struct FParameterDefinition
 	GENERATED_BODY()
 
 	// Name
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
 	FString Name;
 
-	// Value	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Name-Value Pair")
+	// Type	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
 	EValueType Type;
 
 
@@ -50,15 +50,15 @@ struct FStepTaskParameterDefinition
 {
 	GENERATED_BODY()
 
-	// Name
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
 	FString Name;
 
-	// Value	
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
 	EValueType Type;
 
-	// Value	
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
 	TArray <FString> Range;
 
@@ -73,7 +73,7 @@ struct FStepParameterSpace
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
 	FString Name;
 
-	// Value	
+	// Tasks Array	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
 	TArray<FStepTaskParameterDefinition> StepTaskParameterDefinition;
 
@@ -83,6 +83,26 @@ struct FStepParameterSpace
 
 };
 
+/*
+Env .yaml struct
+ */
+
+USTRUCT(BlueprintType)
+struct FEnvironmentParameterDefinition
+{
+	GENERATED_BODY()
+
+	// Name
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Environment")
+	FString Name;
+
+	// Value	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Environment")
+	FString Description;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
+	TArray <FString> Variables;
+};
 
 
 
@@ -99,8 +119,12 @@ public:
 	UFUNCTION(BlueprintImplementableEvent)
 	TArray <FParameterDefinition> OpenJobFile(const FString& Path);
 
-	// steps (FStepParameterSpace> array
+	// steps 
 	UFUNCTION(BlueprintImplementableEvent)
 	TArray <FStepParameterSpace> OpenStepFile(const FString& Path);
+
+	// env
+	UFUNCTION(BlueprintImplementableEvent)
+	TArray <FEnvironmentParameterDefinition> OpenEnvFile(const FString& Path);
 };
 	

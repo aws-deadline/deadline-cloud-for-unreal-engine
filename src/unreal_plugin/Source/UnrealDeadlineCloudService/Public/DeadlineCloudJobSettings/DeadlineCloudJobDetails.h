@@ -5,6 +5,28 @@
 #include "DetailLayoutBuilder.h"
 #include "IDetailCustomization.h"
 
+ #include "Fonts/SlateFontInfo.h"
+ #include "Misc/App.h"
+ #include "Misc/FileHelper.h"
+ #include "Misc/Paths.h"
+ #include "Modules/ModuleManager.h"
+ #include "Styling/SlateTypes.h"
+ #include "Widgets/SBoxPanel.h"
+ #include "Widgets/Text/STextBlock.h"
+ #include "Widgets/Input/SButton.h"
+ #include "Widgets/Input/SCheckBox.h"
+ #include "Widgets/Input/SEditableTextBox.h"
+ #include "Widgets/Input/SFilePathPicker.h"
+ #include "Widgets/Input/SMultiLineEditableTextBox.h"
+ #include "Widgets/Layout/SBorder.h"
+ #include "Widgets/Layout/SSeparator.h"
+ #include "Widgets/Notifications/SNotificationList.h"
+ #include "Framework/Notifications/NotificationManager.h"
+ #include "EditorDirectories.h"
+ #include "EditorStyleSet.h"
+ #include "SourceControlOperations.h"
+
+
 
 class UDeadlineCloudJob;
 
@@ -16,24 +38,21 @@ private:
     TArray <FParameterDefinition> Parameters;
 
 public:
+    //
     static TSharedRef<IDetailCustomization> MakeInstance();
     virtual  void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
    
 private:
-    FString CurrentFilePath;
-    FString GetCurrentFilePath() const
-    {
-        return CurrentFilePath;
-    }
 
-    void OnFilePathPicked(const FString& PickedPath)
-    {
-        CurrentFilePath = PickedPath;
-    }
-public:
+    FString CurrentFilePath;
+    FString GetCurrentFilePath() const;
+
+    void SetCurrentFilePath(const FString& PickedPath);
+    void OnCurrentPathPicked(const FString& PickedPath);
+
     TSharedRef<SWidget> CreateNameWidget(FString Parameter);
-    TSharedRef<SWidget> CreateStringValueWidget(FString Parameter);
-    TSharedRef<SWidget> CreateValuePathWidget(FString Parameter);
-    TSharedRef<SWidget> CreateValuePathDefaultWidget(FString Parameter);
+    TSharedRef<SWidget> CreateStringWidget(FString Parameter);
+    TSharedRef<SWidget> CreatePathWidget(FString Parameter);
+
 
 };

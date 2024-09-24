@@ -15,21 +15,13 @@ private:
     TWeakObjectPtr<UDeadlineCloudStep> Settings;
     TArray <FStepParameterSpace> StepParameters;
 
+
 public:
     static TSharedRef<IDetailCustomization> MakeInstance();
     virtual  void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
 
 private:
-    FString CurrentFilePath;
-    FString GetCurrentFilePath() const
-    {
-        return CurrentFilePath;
-    }
-
-    void OnFilePathPicked(const FString& PickedPath)
-    {
-        CurrentFilePath = PickedPath;
-    }
-
+    TSharedRef<SWidget> GenerateStringsArrayContent(const TArray<FString>& StringArray);
+    TSharedRef<SWidget> GenerateTasksContent(const TArray<FStepTaskParameterDefinition> tasks);
 
 };

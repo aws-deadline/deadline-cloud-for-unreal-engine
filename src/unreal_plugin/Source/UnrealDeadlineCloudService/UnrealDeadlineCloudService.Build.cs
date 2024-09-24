@@ -26,7 +26,12 @@ public class UnrealDeadlineCloudService : ModuleRules
                     "Slate",
 					"SlateCore",
 					"EditorWidgets",
+                                    "Core",
+                "CoreUObject",
+                "Engine",
+                "Slate",
 
+                "InputCore",
                     "DesktopWidgets",
             }
 			);
@@ -45,6 +50,7 @@ public class UnrealDeadlineCloudService : ModuleRules
 				"EditorStyle",
                 "EditorWidgets",
                 "DesktopWidgets",
+                 "DesktopPlatform",
                 "UnrealEd",
 				"LevelEditor",
 				"InteractiveToolsFramework",

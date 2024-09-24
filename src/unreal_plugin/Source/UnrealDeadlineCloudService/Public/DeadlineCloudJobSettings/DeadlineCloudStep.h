@@ -6,7 +6,7 @@
 
 
 UCLASS(BlueprintType, Blueprintable)
-class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudStep : public UObject
+class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudStep : public UPrimaryDataAsset
 {
 	GENERATED_BODY()
 public:
@@ -19,5 +19,4 @@ public:
 	/** Read path */
 	UFUNCTION()
 	TArray <FStepParameterSpace> OpenStepFile(const FString& Path);
-
 };
