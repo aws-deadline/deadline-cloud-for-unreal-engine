@@ -1,16 +1,20 @@
-// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-
 #pragma once
+
 #include "PythonAPILibraries/PythonYamlLibrary.h"
 #include "DeadlineCloudJob.h"
 #include "DeadlineCloudRenderJob.generated.h"
 
-UCLASS(BlueprintType)
+
+UCLASS(BlueprintType, Blueprintable)
 class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudRenderJob : public UDeadlineCloudJob
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
 public:
 
-    UDeadlineCloudRenderJob() {};
+	UDeadlineCloudRenderJob() {};
+
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Parameters")
+	int TaskChunkSize;
+
 
 };

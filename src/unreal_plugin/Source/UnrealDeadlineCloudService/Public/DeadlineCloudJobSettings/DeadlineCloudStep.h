@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PythonAPILibraries/PythonYamlLibrary.h"
+#include "DeadlineCloudEnvironment.h"
 #include "DeadlineCloudStep.generated.h"
 
 
@@ -12,9 +13,15 @@ class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudStep : public UPrimaryDataAss
 public:
 
 	UDeadlineCloudStep();
-	//Config,
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
+	FString depends_on;
+
 	UPROPERTY( EditAnywhere, BlueprintReadWrite, Category = "Parameters")
 	FFilePath PathToTemplate;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
+	UDeadlineCloudEnvironment* Environment;
 
 	/** Read path */
 	UFUNCTION()
