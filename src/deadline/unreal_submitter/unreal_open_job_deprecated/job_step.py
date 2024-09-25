@@ -196,7 +196,9 @@ class CustomScriptJobStep(JobStep):
         """
         Build JobStep, set its name, fill dependencies list and set script path parameter
         """
-        super().__init__(step_template, step_settings, host_requirements, queue_manifest_path, shots_count, task_chunk_size)
+        super().__init__(
+            step_template, step_settings, host_requirements, queue_manifest_path, shots_count, task_chunk_size
+        )
 
         self._set_script_path_parameter(os_abs_from_relative(step_settings.script.file_path))
 
@@ -249,7 +251,9 @@ class RenderJobStep(JobStep):
         """
         Build JobStep, set its name, fill dependencies list and set queue manifest path parameter
         """
-        super().__init__(step_template, step_settings, host_requirements, queue_manifest_path)
+        super().__init__(
+            step_template, step_settings, host_requirements, queue_manifest_path, shots_count, task_chunk_size
+        )
 
         self._set_queue_manifest_path_parameter(queue_manifest_path)
         self._set_step_chunk_id_parameter(shots_count, task_chunk_size)

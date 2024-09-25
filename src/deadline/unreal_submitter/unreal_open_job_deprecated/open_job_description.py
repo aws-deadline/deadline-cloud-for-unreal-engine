@@ -145,7 +145,6 @@ class OpenJobDescription:
         self._asset_references = AssetReferences()
         self._job_bundle_path: str
 
-        cmd_args = self._get_ue_cmd_args(mrq_job)
         self._create_open_job_from_mrq_job(mrq_job)
 
     @property
@@ -164,9 +163,7 @@ class OpenJobDescription:
 
     def _create_open_job_from_mrq_job(
             self,
-            mrq_job: unreal.MoviePipelineExecutorJob,
-            extra_cmd_args: list[str],
-            task_chunk_size: int
+            mrq_job: unreal.MoviePipelineExecutorJob
     ) -> None:
         """
         Creates an OpenJob representation from the unreal.MoviePipelineExecutorJob.
@@ -197,7 +194,7 @@ class OpenJobDescription:
         self._build_steps(mrq_job)
         self._open_job["steps"] = [step.as_dict() for step in self._steps]
 
-        self._build_parameter_values_dict(mrq_job, extra_cmd_args, task_chunk_size)
+        self._build_parameter_values_dict(mrq_job)
         self._build_asset_references(mrq_job)
 
         self._build_job_bundle()
@@ -231,7 +228,7 @@ class OpenJobDescription:
         return level_sequence_dependencies + level_dependencies + [level_sequence_path, level_path]
 
     def _build_parameter_values_dict(
-            self, mrq_job: unreal.MoviePipelineExecutorJob, extra_cmd_args: list[str], task_chunk_size: int
+            self, mrq_job: unreal.MoviePipelineExecutorJob
     ) -> dict:
         """
         Build parameter values of the OpenJob with the given MRQ Job.
@@ -256,6 +253,9 @@ class OpenJobDescription:
         # TODO handling unreal substitution templates
         output_path = output_path.replace("{project_dir}", project_directory)
 
+        task_chunk_size = mrq_job.preset_overrides.job_shared_settings.task_chunk_size
+        cmd_args = self._get_ue_cmd_args(mrq_job)
+
         parameter_values = [
             {
                 "name": "LevelPath",
@@ -279,7 +279,7 @@ class OpenJobDescription:
             },
             {
                 "name": "ExtraCmdArgs",
-                "value": " ".join(extra_cmd_args)
+                "value": " ".join(cmd_args)
             },
             {
                 "name": "ChunkSize",
