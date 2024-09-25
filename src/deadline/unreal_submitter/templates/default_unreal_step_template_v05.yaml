@@ -21,7 +21,6 @@ steps:
       data: |
         handler: {{Task.Param.Handler}}
         queue_manifest_path: {{Task.Param.QueueManifestPath}}
-        chunk_size: {{Param.ChunkSize}}
         chunk_id: {{Task.Param.ChunkId}}
     - name: initData
       filename: init-data.yaml
@@ -29,6 +28,7 @@ steps:
       data: |
         project_path: {{Param.ProjectFilePath}}
         extra_cmd_args: {{Param.ExtraCmdArgs}}
+        chunk_size: {{Param.ChunkSize}}
     actions:
       onRun:
         command: UnrealAdaptor
