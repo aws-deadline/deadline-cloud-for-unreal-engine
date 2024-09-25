@@ -44,15 +44,7 @@ public:
    
 private:
 
-    FString CurrentFilePath;
-    FString GetCurrentFilePath() const;
-
-    void SetCurrentFilePath(const FString& PickedPath);
-    void OnCurrentPathPicked(const FString& PickedPath);
-
     TSharedRef<SWidget> CreateNameWidget(FString Parameter);
     TSharedRef<SWidget> CreateStringWidget(FString Parameter);
     TSharedRef<SWidget> CreatePathWidget(FString Parameter);
-
-
 };

@@ -16,17 +16,51 @@
 
 #define LOCTEXT_NAMESPACE "JobDetails"
 
-void FDeadlineCloudJobDetails::SetCurrentFilePath(const FString& PickedPath)
+/* SFilePathPicker widget wrapper with selected path */
+
+class  SFilePathWidget : public SCompoundWidget
 {
-        CurrentFilePath = PickedPath;
+public:
+    SLATE_BEGIN_ARGS(SFilePathWidget) {}
+    SLATE_END_ARGS()
+
+    void Construct(const FArguments& InArgs);
+
+private:
+    FString SelectedFilePath;
+    FString GetSelectedFilePath() const;
+    void OnPathPicked(const FString& PickedPath);
+};
+
+void SFilePathWidget::Construct(const FArguments& InArgs)
+{
+    ChildSlot
+        [
+            SNew(SVerticalBox)
+                + SVerticalBox::Slot()
+                .Padding(10)
+                [
+                    SNew(SFilePathPicker)
+                        .BrowseButtonImage(FAppStyle::GetBrush("PropertyWindow.Button_Ellipsis"))
+                        .BrowseButtonStyle(FAppStyle::Get(), "HoverHintOnly")
+                        .BrowseButtonToolTip(LOCTEXT("FileButtonToolTipText", "Choose a file from this computer"))
+                        .BrowseDirectory(FEditorDirectories::Get().GetLastDirectory(ELastDirectory::GENERIC_OPEN))
+                        .FilePath(this, &SFilePathWidget::GetSelectedFilePath)
+                        .OnPathPicked(this, &SFilePathWidget::OnPathPicked)
+                ]
+        ];
 }
 
-FString FDeadlineCloudJobDetails::GetCurrentFilePath() const
+void SFilePathWidget::OnPathPicked(const FString& PickedPath)
 {
-    return CurrentFilePath;
+    SelectedFilePath = PickedPath;
 }
 
-/*Functions to construct Slate name-value widgets pair*/
+FString SFilePathWidget::GetSelectedFilePath() const
+{
+    return SelectedFilePath;
+}
+
 TSharedRef<SWidget> FDeadlineCloudJobDetails::CreateStringWidget(FString Parameter)
 {
     return  SNew(SHorizontalBox)
@@ -39,29 +73,10 @@ TSharedRef<SWidget> FDeadlineCloudJobDetails::CreateStringWidget(FString Paramet
         ];
 }
 
-
 TSharedRef<SWidget> FDeadlineCloudJobDetails::CreatePathWidget(FString Parameter)
 {
-    TSharedRef<SFilePathPicker> PPicker = SNew(SFilePathPicker)
-        .BrowseButtonImage(FAppStyle::GetBrush("PropertyWindow.Button_Ellipsis"))
-
-        .BrowseButtonStyle(FAppStyle::Get(), "HoverHintOnly")
-        .BrowseButtonToolTip(LOCTEXT("FileButtonToolTipText", "Choose a file from this computer"))
-        .BrowseDirectory(FEditorDirectories::Get().GetLastDirectory(ELastDirectory::GENERIC_OPEN))
-        .BrowseTitle(LOCTEXT("OpenFile", "OpenFile"));
-
- 
-       // .FilePath(this, &FDeadlineCloudJobDetails::GetCurrentFilePath)
-       // .OnPathPicked(this, &FDeadlineCloudJobDetails::OnCurrentPathPicked);
-
-
-        return  PPicker;
-
-}
-
-void FDeadlineCloudJobDetails::OnCurrentPathPicked(const FString& PickedPath) 
-{
-        SetCurrentFilePath(PickedPath);
+    TSharedRef<SFilePathWidget> PathPicker = SNew(SFilePathWidget);
+    return  PathPicker;
 }
 
 TSharedRef<SWidget> FDeadlineCloudJobDetails::CreateNameWidget(FString Parameter)
@@ -72,21 +87,21 @@ TSharedRef<SWidget> FDeadlineCloudJobDetails::CreateNameWidget(FString Parameter
         .AutoWidth()
         [
             SNew(STextBlock)
-            .Text(FText::FromString(Parameter))
+                .Text(FText::FromString(Parameter))
         ];
 };
 
 /*Details*/
 TSharedRef<IDetailCustomization> FDeadlineCloudJobDetails::MakeInstance()
 {
-	return MakeShareable(new FDeadlineCloudJobDetails);
+    return MakeShareable(new FDeadlineCloudJobDetails);
 }
 
 void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
-	TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
-	DetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
-	Settings = Cast<UDeadlineCloudJob>(ObjectsBeingCustomized[0].Get());
+    TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
+    DetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
+    Settings = Cast<UDeadlineCloudJob>(ObjectsBeingCustomized[0].Get());
 
     if (Settings->PathToTemplate.FilePath.Len() > 0)
     {

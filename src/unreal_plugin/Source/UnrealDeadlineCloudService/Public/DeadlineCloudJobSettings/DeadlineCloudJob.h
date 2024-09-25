@@ -21,6 +21,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
 	//UDeadlineCloudStep* Step;
 	TArray<UDeadlineCloudStep*> Steps;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
 	UDeadlineCloudEnvironment* Environment;
 	
 	/*Read path */
