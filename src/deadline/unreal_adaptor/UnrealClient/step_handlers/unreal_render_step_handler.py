@@ -202,15 +202,12 @@ class UnrealRenderStepHandler(BaseStepHandler):
             task_chunk_id: int
     ):
         shot_info = render_job.shot_info
-        chunks = [shot_info[i:i + task_chunk_size] for i in range(0, len(shot_info), task_chunk_size)]
-
-        if task_chunk_id < len(chunks):
-            shots_to_enable = chunks[task_chunk_id]
-        else:
-            shots_to_enable = []
-
+        all_shots_to_render = [shot for shot in shot_info if shot.enabled]
+        shots_chunk = all_shots_to_render[
+            task_chunk_id * task_chunk_size: (task_chunk_id + 1) * task_chunk_size
+        ]
         for shot in shot_info:
-            if shot in shots_to_enable:
+            if shot in shots_chunk:
                 shot.enabled = True
             else:
                 shot.enabled = False
