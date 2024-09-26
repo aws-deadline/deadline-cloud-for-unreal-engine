@@ -201,12 +201,11 @@ class UnrealRenderStepHandler(BaseStepHandler):
             task_chunk_size: int,
             task_chunk_id: int
     ):
-        shot_info = render_job.shot_info
-        all_shots_to_render = [shot for shot in shot_info if shot.enabled]
+        all_shots_to_render = [shot for shot in render_job.shot_info if shot.enabled]
         shots_chunk = all_shots_to_render[
             task_chunk_id * task_chunk_size: (task_chunk_id + 1) * task_chunk_size
         ]
-        for shot in shot_info:
+        for shot in render_job.shot_info:
             if shot in shots_chunk:
                 shot.enabled = True
             else:
@@ -247,6 +246,13 @@ class UnrealRenderStepHandler(BaseStepHandler):
                     task_chunk_size=args['chunk_size'],
                     task_chunk_id=args['chunk_id']
                 )
+
+        unreal.log(f"Render chunk: {args.get('chunk_id')}")
+        unreal.log(f"Render chunk size: {args.get('chunk_size')}")
+        for job in subsystem.get_queue().get_jobs():
+            for shot in job.shot_info:
+                if shot.enabled:
+                    unreal.log(f"Shot to render: {shot.outer_name}: {shot.inner_name}")
 
         # Initialize Render executor
         executor = RemoteRenderMoviePipelineEditorExecutor()
