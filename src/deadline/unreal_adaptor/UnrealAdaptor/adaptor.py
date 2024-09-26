@@ -280,7 +280,23 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
 
         unreal_exe = "UnrealEditor-Cmd"
         unreal_project_path = self.init_data.get("project_path", "")
-        extra_cmd_args = self.init_data.get("extra_cmd_args", "").split(" ")
+
+        extra_cmd_str = self.init_data.get("extra_cmd_args", "")
+
+        match = re.search(r'-execcmds="([^"]*)"', extra_cmd_str)
+        if match:
+            execcmds_value = match.group(1)
+            execcmds_value.strip('"')
+        else:
+            execcmds_value = None
+
+        extra_cmd_str = re.sub(
+            ".(?P<cmds>-execcmds=[\w\W]+[\'\"])",
+            "",
+            extra_cmd_str
+        )
+        extra_cmd_args = extra_cmd_str.split(" ")
+
         client_path = self.unreal_client_path.replace("\\", "/")
         log_args = [
             "-log",
@@ -299,12 +315,12 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         args = list(dict.fromkeys(args))  # Remove duplicates
         # args.append(f"-execcmds=r.HLOD 0,py {client_path}")
 
-        exec_cmds_entry = next((i for i, arg in enumerate(args) if "-execcmds" in arg), None)
-        if exec_cmds_entry is not None:
-            args[exec_cmds_entry] = args[exec_cmds_entry].rstrip('"')
-            args[exec_cmds_entry] += f',py {client_path}"'
+        if execcmds_value is not None:
+            execcmds_value = f'-execcmds="{execcmds_value},py {client_path}"'
         else:
-            args.append(f'-execcmds="r.HLOD 0,py {client_path}"')
+            execcmds_value = f'-execcmds="r.HLOD 0,py {client_path}"'
+
+        args.append(execcmds_value)
 
         logger.info(f"Starting Unreal Engine with args: {args}")
 
