@@ -280,7 +280,6 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
 
         unreal_exe = "UnrealEditor-Cmd"
         unreal_project_path = self.init_data.get("project_path", "")
-
         extra_cmd_str = self.init_data.get("extra_cmd_args", "")
 
         # Everythiing between -execcmds=" and " is the value we want to keep
@@ -425,7 +424,13 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
 
         # Set up the step handler
         self._action_queue.enqueue_action(
-            Action("set_handler", {"handler": run_data.get("handler", "base")})
+            Action(
+                "set_handler",
+                {
+                   "handler": run_data.get("handler", "base"),
+                   "chunk_size": self.init_data.get("chunk_size", 1)
+                }
+            )
         )
 
         self._unreal_is_rendering = True
