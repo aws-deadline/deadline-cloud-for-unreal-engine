@@ -12,6 +12,9 @@ steps:
     - name: ChunkId
       type: INT
       range: []
+    - name: ChunkSize
+      type: INT
+      range: []
 
   script:
     embeddedFiles:
@@ -22,13 +25,13 @@ steps:
         handler: {{Task.Param.Handler}}
         queue_manifest_path: {{Task.Param.QueueManifestPath}}
         chunk_id: {{Task.Param.ChunkId}}
+        chunk_size: {{Task.Param.ChunkSize}}
     - name: initData
       filename: init-data.yaml
       type: TEXT
       data: |
         project_path: {{Param.ProjectFilePath}}
         extra_cmd_args: {{Param.ExtraCmdArgs}}
-        chunk_size: {{Param.ChunkSize}}
     actions:
       onRun:
         command: UnrealAdaptor

@@ -316,8 +316,6 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         args = [arg for arg in args if arg]  # Remove empty strings
         args = list(dict.fromkeys(args))     # Remove duplicates
 
-        args.append(f"-ChunkSize={self.init_data.get('chunk_size', 1)}")
-
         # Add the execcmds argument back to the args
         if execcmds_value is not None:
             execcmds_value = f'-execcmds={execcmds_value},py {client_path}'

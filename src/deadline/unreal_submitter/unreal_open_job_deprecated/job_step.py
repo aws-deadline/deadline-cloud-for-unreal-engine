@@ -256,7 +256,7 @@ class RenderJobStep(JobStep):
         )
 
         self._set_queue_manifest_path_parameter(queue_manifest_path)
-        self._set_step_chunk_id_parameter(shots_count, task_chunk_size)
+        self._set_step_chunk_parameters(shots_count, task_chunk_size)
 
     def _set_name(self, step_settings):
         """
@@ -277,18 +277,17 @@ class RenderJobStep(JobStep):
             parameter_name="QueueManifestPath", path_value=queue_manifest_path
         )
 
-    def _set_step_chunk_id_parameter(self, shots_count: int, task_chunk_size: int):
+    def _set_step_chunk_parameters(self, shots_count: int, task_chunk_size: int):
         task_chunk_ids_count = math.ceil(shots_count / task_chunk_size)
         task_chunk_ids = [i for i in range(task_chunk_ids_count)]
         task_chunk_id = {'name': 'ChunkId', 'type': 'INT', 'range': task_chunk_ids}
-
-        # TODO remove after tests
-        import unreal
-        unreal.log(f"Task Chunk ID: {shots_count} {task_chunk_id}")
+        task_chunk_size = {'name': 'ChunkSize', 'type': 'INT', 'range': [task_chunk_size]}
 
         for param_definition in self._job_step["parameterSpace"]['taskParameterDefinitions']:
             if param_definition['name'] == task_chunk_id['name']:
                 param_definition.update(task_chunk_id)
+            if param_definition['name'] == task_chunk_size['name']:
+                param_definition['range'] = [task_chunk_size]
 
 
 @dataclass
