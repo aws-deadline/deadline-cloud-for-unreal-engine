@@ -296,8 +296,10 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         args.extend(log_args)
         args.extend(extra_cmd_args)
         args = [arg for arg in args if arg]  # Remove empty strings
-        args = list(set(args))  # Remove duplicates
+        args = list(dict.fromkeys(args))  # Remove duplicates
         args.append(f"-execcmds=r.HLOD 0,py {client_path}")
+
+        logger.info(f"Starting Unreal Engine with args: {args}")
 
         regexhandler = RegexHandler(self._get_regex_callbacks())
         self._unreal_client = UnrealSubprocessWithLogs(
