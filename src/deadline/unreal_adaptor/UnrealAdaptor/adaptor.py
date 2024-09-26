@@ -297,7 +297,13 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         args.extend(extra_cmd_args)
         args = [arg for arg in args if arg]  # Remove empty strings
         args = list(dict.fromkeys(args))  # Remove duplicates
-        args.append(f"-execcmds=r.HLOD 0,py {client_path}")
+        # args.append(f"-execcmds=r.HLOD 0,py {client_path}")
+
+        exec_cmds_entry = next((i for i, arg in enumerate(args) if "-execcmds" in arg), None)
+        if exec_cmds_entry is not None:
+            args[exec_cmds_entry] += f",py {client_path}"
+        else:
+            args.append(f"-execcmds=py {client_path}")
 
         logger.info(f"Starting Unreal Engine with args: {args}")
 
