@@ -226,6 +226,10 @@ class UnrealRenderStepHandler(BaseStepHandler):
 
         subsystem = unreal.get_editor_subsystem(unreal.MoviePipelineQueueSubsystem)
 
+        (_, _, cmd_parameters) = unreal.SystemLibrary.parse_command_line(
+            unreal.SystemLibrary.get_command_line())
+        chunk_size = cmd_parameters.get("ChunkSize", None)
+
         if args.get("queue_manifest_path"):
             UnrealRenderStepHandler.create_queue_from_manifest(
                 movie_pipeline_queue_subsystem=subsystem,
@@ -239,11 +243,11 @@ class UnrealRenderStepHandler(BaseStepHandler):
                 job_configuration_path=args.get("job_configuration_path", ""),
             )
 
-        if args.get('chunk_size') and args.get('chunk_id'):
+        if chunk_size and args.get('chunk_id'):
             for job in subsystem.get_queue().get_jobs():
                 UnrealRenderStepHandler.enable_shots_by_chunk(
                     render_job=job,
-                    task_chunk_size=args['chunk_size'],
+                    task_chunk_size=chunk_size,
                     task_chunk_id=args['chunk_id']
                 )
 

@@ -310,7 +310,7 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
             "-allowstdoutlogverbosity",
         ]
 
-        args = [unreal_exe, unreal_project_path]
+        args = [unreal_exe, unreal_project_path, f"-ChunkSize={self.init_data.get('chunk_size', 1)}"]
         args.extend(log_args)
         args.extend(extra_cmd_args)
         args = [arg for arg in args if arg]  # Remove empty strings
@@ -424,13 +424,7 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
 
         # Set up the step handler
         self._action_queue.enqueue_action(
-            Action(
-                "set_handler",
-                {
-                   "handler": run_data.get("handler", "base"),
-                   "chunk_size": self.init_data.get("chunk_size", 1)
-                }
-            )
+            Action("set_handler", {"handler": run_data.get("handler", "base")})
         )
 
         self._unreal_is_rendering = True
