@@ -228,6 +228,9 @@ class UnrealRenderStepHandler(BaseStepHandler):
 
         (_, _, cmd_parameters) = unreal.SystemLibrary.parse_command_line(
             unreal.SystemLibrary.get_command_line())
+
+        unreal.log(f"Render Step: Command line parameters: {cmd_parameters}")
+
         chunk_size = cmd_parameters.get("ChunkSize", None)
 
         if args.get("queue_manifest_path"):
