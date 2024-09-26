@@ -197,7 +197,7 @@ class UnrealRenderStepHandler(BaseStepHandler):
 
     @staticmethod
     def enable_shots_by_chunk(
-            render_job: unreal.UnrealMoviePipelineExecutorJob,
+            render_job,
             task_chunk_size: int,
             task_chunk_id: int
     ):
