@@ -310,11 +310,13 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
             "-allowstdoutlogverbosity",
         ]
 
-        args = [unreal_exe, unreal_project_path, f"-ChunkSize={self.init_data.get('chunk_size', 1)}"]
+        args = [unreal_exe, unreal_project_path]
         args.extend(log_args)
         args.extend(extra_cmd_args)
         args = [arg for arg in args if arg]  # Remove empty strings
         args = list(dict.fromkeys(args))     # Remove duplicates
+
+        args.append(f"-ChunkSize={self.init_data.get('chunk_size', 1)}")
 
         # Add the execcmds argument back to the args
         if execcmds_value is not None:
