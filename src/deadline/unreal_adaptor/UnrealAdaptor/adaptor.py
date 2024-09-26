@@ -316,9 +316,9 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         # args.append(f"-execcmds=r.HLOD 0,py {client_path}")
 
         if execcmds_value is not None:
-            execcmds_value = f'-execcmds="{execcmds_value},py {client_path}"'
+            execcmds_value = f'-execcmds={execcmds_value},py {client_path}'
         else:
-            execcmds_value = f'-execcmds="r.HLOD 0,py {client_path}"'
+            execcmds_value = f'-execcmds=r.HLOD 0,py {client_path}'
 
         args.append(execcmds_value)
 
