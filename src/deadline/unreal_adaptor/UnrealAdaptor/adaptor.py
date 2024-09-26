@@ -283,13 +283,16 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
 
         extra_cmd_str = self.init_data.get("extra_cmd_args", "")
 
+        # Everythiing between -execcmds=" and " is the value we want to keep
         match = re.search(r'-execcmds="([^"]*)"', extra_cmd_str)
         if match:
             execcmds_value = match.group(1)
-            execcmds_value.strip('"')
         else:
             execcmds_value = None
 
+        logger.info(f"execcmds: {execcmds_value}")
+
+        # Remove the -execcmds argument from the extra_cmd_args
         extra_cmd_str = re.sub(
             ".(?P<cmds>-execcmds=[\w\W]+[\'\"])",
             "",
@@ -312,9 +315,9 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         args.extend(log_args)
         args.extend(extra_cmd_args)
         args = [arg for arg in args if arg]  # Remove empty strings
-        args = list(dict.fromkeys(args))  # Remove duplicates
-        # args.append(f"-execcmds=r.HLOD 0,py {client_path}")
+        args = list(dict.fromkeys(args))     # Remove duplicates
 
+        # Add the execcmds argument back to the args
         if execcmds_value is not None:
             execcmds_value = f'-execcmds={execcmds_value},py {client_path}'
         else:
