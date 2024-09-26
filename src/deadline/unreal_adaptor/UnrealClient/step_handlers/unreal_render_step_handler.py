@@ -232,6 +232,8 @@ class UnrealRenderStepHandler(BaseStepHandler):
         unreal.log(f"Render Step: Command line parameters: {cmd_parameters}")
 
         chunk_size = cmd_parameters.get("ChunkSize", None)
+        if chunk_size:
+            chunk_size = int(chunk_size)
 
         if args.get("queue_manifest_path"):
             UnrealRenderStepHandler.create_queue_from_manifest(
@@ -255,7 +257,7 @@ class UnrealRenderStepHandler(BaseStepHandler):
                 )
 
         unreal.log(f"Render chunk: {args.get('chunk_id')}")
-        unreal.log(f"Render chunk size: {args.get('chunk_size')}")
+        unreal.log(f"Render chunk size: {chunk_size}")
         for job in subsystem.get_queue().get_jobs():
             for shot in job.shot_info:
                 if shot.enabled:
