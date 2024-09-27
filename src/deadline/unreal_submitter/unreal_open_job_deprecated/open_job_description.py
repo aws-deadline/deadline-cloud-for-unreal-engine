@@ -253,7 +253,6 @@ class OpenJobDescription:
         # TODO handling unreal substitution templates
         output_path = output_path.replace("{project_dir}", project_directory)
 
-        task_chunk_size = mrq_job.preset_overrides.job_shared_settings.task_chunk_size
         cmd_args = self._get_ue_cmd_args(mrq_job)
 
         parameter_values = [
@@ -280,10 +279,6 @@ class OpenJobDescription:
             {
                 "name": "ExtraCmdArgs",
                 "value": " ".join(cmd_args)
-            },
-            {
-                "name": "ChunkSize",
-                "value": task_chunk_size
             }
         ]
 

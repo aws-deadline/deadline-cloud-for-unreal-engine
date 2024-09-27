@@ -33,10 +33,6 @@ parameterDefinitions:
   type: STRING
   default: ""
 
-- name: ChunkSize
-  type: INT
-  default: 1
-
 jobEnvironments:
   - name: RemoteExecution
     description: Define the current context as Remote Execution

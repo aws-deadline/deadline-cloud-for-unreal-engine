@@ -287,7 +287,7 @@ class RenderJobStep(JobStep):
             if param_definition['name'] == task_chunk_id['name']:
                 param_definition.update(task_chunk_id)
             if param_definition['name'] == task_chunk_size['name']:
-                param_definition['range'] = [task_chunk_size]
+                param_definition.update(task_chunk_size)
 
 
 @dataclass

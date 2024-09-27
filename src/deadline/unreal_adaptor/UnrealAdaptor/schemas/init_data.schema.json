@@ -3,7 +3,7 @@
     "type": "object",
     "properties": {
         "project_path": { "type": "string" },
-        "extra_cmd_args": { "type": "string" },
+        "extra_cmd_args": { "type": "string" }
     },
     "required": [
         "project_path",
