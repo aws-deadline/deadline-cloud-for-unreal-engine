@@ -210,6 +210,7 @@ class UnrealRenderStepHandler(BaseStepHandler):
                 shot.enabled = True
             else:
                 shot.enabled = False
+        unreal.log(f"Shots in task: {[shot.outer_name for shot in shots_chunk]}")
 
     def run_script(self, args: dict) -> bool:
         """
@@ -239,7 +240,7 @@ class UnrealRenderStepHandler(BaseStepHandler):
                 job_configuration_path=args.get("job_configuration_path", ""),
             )
 
-        if args.get('chunk_size') and args.get('chunk_id'):
+        if 'chunk_size' in args and 'chunk_id' in args:
             for job in subsystem.get_queue().get_jobs():
                 UnrealRenderStepHandler.enable_shots_by_chunk(
                     render_job=job,
