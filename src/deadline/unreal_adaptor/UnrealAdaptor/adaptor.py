@@ -283,7 +283,7 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         extra_cmd_str = self.init_data.get("extra_cmd_args", "")
 
         # Everythiing between -execcmds=" and " is the value we want to keep
-        match = re.search(r'-execcmds="([^"]*)"', extra_cmd_str)
+        match = re.search(r'-execcmds=["\']([^"\']*)["\']', extra_cmd_str)
         if match:
             execcmds_value = match.group(1)
         else:
@@ -293,11 +293,10 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
 
         # Remove the -execcmds argument from the extra_cmd_args
         extra_cmd_str = re.sub(
-            ".(?P<cmds>-execcmds=[\w\W]+[\'\"])",
+            r'(-execcmds=["\'][^"\']*["\'])',
             "",
             extra_cmd_str
         )
-        extra_cmd_args = extra_cmd_str.split(" ")
 
         client_path = self.unreal_client_path.replace("\\", "/")
         log_args = [
@@ -309,6 +308,8 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
             "-RenderOffscreen",
             "-allowstdoutlogverbosity",
         ]
+
+        extra_cmd_args = extra_cmd_str.split(" ")
 
         args = [unreal_exe, unreal_project_path]
         args.extend(log_args)
