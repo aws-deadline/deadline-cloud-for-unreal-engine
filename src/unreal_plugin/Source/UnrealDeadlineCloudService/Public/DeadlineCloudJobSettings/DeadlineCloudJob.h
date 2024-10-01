@@ -19,13 +19,19 @@ public:
 	FFilePath PathToTemplate;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
-	//UDeadlineCloudStep* Step;
+
 	TArray<UDeadlineCloudStep*> Steps;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
 	UDeadlineCloudEnvironment* Environment;
-	
+
+private:	
+	TArray <FParameterDefinition> JobParameters;
+
+public:
 	/*Read path */
 	UFUNCTION()
-	TArray <FParameterDefinition> OpenJobFile(const FString& Path);
+	void OpenJobFile(const FString& Path);
+
+	TArray <FParameterDefinition> GetJobParameters();
 
 };

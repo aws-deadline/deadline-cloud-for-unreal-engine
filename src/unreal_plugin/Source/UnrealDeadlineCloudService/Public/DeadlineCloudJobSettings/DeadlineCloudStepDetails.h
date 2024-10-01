@@ -13,8 +13,6 @@ class FDeadlineCloudStepDetails : public IDetailCustomization
 {
 private:
     TWeakObjectPtr<UDeadlineCloudStep> Settings;
-    TArray <FStepParameterSpace> StepParameters;
-
 
 public:
     static TSharedRef<IDetailCustomization> MakeInstance();

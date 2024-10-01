@@ -105,13 +105,14 @@ void FDeadlineCloudStepDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBui
 
     if (Settings->PathToTemplate.FilePath.Len() > 0)
     {
-
-        StepParameters = Settings->OpenStepFile(Settings->PathToTemplate.FilePath);
-        if (StepParameters.Num() > 0) {
+        TArray <FStepParameterSpace> Parameters;
+        Settings->OpenStepFile(Settings->PathToTemplate.FilePath);
+        Parameters = Settings->GetStepParameters();
+        if (Parameters.Num() > 0) {
 
             IDetailCategoryBuilder& PropertiesCategory = DetailBuilder.EditCategory("DeadlineCloudStepParameters");
 
-            for (auto& StepParameter : StepParameters) {
+            for (auto& StepParameter : Parameters) {
 
                 CurrentName = StepParameter.Name;
 
@@ -156,8 +157,6 @@ void FDeadlineCloudStepDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBui
     }
 
 }
-
-
 
 
 #undef LOCTEXT_NAMESPACE

@@ -5,7 +5,7 @@ UDeadlineCloudEnvironment::UDeadlineCloudEnvironment()
 {
 }
 
-TArray <FEnvironmentParameterDefinition> UDeadlineCloudEnvironment::OpenEnvFile(const FString& Path)
+TArray <FEnvironmentStruct> UDeadlineCloudEnvironment::OpenEnvFile(const FString& Path)
 {
 	return UPythonYamlLibrary::Get()->OpenEnvFile(Path);
 }

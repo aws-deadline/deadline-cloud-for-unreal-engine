@@ -6,7 +6,12 @@ UDeadlineCloudJob::UDeadlineCloudJob()
 }
 
 
-TArray <FParameterDefinition> UDeadlineCloudJob::OpenJobFile(const FString& Path)
+void UDeadlineCloudJob::OpenJobFile(const FString& Path)
 {
-	return UPythonYamlLibrary::Get()->OpenJobFile(Path);
+	JobParameters = UPythonYamlLibrary::Get()->OpenJobFile(Path);
+}
+
+TArray<FParameterDefinition> UDeadlineCloudJob::GetJobParameters()
+{
+	return JobParameters;
 }

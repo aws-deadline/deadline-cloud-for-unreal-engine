@@ -35,10 +35,9 @@ class FDeadlineCloudJobDetails : public IDetailCustomization
 {
 private:
     TWeakObjectPtr<UDeadlineCloudJob> Settings;
-    TArray <FParameterDefinition> Parameters;
 
 public:
-    //
+
     static TSharedRef<IDetailCustomization> MakeInstance();
     virtual  void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
    

@@ -105,8 +105,10 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
 
     if (Settings->PathToTemplate.FilePath.Len() > 0)
     {
+        TArray<FParameterDefinition> Parameters;
+        Settings->OpenJobFile(Settings->PathToTemplate.FilePath);
+        Parameters = Settings->GetJobParameters();
 
-        Parameters = Settings->OpenJobFile(Settings->PathToTemplate.FilePath);
         if (Parameters.Num() > 0) {
 
             IDetailCategoryBuilder& PropertiesCategory = DetailBuilder.EditCategory("DeadlineCloudJobParameters");

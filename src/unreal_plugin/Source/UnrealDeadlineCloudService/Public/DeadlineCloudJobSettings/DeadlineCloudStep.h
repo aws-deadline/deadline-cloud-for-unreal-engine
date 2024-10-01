@@ -15,7 +15,7 @@ public:
 	UDeadlineCloudStep();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
-	FString depends_on;
+	FString DependsOn;
 
 	UPROPERTY( EditAnywhere, BlueprintReadWrite, Category = "Parameters")
 	FFilePath PathToTemplate;
@@ -23,7 +23,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
 	UDeadlineCloudEnvironment* Environment;
 
+private:
+	TArray <FStepParameterSpace> StepParameters;
+
+public:
 	/** Read path */
 	UFUNCTION()
-	TArray <FStepParameterSpace> OpenStepFile(const FString& Path);
+
+	void OpenStepFile(const FString& Path);
+	TArray <FStepParameterSpace> GetStepParameters();
 };

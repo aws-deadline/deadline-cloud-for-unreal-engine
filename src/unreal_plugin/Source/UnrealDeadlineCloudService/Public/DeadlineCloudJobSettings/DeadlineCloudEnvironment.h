@@ -16,7 +16,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
 	FFilePath PathToTemplate;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
+	FEnvironmentStruct EnvironmentStructure;
+
 	/** Read path */
 	UFUNCTION()
-	TArray <FEnvironmentParameterDefinition> OpenEnvFile(const FString& Path);
+	TArray <FEnvironmentStruct> OpenEnvFile(const FString& Path);
 };

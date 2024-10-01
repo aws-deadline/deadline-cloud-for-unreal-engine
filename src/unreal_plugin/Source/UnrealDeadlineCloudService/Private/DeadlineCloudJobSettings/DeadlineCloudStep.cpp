@@ -6,7 +6,14 @@ UDeadlineCloudStep::UDeadlineCloudStep()
 }
 
 
-TArray <FStepParameterSpace> UDeadlineCloudStep::OpenStepFile(const FString& Path)
+//TArray <FStepParameterSpace> UDeadlineCloudStep::OpenStepFile(const FString& Path)
+void UDeadlineCloudStep::OpenStepFile(const FString& Path)
 {
-	return UPythonYamlLibrary::Get()->OpenStepFile(Path);
+	StepParameters = UPythonYamlLibrary::Get()->OpenStepFile(Path);
+	// return UPythonYamlLibrary::Get()->OpenStepFile(Path);
+}
+
+TArray<FStepParameterSpace> UDeadlineCloudStep::GetStepParameters()
+{
+	return StepParameters;
 }

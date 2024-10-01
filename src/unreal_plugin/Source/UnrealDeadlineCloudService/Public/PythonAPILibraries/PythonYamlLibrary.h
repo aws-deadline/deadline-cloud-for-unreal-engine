@@ -77,10 +77,6 @@ struct FStepParameterSpace
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
 	TArray<FStepTaskParameterDefinition> StepTaskParameterDefinition;
 
-	// Value	
-	//UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
-	//FString Script;
-
 };
 
 /*
@@ -88,7 +84,7 @@ Env .yaml struct
  */
 
 USTRUCT(BlueprintType)
-struct FEnvironmentParameterDefinition
+struct FEnvironmentStruct
 {
 	GENERATED_BODY()
 
@@ -125,6 +121,6 @@ public:
 
 	// env
 	UFUNCTION(BlueprintImplementableEvent)
-	TArray <FEnvironmentParameterDefinition> OpenEnvFile(const FString& Path);
+	TArray <FEnvironmentStruct> OpenEnvFile(const FString& Path);
 };
 	
