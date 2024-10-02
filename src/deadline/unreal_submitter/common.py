@@ -112,8 +112,8 @@ def get_path_context_from_mrq_job(mrq_job) -> PathContext:
     Get build context from the given unreal.ConductorMoviePipelineExecutorJob
 
     :param mrq_job: unreal.ConductorMoviePipelineExecutorJob
-    :return: :class:`ciounreal.common.context.Context` object
-    :rtype: :class:`ciounreal.common.context.Context`
+    :return: :class:`deadline.unreal_submitter.common.PathContext` object
+    :rtype: :class:`deadline.unreal_submitter.common.PathContext`
     """
 
     level_sequence_path = os.path.splitext(soft_obj_path_to_str(mrq_job.sequence))[0]

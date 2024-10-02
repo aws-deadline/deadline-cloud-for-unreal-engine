@@ -2,7 +2,7 @@ import unreal
 from typing import Callable
 from dataclasses import dataclass, asdict
 
-from ciounreal.common import unreal_utils
+from deadline.unreal_submitter import common
 
 
 asset_registry = unreal.AssetRegistryHelpers.get_asset_registry()
@@ -155,7 +155,7 @@ class DependencyCollector:
             return
 
         synced = unreal.SourceControl.sync_files(
-            [unreal_utils.os_path_from_unreal_path(path, with_ext=False) for path in asset_paths]
+            [common.os_path_from_unreal_path(path, with_ext=False) for path in asset_paths]
         )
 
         if not synced:
