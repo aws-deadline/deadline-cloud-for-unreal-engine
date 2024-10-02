@@ -9,6 +9,7 @@
 #include "DesktopPlatformModule.h"
 #include "EditorDirectories.h"
 #include "Widgets/Input/SFilePathPicker.h"
+#include "Widgets/Input/SEditableTextBox.h"
 #include "UnrealDeadlineCloudServiceModule.h"
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
@@ -38,7 +39,7 @@ void SFilePathWidget::Construct(const FArguments& InArgs)
         [
             SNew(SVerticalBox)
                 + SVerticalBox::Slot()
-                .Padding(10)
+                .Padding(5)
                 [
                     SNew(SFilePathPicker)
                         .BrowseButtonImage(FAppStyle::GetBrush("PropertyWindow.Button_Ellipsis"))
@@ -61,16 +62,91 @@ FString SFilePathWidget::GetSelectedFilePath() const
     return SelectedFilePath;
 }
 
-TSharedRef<SWidget> FDeadlineCloudJobDetails::CreateStringWidget(FString Parameter)
+
+
+/* Editable string widget to structure */
+
+class SStringWidget : public SCompoundWidget
 {
-    return  SNew(SHorizontalBox)
-        + SHorizontalBox::Slot()
-        .Padding(FMargin(5, 5, 5, 5))
-        .AutoWidth()
-        [
-            SNew(SEditableTextBox)
-                .Text(FText::FromString(Parameter))
-        ];
+public:
+    SLATE_BEGIN_ARGS(SStringWidget) {}
+    SLATE_ARGUMENT(FParameterDefinition*, Parameter)  
+    SLATE_END_ARGS()
+
+        void Construct(const FArguments& InArgs)
+        {
+            Parameter = InArgs._Parameter;
+            EValueType type = Parameter->Type;
+            switch (type)
+            {
+            case EValueType::INT:
+                EditableString = FString::FromInt(Parameter->IntValue);
+                break;
+
+            case EValueType::FLOAT:
+                EditableString = FString::SanitizeFloat(Parameter->FloatValue);
+                break;
+
+            case EValueType::STRING:
+                EditableString = Parameter->StringValue;
+                break;
+            case EValueType::PATH:
+                EditableString = Parameter->PathValue;
+                break;
+
+            default:
+                EditableString = "";
+                break;
+            }
+
+            ChildSlot
+                [
+                    SNew(SEditableTextBox)
+
+                        .OnTextChanged(this, &SStringWidget::HandleTextChanged)
+                        .Text(FText::FromString(EditableString))
+                ];
+        }
+
+private:
+    void HandleTextChanged(const FText& NewText)
+    {
+
+            EditableString = NewText.ToString();
+            UE_LOG(LogTemp, Warning, TEXT("Parameter changed "), *EditableString);
+
+            EValueType type = Parameter->Type;
+            switch (type)
+            {
+            case EValueType::INT:
+                Parameter->IntValue = FCString::Atoi(*EditableString);
+                break;
+
+            case EValueType::FLOAT:
+                Parameter->FloatValue = FCString::Atof(*EditableString);
+                break;
+
+            case EValueType::STRING:
+               Parameter->StringValue = EditableString;
+                break;
+            case EValueType::PATH:
+                Parameter->PathValue = EditableString;
+                break;
+            }
+
+    }
+
+    FParameterDefinition* Parameter; 
+    FString EditableString;
+};
+
+
+TSharedRef<SWidget> FDeadlineCloudJobDetails::CreateStringWidget(FParameterDefinition& Parameter_)
+{
+
+    TSharedRef<SStringWidget> StringWidget = SNew(SStringWidget)
+        .Parameter(&Parameter_);
+    return  StringWidget;
 }
 
 TSharedRef<SWidget> FDeadlineCloudJobDetails::CreatePathWidget(FString Parameter)
@@ -102,12 +178,17 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
     TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
     DetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
     Settings = Cast<UDeadlineCloudJob>(ObjectsBeingCustomized[0].Get());
+    TArray<FParameterDefinition> Parameters;
 
+    Parameters = Settings->GetJobParameters();
+
+    /* Load new parameters from yaml*/
     if (Settings->PathToTemplate.FilePath.Len() > 0)
     {
-        TArray<FParameterDefinition> Parameters;
         Settings->OpenJobFile(Settings->PathToTemplate.FilePath);
         Parameters = Settings->GetJobParameters();
+    }
+    //todo: edit
 
         if (Parameters.Num() > 0) {
 
@@ -115,35 +196,30 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
 
             for (auto& parameter : Parameters) {
 
-                FString CurrentName = parameter.Name;
                 EValueType CurrentType = parameter.Type;
+
                 if (CurrentType == EValueType::PATH)
                 {
                     PropertiesCategory.AddCustomRow(LOCTEXT("Parameter Definitions", "Parameter Definitions"))
                         .NameContent()
-                        [CreateNameWidget(CurrentName)]
+                        [CreateNameWidget(parameter.Name)]
                         .ValueContent()
-                        [CreatePathWidget(CurrentName)];
+                        [CreatePathWidget(parameter.PathValue)];
                 }
                 else
                 {
                     PropertiesCategory.AddCustomRow(LOCTEXT("Parameter Definitions", "Parameter Definitions"))
                         .NameContent()
-                        [CreateNameWidget(CurrentName)]
+                        [CreateNameWidget(parameter.Name)]
                         .ValueContent()
-                        [CreateStringWidget("")];
-                }
+                        [CreateStringWidget(parameter)];
+                }              
             }
         }
         else
         {
             UE_LOG(LogTemp, Error, TEXT("PARAMETERS PARSING ERROR"));
         }
-    }
-    else
-    {
-        UE_LOG(LogTemp, Warning, TEXT("Empty job path string"));
-    }
 
 }
 

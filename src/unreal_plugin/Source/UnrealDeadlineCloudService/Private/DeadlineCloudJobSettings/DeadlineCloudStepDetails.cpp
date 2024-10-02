@@ -61,7 +61,7 @@ TSharedRef<SWidget> FDeadlineCloudStepDetails::GenerateTasksContent(const TArray
                         ]
 
                         + SHorizontalBox::Slot()
-                        .FillWidth(1.0f)
+                        //.FillWidth(1.0f)
                         .VAlign(VAlign_Top)
                         .Padding(2)
                         [
@@ -133,7 +133,8 @@ void FDeadlineCloudStepDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBui
                             + SHorizontalBox::Slot()
                             .Padding(FMargin(5, 5, 5, 5))
                             .HAlign(HAlign_Fill)
-                            .FillWidth(1.0f)[
+                            //.FillWidth(1.0f)
+                            [
                                 SNew(SVerticalBox) 
                                     + SVerticalBox::Slot()
                                     .AutoHeight()

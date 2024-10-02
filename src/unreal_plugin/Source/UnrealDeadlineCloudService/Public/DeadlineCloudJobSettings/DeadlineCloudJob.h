@@ -2,8 +2,14 @@
 
 #include "PythonAPILibraries/PythonYamlLibrary.h"
 #include "DeadlineCloudStep.h"
+
+#include "DeadlineCloudJobDataAsset.h"
 #include "DeadlineCloudEnvironment.h"
 #include "DeadlineCloudJob.generated.h"
+
+/**
+ * All Deadline Cloud job settings container struct
+ */
 
 
 
@@ -15,14 +21,22 @@ public:
 
 	UDeadlineCloudJob();
 
+
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Parameters")
+	FString Name;
+
 	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Parameters")
 	FFilePath PathToTemplate;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
+	/** Deadline cloud job settings container struct */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Preset")
+	FDeadlineCloudJobPresetStruct JobPresetStruct;
 
-	TArray<UDeadlineCloudStep*> Steps;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
-	UDeadlineCloudEnvironment* Environment;
+	TArray<UDeadlineCloudStep*> Steps;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
+	TArray<UDeadlineCloudEnvironment*> Environments;
 
 private:	
 	TArray <FParameterDefinition> JobParameters;

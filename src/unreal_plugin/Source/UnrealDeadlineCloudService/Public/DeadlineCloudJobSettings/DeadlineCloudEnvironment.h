@@ -5,8 +5,8 @@
 
 
 
-UCLASS(BlueprintType, Blueprintable)
-class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudEnvironment : public UPrimaryDataAsset
+UCLASS(BlueprintType)
+class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudEnvironment : public UObject
 {
 	GENERATED_BODY()
 public:

@@ -30,15 +30,30 @@ struct FParameterDefinition
 	// Name
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
 	FString Name;
-
 	// Type	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
 	EValueType Type;
 
 
+	// String Value
+	UPROPERTY()
+	FString StringValue;
+	// Path value
+	UPROPERTY()
+	FString PathValue;
+	// Path value
+	UPROPERTY()
+	int32 IntValue;
+	UPROPERTY()
+	float FloatValue;
+
 	FParameterDefinition()
 		: Name("DefaultName"),
-		Type(EValueType::STRING)
+		 Type(EValueType::STRING),
+		 IntValue(0),
+		 FloatValue(0.f),
+		 StringValue(""),
+		 PathValue("")
 	{}
 };
 /*

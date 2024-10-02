@@ -7,12 +7,15 @@
 
 
 UCLASS(BlueprintType, Blueprintable)
-class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudStep : public UPrimaryDataAsset
+class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudStep : public UObject
 {
 	GENERATED_BODY()
 public:
 
 	UDeadlineCloudStep();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
+	FString Name;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
 	FString DependsOn;
@@ -21,7 +24,7 @@ public:
 	FFilePath PathToTemplate;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
-	UDeadlineCloudEnvironment* Environment;
+	TArray<UDeadlineCloudEnvironment*> Environments;
 
 private:
 	TArray <FStepParameterSpace> StepParameters;

@@ -89,10 +89,8 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
         file = open(path, 'r')
         result = yaml.safe_load(file)
 
-        struct = unreal.EnvironmentParameterDefinition() # get struct
+        struct = unreal.EnvironmentStruct() # get struct
         structs = list()
-
-
         data = result['jobEnvironments']
         # check if list
         if isinstance(data, list):

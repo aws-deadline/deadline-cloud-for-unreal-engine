@@ -5,7 +5,7 @@
 #include "DeadlineCloudRenderJob.generated.h"
 
 
-UCLASS(BlueprintType, Blueprintable)
+UCLASS(BlueprintType)
 class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudRenderJob : public UDeadlineCloudJob
 {
 	GENERATED_BODY()
