@@ -1,6 +1,7 @@
 import os
 import re
 import unreal
+from typing import List, Dict, Any
 
 from openjd.model.v2023_09 import *
 from openjd.model import model_to_object
@@ -22,6 +23,97 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment impor
 SPECIFICATION_VERSION = 'jobtemplate-2023-09'
 
 
+class JobSharedSettings:
+    """
+    OpenJob shared settings representation.
+    Contains SharedSettings model as dictionary built from template and allows to fill its values
+    """
+
+    def __init__(self, job_shared_settings):
+        self.source_shared_settings = job_shared_settings
+        self.parameter_values: List[Dict[Any, Any]] = [
+            {
+                "name": "deadline:targetTaskRunStatus",
+                "type": "STRING",
+                "userInterface": {
+                    "control": "DROPDOWN_LIST",
+                    "label": "Initial State",
+                },
+                "allowedValues": ["READY", "SUSPENDED"],
+                "value": self.get_initial_state(),
+            },
+            {
+                "name": "deadline:maxFailedTasksCount",
+                "description": "Maximum number of Tasks that can fail before the Job will be marked as failed.",
+                "type": "INT",
+                "userInterface": {
+                    "control": "SPIN_BOX",
+                    "label": "Maximum Failed Tasks Count",
+                },
+                "minValue": 0,
+                "value": self.get_max_failed_tasks_count(),
+            },
+            {
+                "name": "deadline:maxRetriesPerTask",
+                "description": "Maximum number of times that a Task will retry before it's marked as failed.",
+                "type": "INT",
+                "userInterface": {
+                    "control": "SPIN_BOX",
+                    "label": "Maximum Retries Per Task",
+                },
+                "minValue": 0,
+                "value": self.get_max_retries_per_task(),
+            },
+            {"name": "deadline:priority", "type": "INT", "value": self.get_priority()},
+        ]
+
+    def to_dict(self) -> list[dict]:
+        """
+        Returns the OpenJob SharedSettings object as list of dictionaries
+
+        :return: OpenJob SharedSettings as list of dictionaries
+        :rtype: dict
+        """
+        return self.parameter_values
+
+    def get_initial_state(self) -> str:
+        """
+        Returns the OpenJob Initial State value
+
+        :return: OpenJob Initial State
+        :rtype: str
+        """
+        return self.source_shared_settings.initial_state
+
+    def get_max_failed_tasks_count(self) -> int:
+        """
+        Returns the OpenJob Max Failed Task Count value
+
+        :return: OpenJob Max Failed Task Count
+        :rtype: int
+        """
+        return self.source_shared_settings.maximum_failed_tasks_count
+
+    def get_max_retries_per_task(self) -> int:
+        """
+        Returns the OpenJob Max Retries Per Task value
+
+        :return: OpenJob Max Retries Per Task
+        :rtype: int
+        """
+        return self.source_shared_settings.maximum_retries_per_task
+
+    def get_priority(self) -> int:
+        """
+        Return the OpenJob Priority value
+
+        :return: OpenJob Priority
+        :rtype: int
+        """
+        # TODO Add priority to the settings
+        return 1
+
+
 class UnrealOpenJob(UnrealOpenJobEntity):
     """
     Open Job for Unreal Engine
@@ -40,7 +132,8 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         name: str = None,
         steps: list[unreal.DeadlineCloudStep] = None,
         environments: list[unreal.DeadlineCloudEnvironment] = None,
-        extra_parameters: list[unreal.ParameterDefinition] = None
+        extra_parameters: list[unreal.ParameterDefinition] = None,
+        job_shared_settings=None
     ):
         """
         :param file_path: Path to the open job template file
@@ -64,6 +157,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         self._extra_parameters = extra_parameters or []
         self._steps = self._create_steps(steps)
         self._environments = self._create_environments(environments)
+        self._job_shared_settings = job_shared_settings
 
     @classmethod
     def from_u_object(cls, u_object) -> "UnrealOpenJob":  # TODO define type unreal.Object or data asset
@@ -119,13 +213,6 @@ class UnrealOpenJob(UnrealOpenJobEntity):
 
         params = job_template_object['parameterDefinitions']
         for param in params:
-            override_param = next(
-                (extra_p for extra_p in self._extra_parameters if extra_p.get('name', '') == param['name']),
-                None
-            )
-            if override_param:
-                param.update(override_param)
-
             param_definition_cls = self.param_type_map.get(param['type'])
             if param_definition_cls:
                 job_parameter_definition_list.append(
@@ -133,6 +220,16 @@ class UnrealOpenJob(UnrealOpenJobEntity):
                 )
 
         return job_parameter_definition_list
+
+    def _build_parameter_values_dict(self) -> dict:
+        """
+        :return: Parameter values dictionary
+        :rtype: dict
+        """
+
+        parameter_values = [dict(name=p.name, value=p.value) for p in self._extra_parameters]
+        parameter_values += JobSharedSettings(self._job_shared_settings).to_dict()
+        return dict(parameterValues=parameter_values)
 
     def _get_asset_references(self) -> AssetReferences:
         return AssetReferences()
@@ -164,11 +261,8 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             deadline_yaml_dump(job_template_dict, f, indent=1)
 
         with open(job_bundle_path + "/parameter_values.yaml", "w", encoding="utf8") as f:
-            param_dicts = []
-            for param in job_template.parameterDefinitions:
-                param_dicts.append(model_to_object(model=param))
-
-            deadline_yaml_dump(dict(parameterValues=param), f, indent=1)
+            param_values_dict = self._build_parameter_values_dict()
+            deadline_yaml_dump(param_values_dict, f, indent=1)
 
         with open(job_bundle_path + "/asset_references.yaml", "w", encoding="utf8") as f:
             asset_references = self._get_asset_references()
@@ -235,22 +329,22 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         return created_steps
 
-    def _create_environments(self, environments: list = None) -> list[UnrealOpenJobEnvironment]:
-        created_environments = []
-        for env in environments:
-            job_env_cls = self.job_environment_map.get(env.name, UnrealOpenJobEnvironment)
-            creation_kwargs = dict(file_path=env.file_path, name=env.name)
+    def _build_parameter_values_dict(self) -> dict:
+        """
+        :return: Parameter values dictionary
+        :rtype: dict
+        """
 
-            if job_env_cls == LaunchEditorUnrealOpenJobEnvironment:
-                # TODO check for C++ class instead of env name
-                workspace_creation_step = next((env for env in environments if env.name in ['UGS', 'P4']), None)
-                creation_kwargs['unreal_executable'] = self._executable
-                creation_kwargs['unreal_project_path'] = common.get_project_file_path() if not workspace_creation_step else None
-                creation_kwargs['unreal_cmd_args'] = self._get_ue_cmd_args()
+        parameter_values = [dict(name=p.name, value=p.value) for p in self._extra_parameters]
+        parameter_values += JobSharedSettings(self._job_shared_settings).to_dict()
 
-            created_environments.append(job_env_cls(**creation_kwargs))
+        extra_cmd_args_param = next((p for p in parameter_values if p['name'] == 'ExtraCmdArgs'), None)
+        if extra_cmd_args_param:
+            extra_cmd_args_param['value'] = self._get_ue_cmd_args()
+        else:
+            parameter_values.append(dict(name='ExtraCmdArgs', value=self._get_ue_cmd_args()))
 
-        return created_environments
+        return dict(parameterValues=parameter_values)
 
     def _get_ue_cmd_args(self):
         cmd_args = []
