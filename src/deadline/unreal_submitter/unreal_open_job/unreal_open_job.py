@@ -15,8 +15,7 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step import (
     RenderUnrealOpenJobStep
 )
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment import (
-    UnrealOpenJobEnvironment,
-    LaunchEditorUnrealOpenJobEnvironment
+    UnrealOpenJobEnvironment
 )
 
 
@@ -185,7 +184,6 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
     # TODO map C++ class instead of env name
     job_environment_map = {
-        'LaunchUnrealEditor': LaunchEditorUnrealOpenJobEnvironment
     }
 
     # TODO map C++ class instead of step name

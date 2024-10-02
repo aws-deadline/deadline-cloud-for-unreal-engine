@@ -4,14 +4,8 @@ import os
 import unreal
 
 from deadline.unreal_submitter import common
-from deadline.unreal_logger import get_logger
-from deadline.unreal_submitter.unreal_dependency_collector import (
-    DependencyCollector,
-    DependencyFilters,
-)
+from deadline.unreal_submitter.unreal_dependency_collector import DependencyCollector, DependencyFilters
 
-
-logger = get_logger()
 
 
 @unreal.uclass()
@@ -25,8 +19,8 @@ class DeadlineCloudJobBundleLibraryImplementation(unreal.DeadlineCloudJobBundleL
         level_path, _ = os.path.splitext(level_path)
 
         dependency_collector = DependencyCollector()
-        logger.info("Level sequence: " + level_sequence_path)
-        logger.info("Level: " + level_path)
+        unreal.log("Level sequence: " + level_sequence_path)
+        unreal.log("Level: " + level_path)
 
         unreal_dependencies = dependency_collector.collect(
             asset_path=level_sequence_path,
@@ -39,9 +33,8 @@ class DeadlineCloudJobBundleLibraryImplementation(unreal.DeadlineCloudJobBundleL
 
         unreal_dependencies += [level_sequence_path, level_path]
 
-        logger.info(
-            f"Converted level path: "
-            f"{common.os_path_from_unreal_path(level_sequence_path, with_ext=True)}"
+        unreal.log(
+            f"Converted level path: {common.os_path_from_unreal_path(level_sequence_path, with_ext=True)}"
         )
 
         unreal_dependencies = list(set(unreal_dependencies))
