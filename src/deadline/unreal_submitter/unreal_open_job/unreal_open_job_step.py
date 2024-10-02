@@ -1,13 +1,111 @@
 import math
+from typing import Any
 
 from openjd.model.v2023_09 import *
+from openjd.model.v2023_09._model import StepDependency
 
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import UnrealOpenJobEntity
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment import UnrealOpenJobEnvironment
 
 
-# TODO Sasha - Don't forget to add HostRequirements into the base step definition
-#  (src.deadline.unreal_submitter.unreal_open_job_deprecated.job_step.HostRequirements)
+class HostRequirements:
+    """OpenJob host requirements representation"""
+
+    def __init__(self, host_requirements):
+        self.source_host_requirements = host_requirements
+        self.requirements: dict = {}
+
+        os_requirements = self._get_os_requirements()
+        if os_requirements:
+            # OS requirements are currently all amount type capabilities
+            self.requirements["attributes"] = os_requirements
+
+        hardware_requirements = self._get_hardware_requirements()
+        if hardware_requirements:
+            # hardware requirements are currently all amount
+            self.requirements["amounts"] = hardware_requirements
+
+    def _get_os_requirements(self) -> list[dict]:
+        """
+        Get requirements for OS family and CPU architecture
+
+        :return: list of the OS requirements
+        :rtype: list[dict]
+        """
+        requirements: list[dict] = []
+        if self.source_host_requirements.operating_system:
+            requirements.append(
+                {
+                    "name": "attr.worker.os.family",
+                    "anyOf": [self.source_host_requirements.operating_system],
+                }
+            )
+        if self.source_host_requirements.cpu_architecture:
+            requirements.append(
+                {
+                    "name": "attr.worker.cpu.arch",
+                    "anyOf": [self.source_host_requirements.cpu_architecture],
+                }
+            )
+        return requirements
+
+    def _get_hardware_requirements(self) -> list[dict[str, Any]]:
+        """
+        Get requirements for cpu, gpu and memory limits
+
+        :return: list of the OS requirements
+        :rtype: list[dict]
+        """
+        cpus = self._get_amount_requirement(
+            self.source_host_requirements.cp_us, "amount.worker.vcpu"
+        )
+        memory = self._get_amount_requirement(
+            self.source_host_requirements.memory, "amount.worker.memory", 1024
+        )
+        # TODO gpu amount
+        # gpus = self._get_amount_requirement(self.source_host_requirements.gpus, "amount.worker.gpu")
+        gpu_memory = self._get_amount_requirement(
+            self.source_host_requirements.gp_us, "amount.worker.gpu.memory", 1024
+        )
+        scratch_space = self._get_amount_requirement(
+            self.source_host_requirements.scratch_space, "amount.worker.disk.scratch"
+        )
+        requirements: list[dict[str, Any]] = [
+            item for item in [cpus, memory, gpu_memory, scratch_space] if item is not None
+        ]
+        return requirements
+
+    @staticmethod
+    def _get_amount_requirement(source_interval, name: str, scaling_factor: int = 1) -> dict:
+        """
+        Helper method to get the amount of Host Requirement setting interval
+
+        :param source_interval: Interval unreal setting
+        :param name: AWS HostRequirements setting name
+        :param scaling_factor: Multiplier number by which to scale the source_interval values
+
+        :return: Amount requirement as dictionary
+        :rtype: dict
+        """
+        requirement = {}
+        if source_interval.min > 0 or source_interval.max > 0:
+            requirement = {"name": name}
+            if source_interval.min > 0:
+                requirement["min"] = source_interval.min * scaling_factor
+            if source_interval.max > 0:
+                requirement["max"] = source_interval.max * scaling_factor
+        return requirement
+
+    def as_dict(self) -> dict:
+        """
+        Returns the HostRequirements as dictionary
+
+        :return: Host Requirements as dictionary
+        :rtype: dict
+        """
+        return self.requirements
+
+
 class UnrealOpenJobStep(UnrealOpenJobEntity):
     """
     Unreal Open Job Step entity
@@ -27,6 +125,7 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
             step_dependencies: list[str] = None,
             environments: list = None,
             extra_parameters=None,
+            host_requirements=None
     ):
         """
         :param file_path: The file path of the step descriptor
@@ -47,42 +146,17 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         
         self._step_dependencies = step_dependencies or []
 
-        # TODO - Santi: Test this
-        self._environments = []
-        if environments:
-            self._environments = [
-                UnrealOpenJobEnvironment(file_path=environment.file_path, name=environment.name)
-                for environment in environments
-            ]
+        self._environments = [
+            UnrealOpenJobEnvironment(file_path=environment.file_path, name=environment.name)
+            for environment in environments
+        ]
 
         # TODO - Santi: Ask about this
         self._extra_parameters = extra_parameters or []
 
+        self._host_requirements = host_requirements
+
         super().__init__(StepTemplate, file_path, name)
-        
-    @property
-    def step_dependencies(self) -> list[str]:
-        """
-        Returns the list of step dependencies
-        """
-        
-        return self._step_dependencies
-    
-    @property
-    def environments(self) -> list[UnrealOpenJobEnvironment]:
-        """
-        Returns the list of environments
-        """
-        
-        return self._environments
-    
-    @property
-    def extra_parameters(self) -> list:
-        """
-        Returns the list of extra parameters
-        """
-        
-        return self._extra_parameters
 
     def _build_step_parameter_definition_list(self) -> list:
         """
@@ -112,33 +186,21 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         
     def build(self) -> StepTemplate:
         step_template_object = self.get_template_object()
-        
-        if not self.name:
-            self._name = step_template_object['name']
-        
-        step_creation_kwargs = {
-            'name': self.name,
-            'script': StepScript(
-                actions=StepActions(
-                    onRun=Action(
-                        command=step_template_object['script']['actions']['onRun']['command'],
-                        args=step_template_object['script']['actions']['onRun'].get('args', [])
-                    )
-                )
-            ),
-            'parameterSpace': StepParameterSpaceDefinition(
-                taskParameterDefinitions=self._build_step_parameter_definition_list()
-            )
-        }
-        
-        if self._environments:
-            step_creation_kwargs['environments'] = self._environments
-        if self._step_dependencies:
-            step_creation_kwargs['dependencies'] = self._step_dependencies
 
-        step_template = self.template_class(**step_creation_kwargs)
+        step_parameters = self._build_step_parameter_definition_list()
 
-        return step_template
+        host_requirements = HostRequirements(host_requirements=self._host_requirements)
+
+        return self.template_class(
+            name=self.name,
+            script=StepScript(**step_template_object['script']),
+            parameterSpace=StepParameterSpaceDefinition(
+                taskParameterDefinitions=step_parameters
+            ) if step_parameters else None,
+            stepEnvironments=[env.build() for env in self._environments],
+            dependencies=[StepDependency(dependsOn=step_dependency) for step_dependency in self._step_dependencies],
+            hostRequirements=HostRequirementsTemplate(**(host_requirements.as_dict()))
+        )
 
 
 class RenderUnrealOpenJobStep(UnrealOpenJobStep):
@@ -153,6 +215,7 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
             step_dependencies: list[str] = None,
             environments: list = None,
             extra_parameters: list = None,
+            host_requirements=None,
             task_chunk_size: int = None,
             shots_count: int = None
     ):
@@ -182,7 +245,7 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         self._task_chunk_size = task_chunk_size
         self._shots_count = shots_count
 
-        super().__init__(file_path, name, step_dependencies, environments, extra_parameters)
+        super().__init__(file_path, name, step_dependencies, environments, extra_parameters, host_requirements)
 
     @staticmethod
     def validate_parameters(parameters: TaskParameterList) -> bool:
@@ -208,7 +271,7 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
                          '- LevelSequencePath, LevelPath, MoviePipelineConfigurationPath\n'
                          )
         
-    def get_parameters(self) -> dict:
+    def get_chunk_size_parameters(self) -> dict:
         """
         Get parameters
         """
@@ -248,7 +311,7 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         Build the definition template entity
         """
         
-        for param in self.get_parameters():
+        for param in self.get_chunk_size_parameters():
             self.extra_parameters.append(param)
             
         step_entity = super().build()
