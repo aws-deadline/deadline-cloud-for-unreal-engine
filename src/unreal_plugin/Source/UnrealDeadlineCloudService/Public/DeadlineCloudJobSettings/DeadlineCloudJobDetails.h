@@ -46,6 +46,6 @@ private:
     TSharedRef<SWidget> CreateNameWidget(FString Parameter);
 
     TSharedRef<SWidget> CreatePathWidget(FString Parameter);
-    TSharedRef<SWidget> CreateStringWidget(FParameterDefinition& Parameter);
+    TSharedRef<SWidget> CreateStringWidget(FParameterDefinition *Parameter);
    
 };

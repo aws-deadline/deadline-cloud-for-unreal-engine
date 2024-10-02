@@ -70,21 +70,21 @@ class SStringWidget : public SCompoundWidget
 {
 public:
     SLATE_BEGIN_ARGS(SStringWidget) {}
-    SLATE_ARGUMENT(FParameterDefinition*, Parameter)  
+        SLATE_ARGUMENT(FParameterDefinition*, Parameter)
     SLATE_END_ARGS()
 
         void Construct(const FArguments& InArgs)
         {
             Parameter = InArgs._Parameter;
-            EValueType type = Parameter->Type;
+            type = Parameter->Type;
             switch (type)
             {
             case EValueType::INT:
-                EditableString = FString::FromInt(Parameter->IntValue);
+             //   EditableString = FString::FromInt(Parameter.IntValue);
                 break;
 
             case EValueType::FLOAT:
-                EditableString = FString::SanitizeFloat(Parameter->FloatValue);
+             //   EditableString = FString::SanitizeFloat(Parameter.FloatValue);
                 break;
 
             case EValueType::STRING:
@@ -94,9 +94,9 @@ public:
                 EditableString = Parameter->PathValue;
                 break;
 
-            default:
-                EditableString = "";
-                break;
+          //  default:
+            //    EditableString = "";
+            //    break;
             }
 
             ChildSlot
@@ -115,7 +115,21 @@ private:
             EditableString = NewText.ToString();
             UE_LOG(LogTemp, Warning, TEXT("Parameter changed "), *EditableString);
 
-            EValueType type = Parameter->Type;
+          //  EValueType CurrentType = Parameter->Type;
+
+
+            if (type == EValueType::PATH) { Parameter->PathValue = EditableString; }
+            if (type == EValueType::STRING)
+            {
+                Parameter->ChangeParameterStringValue(EditableString);
+            }
+       //     if (type == EValueType::INT) { Parameter.IntValue = FCString::Atoi(*EditableString); }
+       //     if (type == EValueType::FLOAT) { Parameter.IntValue = FCString::Atof(*EditableString); }
+            else
+            {
+                Parameter->StringValue = EditableString;
+            }
+            /*
             switch (type)
             {
             case EValueType::INT:
@@ -132,20 +146,20 @@ private:
             case EValueType::PATH:
                 Parameter->PathValue = EditableString;
                 break;
-            }
+            }*/
 
     }
-
-    FParameterDefinition* Parameter; 
+    EValueType type;
+    FParameterDefinition *Parameter; 
     FString EditableString;
 };
 
 
-TSharedRef<SWidget> FDeadlineCloudJobDetails::CreateStringWidget(FParameterDefinition& Parameter_)
+TSharedRef<SWidget> FDeadlineCloudJobDetails::CreateStringWidget(FParameterDefinition* Parameter_)
 {
 
     TSharedRef<SStringWidget> StringWidget = SNew(SStringWidget)
-        .Parameter(&Parameter_);
+        .Parameter(Parameter_);
     return  StringWidget;
 }
 
@@ -178,23 +192,22 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
     TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
     DetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
     Settings = Cast<UDeadlineCloudJob>(ObjectsBeingCustomized[0].Get());
-    TArray<FParameterDefinition> Parameters;
 
-    Parameters = Settings->GetJobParameters();
+
 
     /* Load new parameters from yaml*/
     if (Settings->PathToTemplate.FilePath.Len() > 0)
     {
         Settings->OpenJobFile(Settings->PathToTemplate.FilePath);
-        Parameters = Settings->GetJobParameters();
+
     }
     //todo: edit
 
-        if (Parameters.Num() > 0) {
+        if (Settings->GetJobParameters().Num() > 0) {
 
             IDetailCategoryBuilder& PropertiesCategory = DetailBuilder.EditCategory("DeadlineCloudJobParameters");
 
-            for (auto& parameter : Parameters) {
+            for (auto& parameter : Settings->JobParameters) {
 
                 EValueType CurrentType = parameter.Type;
 
@@ -212,7 +225,7 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
                         .NameContent()
                         [CreateNameWidget(parameter.Name)]
                         .ValueContent()
-                        [CreateStringWidget(parameter)];
+                        [CreateStringWidget(&parameter)];
                 }              
             }
         }
@@ -220,7 +233,6 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
         {
             UE_LOG(LogTemp, Error, TEXT("PARAMETERS PARSING ERROR"));
         }
-
 }
 
 

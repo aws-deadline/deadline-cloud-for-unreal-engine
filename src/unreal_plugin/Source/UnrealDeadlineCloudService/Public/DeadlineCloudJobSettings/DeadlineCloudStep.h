@@ -7,7 +7,7 @@
 
 
 UCLASS(BlueprintType, Blueprintable)
-class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudStep : public UObject
+class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudStep : public UDataAsset
 {
 	GENERATED_BODY()
 public:

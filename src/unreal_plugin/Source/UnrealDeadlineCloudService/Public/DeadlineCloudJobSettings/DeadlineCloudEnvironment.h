@@ -5,14 +5,16 @@
 
 
 
-UCLASS(BlueprintType)
-class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudEnvironment : public UObject
+UCLASS(BlueprintType, Blueprintable)
+class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudEnvironment : public UDataAsset
 {
 	GENERATED_BODY()
 public:
 
 	UDeadlineCloudEnvironment();
-	//Config,
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
+	FString Name; 
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
 	FFilePath PathToTemplate;
 

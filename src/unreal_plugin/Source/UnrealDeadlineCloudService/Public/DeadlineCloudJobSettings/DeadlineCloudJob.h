@@ -14,7 +14,7 @@
 
 
 UCLASS(BlueprintType, Blueprintable, Config = Game)
-class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudJob : public UObject
+class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudJob : public UDataAsset
 {
 	GENERATED_BODY()
 public:
@@ -38,7 +38,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
 	TArray<UDeadlineCloudEnvironment*> Environments;
 
-private:	
+//private:	
 	TArray <FParameterDefinition> JobParameters;
 
 public:

@@ -55,6 +55,11 @@ struct FParameterDefinition
 		 StringValue(""),
 		 PathValue("")
 	{}
+
+	void ChangeParameterStringValue( FString string)
+	{
+		StringValue = string;
+	};
 };
 /*
 Step .yaml struct
