@@ -1,6 +1,6 @@
-from openjd.model.v2023_09 import *
+import openjd.model.v2023_09 as openjd_model
 
-from src.deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import UnrealOpenJobEntity
+from deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import UnrealOpenJobEntity
 
 
 class UnrealOpenJobEnvironment(UnrealOpenJobEntity):
@@ -17,9 +17,9 @@ class UnrealOpenJobEnvironment(UnrealOpenJobEntity):
         :type name: str
         """
         
-        super().__init__(Environment, file_path, name)
+        super().__init__(openjd_model.Environment, file_path, name)
         
-    def build(self) -> Environment:
+    def build(self) -> openjd_model.Environment:
         environment_template_object = self.get_template_object()
         
         if not self.name:
@@ -30,7 +30,7 @@ class UnrealOpenJobEnvironment(UnrealOpenJobEntity):
         }
         
         if environment_template_object.get('script', {}):
-            environment_creation_kwargs['script'] = EnvironmentScript(
+            environment_creation_kwargs['script'] = openjd_model.EnvironmentScript(
                 **environment_template_object['script']
             )
             
@@ -79,7 +79,7 @@ class LaunchEditorUnrealOpenJobEnvironment(UnrealOpenJobEnvironment):
 
         super().__init__(file_path, name)
 
-    def build(self) -> Environment:
+    def build(self) -> openjd_model.Environment:
         environment_object = self.get_template_object()
 
         launch_script = {
@@ -95,14 +95,14 @@ class LaunchEditorUnrealOpenJobEnvironment(UnrealOpenJobEnvironment):
         else:
             environment_object['script'] = launch_script
 
-        environment_created_kwargs = {
+        environment_creation_kwargs = {
             'name': self.name,
-            'script': EnvironmentScript(
+            'script': openjd_model.EnvironmentScript(
                 **environment_object['script']
             )
         }
         
         if environment_object.get('variables', {}):
-            environment_created_kwargs['variables'] = environment_object['variables']
+            environment_creation_kwargs['variables'] = environment_object['variables']
             
-        return self.template_class(**environment_created_kwargs)
+        return self.template_class(**environment_creation_kwargs)

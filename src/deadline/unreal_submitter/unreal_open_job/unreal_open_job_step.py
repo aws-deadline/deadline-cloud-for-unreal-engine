@@ -1,15 +1,13 @@
 import math
-import json
-import unreal
 
 from openjd.model.v2023_09 import *
 
-from src.deadline.unreal_submitter.unreal_open_job.\
-    unreal_open_job_entity import UnrealOpenJobEntity
-from src.deadline.unreal_submitter.unreal_open_job.\
-    unreal_open_job_environment import UnrealOpenJobEnvironment
+from deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import UnrealOpenJobEntity
+from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment import UnrealOpenJobEnvironment
 
 
+# TODO Sasha - Don't forget to add HostRequirements into the base step definition
+#  (src.deadline.unreal_submitter.unreal_open_job_deprecated.job_step.HostRequirements)
 class UnrealOpenJobStep(UnrealOpenJobEntity):
     """
     Unreal Open Job Step entity
@@ -187,7 +185,7 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         super().__init__(file_path, name, step_dependencies, environments, extra_parameters)
 
     @staticmethod
-    def validate_parameters(parameters: list) -> bool:
+    def validate_parameters(parameters: TaskParameterList) -> bool:
         """
         Validate the parameters
         
