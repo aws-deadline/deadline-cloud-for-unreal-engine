@@ -1,4 +1,5 @@
 import math
+import unreal
 from typing import Any
 
 from openjd.model.v2023_09 import *
@@ -139,9 +140,6 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         
         :param environments: The list of environments
         :type environments: list
-        
-        :param extra_parameters: The list of extra parameters
-        :type extra_parameters: list
         """
         
         self._step_dependencies = step_dependencies or []
@@ -158,6 +156,16 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
 
         super().__init__(StepTemplate, file_path, name)
 
+    @classmethod
+    def from_data_asset(cls, data_asset: unreal.DeadlineCloudStep, host_requirements=None) -> "UnrealOpenJobStep":
+        return cls(
+            file_path=data_asset.path_to_template,
+            name=data_asset.name,
+            step_dependencies=[data_asset.depends_on],  # TODO depends_on should be list of steps
+            environments=[UnrealOpenJobEnvironment.from_data_asset(env) for env in data_asset.environments],
+            host_requirements=host_requirements
+        )
+
     def _build_step_parameter_definition_list(self) -> list:
         """
         Build the job parameter definition list from the step template object.
@@ -169,9 +177,10 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
 
         params = step_template_object['parameterSpace']['taskParameterDefinitions']
         for param in params:
+            param['range'] = ['TestValue1', 'TestValue2', 'TestValue3']  # TODO Slate object bug: values not saved
             override_param = (
-                next((p for p in self.extra_parameters if p.get('name', '') == param['name']), None)
-                if self.extra_parameters else None
+                next((p for p in self._extra_parameters if p.get('name', '') == param['name']), None)
+                if self._extra_parameters else None
             )
             if override_param:
                 param.update(override_param)
@@ -184,7 +193,7 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
 
         return step_parameter_definition_list
         
-    def build(self) -> StepTemplate:
+    def build_template(self) -> StepTemplate:
         step_template_object = self.get_template_object()
 
         step_parameters = self._build_step_parameter_definition_list()
@@ -197,9 +206,13 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
             parameterSpace=StepParameterSpaceDefinition(
                 taskParameterDefinitions=step_parameters
             ) if step_parameters else None,
-            stepEnvironments=[env.build() for env in self._environments],
-            dependencies=[StepDependency(dependsOn=step_dependency) for step_dependency in self._step_dependencies],
-            hostRequirements=HostRequirementsTemplate(**(host_requirements.as_dict()))
+            stepEnvironments=[env.build_template() for env in self._environments] if self._environments else None,
+            dependencies=[
+                StepDependency(dependsOn=step_dependency)
+                for step_dependency in self._step_dependencies
+            ] if all(self._step_dependencies) else None,
+            # TODO check host requirements validation issue
+            hostRequirements=None  # HostRequirementsTemplate(**(host_requirements.as_dict()))
         )
 
 
@@ -306,7 +319,7 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
 
         return step_object['parameterSpace']['taskParameterDefinitions']
     
-    def build(self) -> StepTemplate:
+    def build_template(self) -> StepTemplate:
         """
         Build the definition template entity
         """

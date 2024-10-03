@@ -10,8 +10,8 @@ from openjd.model.v2023_09 import *
 from openjd.model import DocumentType
 
 
-Template = Union[JobTemplate, StepTemplate, Environment]
-TemplateClass = Union[Type[JobTemplate], Type[StepTemplate], Type[Environment]]
+Template = Union[JobTemplate, StepTemplate, EnvironmentTemplate]
+TemplateClass = Union[Type[JobTemplate], Type[StepTemplate], Type[EnvironmentTemplate]]
 
 
 class UnrealOpenJobEntityBase(ABC):
@@ -47,7 +47,7 @@ class UnrealOpenJobEntityBase(ABC):
         """
 
     @abstractmethod
-    def build(self) -> Template:
+    def build_template(self) -> Template:
         """
         Builds the entity template
         """
@@ -58,7 +58,7 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
     Base class for Unreal Open Job entities
     """
 
-    def __init__(self, template_class: TemplateClass, file_path: str, name: str = None):
+    def __init__(self, template_class: TemplateClass, file_path: Union[str, unreal.FilePath], name: str = None):
         """
         :param template_class: The template class for the entity
         :type template_class: TemplateClass
@@ -71,7 +71,7 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
         """
         
         self._template_class = template_class
-        self._file_path = file_path
+        self._file_path = file_path.file_path if isinstance(file_path, unreal.FilePath) else file_path
         self._name = name
 
     @property
@@ -101,7 +101,7 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
 
         return template
 
-    def build(self) -> Template:
+    def build_template(self) -> Template:
         # TODO: Validate the template object
         template_object = self.get_template_object()
         return self.template_class(**template_object)

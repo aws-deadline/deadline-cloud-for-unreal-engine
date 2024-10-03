@@ -1,7 +1,11 @@
 import os
 import re
+import yaml
+import json
 import unreal
-from typing import List, Dict, Any
+from dataclasses import dataclass
+from collections import OrderedDict
+from typing import List, Dict, Any, Literal, Union
 
 from openjd.model.v2023_09 import *
 from openjd.model import model_to_object
@@ -9,6 +13,7 @@ from deadline.client.job_bundle.submission import AssetReferences
 from deadline.client.job_bundle import deadline_yaml_dump, create_job_history_bundle_dir
 
 from deadline.unreal_submitter import common
+from deadline.unreal_submitter import settings
 from deadline.unreal_submitter.unreal_dependency_collector import DependencyCollector, DependencyFilters
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import UnrealOpenJobEntity
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step import (
@@ -18,9 +23,6 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step import (
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment import (
     UnrealOpenJobEnvironment
 )
-
-
-SPECIFICATION_VERSION = 'jobtemplate-2023-09'
 
 
 class JobSharedSettings:
@@ -114,24 +116,38 @@ class JobSharedSettings:
         return 1
 
 
+@dataclass
+class ParameterDefinitionDescriptor:
+    type_name: Literal['INT', 'FLOAT', 'STRING', 'PATH']
+    openjd_class: type[
+        Union[
+            JobIntParameterDefinition,
+            JobFloatParameterDefinition,
+            JobStringParameterDefinition,
+            JobPathParameterDefinition,
+        ]
+    ]
+    parameter_definition_attribute_name: Literal['int_value', 'float_value', 'string_value', 'path_value']
+
+
 class UnrealOpenJob(UnrealOpenJobEntity):
     """
     Open Job for Unreal Engine
     """
 
-    param_type_map = {
-        'INT': JobIntParameterDefinition,
-        'FLOAT': JobFloatParameterDefinition,
-        'STRING': JobStringParameterDefinition,
-        'PATH': JobPathParameterDefinition
+    parameter_definition_mapping = {
+        'INT': ParameterDefinitionDescriptor('INT', JobIntParameterDefinition, 'int_value'),
+        'FLOAT': ParameterDefinitionDescriptor('FLOAT', JobFloatParameterDefinition, 'float_value'),
+        'STRING': ParameterDefinitionDescriptor('STRING', JobStringParameterDefinition, 'string_value'),
+        'PATH': ParameterDefinitionDescriptor('PATH', JobPathParameterDefinition, 'path_value')
     }
 
     def __init__(
         self,
         file_path: str,
         name: str = None,
-        steps: list[unreal.DeadlineCloudStep] = None,
-        environments: list[unreal.DeadlineCloudEnvironment] = None,
+        steps: list[UnrealOpenJobStep] = None,
+        environments: list[UnrealOpenJobEnvironment] = None,
         extra_parameters: list[unreal.ParameterDefinition] = None,
         job_shared_settings=None
     ):
@@ -154,115 +170,101 @@ class UnrealOpenJob(UnrealOpenJobEntity):
 
         super().__init__(JobTemplate, file_path, name)
 
-        self._extra_parameters = extra_parameters or []
-        self._steps = self._create_steps(steps)
-        self._environments = self._create_environments(environments)
+        self._extra_parameters: list[unreal.ParameterDefinition] = extra_parameters or []
+        self._steps: list[UnrealOpenJobStep] = steps
+        self._environments: list[UnrealOpenJobEnvironment] = environments
         self._job_shared_settings = job_shared_settings
 
     @classmethod
-    def from_u_object(cls, u_object) -> "UnrealOpenJob":  # TODO define type unreal.Object or data asset
+    def from_data_asset(cls, data_asset: unreal.DeadlineCloudJob) -> "UnrealOpenJob":
         return cls(
-            file_path=u_object.path_to_template,
-            name=getattr(u_object, 'name', None),
-            steps=u_object.steps,
-            environments=u_object.environments,
-            extra_parameters=u_object.get_job_parameters()
+            file_path=data_asset.path_to_template,
+            name=data_asset.name,
+            steps=[
+                UnrealOpenJobStep.from_data_asset(
+                    step,
+                    host_requirements=data_asset.job_preset_struct.host_requirements
+                )
+                for step in data_asset.steps
+            ],
+            environments=[UnrealOpenJobEnvironment.from_data_asset(env) for env in data_asset.environments],
+            extra_parameters=data_asset.job_parameters
         )
 
-    def _create_steps(self, steps: list = None) -> list[UnrealOpenJobStep]:
+    def _build_parameter_values(self) -> list:
         """
-        Create a list of steps to be executed by deadline cloud
-        
-        :steps List of steps to be executed by deadline cloud
-        :type steps list
-        
-        :return List of steps to be executed by deadline cloud
-        :rtype list[UnrealOpenJobStep]
+        :return: Parameter values list
+        :rtype: list
         """
-        
-        if not steps:
-            return []
-        return [
-            UnrealOpenJobStep(
-                file_path=step.file_path,
-                name=step.name,
-                step_dependencies=step.step_dependencies or [],
-                environments=step.environments,
-                extra_parameters=step.extra_parameters
-            )
-            for step in steps
-        ]
-
-    def _create_environments(self, environments: list = None) -> list[UnrealOpenJobEnvironment]:
-        """
-        Create a list of environments to be used by deadline cloud
-        """
-        
-        if not environments:
-            return []
-        return [UnrealOpenJobEnvironment(file_path=env.file_path, name=env.name) for env in environments]
-
-    def _build_job_parameter_definition_list(self) -> JobParameterDefinitionList:
-        """
-        Build a list of job parameter definitions
-        """
-        
         job_template_object = self.get_template_object()
-
-        job_parameter_definition_list = JobParameterDefinitionList()
-
-        params = job_template_object['parameterDefinitions']
-        for param in params:
-            param_definition_cls = self.param_type_map.get(param['type'])
-            if param_definition_cls:
-                job_parameter_definition_list.append(
-                    param_definition_cls(**param)
+        parameter_values = []
+        for param in job_template_object['parameterDefinitions']:
+            extra_param = next((extra_p for extra_p in self._extra_parameters if extra_p.name == param['name']), None)
+            if extra_param:
+                param_value = getattr(
+                    extra_param,
+                    self.parameter_definition_mapping.get(param['type']).parameter_definition_attribute_name
                 )
+            else:
+                param_value = param.get('default')
 
-        return job_parameter_definition_list
+            parameter_values.append(dict(name=param['name'], value=param_value))
 
-    def _build_parameter_values_dict(self) -> dict:
-        """
-        :return: Parameter values dictionary
-        :rtype: dict
-        """
-
-        parameter_values = [dict(name=p.name, value=p.value) for p in self._extra_parameters]
         parameter_values += JobSharedSettings(self._job_shared_settings).to_dict()
-        return dict(parameterValues=parameter_values)
+
+        return parameter_values
 
     def _get_asset_references(self) -> AssetReferences:
         return AssetReferences()
 
-    def build(self) -> JobTemplate:
-        parameter_definitions = self._build_job_parameter_definition_list()
-        steps = [s.build() for s in self._steps]
-        environments = [e.build() for e in self._environments]
-        
+    def build_template(self) -> JobTemplate:
         job_template = self.template_class(
-            specificationVersion=SPECIFICATION_VERSION,
+            specificationVersion=settings.JOB_TEMPLATE_VERSION,
             name=self.name,
-            parameterDefinitions=parameter_definitions,
-            steps=steps,
-            jobEnvironments=environments
+            parameterDefinitions=[
+                self.parameter_definition_mapping.get(param['type']).openjd_class(**param)
+                for param in self.get_template_object()['parameterDefinitions']
+            ],
+            steps=[s.build_template() for s in self._steps],
+            jobEnvironments=[e.build_template() for e in self._environments] if self._environments else None
         )
-
         return job_template
+
+    @staticmethod
+    def template_to_json(template: JobTemplate):
+        def delete_none(_dict):
+            for key, value in list(_dict.items()):
+                if isinstance(value, dict):
+                    delete_none(value)
+                elif value is None:
+                    del _dict[key]
+                elif isinstance(value, list):
+                    for v_i in value:
+                        if isinstance(v_i, dict):
+                            delete_none(v_i)
+
+            return _dict
+
+        template_json = json.loads(template.json())
+        ordered_keys = ['specificationVersion', 'name', 'parameterDefinitions', 'jobEnvironments', 'steps']
+        ordered_data = dict(OrderedDict((key, template_json[key]) for key in ordered_keys))
+        ordered_data = delete_none(ordered_data)
+        return ordered_data
 
     def create_job_bundle(self):
 
         job_bundle_path = create_job_history_bundle_dir("Unreal", self.name)
         unreal.log(f"Job bundle path: {job_bundle_path}")
 
-        job_template = self.build()
+        job_template = self.build_template()
 
         with open(job_bundle_path + "/template.yaml", "w", encoding="utf8") as f:
-            job_template_dict = model_to_object(model=job_template)
+            job_template_dict = UnrealOpenJob.template_to_json(job_template)
             deadline_yaml_dump(job_template_dict, f, indent=1)
 
         with open(job_bundle_path + "/parameter_values.yaml", "w", encoding="utf8") as f:
-            param_values_dict = self._build_parameter_values_dict()
-            deadline_yaml_dump(param_values_dict, f, indent=1)
+            param_values = self._build_parameter_values()
+            deadline_yaml_dump(dict(parameterValues=param_values), f, indent=1)
 
         with open(job_bundle_path + "/asset_references.yaml", "w", encoding="utf8") as f:
             asset_references = self._get_asset_references()
@@ -329,22 +331,18 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         return created_steps
 
-    def _build_parameter_values_dict(self) -> dict:
-        """
-        :return: Parameter values dictionary
-        :rtype: dict
-        """
+    def _build_parameter_values(self):
 
-        parameter_values = [dict(name=p.name, value=p.value) for p in self._extra_parameters]
-        parameter_values += JobSharedSettings(self._job_shared_settings).to_dict()
+        parameter_values = super()._build_parameter_values()
 
+        extra_cmd_args = self._get_ue_cmd_args()
         extra_cmd_args_param = next((p for p in parameter_values if p['name'] == 'ExtraCmdArgs'), None)
         if extra_cmd_args_param:
-            extra_cmd_args_param['value'] = self._get_ue_cmd_args()
+            extra_cmd_args_param['value'] = extra_cmd_args
         else:
-            parameter_values.append(dict(name='ExtraCmdArgs', value=self._get_ue_cmd_args()))
+            parameter_values.append(dict(name='ExtraCmdArgs', value=extra_cmd_args))
 
-        return dict(parameterValues=parameter_values)
+        return parameter_values
 
     def _get_ue_cmd_args(self):
         cmd_args = []

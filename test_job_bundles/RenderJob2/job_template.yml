@@ -1,0 +1,10 @@
+specificationVersion: jobtemplate-2023-09
+name: TestRenderJob
+parameterDefinitions:
+- name: ProjectFilePath
+  type: PATH
+  objectType: FILE
+  dataFlow: IN
+- name: ExtraCmdArgs
+  type: STRING
+  default: '-log'

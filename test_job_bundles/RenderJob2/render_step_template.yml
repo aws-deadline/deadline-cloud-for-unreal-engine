@@ -1,0 +1,29 @@
+name: Render
+parameterSpace:
+  taskParameterDefinitions:
+  - name: Handler
+    type: STRING
+    range: []
+  - name: QueueManifestPath
+    type: PATH
+    range: []
+script:
+  embeddedFiles:
+  - name: runData
+    filename: run-data.yaml
+    type: TEXT
+    data: |
+      handler: {{Task.Param.Handler}}
+      queue_manifest_path: {{Task.Param.QueueManifestPath}}
+  actions:
+    onRun:
+      command: UnrealAdaptor
+      args:
+      - daemon
+      - run
+      - --connection-file
+      - '{{Session.WorkingDirectory}}/connection.json'
+      - --run-data
+      - file://{{ Task.File.runData }}
+      cancelation:
+        mode: NOTIFY_THEN_TERMINATE

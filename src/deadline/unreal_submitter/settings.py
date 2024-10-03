@@ -1,19 +1,13 @@
-# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-
 import os
 
+TEMPLATES_DIRECTORY = f"{os.path.dirname(__file__)}/templates".replace("\\", "/")
 
-JOB_TEMPLATE_VERSION = os.getenv("OPEN_JOB_TEMPLATE_VERSION", "jobtemplate-2023-09")
-ENVIRONMENT_VERSION = os.getenv("OPEN_JOB_ENVIRONMENT_TEMPLATE_VERSION", "environment-2023-09")
+DEFAULT_JOB_TEMPLATE_FILE_NAME = "default_unreal_job_template_v06.yaml"
+DEFAULT_JOB_TEMPLATE_FILE_PATH = f"{TEMPLATES_DIRECTORY}/{DEFAULT_JOB_TEMPLATE_FILE_NAME}"
 
-OPENJD_TEMPLATES_DIRECTORY = os.getenv("OPENJD_TEMPLATES_DIRECTORY", "")
+DEFAULT_JOB_STEP_TEMPLATE_FILE_NAME = "default_unreal_step_template_v05.yaml"
+DEFAULT_JOB_STEP_TEMPLATE_FILE_PATH = f"{TEMPLATES_DIRECTORY}/{DEFAULT_JOB_STEP_TEMPLATE_FILE_NAME}"
 
-RENDER_JOB_TEMPLATE_DEFAULT_PATH = "render_job.yml"
-RENDER_STEP_TEMPLATE_DEFAULT_PATH = "render_step.yml"
-LAUNCH_ENVIRONMENT_TEMPLATE_DEFAULT_PATH = "launch_ue_environment.yml"
+JOB_TEMPLATE_VERSION = 'jobtemplate-2023-09'
+ENVIRONMENT_VERSION = "environment-2023-09"
 
-UGS_RENDER_JOB_TEMPLATE_DEFAULT_PATH = "ugs/ugs_render_job.yml"
-UGS_RENDER_STEP_TEMPLATE_DEFAULT_PATH = "ugs/ugs_render_step.yml"
-UGS_LAUNCH_ENVIRONMENT_TEMPLATE_DEFAULT_PATH = "ugs/ugs_launch_ue_environment.yml"
-UGS_SYNC_CMF_ENVIRONMENT_TEMPLATE_DEFAULT_PATH = "ugs/ugs_sync_cmf_environment.yml"
-UGS_SYNC_SMF_ENVIRONMENT_TEMPLATE_DEFAULT_PATH = "ugs/ugs_sync_smf_environment.yml"
