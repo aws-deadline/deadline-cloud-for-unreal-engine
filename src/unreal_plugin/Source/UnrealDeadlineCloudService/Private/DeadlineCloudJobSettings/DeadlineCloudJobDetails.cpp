@@ -80,11 +80,11 @@ public:
             switch (type)
             {
             case EValueType::INT:
-             //   EditableString = FString::FromInt(Parameter.IntValue);
+               EditableString = FString::FromInt(Parameter->IntValue);
                 break;
 
             case EValueType::FLOAT:
-             //   EditableString = FString::SanitizeFloat(Parameter.FloatValue);
+                EditableString = FString::SanitizeFloat(Parameter->FloatValue);
                 break;
 
             case EValueType::STRING:
@@ -123,30 +123,13 @@ private:
             {
                 Parameter->ChangeParameterStringValue(EditableString);
             }
-       //     if (type == EValueType::INT) { Parameter.IntValue = FCString::Atoi(*EditableString); }
-       //     if (type == EValueType::FLOAT) { Parameter.IntValue = FCString::Atof(*EditableString); }
+            if (type == EValueType::INT) { Parameter->IntValue = FCString::Atoi(*EditableString); }
+           if (type == EValueType::FLOAT) { Parameter->IntValue = FCString::Atof(*EditableString); }
             else
             {
                 Parameter->StringValue = EditableString;
             }
-            /*
-            switch (type)
-            {
-            case EValueType::INT:
-                Parameter->IntValue = FCString::Atoi(*EditableString);
-                break;
 
-            case EValueType::FLOAT:
-                Parameter->FloatValue = FCString::Atof(*EditableString);
-                break;
-
-            case EValueType::STRING:
-               Parameter->StringValue = EditableString;
-                break;
-            case EValueType::PATH:
-                Parameter->PathValue = EditableString;
-                break;
-            }*/
 
     }
     EValueType type;
@@ -198,6 +181,7 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
     /* Load new parameters from yaml*/
     if (Settings->PathToTemplate.FilePath.Len() > 0)
     {
+        Settings->ReadName(Settings->PathToTemplate.FilePath);
         Settings->OpenJobFile(Settings->PathToTemplate.FilePath);
 
     }

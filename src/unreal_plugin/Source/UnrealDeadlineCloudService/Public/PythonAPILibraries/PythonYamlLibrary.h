@@ -131,6 +131,9 @@ class UNREALDEADLINECLOUDSERVICE_API UPythonYamlLibrary: public UObject, public 
 
 public:
 
+	UFUNCTION(BlueprintImplementableEvent)
+	FString ReadName(const FString& Path);
+
 	// job
 	UFUNCTION(BlueprintImplementableEvent)
 	TArray <FParameterDefinition> OpenJobFile(const FString& Path);

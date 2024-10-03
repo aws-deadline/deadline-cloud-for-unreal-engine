@@ -46,6 +46,9 @@ public:
 	UFUNCTION()
 	void OpenJobFile(const FString& Path);
 
+	UFUNCTION()
+	void ReadName(const FString& Path);
+
 	TArray <FParameterDefinition> GetJobParameters();
 
 };
