@@ -8,7 +8,7 @@ from deadline.client.api import (
 )
 from deadline.job_attachments.exceptions import AssetSyncCancelledError
 
-from deadline.unreal_submitter.unreal_open_job import UnrealOpenJob
+from deadline.unreal_submitter.unreal_open_job import UnrealOpenJob, RenderUnrealOpenJob
 
 from ._version import version
 
@@ -31,7 +31,8 @@ class UnrealSubmitter:
     Execute the OpenJob submission
     """
 
-    def __init__(self, silent_mode: bool = False):
+    def __init__(self, open_job_class: type[UnrealOpenJob] = UnrealOpenJob, silent_mode: bool = False):
+        self._open_job_class = open_job_class
         self._silent_mode = silent_mode
 
         self._jobs: list[UnrealOpenJob] = []
@@ -55,14 +56,11 @@ class UnrealSubmitter:
     def submission_failed_message(self) -> str:
         return self._submission_failed_message
 
-    def add_job(self, mrq_job: unreal.MoviePipelineExecutorJob):
+    def add_job(self, *args, **kwargs):
         """
         Build and add to the submission queue :class:`deadline.unreal_submitter.unreal_open_job.open_job_description.OpenJobDescription`
-
-        :param mrq_job: unreal.MoviePipelineExecutorJob instance
-        :type mrq_job: unreal.MoviePipelineExecutorJob
         """
-        self._jobs.append(UnrealOpenJob(mrq_job=mrq_job))
+        raise NotImplementedError
 
     def _display_progress(self, check_submit_status, message):
         """
@@ -195,8 +193,10 @@ class UnrealSubmitter:
             self.submit_message = "Start submitting..."
             self._submission_failed_message = ""
 
+            job_bundle_path = job.create_job_bundle()
+
             t = threading.Thread(
-                target=self._start_submit, args=(job.job_bundle_path,), daemon=True
+                target=self._start_submit, args=(job_bundle_path,), daemon=True
             )
             t.start()
 
@@ -230,3 +230,25 @@ class UnrealSubmitter:
 
         del self.submitted_job_ids[:]
         del self._jobs[:]
+
+
+class UnrealOpenJobSubmitter(UnrealSubmitter):
+
+    def __init__(self, silent_mode: bool = False):
+        super().__init__(UnrealOpenJob, silent_mode)
+
+    def add_job(self, unreal_open_job_data_asset: unreal.DeadlineCloudOpenJob):
+        open_job = self._open_job_class.from_data_asset(unreal_open_job_data_asset)
+        self._jobs.append(open_job)
+
+
+class UnrealRenderOpenJobSubmitter(UnrealSubmitter):
+
+    def __init__(self, silent_mode: bool = False):
+        super().__init__(RenderUnrealOpenJob, silent_mode)
+
+    def add_job(self, mrq_job: unreal.MoviePipelineExecutorJob):
+        render_open_job = self._open_job_class.from_data_asset(mrq_job.job_preset)
+        render_open_job.mrq_job = mrq_job
+        self._jobs.append(render_open_job)
+

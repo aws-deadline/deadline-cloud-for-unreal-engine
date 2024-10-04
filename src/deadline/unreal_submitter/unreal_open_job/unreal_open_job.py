@@ -1,6 +1,5 @@
 import os
 import re
-import yaml
 import json
 import unreal
 from dataclasses import dataclass
@@ -266,7 +265,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
 
         with open(job_bundle_path + "/template.yaml", "w", encoding="utf8") as f:
             job_template_dict = UnrealOpenJob.serialize_template(job_template)
-            deadline_yaml_dump(job_template_dict, f, indent=1, default_flow_style=True)
+            deadline_yaml_dump(job_template_dict, f, indent=1)
 
         with open(job_bundle_path + "/parameter_values.yaml", "w", encoding="utf8") as f:
             param_values = self._build_parameter_values()
