@@ -8,7 +8,6 @@ from collections import OrderedDict
 from typing import List, Dict, Any, Literal, Union
 
 from openjd.model.v2023_09 import *
-from openjd.model import model_to_object
 from deadline.client.job_bundle.submission import AssetReferences
 from deadline.client.job_bundle import deadline_yaml_dump, create_job_history_bundle_dir
 
@@ -175,20 +174,26 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         self._environments: list[UnrealOpenJobEnvironment] = environments
         self._job_shared_settings = job_shared_settings
 
+    @property
+    def job_shared_settings(self):
+        return self._job_shared_settings
+
+    @job_shared_settings.setter
+    def job_shared_settings(self, value):
+        self._job_shared_settings = value
+
     @classmethod
     def from_data_asset(cls, data_asset: unreal.DeadlineCloudJob) -> "UnrealOpenJob":
+        steps = [UnrealOpenJobStep.from_data_asset(step) for step in data_asset.steps]
+        for step in steps:
+            step.host_requirements = data_asset.job_preset_struct.host_requirements
+
         return cls(
             file_path=data_asset.path_to_template,
             name=data_asset.name,
-            steps=[
-                UnrealOpenJobStep.from_data_asset(
-                    step,
-                    host_requirements=data_asset.job_preset_struct.host_requirements
-                )
-                for step in data_asset.steps
-            ],
+            steps=steps,
             environments=[UnrealOpenJobEnvironment.from_data_asset(env) for env in data_asset.environments],
-            extra_parameters=data_asset.job_parameters
+            extra_parameters=data_asset.get_job_parameters()
         )
 
     def _build_parameter_values(self) -> list:
@@ -210,7 +215,8 @@ class UnrealOpenJob(UnrealOpenJobEntity):
 
             parameter_values.append(dict(name=param['name'], value=param_value))
 
-        parameter_values += JobSharedSettings(self._job_shared_settings).to_dict()
+        if self._job_shared_settings:
+            parameter_values += JobSharedSettings(self._job_shared_settings).to_dict()
 
         return parameter_values
 
@@ -231,7 +237,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         return job_template
 
     @staticmethod
-    def template_to_json(template: JobTemplate):
+    def serialize_template(template: JobTemplate):
         def delete_none(_dict):
             for key, value in list(_dict.items()):
                 if isinstance(value, dict):
@@ -259,8 +265,8 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         job_template = self.build_template()
 
         with open(job_bundle_path + "/template.yaml", "w", encoding="utf8") as f:
-            job_template_dict = UnrealOpenJob.template_to_json(job_template)
-            deadline_yaml_dump(job_template_dict, f, indent=1)
+            job_template_dict = UnrealOpenJob.serialize_template(job_template)
+            deadline_yaml_dump(job_template_dict, f, indent=1, default_flow_style=True)
 
         with open(job_bundle_path + "/parameter_values.yaml", "w", encoding="utf8") as f:
             param_values = self._build_parameter_values()
@@ -278,13 +284,11 @@ class RenderUnrealOpenJob(UnrealOpenJob):
     Unreal Open Job for rendering Unreal Engine projects
     """
 
-    # TODO map C++ class instead of env name
     job_environment_map = {
     }
 
-    # TODO map C++ class instead of step name
     job_step_map = {
-        'RenderStep': RenderUnrealOpenJobStep
+        'Render': RenderUnrealOpenJobStep
     }
 
     def __init__(
@@ -298,53 +302,70 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             executable: str = None,
             extra_cmd_args: str = None,
             changelist_number: int = None,
-            task_chunk_size: int = None,
-            task_shot_count: int = None
+            task_chunk_size: int = None
     ):
         self._mrq_job = mrq_job
         self._executable = executable
         self._extra_cmd_args = extra_cmd_args
         self._changelist_number = changelist_number
         self._task_chunk_size = task_chunk_size
-        self._task_shot_count = task_shot_count
 
         self._dependency_collector = DependencyCollector()
 
         super().__init__(file_path, name, steps, environments, extra_parameters)
 
-    def _create_steps(self, steps: list = None) -> list[UnrealOpenJobStep]:
-        created_steps = []
-        for step in steps:
-            job_step_cls = self.job_step_map.get(step.name, UnrealOpenJobStep)
-            creation_kwargs = dict(
-                file_path=step.file_path,
-                name=step.name,
-                step_dependencies=step.step_dependencies,
-                environments=step.environments,
-                extra_parameters=step.extra_parameters,
-            )
-            if job_step_cls == RenderUnrealOpenJobStep:
-                creation_kwargs['task_chunk_size'] = self._task_chunk_size
-                creation_kwargs['shots_count'] = self._task_shot_count
+    @property
+    def mrq_job(self):
+        return self._mrq_job
 
-            created_steps.append(job_step_cls(**creation_kwargs))
+    @mrq_job.setter
+    def mrq_job(self, value):
+        self._mrq_job = value
+        for step in self._steps:
+            if isinstance(step, RenderUnrealOpenJobStep):
+                step.shots_count = len(self._mrq_job.shot_info)
 
-        return created_steps
+    @classmethod
+    def from_data_asset(cls, data_asset: unreal.DeadlineCloudRenderJob) -> "RenderUnrealOpenJob":
+        steps = []
+        for source_step in data_asset.steps:
+            job_step_cls = cls.job_step_map.get(source_step.name, UnrealOpenJobStep)
+            job_step = job_step_cls.from_data_asset(source_step)
+            job_step.host_requirements = data_asset.job_preset_struct.host_requirements
+
+            if isinstance(job_step, RenderUnrealOpenJobStep):
+                job_step.task_chunk_size = data_asset.task_chunk_size
+
+            steps.append(job_step)
+
+        job_parameters = data_asset.get_job_parameters()
+
+        return cls(
+            file_path=data_asset.path_to_template,
+            name=data_asset.name,
+            steps=steps,
+            environments=[UnrealOpenJobEnvironment.from_data_asset(env) for env in data_asset.environments],
+            extra_parameters=job_parameters,
+            executable=None,  # TODO data_asset.executable,
+            extra_cmd_args=next((p.string_value for p in job_parameters if p.name == 'ExtraCmdArgs'), None),
+            changelist_number=None,  # TODO data_asset.changelist_number,
+            task_chunk_size=data_asset.task_chunk_size
+        )
 
     def _build_parameter_values(self):
 
         parameter_values = super()._build_parameter_values()
 
-        extra_cmd_args = self._get_ue_cmd_args()
+        ue_cmd_args = self._get_ue_cmd_args()
         extra_cmd_args_param = next((p for p in parameter_values if p['name'] == 'ExtraCmdArgs'), None)
         if extra_cmd_args_param:
-            extra_cmd_args_param['value'] = extra_cmd_args
+            extra_cmd_args_param['value'] = ue_cmd_args
         else:
-            parameter_values.append(dict(name='ExtraCmdArgs', value=extra_cmd_args))
+            parameter_values.append(dict(name='ExtraCmdArgs', value=ue_cmd_args))
 
         return parameter_values
 
-    def _get_ue_cmd_args(self):
+    def _get_ue_cmd_args(self) -> list[str]:
         cmd_args = []
 
         in_process_executor_settings = unreal.get_default_object(unreal.MoviePipelineInProcessExecutorSettings)
@@ -414,6 +435,9 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         # remove duplicates
         cmd_args = list(set(cmd_args))
 
+        # remove empty args
+        cmd_args = [a for a in cmd_args if a != '']
+
         return cmd_args
 
     def _collect_mrq_job_dependencies(self) -> list[str]:
@@ -463,10 +487,10 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         asset_references.input_filenames.update(os_dependencies)
 
-        step_input_files = []
-        for step in self._steps:
-            step_input_files.extend(step.get_step_input_files())
-        asset_references.input_filenames.update(step_input_files)
+        # step_input_files = []
+        # for step in self._steps:
+        #     step_input_files.extend(step.get_step_input_files())
+        # asset_references.input_filenames.update(step_input_files)
 
         # add manifest to attachments
         manifest_path = self._save_manifest_file()
@@ -510,7 +534,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         output_path = output_setting.output_directory.path
 
         path_context = common.get_path_context_from_mrq_job(self._mrq_job)
-        output_path = output_path.format_map(path_context)
+        output_path = output_path.format_map(path_context).rstrip("/")
 
         asset_references.output_directories.update([output_path])
 

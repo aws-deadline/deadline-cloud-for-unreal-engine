@@ -140,10 +140,10 @@ def get_path_context_from_mrq_job(mrq_job) -> PathContext:
     )
     path_context.update(
         {
-            'output_dir': output_settings.output_directory.path.format_map(build_context).replace(
+            'output_dir': output_settings.output_directory.path.format_map(path_context).replace(
                 "\\", "/"
             ).rstrip("/"),
-            'filename_format': output_settings.file_name_format.format_map(build_context)
+            'filename_format': output_settings.file_name_format.format_map(path_context)
         }
     )
 

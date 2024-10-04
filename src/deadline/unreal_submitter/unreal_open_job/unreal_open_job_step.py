@@ -156,14 +156,22 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
 
         super().__init__(StepTemplate, file_path, name)
 
+    @property
+    def host_requirements(self):
+        return self._host_requirements
+
+    @host_requirements.setter
+    def host_requirements(self, value):
+        self._host_requirements = value
+
     @classmethod
-    def from_data_asset(cls, data_asset: unreal.DeadlineCloudStep, host_requirements=None) -> "UnrealOpenJobStep":
+    def from_data_asset(cls, data_asset: unreal.DeadlineCloudStep) -> "UnrealOpenJobStep":
         return cls(
             file_path=data_asset.path_to_template,
             name=data_asset.name,
             step_dependencies=[data_asset.depends_on],  # TODO depends_on should be list of steps
             environments=[UnrealOpenJobEnvironment.from_data_asset(env) for env in data_asset.environments],
-            host_requirements=host_requirements
+            extra_parameters=data_asset.get_step_parameters()[0].step_task_parameter_definition  # TODO parameter space object is single
         )
 
     def _build_step_parameter_definition_list(self) -> list:
@@ -177,13 +185,24 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
 
         params = step_template_object['parameterSpace']['taskParameterDefinitions']
         for param in params:
-            param['range'] = ['TestValue1', 'TestValue2', 'TestValue3']  # TODO Slate object bug: values not saved
             override_param = (
-                next((p for p in self._extra_parameters if p.get('name', '') == param['name']), None)
+                next((p for p in self._extra_parameters if p.name == param['name']), None)
                 if self._extra_parameters else None
             )
             if override_param:
-                param.update(override_param)
+                param_range = list(override_param.range)
+                # TODO param range type can be not only string
+                if param['type'] == 'INT':
+                    param_range = [int(p) for p in param_range]
+                elif param['type'] == 'FLOAT':
+                    param_range = [float(p) for p in param_range]
+                else:
+                    param_range = [str(p) for p in param_range]
+
+                param.update(dict(name=override_param.name, range=param_range))
+
+            if not param['range']:  # TODO Slate object bug: values not saved
+                param['range'] = ['TestValue1', 'TestValue2', 'TestValue3']
 
             param_definition_cls = self.param_type_map.get(param['type'])
             if param_definition_cls:
@@ -229,8 +248,8 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
             environments: list = None,
             extra_parameters: list = None,
             host_requirements=None,
-            task_chunk_size: int = None,
-            shots_count: int = None
+            task_chunk_size: int = 0,
+            shots_count: int = 0
     ):
         """
         :param file_path: The file path of the step descriptor
@@ -260,6 +279,22 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
 
         super().__init__(file_path, name, step_dependencies, environments, extra_parameters, host_requirements)
 
+    @property
+    def task_chunk_size(self):
+        return self._task_chunk_size
+
+    @task_chunk_size.setter
+    def task_chunk_size(self, value: int):
+        self._task_chunk_size = value
+
+    @property
+    def shots_count(self):
+        return self._shots_count
+
+    @shots_count.setter
+    def shots_count(self, value: int):
+        self._shots_count = value
+
     @staticmethod
     def validate_parameters(parameters: TaskParameterList) -> bool:
         """
@@ -284,50 +319,45 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
                          '- LevelSequencePath, LevelPath, MoviePipelineConfigurationPath\n'
                          )
         
-    def get_chunk_size_parameters(self) -> dict:
+    def get_chunk_ids_count(self) -> int:
         """
         Get parameters
         """
         
         if not self._task_chunk_size or not self._shots_count:
             raise ValueError('Task chunk size and shots count must be provided')
-        
-        step_object = self.get_template_object()
-
-        task_chunk_size = {'name': 'TaskChunkSize', 'type': 'INT', 'range': [self._task_chunk_size]}
-        task_chunk_size_updated = False
 
         task_chunk_ids_count = math.ceil(self._shots_count / self._task_chunk_size)
-        task_chunk_ids = [i for i in range(task_chunk_ids_count)]
-        task_chunk_id = {'name': 'TaskChunkId', 'type': 'INT', 'range': task_chunk_ids}
-        task_chunk_id_updated = False
-
-        for param_definition in step_object['parameterSpace']['taskParameterDefinitions']:
-                
-            if param_definition['name'] == task_chunk_size['name']:
-                param_definition.update(task_chunk_size)
-                task_chunk_size_updated = True
-
-            if param_definition['name'] == task_chunk_id['name']:
-                param_definition.update(task_chunk_id)
-                task_chunk_id_updated = True
-
-        if not task_chunk_size_updated:
-            step_object['parameterSpace']['taskParameterDefinitions'].append(task_chunk_size)
-        if not task_chunk_id_updated:
-            step_object['parameterSpace']['taskParameterDefinitions'].append(task_chunk_id)
-
-        return step_object['parameterSpace']['taskParameterDefinitions']
+        return task_chunk_ids_count
     
     def build_template(self) -> StepTemplate:
         """
         Build the definition template entity
         """
-        
-        for param in self.get_chunk_size_parameters():
-            self.extra_parameters.append(param)
-            
-        step_entity = super().build()
+
+        task_chunk_size_param_definition = unreal.StepTaskParameterDefinition()
+        task_chunk_size_param_definition.name = 'TaskChunkSize'
+        task_chunk_size_param_definition.type = getattr(unreal.ValueType, 'INT')
+        task_chunk_size_param_definition.range = unreal.Array(str)  # TODO think about auto typing the range (now its only string)
+        task_chunk_size_param_definition.range.extend([str(self._task_chunk_size)])
+
+        task_chunk_id_param_definition = unreal.StepTaskParameterDefinition()
+        task_chunk_id_param_definition.name = 'TaskChunkId'
+        task_chunk_id_param_definition.type = getattr(unreal.ValueType, 'INT')
+        task_chunk_id_param_definition.range = unreal.Array(str)  # TODO think about auto typing the range (now its only string)
+        task_chunk_id_param_definition.range.extend([str(i) for i in range(self.get_chunk_ids_count())])
+
+        existed_chunk_size_param = next((p for p in self._extra_parameters if p.name == 'TaskChunkSize'), None)
+        if existed_chunk_size_param:
+            self._extra_parameters.remove(existed_chunk_size_param)
+        self._extra_parameters.append(task_chunk_size_param_definition)
+
+        existed_chunk_id_param = next((p for p in self._extra_parameters if p.name == 'TaskChunkId'), None)
+        if existed_chunk_id_param:
+            self._extra_parameters.remove(existed_chunk_id_param)
+        self._extra_parameters.append(task_chunk_id_param_definition)
+
+        step_entity = super().build_template()
         
         RenderUnrealOpenJobStep.validate_parameters(
             step_entity.parameterSpace.taskParameterDefinitions

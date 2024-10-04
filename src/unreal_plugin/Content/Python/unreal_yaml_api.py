@@ -31,6 +31,7 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
 
             u_parameter_definitions.append(u_parameter_definition.copy())
 
+        # name, job params
         return u_parameter_definitions
 
     @unreal.ufunction(override=True)
@@ -50,8 +51,11 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
             u_step_task_parameter_definition.range = [v for v in task_parameter_definition['range']]
             u_step_task_parameter_definitions.append(u_step_task_parameter_definition.copy())
 
+        # u_step_parameter_space.depends_on = [d['dependsOn'] for d in step_template.get('dependencies', [])]
+
         u_step_parameter_space.step_task_parameter_definition = u_step_task_parameter_definitions
 
+        # name, task params
         return [u_step_parameter_space]
 
     @unreal.ufunction(override=True)
