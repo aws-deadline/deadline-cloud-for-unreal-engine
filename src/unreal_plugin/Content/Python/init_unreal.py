@@ -4,12 +4,6 @@ import os
 import sys
 import unreal
 
-try:
-    import unreal_yaml_api
-    from unreal_yaml_api import PythonYamlLibraryImplementation
-    unreal.log("Yaml library imported.")
-except:
-    unreal.log_error("Unable to import yaml.")
 
 remote_execution = os.getenv("REMOTE_EXECUTION", "False")
 if remote_execution != "True":
@@ -28,6 +22,11 @@ if remote_execution != "True":
     # These imports finish the setup for the plugin.
     from settings import DeadlineCloudDeveloperSettingsImplementation  # noqa: F401
     from job_library import DeadlineCloudJobBundleLibraryImplementation  # noqa: F401
+    from unreal_yaml_api import (  # noqa: F401
+        PythonYamlLibraryImplementation,
+        ParametersConsistencyChecker,
+        ParametersConsistencyCheckResult
+    )
     import remote_executor  # noqa: F401
 
 
