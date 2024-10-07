@@ -7,6 +7,12 @@ parameterSpace:
   - name: QueueManifestPath
     type: PATH
     range: []
+  - name: TaskChunkSize
+    type: INT
+    range: []
+  - name: TaskChunkId
+    type: INT
+    range: []
 script:
   embeddedFiles:
   - name: runData
