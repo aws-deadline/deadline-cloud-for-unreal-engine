@@ -36,15 +36,15 @@ struct FParameterDefinition
 
 
 	// String Value
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
 	FString StringValue;
 	// Path value
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
 	FString PathValue;
 	// Path value
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
 	int32 IntValue;
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
 	float FloatValue;
 
 	FParameterDefinition()

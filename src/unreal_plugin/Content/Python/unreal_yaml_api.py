@@ -1,103 +1,58 @@
 import unreal
 import yaml
 
+
+parameter_definition_value_type_mapping = {
+    'INT': 'int_value',
+    'FLOAT': 'float_value',
+    'STRING': 'string_value',
+    'PATH': 'path_value'
+}
+
+
 @unreal.uclass()
 class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
 
     @unreal.ufunction(override=True)
-    def read_name(self, path: str):
-        file = open(path, 'r')
-        result = yaml.safe_load(file)
-
-        f_string = "default"
-
-        name_ = (result['name'])
-        f_string = name_
-        print(f"Read the {name_}")
-        return f_string
-
-
-
-#@unreal.uclass()
-#class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
-
-    @unreal.ufunction(override=True)
     def open_job_file(self, path: str):
-        file = open(path, 'r')
-        result = yaml.safe_load(file)
+        with open(path, 'r') as f:
+            job_template = yaml.safe_load(f)
 
-        struct = unreal.ParameterDefinition() # get struct
-        structs = list()
-        enum_value = unreal.ValueType  # get enum for struct
+        u_parameter_definitions: list[unreal.ParameterDefinition] = []
 
-        data = result['parameterDefinitions']
-        # check if list
-        if isinstance(data, list):
-            for index, item in enumerate(data):
-                name_ = (item['name'])
-                struct.name = name_
-                enum_name = (item['type'])
-                enum_value = getattr(unreal.ValueType, enum_name)
-                struct.type = enum_value
+        for parameter_definition in job_template['parameterDefinitions']:
+            u_parameter_definition = unreal.ParameterDefinition()
+            u_parameter_definition.name = parameter_definition['name']
+            u_parameter_definition.type = getattr(unreal.ValueType, parameter_definition['type'])
 
-                structs.append(struct.copy())
-        else:
-            print("parameterDefinitions is not a list")
-        return structs
+            if parameter_definition.get('default') is not None:
+                value_attr = parameter_definition_value_type_mapping.get(parameter_definition['type'])
+                setattr(u_parameter_definition, value_attr, parameter_definition['default'])
+
+            u_parameter_definitions.append(u_parameter_definition.copy())
+
+        return u_parameter_definitions
 
     @unreal.ufunction(override=True)
     def open_step_file(self, path: str):
-        file = open(path, 'r')
-        result = yaml.safe_load(file)
+        with open(path, 'r') as f:
+            step_template = yaml.safe_load(f)
 
-        step_struct = unreal.StepParameterSpace() # get struct
-        step_structs = list()
-        struct_task = unreal.StepTaskParameterDefinition()  # get struct
-        struct_tasks = list()
-        enum_value = unreal.ValueType  # get enum for struct
+        u_step_parameter_space = unreal.StepParameterSpace()
+        u_step_parameter_space.name = step_template['name']  # Step has name, not the StepParameterSpace
 
-        steps_ = result['steps'] #steps = parameterSpaces
+        u_step_task_parameter_definitions = []
 
-        # check if list
-        if isinstance(steps_, list):
-            for index, item in enumerate(steps_):
-                name_ = (item['name'])
-                step_struct.name = name_
+        for task_parameter_definition in step_template['parameterSpace']['taskParameterDefinitions']:
+            u_step_task_parameter_definition = unreal.StepTaskParameterDefinition()
+            u_step_task_parameter_definition.name = task_parameter_definition['name']
+            u_step_task_parameter_definition.type = getattr(unreal.ValueType, task_parameter_definition['type'])
+            u_step_task_parameter_definition.range = [v for v in task_parameter_definition['range']]
+            u_step_task_parameter_definitions.append(u_step_task_parameter_definition.copy())
 
-                step_space = item['parameterSpace']
-                task_def = step_space['taskParameterDefinitions']
-                if isinstance(task_def, list):
-                    for index, item_ in enumerate(task_def):
-                        name_t = (item_['name'])
-                        struct_task.name = name_t
+        u_step_parameter_space.step_task_parameter_definition = u_step_task_parameter_definitions
 
-                        stype = (item_['type'])
-                        enum_value = getattr(unreal.ValueType, stype)
-                        struct_task.type = enum_value
-
-                        srange =(item_['range'])
-
-                        if isinstance(srange, list):
-                            unreal_string_array = list()
-
-                            for item in srange:
-                                if isinstance(item, str):
-                                    unreal_string_array.append(item)
-
-
-                            struct_task.range = unreal_string_array
-                            unreal_string_array.clear()
-
-                        struct_tasks.append(struct_task.copy())
-
-                step_struct.step_task_parameter_definition = struct_tasks
-
-                step_structs.append(step_struct.copy())
-                struct_tasks.clear()
-        else:
-            print("parameterDefinitions is not a list")
-
-        return step_structs
+        return [u_step_parameter_space]
 
     @unreal.ufunction(override=True)
     def open_env_file(self, path: str):

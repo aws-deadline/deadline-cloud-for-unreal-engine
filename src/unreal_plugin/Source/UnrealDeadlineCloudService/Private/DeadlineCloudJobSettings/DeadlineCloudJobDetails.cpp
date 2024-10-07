@@ -13,6 +13,9 @@
 #include "UnrealDeadlineCloudServiceModule.h"
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
+#include "Templates/SharedPointer.h"
+#include "PropertyEditorModule.h"
+#include "IDetailsView.h"
 
 
 #define LOCTEXT_NAMESPACE "JobDetails"
@@ -73,69 +76,70 @@ public:
         SLATE_ARGUMENT(FParameterDefinition*, Parameter)
     SLATE_END_ARGS()
 
-        void Construct(const FArguments& InArgs)
+    void Construct(const FArguments& InArgs)
+    {
+        Parameter = InArgs._Parameter;
+        type = Parameter->Type;
+        switch (type)
         {
-            Parameter = InArgs._Parameter;
-            type = Parameter->Type;
-            switch (type)
-            {
-            case EValueType::INT:
-               EditableString = FString::FromInt(Parameter->IntValue);
-                break;
+        case EValueType::INT:
+            EditableString = FString::FromInt(Parameter->IntValue);
+            break;
 
-            case EValueType::FLOAT:
-                EditableString = FString::SanitizeFloat(Parameter->FloatValue);
-                break;
+        case EValueType::FLOAT:
+            EditableString = FString::SanitizeFloat(Parameter->FloatValue);
+            break;
 
-            case EValueType::STRING:
-                EditableString = Parameter->StringValue;
-                break;
-            case EValueType::PATH:
-                EditableString = Parameter->PathValue;
-                break;
+        case EValueType::STRING:
+            EditableString = Parameter->StringValue;
+            break;
+        case EValueType::PATH:
+            EditableString = Parameter->PathValue;
+            break;
 
-          //  default:
-            //    EditableString = "";
-            //    break;
-            }
-
-            ChildSlot
-                [
-                    SNew(SEditableTextBox)
-
-                        .OnTextChanged(this, &SStringWidget::HandleTextChanged)
-                        .Text(FText::FromString(EditableString))
-                ];
+            //  default:
+              //    EditableString = "";
+              //    break;
         }
+
+        ChildSlot
+            [
+                SNew(SEditableTextBox)
+
+                    .OnTextChanged(this, &SStringWidget::HandleTextChanged)
+                    .Text(FText::FromString(EditableString))
+            ];
+    }
 
 private:
     void HandleTextChanged(const FText& NewText)
     {
 
-            EditableString = NewText.ToString();
-            UE_LOG(LogTemp, Warning, TEXT("Parameter changed "), *EditableString);
+        EditableString = NewText.ToString();
+        UE_LOG(LogTemp, Warning, TEXT("Parameter changed "), *EditableString);
 
-          //  EValueType CurrentType = Parameter->Type;
+        //  EValueType CurrentType = Parameter->Type;
 
 
-            if (type == EValueType::PATH) { Parameter->PathValue = EditableString; }
-            if (type == EValueType::STRING)
-            {
-                Parameter->ChangeParameterStringValue(EditableString);
-            }
-            if (type == EValueType::INT) { Parameter->IntValue = FCString::Atoi(*EditableString); }
-           if (type == EValueType::FLOAT) { Parameter->IntValue = FCString::Atof(*EditableString); }
-            else
-            {
-                Parameter->StringValue = EditableString;
-            }
+        if (type == EValueType::PATH) { Parameter->PathValue = EditableString; }
+        if (type == EValueType::STRING)
+        {
+            Parameter->ChangeParameterStringValue(EditableString);
+        }
+        if (type == EValueType::INT) { Parameter->IntValue = FCString::Atoi(*EditableString); }
+        if (type == EValueType::FLOAT) { Parameter->IntValue = FCString::Atof(*EditableString); }
+        else
+        {
+            Parameter->StringValue = EditableString;
+        }
 
 
     }
     EValueType type;
-    FParameterDefinition *Parameter; 
+    FParameterDefinition* Parameter;
     FString EditableString;
 };
+
 
 
 TSharedRef<SWidget> FDeadlineCloudJobDetails::CreateStringWidget(FParameterDefinition* Parameter_)
@@ -164,6 +168,8 @@ TSharedRef<SWidget> FDeadlineCloudJobDetails::CreateNameWidget(FString Parameter
         ];
 };
 
+
+
 /*Details*/
 TSharedRef<IDetailCustomization> FDeadlineCloudJobDetails::MakeInstance()
 {
@@ -176,47 +182,57 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
     DetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
     Settings = Cast<UDeadlineCloudJob>(ObjectsBeingCustomized[0].Get());
 
+    TSharedPtr<FDelegateHandle> Handle = MakeShared<FDelegateHandle>();
+
+    //  Dispatcher handle remove
+    { Settings->OnSomethingChanged.Remove(*Handle); }
+
+    Settings->OpenJobFile(Settings->PathToTemplate.FilePath);
 
 
     /* Load new parameters from yaml*/
-    if (Settings->PathToTemplate.FilePath.Len() > 0)
+    if (Settings->GetJobParameters().Num() > 0)
     {
-        Settings->ReadName(Settings->PathToTemplate.FilePath);
-        Settings->OpenJobFile(Settings->PathToTemplate.FilePath);
 
-    }
-    //todo: edit
+        IDetailCategoryBuilder& PropertiesCategory = DetailBuilder.EditCategory("DeadlineCloudJobParameters");
 
-        if (Settings->GetJobParameters().Num() > 0) {
+        for (auto& parameter : Settings->JobParameters) {
 
-            IDetailCategoryBuilder& PropertiesCategory = DetailBuilder.EditCategory("DeadlineCloudJobParameters");
+            EValueType CurrentType = parameter.Type;
 
-            for (auto& parameter : Settings->JobParameters) {
-
-                EValueType CurrentType = parameter.Type;
-
-                if (CurrentType == EValueType::PATH)
-                {
-                    PropertiesCategory.AddCustomRow(LOCTEXT("Parameter Definitions", "Parameter Definitions"))
-                        .NameContent()
-                        [CreateNameWidget(parameter.Name)]
-                        .ValueContent()
-                        [CreatePathWidget(parameter.PathValue)];
-                }
-                else
-                {
-                    PropertiesCategory.AddCustomRow(LOCTEXT("Parameter Definitions", "Parameter Definitions"))
-                        .NameContent()
-                        [CreateNameWidget(parameter.Name)]
-                        .ValueContent()
-                        [CreateStringWidget(&parameter)];
-                }              
+            if (CurrentType == EValueType::PATH)
+            {
+                PropertiesCategory.AddCustomRow(LOCTEXT("Parameter Definitions", "Parameter Definitions"))
+                    .NameContent()
+                    [CreateNameWidget(parameter.Name)]
+                    .ValueContent()
+                    [CreatePathWidget(parameter.PathValue)];
+            }
+            else
+            {
+                PropertiesCategory.AddCustomRow(LOCTEXT("Parameter Definitions", "Parameter Definitions"))
+                    .NameContent()
+                    [CreateNameWidget(parameter.Name)]
+                    .ValueContent()
+                    [CreateStringWidget(&parameter)];
             }
         }
-        else
+
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("PARAMETERS PARSING ERROR"));
+    }
+    //  Dispatcher handle bind
+    if (Settings.IsValid() && (&DetailBuilder) && !(Settings->OnSomethingChanged.IsBound()))
+    {
         {
-            UE_LOG(LogTemp, Error, TEXT("PARAMETERS PARSING ERROR"));
+            *Handle = Settings->OnSomethingChanged.AddLambda([this, &DetailBuilder]()
+                {
+                    DetailBuilder.ForceRefreshDetails();
+                });
         }
+    };
 }
 
 

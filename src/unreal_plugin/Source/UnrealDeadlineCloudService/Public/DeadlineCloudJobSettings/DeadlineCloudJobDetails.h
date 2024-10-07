@@ -40,12 +40,30 @@ public:
 
     static TSharedRef<IDetailCustomization> MakeInstance();
     virtual  void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
-   
+
+
+
+public:
+    
+ //   UFUNCTION()
+    void HandlePathChanged()
+    {
+        if (Settings.IsValid())
+        {
+
+            UE_LOG(LogTemp, Log, TEXT("Something changed!"));
+        }
+    }
+
+
 private:
 
     TSharedRef<SWidget> CreateNameWidget(FString Parameter);
 
     TSharedRef<SWidget> CreatePathWidget(FString Parameter);
     TSharedRef<SWidget> CreateStringWidget(FParameterDefinition *Parameter);
+
+
    
 };
+
