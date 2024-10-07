@@ -178,14 +178,15 @@ TSharedRef<IDetailCustomization> FDeadlineCloudJobDetails::MakeInstance()
 
 void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
+    // The detail layout builder that is using us
+
+    MyDetailLayout = &DetailBuilder;
+
     TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
-    DetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
+    MyDetailLayout->GetObjectsBeingCustomized(ObjectsBeingCustomized);
     Settings = Cast<UDeadlineCloudJob>(ObjectsBeingCustomized[0].Get());
 
-    TSharedPtr<FDelegateHandle> Handle = MakeShared<FDelegateHandle>();
-
-    //  Dispatcher handle remove
-    { Settings->OnSomethingChanged.Remove(*Handle); }
+   // TSharedPtr<FDelegateHandle> Handle = MakeShared<FDelegateHandle>();
 
     Settings->OpenJobFile(Settings->PathToTemplate.FilePath);
 
@@ -194,7 +195,7 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
     if (Settings->GetJobParameters().Num() > 0)
     {
 
-        IDetailCategoryBuilder& PropertiesCategory = DetailBuilder.EditCategory("DeadlineCloudJobParameters");
+        IDetailCategoryBuilder& PropertiesCategory = MyDetailLayout->EditCategory("DeadlineCloudJobParameters");
 
         for (auto& parameter : Settings->JobParameters) {
 
@@ -224,17 +225,20 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
         UE_LOG(LogTemp, Error, TEXT("PARAMETERS PARSING ERROR"));
     }
     //  Dispatcher handle bind
-    if (Settings.IsValid() && (&DetailBuilder) && !(Settings->OnSomethingChanged.IsBound()))
+    if (Settings.IsValid() && (MyDetailLayout != nullptr))
     {
         {
-            *Handle = Settings->OnSomethingChanged.AddLambda([this, &DetailBuilder]()
-                {
-                    DetailBuilder.ForceRefreshDetails();
-                });
+                Settings->OnSomethingChanged = FSimpleDelegate::CreateSP(this, &FDeadlineCloudJobDetails::ForceRefreshDetails);
+
+
+
         }
     };
 }
-
+void FDeadlineCloudJobDetails::ForceRefreshDetails()
+{
+    MyDetailLayout->ForceRefreshDetails();
+}
 
 #undef LOCTEXT_NAMESPACE
 

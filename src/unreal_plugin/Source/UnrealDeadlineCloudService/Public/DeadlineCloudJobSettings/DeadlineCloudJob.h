@@ -32,12 +32,13 @@ public:
 
 	UDeadlineCloudJob();
 
-	FSimpleMulticastDelegate OnSomethingChanged;
-
+	//FSimpleMulticastDelegate OnSomethingChanged;
+	FSimpleDelegate OnSomethingChanged;
 
 	void TriggerChange()
 	{
-		OnSomethingChanged.Broadcast();
+		//OnSomethingChanged.Broadcast();
+		OnSomethingChanged.Execute();
 	}
 
 	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Parameters")

@@ -40,7 +40,7 @@ public:
 
     static TSharedRef<IDetailCustomization> MakeInstance();
     virtual  void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
-
+    IDetailLayoutBuilder* MyDetailLayout;
 
 
 public:
@@ -63,7 +63,7 @@ private:
     TSharedRef<SWidget> CreatePathWidget(FString Parameter);
     TSharedRef<SWidget> CreateStringWidget(FParameterDefinition *Parameter);
 
-
+    void ForceRefreshDetails();
    
 };
 
