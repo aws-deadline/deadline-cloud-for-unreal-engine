@@ -22,7 +22,7 @@ if remote_execution != "True":
     # These imports finish the setup for the plugin.
     from settings import DeadlineCloudDeveloperSettingsImplementation  # noqa: F401
     from job_library import DeadlineCloudJobBundleLibraryImplementation  # noqa: F401
-    from unreal_yaml_api import (  # noqa: F401
+    from open_job_template_api import (  # noqa: F401
         PythonYamlLibraryImplementation,
         ParametersConsistencyChecker,
         ParametersConsistencyCheckResult
