@@ -32,7 +32,8 @@ private:
 public:
 	/** Read path */
 	UFUNCTION()
-
 	void OpenStepFile(const FString& Path);
+
+	UFUNCTION(BlueprintCallable, Category=Parameters)
 	TArray<FStepTaskParameterDefinition> GetStepParameters();
 };

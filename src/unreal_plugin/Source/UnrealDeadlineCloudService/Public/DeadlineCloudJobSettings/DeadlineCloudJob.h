@@ -58,6 +58,7 @@ public:
 	UFUNCTION()
 	void ReadName(const FString& Path);
 
+	UFUNCTION(BlueprintCallable, Category=OpenJobParameters)
 	TArray <FParameterDefinition> GetJobParameters();
 
 
