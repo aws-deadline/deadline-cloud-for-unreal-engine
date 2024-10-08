@@ -149,7 +149,6 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
             for environment in environments
         ]
 
-        # TODO - Santi: Ask about this
         self._extra_parameters = extra_parameters or []
 
         self._host_requirements = host_requirements
@@ -201,8 +200,8 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
 
                 param.update(dict(name=override_param.name, range=param_range))
 
-            if not param['range']:  # TODO Slate object bug: values not saved
-                param['range'] = ['TestValue1', 'TestValue2', 'TestValue3']
+            # if not param['range']:  # TODO Slate object bug: values not saved
+            #     param['range'] = ['TestValue1', 'TestValue2', 'TestValue3']
 
             param_definition_cls = self.param_type_map.get(param['type'])
             if param_definition_cls:
@@ -276,6 +275,7 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         
         self._task_chunk_size = task_chunk_size
         self._shots_count = shots_count
+        self._queue_manifest_path = ''
 
         super().__init__(file_path, name, step_dependencies, environments, extra_parameters, host_requirements)
 
@@ -294,6 +294,14 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
     @shots_count.setter
     def shots_count(self, value: int):
         self._shots_count = value
+
+    @property
+    def queue_manifest_path(self):
+        return self._queue_manifest_path
+
+    @queue_manifest_path.setter
+    def queue_manifest_path(self, value):
+        self._queue_manifest_path = value
 
     @staticmethod
     def validate_parameters(parameters: TaskParameterList) -> bool:
@@ -347,6 +355,18 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         task_chunk_id_param_definition.range = unreal.Array(str)  # TODO think about auto typing the range (now its only string)
         task_chunk_id_param_definition.range.extend([str(i) for i in range(self.get_chunk_ids_count())])
 
+        handler_param_definition = unreal.StepTaskParameterDefinition()
+        handler_param_definition.name = 'Handler'
+        handler_param_definition.type = getattr(unreal.ValueType, 'STRING')
+        handler_param_definition.range = unreal.Array(str)
+        handler_param_definition.range.extend(['render'])
+
+        manifest_param_definition = unreal.StepTaskParameterDefinition()
+        manifest_param_definition.name = 'QueueManifestPath'
+        manifest_param_definition.type = getattr(unreal.ValueType, 'PATH')
+        manifest_param_definition.range = unreal.Array(str)
+        manifest_param_definition.range.extend([self.queue_manifest_path])
+
         existed_chunk_size_param = next((p for p in self._extra_parameters if p.name == 'TaskChunkSize'), None)
         if existed_chunk_size_param:
             self._extra_parameters.remove(existed_chunk_size_param)
@@ -356,6 +376,16 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         if existed_chunk_id_param:
             self._extra_parameters.remove(existed_chunk_id_param)
         self._extra_parameters.append(task_chunk_id_param_definition)
+
+        existed_handler_param = next((p for p in self._extra_parameters if p.name == 'Handler'), None)
+        if existed_handler_param:
+            self._extra_parameters.remove(existed_handler_param)
+        self._extra_parameters.append(handler_param_definition)
+
+        existed_manifest_param = next((p for p in self._extra_parameters if p.name == 'QueueManifestPath'), None)
+        if existed_manifest_param:
+            self._extra_parameters.remove(existed_manifest_param)
+        self._extra_parameters.append(manifest_param_definition)
 
         step_entity = super().build_template()
         

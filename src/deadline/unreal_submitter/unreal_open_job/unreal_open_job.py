@@ -257,11 +257,10 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         return ordered_data
 
     def create_job_bundle(self):
+        job_template = self.build_template()
 
         job_bundle_path = create_job_history_bundle_dir("Unreal", self.name)
         unreal.log(f"Job bundle path: {job_bundle_path}")
-
-        job_template = self.build_template()
 
         with open(job_bundle_path + "/template.yaml", "w", encoding="utf8") as f:
             job_template_dict = UnrealOpenJob.serialize_template(job_template)
@@ -311,6 +310,8 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         self._dependency_collector = DependencyCollector()
 
+        self._manifest_path = ''
+
         super().__init__(file_path, name, steps, environments, extra_parameters)
 
     @property
@@ -323,6 +324,11 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         for step in self._steps:
             if isinstance(step, RenderUnrealOpenJobStep):
                 step.shots_count = len(self._mrq_job.shot_info)
+                step.queue_manifest_path = self._save_manifest_file()
+
+    @property
+    def manifest_path(self):
+        return self._manifest_path
 
     @classmethod
     def from_data_asset(cls, data_asset: unreal.DeadlineCloudRenderJob) -> "RenderUnrealOpenJob":
@@ -492,8 +498,8 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         # asset_references.input_filenames.update(step_input_files)
 
         # add manifest to attachments
-        manifest_path = self._save_manifest_file()
-        asset_references.input_filenames.add(manifest_path)
+        if os.path.exists(self._manifest_path):
+            asset_references.input_filenames.add(self._manifest_path)
 
         # add other input files to attachments
         job_input_files = [
@@ -550,6 +556,25 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         )
 
         duplicated_queue, manifest_path = unreal.MoviePipelineEditorLibrary.save_queue_to_manifest_file(new_queue)
-        manifest_path = unreal.Paths.convert_relative_path_to_full(manifest_path)
+        serialized_manifest = unreal.MoviePipelineEditorLibrary.convert_manifest_file_to_string(manifest_path)
 
-        return manifest_path
+        movie_render_pipeline_dir = os.path.join(
+            unreal.SystemLibrary.get_project_saved_directory(),
+            "MovieRenderPipeline",
+            "RenderJobManifests",
+        )
+        os.makedirs(movie_render_pipeline_dir, exist_ok=True)
+
+        render_job_manifest_path = unreal.Paths.create_temp_filename(
+            movie_render_pipeline_dir,
+            prefix='RenderJobManifest',
+            extension='.utxt'
+        )
+
+        with open(render_job_manifest_path, 'w') as manifest:
+            unreal.log(f"Saving Manifest file `{render_job_manifest_path}`")
+            manifest.write(serialized_manifest)
+
+        self._manifest_path = unreal.Paths.convert_relative_path_to_full(render_job_manifest_path)
+
+        return self._manifest_path

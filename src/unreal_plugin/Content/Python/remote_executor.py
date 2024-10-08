@@ -40,6 +40,7 @@ class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelineExecutorBase)
             unreal_submitter.add_job(job)
 
         unreal_submitter.submit_jobs()
+        unreal_submitter.cleanup()
 
     @unreal.ufunction(override=True)
     def is_rendering(self):

@@ -1,4 +1,5 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+import os
 import unreal
 import threading
 from enum import Enum
@@ -228,6 +229,7 @@ class UnrealSubmitter:
             f"Submitted jobs ({len(self.submitted_job_ids)}):\n" + "\n".join(self.submitted_job_ids)
         )
 
+    def cleanup(self):
         del self.submitted_job_ids[:]
         del self._jobs[:]
 
@@ -237,7 +239,7 @@ class UnrealOpenJobSubmitter(UnrealSubmitter):
     def __init__(self, silent_mode: bool = False):
         super().__init__(UnrealOpenJob, silent_mode)
 
-    def add_job(self, unreal_open_job_data_asset: unreal.DeadlineCloudOpenJob):
+    def add_job(self, unreal_open_job_data_asset: unreal.DeadlineCloudJob):
         open_job = self._open_job_class.from_data_asset(unreal_open_job_data_asset)
         self._jobs.append(open_job)
 
@@ -252,3 +254,14 @@ class UnrealRenderOpenJobSubmitter(UnrealSubmitter):
         render_open_job.mrq_job = mrq_job
         self._jobs.append(render_open_job)
 
+    def submit_jobs(self):
+        for job in self._jobs:
+            unreal.log("Creating job from bundle...")
+            job_bundle_path = job.create_job_bundle()
+            self.show_message_dialog(message=job_bundle_path)
+
+    def cleanup(self):
+        for job in self._jobs:
+            if os.path.exists(job.manifest_path):
+                os.remove(job.manifest_path)
+        super().cleanup()
