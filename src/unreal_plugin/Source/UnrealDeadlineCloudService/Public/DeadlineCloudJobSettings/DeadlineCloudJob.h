@@ -11,18 +11,7 @@
  * All Deadline Cloud job settings container struct
  */
 
-//DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDataChanged);
 
-
-USTRUCT(BlueprintType)
-struct FPathToFile
-{
-	GENERATED_BODY()
-
-
-	UPROPERTY( EditAnywhere, BlueprintReadWrite, Category = "Parameters")
-	FFilePath PathToTemplate;
-};
 
 UCLASS(BlueprintType, Blueprintable, Config = Game)
 class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudJob : public UDataAsset
@@ -46,9 +35,6 @@ public:
 
 	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Parameters")
 	FFilePath PathToTemplate;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
-	FPathToFile PathToTemplateStruct;
 
 	/** Deadline cloud job settings container struct */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Preset")
