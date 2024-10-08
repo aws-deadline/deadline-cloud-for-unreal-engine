@@ -111,7 +111,9 @@ class ParametersConsistencyCheckResult:
     reason: str
 
 
-class ParametersConsistencyChecker:
+#class ParametersConsistencyChecker:
+@unreal.uclass()
+class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
 
     @staticmethod
     def get_parameters_symmetric_difference(
@@ -254,6 +256,7 @@ class ParametersConsistencyChecker:
             environment_template = yaml.safe_load(f)
 
         # TODO i.alekseeva variables should be a list of pairs, not just a string joined by "="
+        #unreal.EnvVariable array
         yaml_variable_names = [k for k in environment_template['variables'].keys()]
         open_job_environment_variable_names = [
             v.split('=')[0] for v in open_job_environment.environment_structure.variables

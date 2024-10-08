@@ -1,24 +1,25 @@
-// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-
 #pragma once
 
 #include "CoreMinimal.h"
 #include "PythonAPILibrary.h"
 #include "PythonYamlLibrary.h"
 #include "UObject/Object.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudJob.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudStep.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudEnvironment.h"
 #include "PythonParametersConsistencyChecker.generated.h"
 
 USTRUCT(BlueprintType)
 struct FParametersConsistencyCheckResult 
 
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checker")
-    bool Passed = false;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checker")
+	bool Passed;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checker")
-    FString Reason;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checker")
+	FString Reason;
 
 };
 
@@ -27,25 +28,25 @@ struct FParametersConsistencyCheckResult
 UCLASS()
 class UNREALDEADLINECLOUDSERVICE_API UPythonParametersConsistencyChecker : public UObject, public TPythonAPILibraryBase<UPythonParametersConsistencyChecker>
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
 
 public:
-    UFUNCTION(BlueprintImplementableEvent)
-    FParametersConsistencyCheckResult    CheckJobParametersConsistency(const UDeadlineCloudJob* Job);
+	UFUNCTION(BlueprintImplementableEvent)
+	FParametersConsistencyCheckResult	CheckJobParametersConsistency(UDeadlineCloudJob* Job);
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void FixJobParametersConsistency (UDeadlineCloudJob* Job);
    
 	UFUNCTION(BlueprintImplementableEvent)
-	FParametersConsistencyCheckResult	CheckStepParametersConsistency(const UDeadlineCloudStep* Step);
+	FParametersConsistencyCheckResult	CheckStepParametersConsistency(UDeadlineCloudStep* Step);
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void	FixStepParametersConsistency (UDeadlineCloudStep* Step);
 
 	UFUNCTION(BlueprintImplementableEvent)
-	FParametersConsistencyCheckResult	CheckEnvironmentVariablesConsistency(const UDeadlineCloudEnvironment* Environment);
+	FParametersConsistencyCheckResult	CheckEnvironmentParametersConsistency(UDeadlineCloudEnvironment* Environment);
 
 	UFUNCTION(BlueprintImplementableEvent)
-	void	FixEnvironmentVariablesConsistency(UDeadlineCloudEnvironment* Environment);
+	void	FixEnvironmentParametersConsistency (UDeadlineCloudEnvironment* Environment);
  
 };

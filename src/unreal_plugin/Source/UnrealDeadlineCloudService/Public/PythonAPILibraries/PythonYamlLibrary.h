@@ -34,7 +34,6 @@ struct FParameterDefinition
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
 	EValueType Type;
 
-
 	// String Value
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
 	FString StringValue;
@@ -70,26 +69,35 @@ struct FStepTaskParameterDefinition
 {
 	GENERATED_BODY()
 
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
 	FString Name;
-
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
 	EValueType Type;
-
-
-
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
 	TArray <FString> Range;
 
 };
 
+USTRUCT(BlueprintType)
+struct FEnvVariable
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Environment")
+	FString Name;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Environment")
+	FString Value;
+
+};
 
 /*
 Env .yaml struct
  */
+
+//# TODO i.alekseeva variables should be a list of pairs, not just a string joined by "="
+
 
 USTRUCT(BlueprintType)
 struct FEnvironmentStruct
@@ -105,7 +113,7 @@ struct FEnvironmentStruct
 	FString Description;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
-	TArray <FString> Variables;
+	TArray <FEnvVariable> Variables;
 };
 
 
