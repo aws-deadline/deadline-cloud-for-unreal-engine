@@ -1,6 +1,6 @@
 #pragma once
 
-#include "PythonAPILibraries/PythonYamlLibrary.h"
+
 #include "DeadlineCloudStep.h"
 #include "CoreMinimal.h"
 #include "DeadlineCloudJobDataAsset.h"
@@ -21,12 +21,10 @@ public:
 
 	UDeadlineCloudJob();
 
-	//FSimpleMulticastDelegate OnSomethingChanged;
 	FSimpleDelegate OnSomethingChanged;
 
 	void TriggerChange()
 	{
-		//OnSomethingChanged.Broadcast();
 		OnSomethingChanged.Execute();
 	}
 
@@ -46,8 +44,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
 	TArray<UDeadlineCloudEnvironment*> Environments;
 
-//private:	
-//	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
+private:	
 	TArray <FParameterDefinition> JobParameters;
 
 public:
@@ -58,7 +55,9 @@ public:
 	UFUNCTION()
 	void ReadName(const FString& Path);
 
-	UFUNCTION(BlueprintCallable, Category=OpenJobParameters)
+	UFUNCTION()
+	void CheckJobParametersConsistency(UDeadlineCloudJob* Self);
+
 	TArray <FParameterDefinition> GetJobParameters();
 
 

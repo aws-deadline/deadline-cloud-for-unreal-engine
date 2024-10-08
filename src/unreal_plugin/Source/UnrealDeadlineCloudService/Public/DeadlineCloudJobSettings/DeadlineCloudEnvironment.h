@@ -24,4 +24,7 @@ public:
 	/** Read path */
 	UFUNCTION()
 	TArray <FEnvironmentStruct> OpenEnvFile(const FString& Path);
+
+	UFUNCTION()
+	void CheckEnviromnentParametersConsistency( UDeadlineCloudEnvironment* Self) ;
 };

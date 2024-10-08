@@ -184,6 +184,12 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
     Settings = Cast<UDeadlineCloudJob>(ObjectsBeingCustomized[0].Get());
 
     // TODO: consistency check
+    if (Settings.IsValid())
+    {
+        UDeadlineCloudJob* MyObject = Settings.Get();
+        MyObject->CheckJobParametersConsistency(MyObject);
+    }
+    
 
     Settings->OpenJobFile(Settings->PathToTemplate.FilePath);
 
@@ -194,7 +200,7 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
 
         IDetailCategoryBuilder& PropertiesCategory = MyDetailLayout->EditCategory("DeadlineCloudJobParameters");
 
-        for (auto& parameter : Settings->JobParameters) {
+        for (auto& parameter : Settings->GetJobParameters()) {
 
             EValueType CurrentType = parameter.Type;
 
