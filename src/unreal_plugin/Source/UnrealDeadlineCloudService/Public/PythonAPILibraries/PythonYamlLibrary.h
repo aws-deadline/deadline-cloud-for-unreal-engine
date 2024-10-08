@@ -77,13 +77,37 @@ struct FStepTaskParameterDefinition
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
 	EValueType Type;
+	// String Value
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
+	FString StringValue;
+	// Path value
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
+	FString PathValue;
+	// Path value
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
+	int32 IntValue;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
+	float FloatValue;
 
+	FStepTaskParameterDefinition()
+		: Name("DefaultName"),
+		Type(EValueType::STRING),
+		IntValue(0),
+		FloatValue(0.f),
+		StringValue(""),
+		PathValue("")
+	{}
+
+	void ChangeParameterStringValue(FString string)
+	{
+		StringValue = string;
+	};
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
 	TArray <FString> Range;
 
 };
-
+/*
 USTRUCT(BlueprintType)
 struct FStepParameterSpace
 {
@@ -95,9 +119,9 @@ struct FStepParameterSpace
 
 	// Tasks Array	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
-	TArray<FStepTaskParameterDefinition> StepTaskParameterDefinition;
+	TArray<FStepTaskParameterDefinition> StepTaskParameterDefinitions;
 
-};
+};*/
 
 /*
 Env .yaml struct
@@ -140,7 +164,7 @@ public:
 
 	// steps 
 	UFUNCTION(BlueprintImplementableEvent)
-	TArray <FStepParameterSpace> OpenStepFile(const FString& Path);
+	TArray<FStepTaskParameterDefinition> OpenStepFile(const FString& Path);
 
 	// env
 	UFUNCTION(BlueprintImplementableEvent)

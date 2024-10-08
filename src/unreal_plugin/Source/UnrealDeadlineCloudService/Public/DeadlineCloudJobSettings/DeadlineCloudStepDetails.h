@@ -22,4 +22,9 @@ private:
     TSharedRef<SWidget> GenerateStringsArrayContent(const TArray<FString>& StringArray);
     TSharedRef<SWidget> GenerateTasksContent(const TArray<FStepTaskParameterDefinition> tasks);
 
+    TSharedRef<SWidget> CreateStepNameWidget(FString Parameter);
+
+    TSharedRef<SWidget> CreateStepPathWidget(FString Parameter);
+    TSharedRef<SWidget> CreateStepStringWidget(FStepTaskParameterDefinition* Parameter);
+
 };

@@ -69,10 +69,11 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
         with open(path, 'r') as f:
             step_template = yaml.safe_load(f)
 
-        u_step_parameter_space = unreal.StepParameterSpace()
-        u_step_parameter_space.name = step_template['name']  # TODO i.alekseeva Only step has name, not the params space
+      #  u_step_parameter_space = unreal.StepParameterSpace()
+      #  u_step_parameter_space.name = step_template['name']  # TODO i.alekseeva Only step has name, not the params space
 
-        u_step_task_parameter_definitions = []
+       # u_step_task_parameter_definitions = []
+        u_step_task_parameter_definitions: list[unreal.StepTaskParameterDefinition] = []
 
         for task_parameter_definition in step_template['parameterSpace']['taskParameterDefinitions']:
             u_step_task_parameter_definition = PythonYamlLibraryImplementation.step_parameter_to_u_step_task_parameter(
@@ -80,10 +81,11 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
             )
             u_step_task_parameter_definitions.append(u_step_task_parameter_definition.copy())
 
-        u_step_parameter_space.step_task_parameter_definition = u_step_task_parameter_definitions
+       # u_step_parameter_space.step_task_parameter_definition = u_step_task_parameter_definitions
 
         # TODO return single object
-        return [u_step_parameter_space]
+        #return [u_step_parameter_space]
+        return u_step_task_parameter_definitions
 
     @unreal.ufunction(override=True)
     def open_env_file(self, path: str):

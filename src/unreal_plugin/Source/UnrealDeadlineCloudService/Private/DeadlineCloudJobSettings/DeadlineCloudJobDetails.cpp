@@ -26,10 +26,9 @@ class  SFilePathWidget : public SCompoundWidget
 {
 public:
     SLATE_BEGIN_ARGS(SFilePathWidget) {}
+        SLATE_ARGUMENT(FString, Path)
     SLATE_END_ARGS()
-
     void Construct(const FArguments& InArgs);
-
 private:
     FString SelectedFilePath;
     FString GetSelectedFilePath() const;
@@ -38,6 +37,7 @@ private:
 
 void SFilePathWidget::Construct(const FArguments& InArgs)
 {
+    SelectedFilePath = InArgs._Path;
     ChildSlot
         [
             SNew(SVerticalBox)
@@ -97,9 +97,9 @@ public:
             EditableString = Parameter->PathValue;
             break;
 
-            //  default:
-              //    EditableString = "";
-              //    break;
+        default:
+            EditableString = "";
+            break;
         }
 
         ChildSlot
@@ -117,9 +117,6 @@ private:
 
         EditableString = NewText.ToString();
         UE_LOG(LogTemp, Warning, TEXT("Parameter changed "), *EditableString);
-
-        //  EValueType CurrentType = Parameter->Type;
-
 
         if (type == EValueType::PATH) { Parameter->PathValue = EditableString; }
         if (type == EValueType::STRING)
@@ -152,7 +149,8 @@ TSharedRef<SWidget> FDeadlineCloudJobDetails::CreateStringWidget(FParameterDefin
 
 TSharedRef<SWidget> FDeadlineCloudJobDetails::CreatePathWidget(FString Parameter)
 {
-    TSharedRef<SFilePathWidget> PathPicker = SNew(SFilePathWidget);
+    TSharedRef<SFilePathWidget> PathPicker = SNew(SFilePathWidget)
+        .Path(Parameter);
     return  PathPicker;
 }
 
@@ -179,14 +177,13 @@ TSharedRef<IDetailCustomization> FDeadlineCloudJobDetails::MakeInstance()
 void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
     // The detail layout builder that is using us
-
     MyDetailLayout = &DetailBuilder;
 
     TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
     MyDetailLayout->GetObjectsBeingCustomized(ObjectsBeingCustomized);
     Settings = Cast<UDeadlineCloudJob>(ObjectsBeingCustomized[0].Get());
 
-   // TSharedPtr<FDelegateHandle> Handle = MakeShared<FDelegateHandle>();
+    // TODO: consistency check
 
     Settings->OpenJobFile(Settings->PathToTemplate.FilePath);
 
@@ -228,10 +225,7 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
     if (Settings.IsValid() && (MyDetailLayout != nullptr))
     {
         {
-                Settings->OnSomethingChanged = FSimpleDelegate::CreateSP(this, &FDeadlineCloudJobDetails::ForceRefreshDetails);
-
-
-
+            Settings->OnSomethingChanged = FSimpleDelegate::CreateSP(this, &FDeadlineCloudJobDetails::ForceRefreshDetails);
         }
     };
 }

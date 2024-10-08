@@ -27,12 +27,12 @@ public:
 	TArray<UDeadlineCloudEnvironment*> Environments;
 
 private:
-	TArray <FStepParameterSpace> StepParameters;
+	TArray<FStepTaskParameterDefinition> StepTaskParameterDefinitions;
 
 public:
 	/** Read path */
 	UFUNCTION()
 
 	void OpenStepFile(const FString& Path);
-	TArray <FStepParameterSpace> GetStepParameters();
+	TArray<FStepTaskParameterDefinition> GetStepParameters();
 };
