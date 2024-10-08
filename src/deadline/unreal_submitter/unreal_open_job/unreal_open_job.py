@@ -361,12 +361,18 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         parameter_values = super()._build_parameter_values()
 
-        ue_cmd_args = self._get_ue_cmd_args()
+        ue_cmd_args = ' '.join(self._get_ue_cmd_args())
         extra_cmd_args_param = next((p for p in parameter_values if p['name'] == 'ExtraCmdArgs'), None)
         if extra_cmd_args_param:
             extra_cmd_args_param['value'] = ue_cmd_args
         else:
             parameter_values.append(dict(name='ExtraCmdArgs', value=ue_cmd_args))
+
+        project_file_param = next((p for p in parameter_values if p['name'] == 'ProjectFilePath'), None)
+        if project_file_param:
+            project_file_param['value'] = common.get_project_file_path()
+        else:
+            parameter_values.append(dict(name='ProjectFilePath', value=common.get_project_file_path()))
 
         return parameter_values
 

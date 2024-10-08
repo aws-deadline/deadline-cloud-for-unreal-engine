@@ -1,6 +1,6 @@
 import math
 import unreal
-from typing import Any
+from typing import Any, Literal, Optional
 
 from openjd.model.v2023_09 import *
 from openjd.model.v2023_09._model import StepDependency
@@ -200,9 +200,6 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
 
                 param.update(dict(name=override_param.name, range=param_range))
 
-            # if not param['range']:  # TODO Slate object bug: values not saved
-            #     param['range'] = ['TestValue1', 'TestValue2', 'TestValue3']
-
             param_definition_cls = self.param_type_map.get(param['type'])
             if param_definition_cls:
                 step_parameter_definition_list.append(
@@ -326,8 +323,21 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
                          '- MoviePipelineQueuePath\n'
                          '- LevelSequencePath, LevelPath, MoviePipelineConfigurationPath\n'
                          )
+
+    @staticmethod
+    def build_u_step_task_parameter(
+            name: str,
+            parameter_type: Literal['INT', 'FLOAT', 'STRING', 'PATH'],
+            parameter_range: list[Any]
+    ) -> unreal.StepTaskParameterDefinition:
+        u_parameter = unreal.StepTaskParameterDefinition()
+        u_parameter.name = name
+        u_parameter.type = getattr(unreal.ValueType, parameter_type)
+        u_parameter.range = unreal.Array(str)  # TODO think about auto typing the range (now its only string)
+        u_parameter.range.extend(parameter_range)
+        return u_parameter
         
-    def get_chunk_ids_count(self) -> int:
+    def _get_chunk_ids_count(self) -> int:
         """
         Get parameters
         """
@@ -337,55 +347,40 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
 
         task_chunk_ids_count = math.ceil(self._shots_count / self._task_chunk_size)
         return task_chunk_ids_count
-    
+
+    def _find_extra_parameter_by_name(self, parameter_name: str) -> Optional[unreal.StepTaskParameterDefinition]:
+        return next((p for p in self._extra_parameters if p.name == parameter_name), None)
+
+    def _update_extra_parameter(self, extra_parameter: unreal.StepTaskParameterDefinition):
+        existed_parameter = self._find_extra_parameter_by_name(extra_parameter.name)
+        if existed_parameter:
+            self._extra_parameters.remove(existed_parameter)
+        self._extra_parameters.append(extra_parameter)
+
     def build_template(self) -> StepTemplate:
         """
         Build the definition template entity
         """
 
-        task_chunk_size_param_definition = unreal.StepTaskParameterDefinition()
-        task_chunk_size_param_definition.name = 'TaskChunkSize'
-        task_chunk_size_param_definition.type = getattr(unreal.ValueType, 'INT')
-        task_chunk_size_param_definition.range = unreal.Array(str)  # TODO think about auto typing the range (now its only string)
-        task_chunk_size_param_definition.range.extend([str(self._task_chunk_size)])
+        task_chunk_size_param_definition = RenderUnrealOpenJobStep.build_u_step_task_parameter(
+            'TaskChunkSize', 'INT', [str(self._task_chunk_size)]
+        )
+        self._update_extra_parameter(task_chunk_size_param_definition)
 
-        task_chunk_id_param_definition = unreal.StepTaskParameterDefinition()
-        task_chunk_id_param_definition.name = 'TaskChunkId'
-        task_chunk_id_param_definition.type = getattr(unreal.ValueType, 'INT')
-        task_chunk_id_param_definition.range = unreal.Array(str)  # TODO think about auto typing the range (now its only string)
-        task_chunk_id_param_definition.range.extend([str(i) for i in range(self.get_chunk_ids_count())])
+        task_chunk_id_param_definition = RenderUnrealOpenJobStep.build_u_step_task_parameter(
+            'TaskChunkId', 'INT', [str(i) for i in range(self._get_chunk_ids_count())]
+        )
+        self._update_extra_parameter(task_chunk_id_param_definition)
 
-        handler_param_definition = unreal.StepTaskParameterDefinition()
-        handler_param_definition.name = 'Handler'
-        handler_param_definition.type = getattr(unreal.ValueType, 'STRING')
-        handler_param_definition.range = unreal.Array(str)
-        handler_param_definition.range.extend(['render'])
+        handler_param_definition = RenderUnrealOpenJobStep.build_u_step_task_parameter(
+            'Handler', 'STRING', ['render']
+        )
+        self._update_extra_parameter(handler_param_definition)
 
-        manifest_param_definition = unreal.StepTaskParameterDefinition()
-        manifest_param_definition.name = 'QueueManifestPath'
-        manifest_param_definition.type = getattr(unreal.ValueType, 'PATH')
-        manifest_param_definition.range = unreal.Array(str)
-        manifest_param_definition.range.extend([self.queue_manifest_path])
-
-        existed_chunk_size_param = next((p for p in self._extra_parameters if p.name == 'TaskChunkSize'), None)
-        if existed_chunk_size_param:
-            self._extra_parameters.remove(existed_chunk_size_param)
-        self._extra_parameters.append(task_chunk_size_param_definition)
-
-        existed_chunk_id_param = next((p for p in self._extra_parameters if p.name == 'TaskChunkId'), None)
-        if existed_chunk_id_param:
-            self._extra_parameters.remove(existed_chunk_id_param)
-        self._extra_parameters.append(task_chunk_id_param_definition)
-
-        existed_handler_param = next((p for p in self._extra_parameters if p.name == 'Handler'), None)
-        if existed_handler_param:
-            self._extra_parameters.remove(existed_handler_param)
-        self._extra_parameters.append(handler_param_definition)
-
-        existed_manifest_param = next((p for p in self._extra_parameters if p.name == 'QueueManifestPath'), None)
-        if existed_manifest_param:
-            self._extra_parameters.remove(existed_manifest_param)
-        self._extra_parameters.append(manifest_param_definition)
+        manifest_param_definition = RenderUnrealOpenJobStep.build_u_step_task_parameter(
+            'QueueManifestPath', 'PATH', [self.queue_manifest_path]
+        )
+        self._update_extra_parameter(manifest_param_definition)
 
         step_entity = super().build_template()
         
