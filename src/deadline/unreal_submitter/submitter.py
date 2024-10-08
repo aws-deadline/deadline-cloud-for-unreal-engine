@@ -259,9 +259,3 @@ class UnrealRenderOpenJobSubmitter(UnrealSubmitter):
             unreal.log("Creating job from bundle...")
             job_bundle_path = job.create_job_bundle()
             self.show_message_dialog(message=job_bundle_path)
-
-    def cleanup(self):
-        for job in self._jobs:
-            if os.path.exists(job.manifest_path):
-                os.remove(job.manifest_path)
-        super().cleanup()

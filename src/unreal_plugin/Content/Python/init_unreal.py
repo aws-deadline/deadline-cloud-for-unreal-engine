@@ -24,8 +24,7 @@ if remote_execution != "True":
     from job_library import DeadlineCloudJobBundleLibraryImplementation  # noqa: F401
     from open_job_template_api import (  # noqa: F401
         PythonYamlLibraryImplementation,
-        ParametersConsistencyChecker,
-        ParametersConsistencyCheckResult
+        ParametersConsistencyChecker
     )
     import remote_executor  # noqa: F401
 

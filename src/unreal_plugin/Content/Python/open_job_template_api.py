@@ -33,7 +33,7 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
         u_step_task_parameter_definition = unreal.StepTaskParameterDefinition()
         u_step_task_parameter_definition.name = step_parameter['name']
         u_step_task_parameter_definition.type = getattr(unreal.ValueType, step_parameter['type'])
-        u_step_task_parameter_definition.range = [v for v in step_parameter['range']]
+        u_step_task_parameter_definition.range = [str(v) for v in step_parameter['range']]
 
         return u_step_task_parameter_definition
 
@@ -69,10 +69,6 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
         with open(path, 'r') as f:
             step_template = yaml.safe_load(f)
 
-      #  u_step_parameter_space = unreal.StepParameterSpace()
-      #  u_step_parameter_space.name = step_template['name']  # TODO i.alekseeva Only step has name, not the params space
-
-       # u_step_task_parameter_definitions = []
         u_step_task_parameter_definitions: list[unreal.StepTaskParameterDefinition] = []
 
         for task_parameter_definition in step_template['parameterSpace']['taskParameterDefinitions']:
@@ -81,10 +77,6 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
             )
             u_step_task_parameter_definitions.append(u_step_task_parameter_definition.copy())
 
-       # u_step_parameter_space.step_task_parameter_definition = u_step_task_parameter_definitions
-
-        # TODO return single object
-        #return [u_step_parameter_space]
         return u_step_task_parameter_definitions
 
     @unreal.ufunction(override=True)
@@ -100,18 +92,6 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
         return [u_environment]
 
 
-# TODO i.alekseeva mocked consistency check structure, need to implement in C++
-from dataclasses import dataclass
-
-
-@dataclass
-class ParametersConsistencyCheckResult:
-
-    passed: bool
-    reason: str
-
-
-#class ParametersConsistencyChecker:
 @unreal.uclass()
 class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
 
@@ -129,7 +109,7 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
     def check_parameters_consistency(
             yaml_parameter_names: list[str],
             data_asset_parameter_names: list[str]
-    ) -> ParametersConsistencyCheckResult:
+    ) -> unreal.ParametersConsistencyCheckResult:
         """
         Check the consistency of the parameters described in the YAML and OpenJob asset (Job, Step, Environment).
         Parameters are not consensual if:
@@ -159,12 +139,17 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
 
         reason = '\n'.join(reasons) if not passed else 'Parameters are consensual'
 
-        return ParametersConsistencyCheckResult(passed, reason)
+        result = unreal.ParametersConsistencyCheckResult()
+        result.passed = passed
+        result.reason = reason
 
+        return result
+
+    @unreal.ufunction(override=True)
     def check_job_parameters_consistency(
             self,
             open_job: unreal.DeadlineCloudJob
-    ) -> ParametersConsistencyCheckResult:
+    ) -> unreal.ParametersConsistencyCheckResult:
 
         with open(open_job.path_to_template, 'r') as f:
             job_template = yaml.safe_load(f)
@@ -177,6 +162,7 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
             data_asset_parameter_names=open_job_parameters
         )
 
+    @unreal.ufunction(override=True)
     def fix_job_parameters_consistency(self, open_job: unreal.DeadlineCloudJob):
         with open(open_job.path_to_template, 'r') as f:
             job_template = yaml.safe_load(f)
@@ -204,10 +190,11 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
 
             open_job.job_parameters = fixed_parameter_definitions
 
+    @unreal.ufunction(override=True)
     def check_step_parameters_consistency(
             self,
             open_job_step: unreal.DeadlineCloudStep
-    ) -> ParametersConsistencyCheckResult:
+    ) -> unreal.ParametersConsistencyCheckResult:
         with open(open_job_step.path_to_template, 'r') as f:
             step_template = yaml.safe_load(f)
 
@@ -219,6 +206,7 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
             data_asset_parameter_names=open_job_step_parameters
         )
 
+    @unreal.ufunction(override=True)
     def fix_step_parameters_consistency(self, open_job_step: unreal.DeadlineCloudStep):
         with open(open_job_step.path_to_template, 'r') as f:
             step_template = yaml.safe_load(f)
@@ -248,10 +236,11 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
             # TODO
             open_job_step.step_parameters[0].step_task_parameter_definition = fixed_step_task_parameter_definitions
 
-    def check_environment_variables_consistency(
+    @unreal.ufunction(override=True)
+    def check_environment_parameters_consistency(
             self,
             open_job_environment: unreal.DeadlineCloudEnvironment
-    ) -> ParametersConsistencyCheckResult:
+    ) -> unreal.ParametersConsistencyCheckResult:
         with open(open_job_environment.path_to_template, 'r') as f:
             environment_template = yaml.safe_load(f)
 
@@ -267,7 +256,8 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
             data_asset_parameter_names=open_job_environment_variable_names
         )
 
-    def fix_environment_variables_consistency(self, open_job_environment: unreal.DeadlineCloudEnvironment):
+    @unreal.ufunction(override=True)
+    def fix_environment_parameters_consistency(self, open_job_environment: unreal.DeadlineCloudEnvironment):
         with open(open_job_environment.path_to_template, 'r') as f:
             environment_template = yaml.safe_load(f)
 
