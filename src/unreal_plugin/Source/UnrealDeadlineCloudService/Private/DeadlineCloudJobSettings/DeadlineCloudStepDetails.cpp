@@ -61,7 +61,7 @@ FString SFileStepPathWidget::GetSelectedFilePath() const
 
 
 /* Editable string widget to structure */
-
+/*
 class SStepStringWidget : public SCompoundWidget
 {
 public:
@@ -128,17 +128,17 @@ private:
     EValueType type;
     FStepTaskParameterDefinition* Parameter;
     FString EditableString;
-};
+};*/
 
 
-
+/*
 TSharedRef<SWidget> FDeadlineCloudStepDetails::CreateStepStringWidget(FStepTaskParameterDefinition* Parameter_)
 {
 
     TSharedRef<SStepStringWidget> StringWidget = SNew(SStepStringWidget)
         .Parameter(Parameter_);
     return  StringWidget;
-}
+}*/
 
 TSharedRef<SWidget> FDeadlineCloudStepDetails::CreateStepPathWidget(FString Parameter)
 {
@@ -262,37 +262,15 @@ void FDeadlineCloudStepDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBui
 
                 CurrentName = StepParameter.Name;
 
-                EValueType CurrentType = StepParameter.Type;
+                {
+                    PropertiesCategory.AddCustomRow(LOCTEXT("Parameter Definitions", "Parameter Definitions"))
+                        .NameContent()
+                        [CreateStepNameWidget(StepParameter.Name)]
+                        .ValueContent()
+                        [GenerateStringsArrayContent(StepParameter.Range)];
+                }
 
-                if (CurrentType == EValueType::PATH)
-                {
-                    PropertiesCategory.AddCustomRow(LOCTEXT("Parameter Definitions", "Parameter Definitions"))
-                        .NameContent()
-                        [CreateStepNameWidget(StepParameter.Name)]
-                        .ValueContent()
-                        [CreateStepPathWidget(StepParameter.PathValue)];
-                }
-                else
-                {
-                    PropertiesCategory.AddCustomRow(LOCTEXT("Parameter Definitions", "Parameter Definitions"))
-                        .NameContent()
-                        [CreateStepNameWidget(StepParameter.Name)]
-                        .ValueContent()
-                        [CreateStepStringWidget(&StepParameter)];
-                }
             }
-            /*
-                            [
-                                SNew(SVerticalBox)
-                                    + SVerticalBox::Slot()
-                                    .AutoHeight()
-                                    .HAlign(HAlign_Fill)
-                                    .Padding(2)
-                                    [GenerateTasksContent(StepParameter.StepTaskParameterDefinition)]
-                            ]
-                    ]; */
-
-                    //   }
         }
         else
         {
