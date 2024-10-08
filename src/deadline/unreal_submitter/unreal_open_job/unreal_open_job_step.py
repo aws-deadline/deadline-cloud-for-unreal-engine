@@ -170,7 +170,7 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
             name=data_asset.name,
             step_dependencies=[data_asset.depends_on],  # TODO depends_on should be list of steps
             environments=[UnrealOpenJobEnvironment.from_data_asset(env) for env in data_asset.environments],
-            extra_parameters=data_asset.get_step_parameters()[0].step_task_parameter_definition  # TODO parameter space object is single
+            extra_parameters=data_asset.get_step_parameters()
         )
 
     def _build_step_parameter_definition_list(self) -> list:

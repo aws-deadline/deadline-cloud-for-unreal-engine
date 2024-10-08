@@ -6,7 +6,6 @@
         "extra_cmd_args": { "type": "string" }
     },
     "required": [
-        "project_path",
-        "extra_cmd_args"
+        "project_path"
     ]
 }
