@@ -2,7 +2,10 @@
 import os
 import unreal
 import threading
+import traceback
 from enum import Enum
+from typing import Callable
+
 from deadline.client.api import (
     create_job_from_job_bundle,
     get_deadline_cloud_library_telemetry_client,
@@ -12,6 +15,27 @@ from deadline.job_attachments.exceptions import AssetSyncCancelledError
 from deadline.unreal_submitter.unreal_open_job import UnrealOpenJob, RenderUnrealOpenJob
 
 from ._version import version
+
+
+def error_notify(
+        notify_title: str = 'Operation failed',
+        notify_prefix: str = 'Error occured:\n',
+        with_traceback: bool = False
+):
+    def decorator(func: Callable):
+        def wrapper(self, *args, **kwargs):
+            try:
+                return func(self, *args, **kwargs)
+            except Exception as e:
+                message = notify_prefix + str(e)
+                if with_traceback:
+                    message += '\n' + traceback.format_exc()
+                self.show_message_dialog(
+                    message=message,
+                    title=notify_title
+                )
+        return wrapper
+    return decorator
 
 
 class UnrealSubmitStatus(Enum):
@@ -183,6 +207,7 @@ class UnrealSubmitter:
 
         unreal.EditorDialog.show_message(title=title, message=message, message_type=message_type)
 
+    @error_notify('Submission failed')
     def submit_jobs(self):
         """
         Submit OpenJobs to the Deadline Cloud
@@ -239,6 +264,7 @@ class UnrealOpenJobSubmitter(UnrealSubmitter):
     def __init__(self, silent_mode: bool = False):
         super().__init__(UnrealOpenJob, silent_mode)
 
+    @error_notify('Data asset converting failed', with_traceback=True)
     def add_job(self, unreal_open_job_data_asset: unreal.DeadlineCloudJob):
         open_job = self._open_job_class.from_data_asset(unreal_open_job_data_asset)
         self._jobs.append(open_job)
@@ -249,11 +275,13 @@ class UnrealRenderOpenJobSubmitter(UnrealSubmitter):
     def __init__(self, silent_mode: bool = False):
         super().__init__(RenderUnrealOpenJob, silent_mode)
 
+    @error_notify('Data asset converting failed')
     def add_job(self, mrq_job: unreal.MoviePipelineExecutorJob):
         render_open_job = self._open_job_class.from_data_asset(mrq_job.job_preset)
         render_open_job.mrq_job = mrq_job
         self._jobs.append(render_open_job)
 
+    @error_notify('Submission failed')
     def submit_jobs(self):
         for job in self._jobs:
             unreal.log("Creating job from bundle...")
