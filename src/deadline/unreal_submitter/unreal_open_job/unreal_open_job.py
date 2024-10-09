@@ -2,7 +2,6 @@ import os
 import re
 import json
 import unreal
-from dataclasses import dataclass
 from collections import OrderedDict
 from typing import List, Dict, Any, Literal, Union
 
@@ -13,7 +12,10 @@ from deadline.client.job_bundle import deadline_yaml_dump, create_job_history_bu
 from deadline.unreal_submitter import common
 from deadline.unreal_submitter import settings
 from deadline.unreal_submitter.unreal_dependency_collector import DependencyCollector, DependencyFilters
-from deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import UnrealOpenJobEntity
+from deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import (
+    UnrealOpenJobEntity,
+    PARAMETER_DEFINITION_MAPPING
+)
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step import (
     UnrealOpenJobStep,
     RenderUnrealOpenJobStep
@@ -114,31 +116,10 @@ class JobSharedSettings:
         return 1
 
 
-@dataclass
-class ParameterDefinitionDescriptor:
-    type_name: Literal['INT', 'FLOAT', 'STRING', 'PATH']
-    openjd_class: type[
-        Union[
-            JobIntParameterDefinition,
-            JobFloatParameterDefinition,
-            JobStringParameterDefinition,
-            JobPathParameterDefinition,
-        ]
-    ]
-    parameter_definition_attribute_name: Literal['int_value', 'float_value', 'string_value', 'path_value']
-
-
 class UnrealOpenJob(UnrealOpenJobEntity):
     """
     Open Job for Unreal Engine
     """
-
-    parameter_definition_mapping = {
-        'INT': ParameterDefinitionDescriptor('INT', JobIntParameterDefinition, 'int_value'),
-        'FLOAT': ParameterDefinitionDescriptor('FLOAT', JobFloatParameterDefinition, 'float_value'),
-        'STRING': ParameterDefinitionDescriptor('STRING', JobStringParameterDefinition, 'string_value'),
-        'PATH': ParameterDefinitionDescriptor('PATH', JobPathParameterDefinition, 'path_value')
-    }
 
     def __init__(
         self,
@@ -192,7 +173,8 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             name=data_asset.name,
             steps=steps,
             environments=[UnrealOpenJobEnvironment.from_data_asset(env) for env in data_asset.environments],
-            extra_parameters=data_asset.get_job_parameters()
+            extra_parameters=data_asset.get_job_parameters(),
+            job_shared_settings=data_asset.job_preset_struct.job_shared_settings
         )
 
     def _build_parameter_values(self) -> list:
@@ -207,7 +189,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             if extra_param:
                 param_value = getattr(
                     extra_param,
-                    self.parameter_definition_mapping.get(param['type']).parameter_definition_attribute_name
+                    PARAMETER_DEFINITION_MAPPING.get(param['type']).job_parameter_attribute_name
                 )
             else:
                 param_value = param.get('default')
@@ -227,7 +209,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             specificationVersion=settings.JOB_TEMPLATE_VERSION,
             name=self.name,
             parameterDefinitions=[
-                self.parameter_definition_mapping.get(param['type']).openjd_class(**param)
+                PARAMETER_DEFINITION_MAPPING.get(param['type']).job_parameter_openjd_class(**param)
                 for param in self.get_template_object()['parameterDefinitions']
             ],
             steps=[s.build_template() for s in self._steps],
@@ -297,16 +279,10 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             environments: list = None,
             extra_parameters: list = None,
             mrq_job: unreal.MoviePipelineExecutorJob = None,
-            executable: str = None,
-            extra_cmd_args: str = None,
             changelist_number: int = None,
-            task_chunk_size: int = None
     ):
         self._mrq_job = mrq_job
-        self._executable = executable
-        self._extra_cmd_args = extra_cmd_args
         self._changelist_number = changelist_number
-        self._task_chunk_size = task_chunk_size
 
         self._dependency_collector = DependencyCollector()
 
@@ -337,24 +313,15 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             job_step_cls = cls.job_step_map.get(source_step.name, UnrealOpenJobStep)
             job_step = job_step_cls.from_data_asset(source_step)
             job_step.host_requirements = data_asset.job_preset_struct.host_requirements
-
-            if isinstance(job_step, RenderUnrealOpenJobStep):
-                job_step.task_chunk_size = data_asset.task_chunk_size
-
             steps.append(job_step)
-
-        job_parameters = data_asset.get_job_parameters()
 
         return cls(
             file_path=data_asset.path_to_template,
             name=data_asset.name,
             steps=steps,
             environments=[UnrealOpenJobEnvironment.from_data_asset(env) for env in data_asset.environments],
-            extra_parameters=job_parameters,
-            executable=None,  # TODO data_asset.executable,
-            extra_cmd_args=next((p.string_value for p in job_parameters if p.name == 'ExtraCmdArgs'), None),
+            extra_parameters=data_asset.get_job_parameters(),
             changelist_number=None,  # TODO data_asset.changelist_number,
-            task_chunk_size=data_asset.task_chunk_size
         )
 
     def _build_parameter_values(self):
@@ -435,13 +402,14 @@ class RenderUnrealOpenJob(UnrealOpenJob):
                 '-execcmds="{}"'.format(",".join(job_exec_cmds))
             )
 
-        if self._extra_cmd_args:
-            extra_cmds_args = re.sub(
+        extra_cmd_args = next((p.string_value for p in self._extra_parameters if p.name == 'ExtraCmdArgs'), None)
+        if extra_cmd_args:
+            cleared_extra_cmds_args = re.sub(
                 pattern=".*(?P<cmds>-execcmds=[\s\S]+[\'\"])",
-                repl="", string=self._extra_cmd_args
+                repl="", string=extra_cmd_args
             )
-            if extra_cmds_args:
-                cmd_args.extend(extra_cmds_args.split(' '))
+            if cleared_extra_cmds_args:
+                cmd_args.extend(cleared_extra_cmds_args.split(' '))
 
         # remove duplicates
         cmd_args = list(set(cmd_args))

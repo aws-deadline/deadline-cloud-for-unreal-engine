@@ -5,7 +5,10 @@ from typing import Any, Literal, Optional
 from openjd.model.v2023_09 import *
 from openjd.model.v2023_09._model import StepDependency
 
-from deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import UnrealOpenJobEntity
+from deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import (
+    UnrealOpenJobEntity,
+    PARAMETER_DEFINITION_MAPPING
+)
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment import UnrealOpenJobEnvironment
 
 
@@ -111,20 +114,13 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
     """
     Unreal Open Job Step entity
     """
-    
-    param_type_map = {
-        'INT': IntTaskParameterDefinition,
-        'FLOAT': FloatTaskParameterDefinition,
-        'STRING': StringTaskParameterDefinition,
-        'PATH': PathTaskParameterDefinition
-    }
 
     def __init__(
             self,
             file_path: str,
             name: str = None,
             step_dependencies: list[str] = None,
-            environments: list = None,
+            environments: list[UnrealOpenJobEnvironment] = None,
             extra_parameters=None,
             host_requirements=None
     ):
@@ -144,10 +140,7 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         
         self._step_dependencies = step_dependencies or []
 
-        self._environments = [
-            UnrealOpenJobEnvironment(file_path=environment.file_path, name=environment.name)
-            for environment in environments
-        ]
+        self._environments = environments
 
         self._extra_parameters = extra_parameters or []
 
@@ -184,27 +177,17 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
 
         params = step_template_object['parameterSpace']['taskParameterDefinitions']
         for param in params:
+            param_descriptor = PARAMETER_DEFINITION_MAPPING.get(param['type'])
             override_param = (
                 next((p for p in self._extra_parameters if p.name == param['name']), None)
                 if self._extra_parameters else None
             )
             if override_param:
-                param_range = list(override_param.range)
-                # TODO param range type can be not only string
-                if param['type'] == 'INT':
-                    param_range = [int(p) for p in param_range]
-                elif param['type'] == 'FLOAT':
-                    param_range = [float(p) for p in param_range]
-                else:
-                    param_range = [str(p) for p in param_range]
-
+                param_range = [param_descriptor.python_cls(p) for p in list(override_param.range)]
                 param.update(dict(name=override_param.name, range=param_range))
 
-            param_definition_cls = self.param_type_map.get(param['type'])
-            if param_definition_cls:
-                step_parameter_definition_list.append(
-                    param_definition_cls(**param)
-                )
+            param_definition_cls = param_descriptor.task_parameter_openjd_class
+            step_parameter_definition_list.append(param_definition_cls(**param))
 
         return step_parameter_definition_list
         
@@ -341,11 +324,15 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         """
         Get parameters
         """
-        
-        if not self._task_chunk_size or not self._shots_count:
-            raise ValueError('Task chunk size and shots count must be provided')
 
-        task_chunk_ids_count = math.ceil(self._shots_count / self._task_chunk_size)
+        task_chunk_size = next(
+            (p.int_value for p in self._extra_parameters if p.name == 'TaskChunkSize'),
+            self._shots_count  # by default chunks lenght = 1, all shots for one worker
+        )
+        if not self._shots_count:
+            raise ValueError('Shots count must be provided')
+
+        task_chunk_ids_count = math.ceil(self._shots_count / task_chunk_size)
         return task_chunk_ids_count
 
     def _find_extra_parameter_by_name(self, parameter_name: str) -> Optional[unreal.StepTaskParameterDefinition]:
@@ -362,11 +349,11 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         Build the definition template entity
         """
 
+        # TODO remove task chunk size update
         task_chunk_size_param_definition = RenderUnrealOpenJobStep.build_u_step_task_parameter(
-            'TaskChunkSize', 'INT', [str(self._task_chunk_size)]
+            'TaskChunkSize', 'INT', [str(self._shots_count)]
         )
         self._update_extra_parameter(task_chunk_size_param_definition)
-
         task_chunk_id_param_definition = RenderUnrealOpenJobStep.build_u_step_task_parameter(
             'TaskChunkId', 'INT', [str(i) for i in range(self._get_chunk_ids_count())]
         )
