@@ -56,8 +56,8 @@ public:
 	void ReadName(const FString& Path);
 
 	UFUNCTION()
-	void CheckJobParametersConsistency(UDeadlineCloudJob* Self);
-
+	FParametersConsistencyCheckResult CheckJobParametersConsistency(UDeadlineCloudJob* Self);
+	UFUNCTION(BlueprintCallable, Category = "Parameters")
 	TArray <FParameterDefinition> GetJobParameters();
 
 

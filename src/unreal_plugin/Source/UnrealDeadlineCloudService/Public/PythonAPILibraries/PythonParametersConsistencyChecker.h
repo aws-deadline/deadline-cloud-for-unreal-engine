@@ -4,8 +4,8 @@
 #include "PythonAPILibrary.h"
 #include "PythonYamlLibrary.h"
 #include "UObject/Object.h"
-#include "DeadlineCloudJobSettings/DeadlineCloudJob.h"
-#include "DeadlineCloudJobSettings/DeadlineCloudStep.h"
+//#include "DeadlineCloudJobSettings/DeadlineCloudJob.h"
+//#include "DeadlineCloudJobSettings/DeadlineCloudStep.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudEnvironment.h"
 #include "PythonParametersConsistencyChecker.generated.h"
 
@@ -44,9 +44,9 @@ public:
 	void	FixStepParametersConsistency (UDeadlineCloudStep* Step);
 
 	UFUNCTION(BlueprintImplementableEvent)
-	FParametersConsistencyCheckResult	CheckEnvironmentParametersConsistency(UDeadlineCloudEnvironment* Environment);
+	FParametersConsistencyCheckResult	CheckEnvironmentVariablesConsistency(UDeadlineCloudEnvironment* Environment);
 
 	UFUNCTION(BlueprintImplementableEvent)
-	void	FixEnvironmentParametersConsistency (UDeadlineCloudEnvironment* Environment);
+	void	FixEnvironmentVariablesConsistency(UDeadlineCloudEnvironment* Environment);
  
 };

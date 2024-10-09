@@ -11,7 +11,8 @@ TArray <FEnvironmentStruct> UDeadlineCloudEnvironment::OpenEnvFile(const FString
 	return UPythonYamlLibrary::Get()->OpenEnvFile(Path);
 }
 
-void UDeadlineCloudEnvironment::CheckEnviromnentParametersConsistency(UDeadlineCloudEnvironment* Self)
+void UDeadlineCloudEnvironment::CheckEnvironmentVariablesConsistency(UDeadlineCloudEnvironment* Self)
 {
-	FParametersConsistencyCheckResult  result = UPythonParametersConsistencyChecker::Get()->CheckEnvironmentParametersConsistency(Self);
+	FParametersConsistencyCheckResult  result = UPythonParametersConsistencyChecker::Get()->CheckEnvironmentVariablesConsistency(Self);
+	
 }
