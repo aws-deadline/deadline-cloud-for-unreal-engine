@@ -128,7 +128,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         steps: list[UnrealOpenJobStep] = None,
         environments: list[UnrealOpenJobEnvironment] = None,
         extra_parameters: list[unreal.ParameterDefinition] = None,
-        job_shared_settings=None
+        job_shared_settings: unreal.DeadlineCloudJobSharedSettingsStruct = None
     ):
         """
         :param file_path: Path to the open job template file
@@ -278,6 +278,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             steps: list = None,
             environments: list = None,
             extra_parameters: list = None,
+            job_shared_settings: unreal.DeadlineCloudJobSharedSettingsStruct = None,
             mrq_job: unreal.MoviePipelineExecutorJob = None,
             changelist_number: int = None,
     ):
@@ -288,7 +289,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         self._manifest_path = ''
 
-        super().__init__(file_path, name, steps, environments, extra_parameters)
+        super().__init__(file_path, name, steps, environments, extra_parameters, job_shared_settings)
 
     @property
     def mrq_job(self):
@@ -321,6 +322,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             steps=steps,
             environments=[UnrealOpenJobEnvironment.from_data_asset(env) for env in data_asset.environments],
             extra_parameters=data_asset.get_job_parameters(),
+            job_shared_settings=data_asset.job_preset_struct.job_shared_settings,
             changelist_number=None,  # TODO data_asset.changelist_number,
         )
 

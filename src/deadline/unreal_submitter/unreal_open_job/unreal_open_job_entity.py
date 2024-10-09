@@ -73,14 +73,14 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
         :type name: str
         """
 
-        template_path = (file_path.file_path if isinstance(file_path, unreal.FilePath) else file_path).replace('\\', '/')
+        template_path = (file_path.file_path if isinstance(file_path, unreal.FilePath) else file_path)
         if not os.path.isabs(template_path):
             # Case when file under the project directory
             # and UE picker returns relative path (/Game/Developers/job_template.yml)
-            template_path = f'{common.get_project_directory()}/{template_path}'
+            template_path = unreal.Paths.convert_relative_path_to_full(template_path)
 
         self._template_class = template_class
-        self._file_path = template_path
+        self._file_path = template_path.replace('\\', '/')
         self._name = name
 
     @property

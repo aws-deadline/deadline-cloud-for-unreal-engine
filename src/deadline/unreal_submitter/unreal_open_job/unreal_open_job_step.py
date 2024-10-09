@@ -121,8 +121,8 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
             name: str = None,
             step_dependencies: list[str] = None,
             environments: list[UnrealOpenJobEnvironment] = None,
-            extra_parameters=None,
-            host_requirements=None
+            extra_parameters: list[unreal.StepTaskParameterDefinition] = None,
+            host_requirements: unreal.DeadlineCloudHostRequirementsStruct = None
     ):
         """
         :param file_path: The file path of the step descriptor
@@ -183,7 +183,7 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
                 if self._extra_parameters else None
             )
             if override_param:
-                param_range = [param_descriptor.python_cls(p) for p in list(override_param.range)]
+                param_range = [param_descriptor.python_class(p) for p in list(override_param.range)]
                 param.update(dict(name=override_param.name, range=param_range))
 
             param_definition_cls = param_descriptor.task_parameter_openjd_class
@@ -196,7 +196,11 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
 
         step_parameters = self._build_step_parameter_definition_list()
 
-        host_requirements = HostRequirements(host_requirements=self._host_requirements)
+        if not self._host_requirements.run_on_all_worker_nodes:
+            host_requirements = HostRequirements(host_requirements=self._host_requirements)
+            host_requirements_template = HostRequirementsTemplate(**(host_requirements.as_dict()))
+        else:
+            host_requirements_template = None
 
         return self.template_class(
             name=self.name,
@@ -209,8 +213,7 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
                 StepDependency(dependsOn=step_dependency)
                 for step_dependency in self._step_dependencies
             ] if all(self._step_dependencies) else None,
-            # TODO check host requirements validation issue
-            hostRequirements=None  # HostRequirementsTemplate(**(host_requirements.as_dict()))
+            hostRequirements=host_requirements_template
         )
 
 
@@ -326,8 +329,8 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         """
 
         task_chunk_size = next(
-            (p.int_value for p in self._extra_parameters if p.name == 'TaskChunkSize'),
-            self._shots_count  # by default chunks lenght = 1, all shots for one worker
+            (int(p.range[0]) for p in self._extra_parameters if p.name == 'TaskChunkSize'),
+            self._shots_count  # by default chunks length = 1, all shots for one worker
         )
         if not self._shots_count:
             raise ValueError('Shots count must be provided')
