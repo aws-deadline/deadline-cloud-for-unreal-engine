@@ -19,7 +19,7 @@ from ._version import version
 
 def error_notify(
         notify_title: str = 'Operation failed',
-        notify_prefix: str = 'Error occured:\n',
+        notify_prefix: str = 'Error occurred:\n',
         with_traceback: bool = False
 ):
     def decorator(func: Callable):
@@ -27,9 +27,14 @@ def error_notify(
             try:
                 return func(self, *args, **kwargs)
             except Exception as e:
+                unreal.log(str(e))
+                unreal.log(traceback.format_exc())
+
                 message = notify_prefix + str(e)
                 if with_traceback:
                     message += '\n' + traceback.format_exc()
+                else:
+                    message += '\nSee logs for more details.'
                 self.show_message_dialog(
                     message=message,
                     title=notify_title
@@ -264,7 +269,7 @@ class UnrealOpenJobSubmitter(UnrealSubmitter):
     def __init__(self, silent_mode: bool = False):
         super().__init__(UnrealOpenJob, silent_mode)
 
-    @error_notify('Data asset converting failed', with_traceback=True)
+    @error_notify('Data asset converting failed')
     def add_job(self, unreal_open_job_data_asset: unreal.DeadlineCloudJob):
         open_job = self._open_job_class.from_data_asset(unreal_open_job_data_asset)
         self._jobs.append(open_job)

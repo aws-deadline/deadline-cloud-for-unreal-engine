@@ -103,10 +103,6 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
 
         with open(self.file_path, 'r') as f:
             template = json.load(f) if file_type == DocumentType.JSON else yaml.safe_load(f)
-            if not self.name and not template.get('name'):
-                raise ValueError(f'Descriptor file "{self.file_path}" has no "name" field')
-            if self.name:
-                template['name'] = self.name
 
         return template
 

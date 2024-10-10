@@ -149,6 +149,9 @@ class UnrealOpenJob(UnrealOpenJobEntity):
 
         super().__init__(JobTemplate, file_path, name)
 
+        if self._name is None:
+            self._name = self.get_template_object().get('name')
+
         self._extra_parameters: list[unreal.ParameterDefinition] = extra_parameters or []
         self._steps: list[UnrealOpenJobStep] = steps
         self._environments: list[UnrealOpenJobEnvironment] = environments
@@ -168,13 +171,15 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         for step in steps:
             step.host_requirements = data_asset.job_preset_struct.host_requirements
 
+        shared_settings = data_asset.job_preset_struct.job_shared_settings
+
         return cls(
             file_path=data_asset.path_to_template,
-            name=data_asset.name,
+            name=None if shared_settings.name in ['', 'Untitled'] else shared_settings.name,
             steps=steps,
             environments=[UnrealOpenJobEnvironment.from_data_asset(env) for env in data_asset.environments],
             extra_parameters=data_asset.get_job_parameters(),
-            job_shared_settings=data_asset.job_preset_struct.job_shared_settings
+            job_shared_settings=shared_settings
         )
 
     def _build_parameter_values(self) -> list:
@@ -291,6 +296,9 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         super().__init__(file_path, name, steps, environments, extra_parameters, job_shared_settings)
 
+        if self._name is None and isinstance(self._mrq_job, unreal.MoviePipelineExecutorJob):
+            self._name = self._mrq_job.job_name
+
     @property
     def mrq_job(self):
         return self._mrq_job
@@ -298,10 +306,26 @@ class RenderUnrealOpenJob(UnrealOpenJob):
     @mrq_job.setter
     def mrq_job(self, value):
         self._mrq_job = value
+
         for step in self._steps:
+            step.host_requirements = self._mrq_job.preset_overrides.host_requirements
+
             if isinstance(step, RenderUnrealOpenJobStep):
                 step.shots_count = len(self._mrq_job.shot_info)
                 step.queue_manifest_path = self._save_manifest_file()
+
+        self.job_shared_settings = self._mrq_job.preset_overrides.job_shared_settings
+
+        # Job name set order:
+        #   0. Job preset override (high priority)
+        #   1. Get from data asset job preset struct
+        #   2. Get from YAML template
+        #   4. Get from mrq job name (shot name)
+        if self.job_shared_settings.name not in ['', 'Untitled']:
+            self._name = self.job_shared_settings.name
+
+        if self._name is None:
+            self._name = self._mrq_job.job_name
 
     @property
     def manifest_path(self):
@@ -316,13 +340,15 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             job_step.host_requirements = data_asset.job_preset_struct.host_requirements
             steps.append(job_step)
 
+        shared_settings = data_asset.job_preset_struct.job_shared_settings
+
         return cls(
             file_path=data_asset.path_to_template,
-            name=data_asset.name,
+            name=None if shared_settings.name in ['', 'Untitled'] else shared_settings.name,
             steps=steps,
             environments=[UnrealOpenJobEnvironment.from_data_asset(env) for env in data_asset.environments],
             extra_parameters=data_asset.get_job_parameters(),
-            job_shared_settings=data_asset.job_preset_struct.job_shared_settings,
+            job_shared_settings=shared_settings,
             changelist_number=None,  # TODO data_asset.changelist_number,
         )
 
