@@ -6,9 +6,9 @@ UDeadlineCloudEnvironment::UDeadlineCloudEnvironment()
 {
 }
 
-TArray <FEnvironmentStruct> UDeadlineCloudEnvironment::OpenEnvFile(const FString& Path)
+void UDeadlineCloudEnvironment::OpenEnvFile(const FString& Path)
 {
-	return UPythonYamlLibrary::Get()->OpenEnvFile(Path);
+	EnvironmentStructure = UPythonYamlLibrary::Get()->OpenEnvFile(Path);
 }
 
 void UDeadlineCloudEnvironment::CheckEnvironmentVariablesConsistency(UDeadlineCloudEnvironment* Self)

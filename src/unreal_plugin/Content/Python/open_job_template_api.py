@@ -33,7 +33,7 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
         u_step_task_parameter_definition = unreal.StepTaskParameterDefinition()
         u_step_task_parameter_definition.name = step_parameter['name']
         u_step_task_parameter_definition.type = getattr(unreal.ValueType, step_parameter['type'])
-        u_step_task_parameter_definition.range = [v for v in step_parameter['range']]
+        u_step_task_parameter_definition.range = [str(v) for v in step_parameter['range']]
 
         return u_step_task_parameter_definition
 
@@ -44,8 +44,16 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
         u_environment = unreal.EnvironmentStruct()
         u_environment.name = environment['name']
         u_environment.description = environment.get('description', '')
-        # TODO i.alekseeva variables should be a list of pairs, not just a string joind by "="
-        u_environment.variables = [f'{k}={v}' for k, v in environment.get('variables', {}).items()]
+
+        u_variables: list[unreal.EnvVariable] = []
+        for k, v in environment.get('variables', {}).items():
+            u_variable = unreal.EnvVariable()
+            u_variable.name = k
+            u_variable.value = v
+
+            u_variables.append(u_variable.copy())
+
+        u_environment.variables = u_variables
 
         return u_environment
 
@@ -88,21 +96,7 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
             environment_template
         )
 
-        # TODO i.alekseeva should return single struct
-        return [u_environment]
-
-
-# TODO i.alekseeva mocked consistency check structure, need to implement in C++
-# unreal.ParametersConsistencyCheckResult
-from dataclasses import dataclass
-
-
-@dataclass
-class ParametersConsistencyCheckResult:
-
-    passed: bool
-    reason: str
-
+        return u_environment
 
 
 @unreal.uclass()
@@ -110,9 +104,9 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
 
     @staticmethod
     def get_parameters_symmetric_difference(
-            parameters_left: list[str],
-            parameters_right: list[str]
-    ) -> tuple[list[str], list[str]]:
+            parameters_left: list[tuple[str, str]],
+            parameters_right: list[tuple[str, str]]
+    ) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
 
         missed_in_left = list(set(parameters_right).difference(set(parameters_left)))
         missed_in_right = list(set(parameters_left).difference(set(parameters_right)))
@@ -120,9 +114,9 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
 
     @staticmethod
     def check_parameters_consistency(
-            yaml_parameter_names: list[str],
-            data_asset_parameter_names: list[str]
-    ) -> ParametersConsistencyCheckResult:
+            yaml_parameters: list[tuple[str, str]],
+            data_asset_parameters: list[tuple[str, str]]
+    ) -> unreal.ParametersConsistencyCheckResult:
         """
         Check the consistency of the parameters described in the YAML and OpenJob asset (Job, Step, Environment).
         Parameters are not consensual if:
@@ -134,25 +128,33 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
         passed = True
 
         missed_in_yaml, missed_in_data_asset = ParametersConsistencyChecker.get_parameters_symmetric_difference(
-            parameters_left=yaml_parameter_names,
-            parameters_right=data_asset_parameter_names
+            parameters_left=yaml_parameters,
+            parameters_right=data_asset_parameters
         )
 
         if missed_in_yaml:
             passed = False
-            reasons.append(
-                'Data Asset\'s parameters missed in YAML: {}'.format(', '.join(missed_in_yaml))
-            )
+            missed_in_yaml_str = [f'{p[0]} ({p[1]})' for p in missed_in_yaml]
+            warn_message = 'Data Asset\'s parameters missed in YAML: {}'.format(', '.join(missed_in_yaml_str))
+            unreal.log_warning(warn_message)
+            reasons.append(warn_message)
 
         if missed_in_data_asset:
             passed = False
-            reasons.append(
-                'YAML\'s parameters missed in Data Asset: {}'.format(', '.join(missed_in_data_asset))
-            )
+            missed_in_data_asset_str = [f'{p[0]} ({p[1]})' for p in missed_in_data_asset]
+            warn_message = 'YAML\'s parameters missed in Data Asset: {}'.format(', '.join(missed_in_data_asset_str))
+            unreal.log_warning(warn_message)
+            reasons.append(warn_message)
 
         reason = '\n'.join(reasons) if not passed else 'Parameters are consensual'
 
-        return ParametersConsistencyCheckResult(passed, reason)
+        result = unreal.ParametersConsistencyCheckResult()
+        result.passed = passed
+        result.reason = reason
+
+        unreal.log(f'Parameters consistency check result: {passed}, {reason}')
+
+        return result
 
     @unreal.ufunction(override=True)
     def check_job_parameters_consistency(
@@ -160,36 +162,27 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
             open_job: unreal.DeadlineCloudJob
     ) -> unreal.ParametersConsistencyCheckResult:
 
+        unreal.log('Checking OpenJob parameters consistency ...')
+
         with open(open_job.path_to_template.file_path, 'r') as f:
             job_template = yaml.safe_load(f)
 
-        yaml_parameter_names = [p['name'] for p in job_template['parameterDefinitions']]
-        print(f"Read yaml {yaml_parameter_names}")
-        open_job_parameters = [p.name for p in open_job.get_job_parameters()]
-        print(f"Read job {open_job_parameters}")
-
-        # return self.check_parameters_consistency(
-        check_res = self.check_parameters_consistency(
-            yaml_parameter_names=yaml_parameter_names,
-            data_asset_parameter_names=open_job_parameters
+        return self.check_parameters_consistency(
+            yaml_parameters=[(p['name'], p['type']) for p in job_template['parameterDefinitions']],
+            data_asset_parameters=[(p.name, p.type.name) for p in open_job.get_job_parameters()]
         )
-
-        result = unreal.ParametersConsistencyCheckResult()
-        result.passed = check_res.passed
-        result.reason = check_res.reason
-        return result
 
     @unreal.ufunction(override=True)
     def fix_job_parameters_consistency(self, open_job: unreal.DeadlineCloudJob):
+
+        unreal.log('Fixing OpenJob parameters consistency ...')
+
         with open(open_job.path_to_template.file_path, 'r') as f:
             job_template = yaml.safe_load(f)
 
-        yaml_parameter_names = [p['name'] for p in job_template['parameterDefinitions']]
-        open_job_parameters = [p.name for p in open_job.job_parameters]
-
         missed_in_yaml, missed_in_data_asset = ParametersConsistencyChecker.get_parameters_symmetric_difference(
-            parameters_left=yaml_parameter_names,
-            parameters_right=open_job_parameters
+            parameters_left=[(p['name'], p['type']) for p in job_template['parameterDefinitions']],
+            parameters_right=[(p.name, p.type.name) for p in open_job.get_job_parameters()]
         )
 
         if missed_in_yaml or missed_in_data_asset:
@@ -205,47 +198,40 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
                     )
                     fixed_parameter_definitions.append(u_parameter_definition.copy())
 
-            open_job.job_parameters = fixed_parameter_definitions
+            open_job.set_job_parameters(fixed_parameter_definitions)
 
     @unreal.ufunction(override=True)
     def check_step_parameters_consistency(
             self,
             open_job_step: unreal.DeadlineCloudStep
-    ):# -> ParametersConsistencyCheckResult:
+    ) -> unreal.ParametersConsistencyCheckResult:
+
+        unreal.log('Checking OpenJobStep parameters consistency ...')
+
         with open(open_job_step.path_to_template.file_path, 'r') as f:
             step_template = yaml.safe_load(f)
 
-        yaml_parameter_names = [p['name'] for p in step_template['parameterSpace']['taskParameterDefinitions']]
-        open_job_step_parameters = [p.name for p in open_job_step.step_parameters]
-
-        result = unreal.ParametersConsistencyCheckResult
-
-       # return self.check_parameters_consistency(
-        check_res = self.check_parameters_consistency(
-            yaml_parameter_names=yaml_parameter_names,
-            data_asset_parameter_names=open_job_step_parameters
+        return self.check_parameters_consistency(
+            yaml_parameters=[(p['name'], p['type']) for p in step_template['parameterSpace']['taskParameterDefinitions']],
+            data_asset_parameters=[(p.name, p.type.name) for p in open_job_step.get_step_parameters()]
         )
-       # result.passed = check_res.passed
-        result.reason = check_res.reason
-        return result
 
     @unreal.ufunction(override=True)
     def fix_step_parameters_consistency(self, open_job_step: unreal.DeadlineCloudStep):
+
+        unreal.log('Fixing OpenJobStep parameters consistency ...')
+
         with open(open_job_step.path_to_template.file_path, 'r') as f:
             step_template = yaml.safe_load(f)
 
-        yaml_parameter_names = [p['name'] for p in step_template['parameterSpace']['taskParameterDefinitions']]
-        open_job_step_parameters = [p.name for p in open_job_step.step_parameters]
-
         missed_in_yaml, missed_in_data_asset = ParametersConsistencyChecker.get_parameters_symmetric_difference(
-            parameters_left=yaml_parameter_names,
-            parameters_right=open_job_step_parameters
+            parameters_left=[(p['name'], p['type']) for p in step_template['parameterSpace']['taskParameterDefinitions']],
+            parameters_right=[(p.name, p.type.name) for p in open_job_step.get_step_parameters()]
         )
 
         if missed_in_yaml or missed_in_data_asset:
-            # TODO i.alekseeva Step has only one ParameterSpace
             fixed_step_task_parameter_definitions: list[unreal.StepTaskParameterDefinition] = []
-            for u_parameter_definition in open_job_step.step_parameters[0].step_task_parameter_definition:
+            for u_parameter_definition in open_job_step.step_task_parameter_definitions:
                 if u_parameter_definition.name not in missed_in_yaml:
                     fixed_step_task_parameter_definitions.append(u_parameter_definition.copy())
 
@@ -256,56 +242,47 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
                     )
                     fixed_step_task_parameter_definitions.append(u_parameter_definition.copy())
 
-            # TODO
-            open_job_step.step_parameters[0].step_task_parameter_definition = fixed_step_task_parameter_definitions
+            open_job_step.set_step_parameters(fixed_step_task_parameter_definitions)
 
     @unreal.ufunction(override=True)
     def check_environment_variables_consistency(
             self,
             open_job_environment: unreal.DeadlineCloudEnvironment
-    ) -> ParametersConsistencyCheckResult:
+    ) -> unreal.ParametersConsistencyCheckResult:
+
+        unreal.log('Checking OpenJobEnvironment variables consistency ...')
+
         with open(open_job_environment.path_to_template.file_path, 'r') as f:
             environment_template = yaml.safe_load(f)
 
-        # TODO i.alekseeva variables should be a list of pairs, not just a string joined by "="
-        #unreal.EnvVariable array
-        yaml_variable_names = [k for k in environment_template['variables'].keys()]
-        open_job_environment_variable_names = [
-            v.split('=')[0] for v in open_job_environment.environment_structure.variables
-        ]
-
         return self.check_parameters_consistency(
-            yaml_parameter_names=yaml_variable_names,
-            data_asset_parameter_names=open_job_environment_variable_names
+            yaml_parameters=[(k, 'VARIABLE') for k in environment_template['variables'].keys()],
+            data_asset_parameters=[(v.name, 'VARIABLE') for v in open_job_environment.environment_structure.variables]
         )
 
     @unreal.ufunction(override=True)
     def fix_environment_variables_consistency(self, open_job_environment: unreal.DeadlineCloudEnvironment):
+
+        unreal.log('Fixing OpenJobEnvironment variables consistency ...')
+
         with open(open_job_environment.path_to_template.file_path, 'r') as f:
             environment_template = yaml.safe_load(f)
 
-        # TODO i.alekseeva variables should be a list of pairs, not just a string joined by "="
-        yaml_variable_names = [k for k in environment_template['variables'].keys()]
-        open_job_environment_variable_names = [
-            v.split('=')[0] for v in open_job_environment.environment_structure.variables
-        ]
-
         missed_in_yaml, missed_in_data_asset = ParametersConsistencyChecker.get_parameters_symmetric_difference(
-            parameters_left=yaml_variable_names,
-            parameters_right=open_job_environment_variable_names
+            parameters_left=[(k, 'VARIABLE') for k in environment_template['variables'].keys()],
+            parameters_right=[(v.name, 'VARIABLE') for v in open_job_environment.environment_structure.variables]
         )
-
         if missed_in_yaml or missed_in_data_asset:
-            fixed_environment_variables: dict = {}
+            fixed_environment_variables: list[unreal.EnvVariable] = []
             for u_variable in open_job_environment.environment_structure.variables:
-                var_name, var_value = u_variable.split('=')
-                if var_name not in missed_in_yaml:
-                    fixed_environment_variables[var_name] = var_value
+                if u_variable.name not in missed_in_yaml:
+                    fixed_environment_variables.append(u_variable.copy())
 
             for var_name, var_value in environment_template['variables'].items():
                 if var_name in missed_in_data_asset:
-                    fixed_environment_variables[var_name] = var_value
+                    u_variable = unreal.EnvVariable()
+                    u_variable.name = var_name
+                    u_variable.value = var_value
+                    fixed_environment_variables.append(u_variable.copy())
 
-            open_job_environment.environment_structure.variables = [
-                f'{k}={v}' for k, v in fixed_environment_variables.items()
-            ]
+            open_job_environment.environment_structure.variables = fixed_environment_variables

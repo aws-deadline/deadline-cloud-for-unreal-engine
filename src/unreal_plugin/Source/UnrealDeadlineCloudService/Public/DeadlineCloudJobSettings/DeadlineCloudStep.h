@@ -37,6 +37,9 @@ public:
 	UFUNCTION()
 	void CheckStepParametersConsistency(UDeadlineCloudStep* Self);
 
-
+    UFUNCTION(BlueprintCallable, Category="Parameters")
 	TArray<FStepTaskParameterDefinition> GetStepParameters();
+
+	UFUNCTION(BlueprintCallable, Category="Parameters")
+	void SetStepParameters(TArray<FStepTaskParameterDefinition> InStepParameters);
 };

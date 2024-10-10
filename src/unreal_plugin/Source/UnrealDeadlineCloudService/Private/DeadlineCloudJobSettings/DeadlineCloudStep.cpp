@@ -21,3 +21,8 @@ TArray<FStepTaskParameterDefinition> UDeadlineCloudStep::GetStepParameters()
 {
 	return StepTaskParameterDefinitions;
 }
+
+void UDeadlineCloudStep::SetStepParameters(TArray<FStepTaskParameterDefinition> InStepParameters)
+{
+    StepTaskParameterDefinitions = InStepParameters;
+}

@@ -23,7 +23,7 @@ public:
 
 	/** Read path */
 	UFUNCTION()
-	TArray <FEnvironmentStruct> OpenEnvFile(const FString& Path);
+	void OpenEnvFile(const FString& Path);
 
 	UFUNCTION()
 	void CheckEnvironmentVariablesConsistency( UDeadlineCloudEnvironment* Self) ;

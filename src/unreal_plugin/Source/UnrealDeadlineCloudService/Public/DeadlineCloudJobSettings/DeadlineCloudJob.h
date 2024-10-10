@@ -57,8 +57,12 @@ public:
 
 	UFUNCTION()
 	FParametersConsistencyCheckResult CheckJobParametersConsistency(UDeadlineCloudJob* Self);
+
 	UFUNCTION(BlueprintCallable, Category = "Parameters")
 	TArray <FParameterDefinition> GetJobParameters();
+
+	UFUNCTION(BlueprintCallable, Category="Parameters")
+	void SetJobParameters(TArray<FParameterDefinition> InJobParameters);
 
 
 

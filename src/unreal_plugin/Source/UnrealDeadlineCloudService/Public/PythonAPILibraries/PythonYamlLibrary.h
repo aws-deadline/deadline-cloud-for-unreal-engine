@@ -140,6 +140,6 @@ public:
 
 	// env
 	UFUNCTION(BlueprintImplementableEvent)
-	TArray <FEnvironmentStruct> OpenEnvFile(const FString& Path);
+	FEnvironmentStruct OpenEnvFile(const FString& Path);
 };
 	
