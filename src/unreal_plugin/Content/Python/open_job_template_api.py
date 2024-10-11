@@ -184,19 +184,15 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
             parameters_left=[(p['name'], p['type']) for p in job_template['parameterDefinitions']],
             parameters_right=[(p.name, p.type.name) for p in open_job.get_job_parameters()]
         )
-        unreal.log(f'FIXING Missed in YAML: {missed_in_yaml}')
-        unreal.log(f'FIXING Missed in Data asset: {missed_in_data_asset}')
 
         if missed_in_yaml or missed_in_data_asset:
             fixed_parameter_definitions: list[unreal.ParameterDefinition] = []
             for u_parameter_definition in open_job.get_job_parameters():
                 if (u_parameter_definition.name, u_parameter_definition.type) not in missed_in_yaml:
                     fixed_parameter_definitions.append(u_parameter_definition.copy())
-                    unreal.log(f'DATA ASSET Parameter that in yaml and data asset {u_parameter_definition.name}')
 
             for parameter_definition in job_template['parameterDefinitions']:
                 if (parameter_definition['name'], parameter_definition['type']) in missed_in_data_asset:
-                    unreal.log(f'YAML Parameter that missed in DATA ASSET {parameter_definition["name"]}')
                     u_parameter_definition = PythonYamlLibraryImplementation.job_parameter_to_u_parameter_definition(
                         parameter_definition
                     )
