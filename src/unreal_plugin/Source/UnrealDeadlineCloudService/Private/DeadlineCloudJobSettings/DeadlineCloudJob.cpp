@@ -39,8 +39,8 @@ FParametersConsistencyCheckResult UDeadlineCloudJob::CheckJobParametersConsisten
 	FParametersConsistencyCheckResult result = UPythonParametersConsistencyChecker::Get()->CheckJobParametersConsistency(Self);
 	return result;
 }
-
+/*
 void UDeadlineCloudJob::SetJobParameters(TArray<FParameterDefinition> InJobParameters)
 {
     JobParameters = InJobParameters;
-}
+}*/

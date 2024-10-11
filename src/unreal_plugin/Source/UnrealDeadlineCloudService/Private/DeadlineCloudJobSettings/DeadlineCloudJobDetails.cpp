@@ -185,8 +185,6 @@ public:
         ChildSlot
             [
                 SNew(SHorizontalBox)
-
-
                     + SHorizontalBox::Slot()
                     .AutoWidth()
                     .Padding(5)
@@ -296,11 +294,7 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
         }
 
     }
-  //  else
-   // {
-   //     UE_LOG(LogTemp, Error, TEXT("PARAMETERS PARSING ERROR"));
-  //  }
-    //  Dispatcher handle bind
+ 
     if (Settings.IsValid() && (MyDetailLayout != nullptr))
     {
         {
@@ -328,6 +322,7 @@ void FDeadlineCloudJobDetails::OnButtonClicked()
 {
     Settings->FixJobParametersConsistency(Settings.Get());
     UE_LOG(LogTemp, Warning, TEXT("FixJobParametersConsistency"));
+    ForceRefreshDetails();
 }
 
 #undef LOCTEXT_NAMESPACE

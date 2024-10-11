@@ -187,7 +187,7 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
 
         if missed_in_yaml or missed_in_data_asset:
             fixed_parameter_definitions: list[unreal.ParameterDefinition] = []
-            for u_parameter_definition in open_job.job_parameters:
+            for u_parameter_definition in open_job.get_job_parameters():
                 if u_parameter_definition.name not in missed_in_yaml:
                     fixed_parameter_definitions.append(u_parameter_definition.copy())
 
@@ -196,8 +196,9 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
                     u_parameter_definition = PythonYamlLibraryImplementation.job_parameter_to_u_parameter_definition(
                         parameter_definition
                     )
-                    fixed_parameter_definitions.append(u_parameter_definition.copy())
 
+                    fixed_parameter_definitions.append(u_parameter_definition.copy())
+            unreal.log(f'fixed_parameters: {fixed_parameter_definitions}')
             open_job.set_job_parameters(fixed_parameter_definitions)
 
     @unreal.ufunction(override=True)
