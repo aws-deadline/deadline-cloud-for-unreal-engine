@@ -184,21 +184,26 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
             parameters_left=[(p['name'], p['type']) for p in job_template['parameterDefinitions']],
             parameters_right=[(p.name, p.type.name) for p in open_job.get_job_parameters()]
         )
+        unreal.log(f'FIXING Missed in YAML: {missed_in_yaml}')
+        unreal.log(f'FIXING Missed in Data asset: {missed_in_data_asset}')
 
         if missed_in_yaml or missed_in_data_asset:
             fixed_parameter_definitions: list[unreal.ParameterDefinition] = []
             for u_parameter_definition in open_job.get_job_parameters():
-                if u_parameter_definition.name not in missed_in_yaml:
+                if (u_parameter_definition.name, u_parameter_definition.type) not in missed_in_yaml:
                     fixed_parameter_definitions.append(u_parameter_definition.copy())
+                    unreal.log(f'DATA ASSET Parameter that in yaml and data asset {u_parameter_definition.name}')
 
             for parameter_definition in job_template['parameterDefinitions']:
-                if parameter_definition['name'] in missed_in_data_asset:
+                if (parameter_definition['name'], parameter_definition['type']) in missed_in_data_asset:
+                    unreal.log(f'YAML Parameter that missed in DATA ASSET {parameter_definition["name"]}')
                     u_parameter_definition = PythonYamlLibraryImplementation.job_parameter_to_u_parameter_definition(
                         parameter_definition
                     )
-
                     fixed_parameter_definitions.append(u_parameter_definition.copy())
-            unreal.log(f'fixed_parameters: {fixed_parameter_definitions}')
+
+            unreal.log(f'Fixed OpenJob parameters: {fixed_parameter_definitions}')
+
             open_job.set_job_parameters(fixed_parameter_definitions)
 
     @unreal.ufunction(override=True)
@@ -233,15 +238,17 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
         if missed_in_yaml or missed_in_data_asset:
             fixed_step_task_parameter_definitions: list[unreal.StepTaskParameterDefinition] = []
             for u_parameter_definition in open_job_step.step_task_parameter_definitions:
-                if u_parameter_definition.name not in missed_in_yaml:
+                if (u_parameter_definition.name, u_parameter_definition.type) not in missed_in_yaml:
                     fixed_step_task_parameter_definitions.append(u_parameter_definition.copy())
 
             for parameter_definition in step_template['parameterSpace']['taskParameterDefinitions']:
-                if parameter_definition['name'] in missed_in_data_asset:
+                if (parameter_definition['name'], parameter_definition['type']) in missed_in_data_asset:
                     u_parameter_definition = PythonYamlLibraryImplementation.step_parameter_to_u_step_task_parameter(
                         parameter_definition
                     )
                     fixed_step_task_parameter_definitions.append(u_parameter_definition.copy())
+
+            unreal.log(f'Fixed OpenJobStep parameters: {fixed_step_task_parameter_definitions}')
 
             open_job_step.set_step_parameters(fixed_step_task_parameter_definitions)
 
@@ -276,14 +283,16 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
         if missed_in_yaml or missed_in_data_asset:
             fixed_environment_variables: list[unreal.EnvVariable] = []
             for u_variable in open_job_environment.environment_structure.variables:
-                if u_variable.name not in missed_in_yaml:
+                if (u_variable.name, 'VARIABLE') not in missed_in_yaml:
                     fixed_environment_variables.append(u_variable.copy())
 
             for var_name, var_value in environment_template['variables'].items():
-                if var_name in missed_in_data_asset:
+                if (var_name, 'VARIABLE') in missed_in_data_asset:
                     u_variable = unreal.EnvVariable()
                     u_variable.name = var_name
                     u_variable.value = var_value
                     fixed_environment_variables.append(u_variable.copy())
+
+            unreal.log(f'Fixed OpenJobEnvironment variables: {fixed_environment_variables}')
 
             open_job_environment.environment_structure.variables = fixed_environment_variables
