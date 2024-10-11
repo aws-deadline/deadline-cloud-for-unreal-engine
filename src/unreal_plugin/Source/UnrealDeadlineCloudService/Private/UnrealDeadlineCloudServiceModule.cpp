@@ -42,6 +42,19 @@ void FUnrealDeadlineCloudServiceModule::StartupModule()
 		FDeadlineCloudHostRequirementsStruct::StaticStruct()->GetFName(),
 		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FDeadlineCloudJobPresetDetailsCustomization::MakeInstance));
 
+	PropertyModule.RegisterCustomPropertyTypeLayout(
+		FDeadlineCloudJobParametersArray::StaticStruct()->GetFName(),
+		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FDeadlineCloudJobParametersArrayCustomization::MakeInstance));
+
+	//Step details arrays 
+	PropertyModule.RegisterCustomPropertyTypeLayout(
+		FDeadlineCloudStepParametersArray::StaticStruct()->GetFName(),
+		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FDeadlineCloudStepParametersArrayCustomization::MakeInstance));
+
+	PropertyModule.RegisterCustomPropertyTypeLayout(
+		FStepTaskParameterDefinition::StaticStruct()->GetFName(),
+		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FDeadlineCloudStepParameterListCustomization::MakeInstance));
+
 	// Paths details
 	PropertyModule.RegisterCustomPropertyTypeLayout(
 		FDeadlineCloudFileAttachmentsArray::StaticStruct()->GetFName(),

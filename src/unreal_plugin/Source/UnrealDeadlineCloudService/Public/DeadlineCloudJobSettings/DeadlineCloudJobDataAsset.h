@@ -15,6 +15,7 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudJobSharedSettingsStruct
 {
 	GENERATED_BODY()
 
+public:
 	/** Job Name */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Shared Settings", meta=(DisplayPriority=0))
 	FString Name = "Untitled";
@@ -36,13 +37,12 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudJobSharedSettingsStruct
 	int32 MaximumRetriesPerTask = 50;
 
 	/** Shots Chunk size */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Shared Settings", meta=(DisplayPriority=5))
+	UPROPERTY(BlueprintReadWrite, Category = "Job Shared Settings", meta=(DisplayPriority=5))
 	int32 TaskChunkSize = 1;
 
 	/** Extra cmd args */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Shared Settings", meta=(DisplayPriority=5))
+	UPROPERTY(BlueprintReadWrite, Category = "Job Shared Settings", meta=(DisplayPriority=6))
 	FString ExtraCmdArgs = "";
-
 };
 
 /**
@@ -98,6 +98,15 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudFileAttachmentsArray
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Attachments", meta=(RelativeToGameDir))
 	TArray<FFilePath> Paths;
 };
+
+//USTRUCT(BlueprintType)
+//struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudJobDefinitionArray
+//{
+//	GENERATED_BODY()
+//
+//	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 4))
+//	TArray<FParameterDefinition> Parameters;
+//};
 
 /**
  * Attachments directories array wrapper. @ref FDeadlineCloudAttachmentArrayBuilder

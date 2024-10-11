@@ -192,10 +192,12 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         for param in job_template_object['parameterDefinitions']:
             extra_param = next((extra_p for extra_p in self._extra_parameters if extra_p.name == param['name']), None)
             if extra_param:
-                param_value = getattr(
-                    extra_param,
-                    PARAMETER_DEFINITION_MAPPING.get(param['type']).job_parameter_attribute_name
-                )
+                python_class = PARAMETER_DEFINITION_MAPPING.get(param['type']).python_class
+                param_value = python_class(extra_param.value)
+                #param_value = getattr(
+                #    extra_param,
+                #    PARAMETER_DEFINITION_MAPPING.get(param['type']).job_parameter_attribute_name
+                #)
             else:
                 param_value = param.get('default')
 
@@ -430,7 +432,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
                 '-execcmds="{}"'.format(",".join(job_exec_cmds))
             )
 
-        extra_cmd_args = next((p.string_value for p in self._extra_parameters if p.name == 'ExtraCmdArgs'), None)
+        extra_cmd_args = next((str(p.value) for p in self._extra_parameters if p.name == 'ExtraCmdArgs'), None)
         if extra_cmd_args:
             cleared_extra_cmds_args = re.sub(
                 pattern=".*(?P<cmds>-execcmds=[\s\S]+[\'\"])",

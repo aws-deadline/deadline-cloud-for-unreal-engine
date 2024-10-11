@@ -26,15 +26,73 @@
  #include "EditorStyleSet.h"
  #include "SourceControlOperations.h"
 
+#include "PropertyCustomizationHelpers.h"
 
 
 class UDeadlineCloudJob;
+
+class FDeadlineCloudJobParametersArrayBuilder
+	: public FDetailArrayBuilder
+	, public TSharedFromThis<FDeadlineCloudJobParametersArrayBuilder>
+{
+public:
+
+	static TSharedRef<FDeadlineCloudJobParametersArrayBuilder> MakeInstance(
+		TSharedRef<IPropertyHandle> InPropertyHandle);
+
+	FDeadlineCloudJobParametersArrayBuilder(
+		TSharedRef<IPropertyHandle> InPropertyHandle);
+	
+	virtual void GenerateHeaderRowContent(FDetailWidgetRow& NodeRow) override;
+
+	void GenerateWrapperStructHeaderRowContent(FDetailWidgetRow& NodeRow, TSharedRef<SWidget> NameContent);
+
+	FUIAction EmptyCopyPasteAction;
+	FOnIsEnabled OnIsEnabled;
+
+private:
+    static UDeadlineCloudJob* GetOuterJob(TSharedRef<IPropertyHandle> Handle);
+
+	void OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const;
+
+	TSharedPtr<IPropertyHandleArray> ArrayProperty;
+    TSharedRef<IPropertyHandle> BaseProperty;
+};
+
+class FDeadlineCloudJobParametersArrayCustomization : public IPropertyTypeCustomization
+{
+public:
+
+	static TSharedRef<IPropertyTypeCustomization> MakeInstance()
+	{
+		return MakeShared<FDeadlineCloudJobParametersArrayCustomization>();
+	}
+
+	FDeadlineCloudJobParametersArrayCustomization() {}
+	
+	/** Begin IPropertyTypeCustomization interface */
+	virtual void CustomizeHeader(
+		TSharedRef<IPropertyHandle> InPropertyHandle,
+		FDetailWidgetRow& InHeaderRow,
+		IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
+
+	virtual void CustomizeChildren(
+		TSharedRef<IPropertyHandle> InPropertyHandle,
+		IDetailChildrenBuilder& InChildBuilder,
+		IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
+	/** End IPropertyTypeCustomization interface */
+	
+private:
+	/*static UDeadlineCloudStep* GetOuterJob(TSharedRef<IPropertyHandle> Handle);*/
+
+	TSharedPtr<FDeadlineCloudJobParametersArrayBuilder> ArrayBuilder;
+};
 
 
 class FDeadlineCloudJobDetails : public IDetailCustomization
 {
 private:
-    TWeakObjectPtr<UDeadlineCloudJob> Settings;
+
 
 public:
 
@@ -42,7 +100,8 @@ public:
     virtual  void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
     IDetailLayoutBuilder* MyDetailLayout;
 
-
+    TWeakObjectPtr<UDeadlineCloudJob> Settings;
+  
 public:
     
  //   UFUNCTION()
@@ -57,11 +116,14 @@ public:
 //    bool GetBooleanValue() const { return bMyBoolean; }
     void OnButtonClicked();
 
-private:
+protected:
 
-    TSharedRef<SWidget> CreateNameWidget(FString Parameter);
-    TSharedRef<SWidget> CreatePathWidget(FString Parameter);
-    TSharedRef<SWidget> CreateStringWidget(FParameterDefinition *Parameter);
+private:
+    
+
+    //TSharedRef<SWidget> CreateNameWidget(FString Parameter);
+    //TSharedRef<SWidget> CreatePathWidget(TSharedPtr<IPropertyHandle> ParameterHandle);
+    //TSharedRef<SWidget> CreateStringWidget(FParameterDefinition *Parameter);
 
     void ForceRefreshDetails();
     bool CheckConsistency(UDeadlineCloudJob* Job);

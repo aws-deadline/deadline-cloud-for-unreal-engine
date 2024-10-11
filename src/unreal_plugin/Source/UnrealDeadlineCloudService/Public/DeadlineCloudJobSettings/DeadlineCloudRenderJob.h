@@ -13,8 +13,4 @@ public:
 
 	UDeadlineCloudRenderJob() {};
 
-	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Parameters")
-	int TaskChunkSize;
-
-
 };

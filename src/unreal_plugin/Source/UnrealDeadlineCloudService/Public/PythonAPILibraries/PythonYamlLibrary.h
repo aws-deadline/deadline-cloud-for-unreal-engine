@@ -34,25 +34,25 @@ struct FParameterDefinition
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
 	EValueType Type;
 
-	// String Value
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
-	FString StringValue;
-	// Path value
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
-	FString PathValue;
-	// Path value
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
-	int32 IntValue;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
-	float FloatValue;
+	FString Value;
+
+	//// String Value
+	//UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
+	//FString StringValue;
+	//// Path value
+	//UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job", meta = (DisplayPriority = 4))
+	//FString PathValue;
+	//// Path value
+	//UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
+	//int32 IntValue;
+	//UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
+	//float FloatValue;
 
 	FParameterDefinition()
 		: Name("DefaultName"),
 		 Type(EValueType::STRING),
-		 IntValue(0),
-		 FloatValue(0.f),
-		 StringValue(""),
-		 PathValue("")
+		 Value("")
 	{}
 
 //	void ChangeParameterStringValue( FString string)
@@ -78,6 +78,17 @@ struct FStepTaskParameterDefinition
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
 	TArray <FString> Range;
 
+//	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
+//	TArray <FString> StringRange;
+//
+//	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
+//	TArray <FFilePath> FilepathRange;
+//
+//	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
+//	TArray <int32> IntRange;
+//
+//	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
+//	TArray <float> FloatRange;
 };
 
 USTRUCT(BlueprintType)

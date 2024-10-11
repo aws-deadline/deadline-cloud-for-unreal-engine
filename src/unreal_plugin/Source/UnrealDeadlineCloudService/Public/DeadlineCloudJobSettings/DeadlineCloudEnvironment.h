@@ -12,14 +12,14 @@ class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudEnvironment : public UDataAss
 public:
 
 	UDeadlineCloudEnvironment();
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Parameters")
 	FString Name; 
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
 	FFilePath PathToTemplate;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
-	FEnvironmentStruct EnvironmentStructure;
+	TMap<FString, FString> Variables;
 
 	/** Read path */
 	UFUNCTION()
@@ -28,4 +28,7 @@ public:
 	UFUNCTION()
 	void CheckEnvironmentVariablesConsistency( UDeadlineCloudEnvironment* Self) ;
 
+	//TArray <FEnvironmentStruct> OpenEnvFile(const FString& Path);
+
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 };
