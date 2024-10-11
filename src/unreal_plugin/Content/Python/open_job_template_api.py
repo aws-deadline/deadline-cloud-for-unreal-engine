@@ -185,11 +185,15 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
             parameters_right=[(p.name, p.type.name) for p in open_job.get_job_parameters()]
         )
 
+        unreal.log(f'FIXING Missed in YAML: {missed_in_yaml}')
+        unreal.log(f'FIXING Missed in Data asset: {missed_in_data_asset}')
+
         if missed_in_yaml or missed_in_data_asset:
             fixed_parameter_definitions: list[unreal.ParameterDefinition] = []
             for u_parameter_definition in open_job.get_job_parameters():
-                if (u_parameter_definition.name, u_parameter_definition.type) not in missed_in_yaml:
+                if (u_parameter_definition.name, u_parameter_definition.type.name) not in missed_in_yaml:
                     fixed_parameter_definitions.append(u_parameter_definition.copy())
+                    unreal.log(f'DATA ASSET Parameter that in yaml and data asset {u_parameter_definition.name} {u_parameter_definition.type}')
 
             for parameter_definition in job_template['parameterDefinitions']:
                 if (parameter_definition['name'], parameter_definition['type']) in missed_in_data_asset:
@@ -197,6 +201,7 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
                         parameter_definition
                     )
                     fixed_parameter_definitions.append(u_parameter_definition.copy())
+                    unreal.log(f'YAML Parameter that missed in DATA ASSET {parameter_definition["name"]} {parameter_definition["type"]}')
 
             unreal.log(f'Fixed OpenJob parameters: {fixed_parameter_definitions}')
 
@@ -234,7 +239,7 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
         if missed_in_yaml or missed_in_data_asset:
             fixed_step_task_parameter_definitions: list[unreal.StepTaskParameterDefinition] = []
             for u_parameter_definition in open_job_step.step_task_parameter_definitions:
-                if (u_parameter_definition.name, u_parameter_definition.type) not in missed_in_yaml:
+                if (u_parameter_definition.name, u_parameter_definition.type.name) not in missed_in_yaml:
                     fixed_step_task_parameter_definitions.append(u_parameter_definition.copy())
 
             for parameter_definition in step_template['parameterSpace']['taskParameterDefinitions']:
