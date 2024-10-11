@@ -55,10 +55,10 @@ struct FParameterDefinition
 		 PathValue("")
 	{}
 
-	void ChangeParameterStringValue( FString string)
-	{
-		StringValue = string;
-	};
+//	void ChangeParameterStringValue( FString string)
+//	{
+//		StringValue = string;
+//	};
 };
 /*
 Step .yaml struct
@@ -96,7 +96,6 @@ struct FEnvVariable
 Env .yaml struct
  */
 
-//# TODO i.alekseeva variables should be a list of pairs, not just a string joined by "="
 
 
 USTRUCT(BlueprintType)

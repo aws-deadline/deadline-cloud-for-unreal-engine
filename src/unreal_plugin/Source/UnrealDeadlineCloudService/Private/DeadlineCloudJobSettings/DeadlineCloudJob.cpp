@@ -23,6 +23,16 @@ TArray<FParameterDefinition> UDeadlineCloudJob::GetJobParameters()
 	return JobParameters;
 }
 
+void UDeadlineCloudJob::SetJobParameters(TArray<FParameterDefinition> InParameters)
+{
+	JobParameters = InParameters;
+}
+
+void UDeadlineCloudJob::FixJobParametersConsistency(UDeadlineCloudJob* Job)
+{
+	UPythonParametersConsistencyChecker::Get()->FixJobParametersConsistency(Job);	
+}
+
 
 FParametersConsistencyCheckResult UDeadlineCloudJob::CheckJobParametersConsistency(UDeadlineCloudJob* Self)
 {

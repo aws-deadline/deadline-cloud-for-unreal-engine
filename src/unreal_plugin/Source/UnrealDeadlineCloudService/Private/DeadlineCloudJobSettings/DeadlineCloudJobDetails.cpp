@@ -17,6 +17,10 @@
 #include "PropertyEditorModule.h"
 #include "IDetailsView.h"
 #include "PythonAPILibraries/PythonParametersConsistencyChecker.h"
+//#include "Widgets/Dialogs/SMessageDialog.h"
+#include "Misc/MessageDialog.h"
+
+
 
 
 #define LOCTEXT_NAMESPACE "JobDetails"
@@ -118,20 +122,20 @@ private:
 
         EditableString = NewText.ToString();
         UE_LOG(LogTemp, Warning, TEXT("Parameter changed "), *EditableString);
-
+        /*
         if (type == EValueType::PATH) { Parameter->PathValue = EditableString; }
         if (type == EValueType::STRING)
         {
             Parameter->ChangeParameterStringValue(EditableString);
         }
-        if (type == EValueType::INT) { Parameter->IntValue = FCString::Atoi(*EditableString); }
+       if (type == EValueType::INT) { Parameter->IntValue = FCString::Atoi(*EditableString); }
         if (type == EValueType::FLOAT) { Parameter->IntValue = FCString::Atof(*EditableString); }
-        else
+       else
         {
             Parameter->StringValue = EditableString;
         }
 
-
+    */
     }
     EValueType type;
     FParameterDefinition* Parameter;
@@ -167,7 +171,63 @@ TSharedRef<SWidget> FDeadlineCloudJobDetails::CreateNameWidget(FString Parameter
         ];
 };
 
+class  SConsistencyUpdateWidget : public SCompoundWidget
+{
+public:
+    SLATE_BEGIN_ARGS(SConsistencyUpdateWidget) {}
+        SLATE_ARGUMENT(FString, CheckResult)
+        SLATE_EVENT(FSimpleDelegate, OnFixButtonClicked)
+    SLATE_END_ARGS()
+    void Construct(const FArguments& InArgs) {
 
+        OnFixButtonClicked = InArgs._OnFixButtonClicked;
+
+        ChildSlot
+            [
+                SNew(SHorizontalBox)
+
+
+                    + SHorizontalBox::Slot()
+                    .AutoWidth()
+                    .Padding(5)
+                    [
+                        SNew(STextBlock)
+                            .Text(FText::FromString("Parameters changed. Update parameters?"))
+                            .ColorAndOpacity(FLinearColor::Yellow) // 
+                    ]
+
+                    //update?
+                    + SHorizontalBox::Slot()
+                    .AutoWidth()
+                    [
+                        SNew(SButton)
+                            .Text(FText::FromString("OK"))
+                            .OnClicked(this, &SConsistencyUpdateWidget::HandleButtonClicked)
+                    ]
+            ];
+    };
+
+
+private:
+    FSimpleDelegate OnFixButtonClicked;
+    FReply HandleButtonClicked()
+    {
+        if (OnFixButtonClicked.IsBound())
+        {
+            OnFixButtonClicked.Execute();  // 
+        }
+
+        return FReply::Handled();
+    }
+};
+
+TSharedRef<SWidget> CreateConsistencyUpdateWidget(FString ResultString)
+{
+    TSharedRef<SConsistencyUpdateWidget> ConsistensyWidget = SNew(SConsistencyUpdateWidget)
+        .CheckResult(ResultString)
+        .Visibility(EVisibility::Collapsed);
+    return  ConsistensyWidget;
+}
 
 /*Details*/
 TSharedRef<IDetailCustomization> FDeadlineCloudJobDetails::MakeInstance()
@@ -183,25 +243,35 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
     TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
     MyDetailLayout->GetObjectsBeingCustomized(ObjectsBeingCustomized);
     Settings = Cast<UDeadlineCloudJob>(ObjectsBeingCustomized[0].Get());
+
+    TSharedPtr<SConsistencyUpdateWidget> ConsistencyUpdateWidget;
     FParametersConsistencyCheckResult result;
-    // TODO: consistency check
-    if (Settings.IsValid() && Settings->GetJobParameters().Num() > 0)
+
+    /* Consistency check */
+    if (Settings.IsValid())
     {
         UDeadlineCloudJob* MyObject = Settings.Get();
-        result = MyObject->CheckJobParametersConsistency(MyObject);
-        FString log = result.Reason;
-        UE_LOG(LogTemp, Warning, TEXT("check consistency result: %s"), *log);
+        CheckConsidtensyPassed = CheckConsistency(MyObject);
     }
-    
 
-    Settings->OpenJobFile(Settings->PathToTemplate.FilePath);
-
-
-    /* Load new parameters from yaml*/
-    if (Settings->GetJobParameters().Num() > 0)
+    /* If passed - Open job file*/
+    if (CheckConsidtensyPassed)
     {
+        Settings->OpenJobFile(Settings->PathToTemplate.FilePath);
+    }
 
+    /* EditCategory*/
+    {
         IDetailCategoryBuilder& PropertiesCategory = MyDetailLayout->EditCategory("DeadlineCloudJobParameters");
+      
+        PropertiesCategory.AddCustomRow(FText::FromString("Consistency"))
+            .WholeRowContent()
+            [
+                SAssignNew(ConsistencyUpdateWidget, SConsistencyUpdateWidget)
+                    .Visibility(this, &FDeadlineCloudJobDetails::GetWidgetVisibility)
+                    .OnFixButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudJobDetails::OnButtonClicked))
+            ];
+
 
         for (auto& parameter : Settings->GetJobParameters()) {
 
@@ -226,10 +296,10 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
         }
 
     }
-    else
-    {
-        UE_LOG(LogTemp, Error, TEXT("PARAMETERS PARSING ERROR"));
-    }
+  //  else
+   // {
+   //     UE_LOG(LogTemp, Error, TEXT("PARAMETERS PARSING ERROR"));
+  //  }
     //  Dispatcher handle bind
     if (Settings.IsValid() && (MyDetailLayout != nullptr))
     {
@@ -241,6 +311,23 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
 void FDeadlineCloudJobDetails::ForceRefreshDetails()
 {
     MyDetailLayout->ForceRefreshDetails();
+}
+
+bool FDeadlineCloudJobDetails::CheckConsistency(UDeadlineCloudJob* Job)
+{
+
+        FParametersConsistencyCheckResult result;
+        result = Job->CheckJobParametersConsistency(Job);
+       
+        UE_LOG(LogTemp, Warning, TEXT("check consistency result: %s"), *result.Reason);
+        return result.Passed;
+    
+}
+
+void FDeadlineCloudJobDetails::OnButtonClicked()
+{
+    Settings->FixJobParametersConsistency(Settings.Get());
+    UE_LOG(LogTemp, Warning, TEXT("FixJobParametersConsistency"));
 }
 
 #undef LOCTEXT_NAMESPACE

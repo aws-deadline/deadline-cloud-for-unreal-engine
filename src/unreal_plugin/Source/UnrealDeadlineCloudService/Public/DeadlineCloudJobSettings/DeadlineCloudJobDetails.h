@@ -54,7 +54,8 @@ public:
             UE_LOG(LogTemp, Log, TEXT("Something changed!"));
         }
     }
-
+//    bool GetBooleanValue() const { return bMyBoolean; }
+    void OnButtonClicked();
 
 private:
 
@@ -63,6 +64,34 @@ private:
     TSharedRef<SWidget> CreateStringWidget(FParameterDefinition *Parameter);
 
     void ForceRefreshDetails();
-   
+    bool CheckConsistency(UDeadlineCloudJob* Job);
+
+
+    bool CheckConsidtensyPassed;
+public:
+   // FSimpleDelegate OnSomethingChanged;
+    /*
+    DECLARE_DELEGATE_OneParam(FOnBooleanChanged, bool);
+
+    bool GetBooleanValue() const { return bMyBoolean; }
+
+    void SetBooleanValue(bool bNewValue)
+    {
+        if (bMyBoolean != bNewValue)
+        {
+            bMyBoolean = bNewValue;
+            OnBooleanChanged.ExecuteIfBound(bMyBoolean);
+        }
+    }
+
+    FOnBooleanChanged OnBooleanChanged;
+*/
+    EVisibility GetWidgetVisibility() const
+    {
+        // if true, widget hidden
+        return !(CheckConsidtensyPassed) ? EVisibility::Visible : EVisibility::Collapsed;
+    }
+
+
 };
 
