@@ -89,7 +89,7 @@ def os_path_from_unreal_path(unreal_path, with_ext: bool = False):
 def os_abs_from_relative(os_path):
     if os.path.isabs(os_path):
         return str(os_path)
-    return get_project_directory() + os_path
+    return get_project_directory() + '/' + os_path
 
 
 class PathContext(dict):
