@@ -3,7 +3,14 @@
 #include "PythonAPILibraries/PythonYamlLibrary.h"
 #include "DeadlineCloudEnvironment.generated.h"
 
+USTRUCT(BlueprintType)
+struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudEnvironmentVariablesMap
+{
+	GENERATED_BODY()
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
+	TMap<FString, FString> Variables;
+};
 
 UCLASS(BlueprintType, Blueprintable)
 class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudEnvironment : public UDataAsset
@@ -12,6 +19,9 @@ class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudEnvironment : public UDataAss
 public:
 
 	UDeadlineCloudEnvironment();
+
+	FSimpleDelegate OnSomethingChanged;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Parameters")
 	FString Name; 
 
@@ -19,7 +29,7 @@ public:
 	FFilePath PathToTemplate;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
-	TMap<FString, FString> Variables;
+	FDeadlineCloudEnvironmentVariablesMap Variables;
 
 	/** Read path */
 	UFUNCTION()
@@ -28,7 +38,8 @@ public:
 	UFUNCTION()
 	void CheckEnvironmentVariablesConsistency( UDeadlineCloudEnvironment* Self) ;
 
-	//TArray <FEnvironmentStruct> OpenEnvFile(const FString& Path);
+	bool IsDefaultVariables();
+	void ResetVariables();
 
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 };

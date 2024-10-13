@@ -1,95 +1,93 @@
-// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-
 #pragma once
+
 #include "PythonAPILibraries/PythonYamlLibrary.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudJob.h"
 #include "DetailLayoutBuilder.h"
 #include "IDetailCustomization.h"
+
 #include "PropertyCustomizationHelpers.h"
 
 
 class UDeadlineCloudEnvironment;
 
 class FDeadlineCloudEnvironmentParametersMapBuilder
-    : public IDetailCustomNodeBuilder
-    , public TSharedFromThis<FDeadlineCloudEnvironmentParametersMapBuilder>
+	: public IDetailCustomNodeBuilder
+	, public TSharedFromThis<FDeadlineCloudEnvironmentParametersMapBuilder>
 {
 public:
 
-    static TSharedRef<FDeadlineCloudEnvironmentParametersMapBuilder> MakeInstance(
-        TSharedRef<IPropertyHandle> InPropertyHandle);
+	static TSharedRef<FDeadlineCloudEnvironmentParametersMapBuilder> MakeInstance(
+		TSharedRef<IPropertyHandle> InPropertyHandle);
 
-    FDeadlineCloudEnvironmentParametersMapBuilder(
-        TSharedRef<IPropertyHandle> InPropertyHandle);
+	FDeadlineCloudEnvironmentParametersMapBuilder(
+		TSharedRef<IPropertyHandle> InPropertyHandle);
 
-    virtual FName GetName() const override;
-    virtual bool InitiallyCollapsed() const override { return false; }
-    virtual void GenerateHeaderRowContent(FDetailWidgetRow& InNodeRow) override {}
-    virtual void GenerateChildContent(IDetailChildrenBuilder& InChildrenBuilder) override;
-    virtual TSharedPtr<IPropertyHandle> GetPropertyHandle() const override;
-    virtual void SetOnRebuildChildren(FSimpleDelegate InOnRebuildChildren) override;
+	virtual FName GetName() const override;
+	virtual bool InitiallyCollapsed() const override { return false; }
+	virtual void GenerateHeaderRowContent(FDetailWidgetRow& InNodeRow) override {}
+	virtual void GenerateChildContent(IDetailChildrenBuilder& InChildrenBuilder) override;
+	virtual TSharedPtr<IPropertyHandle> GetPropertyHandle() const override;
+	virtual void SetOnRebuildChildren(FSimpleDelegate InOnRebuildChildren) override;
 
-    FUIAction EmptyCopyPasteAction;
+	FUIAction EmptyCopyPasteAction;
 
 private:
 
-    FSimpleDelegate OnRebuildChildren;
-    TSharedPtr<IPropertyHandleMap> MapProperty;
-    TSharedRef<IPropertyHandle> BaseProperty;
+	FSimpleDelegate OnRebuildChildren;
+	TSharedPtr<IPropertyHandleMap> MapProperty;
+	TSharedRef<IPropertyHandle> BaseProperty;
 };
 
 class FDeadlineCloudEnvironmentParametersMapCustomization : public IPropertyTypeCustomization
 {
 public:
 
-    static TSharedRef<IPropertyTypeCustomization> MakeInstance()
-    {
-        return MakeShared<FDeadlineCloudEnvironmentParametersMapCustomization>();
-    }
+	static TSharedRef<IPropertyTypeCustomization> MakeInstance()
+	{
+		return MakeShared<FDeadlineCloudEnvironmentParametersMapCustomization>();
+	}
 
-    FDeadlineCloudEnvironmentParametersMapCustomization() = default;
+	FDeadlineCloudEnvironmentParametersMapCustomization() {}
+	
+	/** Begin IPropertyTypeCustomization interface */
+	virtual void CustomizeHeader(
+		TSharedRef<IPropertyHandle> InPropertyHandle,
+		FDetailWidgetRow& InHeaderRow,
+		IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
 
-    bool IsResetToDefaultVisible(TSharedPtr<IPropertyHandle> PropertyHandle) const;
+	virtual void CustomizeChildren(
+		TSharedRef<IPropertyHandle> InPropertyHandle,
+		IDetailChildrenBuilder& InChildBuilder,
+		IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
+	/** End IPropertyTypeCustomization interface */
 
-    void ResetToDefaultHandler(TSharedPtr<IPropertyHandle> PropertyHandle) const;
-
-    /** Begin IPropertyTypeCustomization interface */
-    virtual void CustomizeHeader(
-        TSharedRef<IPropertyHandle> InPropertyHandle,
-        FDetailWidgetRow& InHeaderRow,
-        IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
-
-    virtual void CustomizeChildren(
-        TSharedRef<IPropertyHandle> InPropertyHandle,
-        IDetailChildrenBuilder& InChildBuilder,
-        IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
-    /** End IPropertyTypeCustomization interface */
-
-    static UDeadlineCloudEnvironment* GetOuterEnvironment(TSharedRef<IPropertyHandle> Handle);
+	static UDeadlineCloudEnvironment* GetOuterEnvironment(TSharedRef<IPropertyHandle> Handle);
 private:
-    FUIAction EmptyCopyPasteAction;
-    TSharedPtr<FDeadlineCloudEnvironmentParametersMapBuilder> ArrayBuilder;
+	FUIAction EmptyCopyPasteAction;
+	TSharedPtr<FDeadlineCloudEnvironmentParametersMapBuilder> ArrayBuilder;
 };
 
 
 class FDeadlineCloudEnvironmentDetails : public IDetailCustomization
 {
+private:
+
+
 public:
 
     static TSharedRef<IDetailCustomization> MakeInstance();
     virtual  void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
-    IDetailLayoutBuilder* MainDetailLayout;
+    IDetailLayoutBuilder* MyDetailLayout;
+
     TWeakObjectPtr<UDeadlineCloudEnvironment> Settings;
+  
+public:
 
-    void OnConsistencyButtonClicked();
-    EVisibility GetWidgetVisibility() const { return (!bCheckConsistensyPassed) ? EVisibility::Visible : EVisibility::Collapsed; }
-
-    EVisibility GetEyeWidgetVisibility() const { return (!bCheckConsistensyPassed) ? EVisibility::Visible : EVisibility::Collapsed; }
+protected:
 
 private:
 
     void ForceRefreshDetails();
-    bool CheckConsistency(UDeadlineCloudEnvironment* Env);
-    bool bCheckConsistensyPassed = true;
+
 };
 

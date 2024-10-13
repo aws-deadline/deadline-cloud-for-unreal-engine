@@ -1,5 +1,3 @@
-// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-
 #include "DeadlineCloudJobSettings/DeadlineCloudEnvironmentDetails.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudEnvironment.h"
 #include "PropertyEditorModule.h"
@@ -14,85 +12,39 @@
 #include "IDetailsView.h"
 #include "IDetailChildrenBuilder.h"
 #include "IDetailPropertyRow.h"
-#include "DeadlineCloudJobSettings/DeadlineCloudDetailsWidgetsHelper.h"
-#include "PythonAPILibraries/PythonParametersConsistencyChecker.h"
+
+
 #include "EditorDirectories.h"
 #include "Widgets/Input/SFilePathPicker.h"
 #include "Widgets/Input/SEditableTextBox.h"
 
 #define LOCTEXT_NAMESPACE "EnvironmentDetails"
 
-bool FDeadlineCloudEnvironmentDetails::CheckConsistency(UDeadlineCloudEnvironment* Env)
-{
-    FParametersConsistencyCheckResult result;
-    if (Env != nullptr)
-    {
-        result = Env->CheckEnvironmentVariablesConsistency(Env);
 
-        UE_LOG(LogTemp, Warning, TEXT("Check consistency result: %s"), *result.Reason);
-        return result.Passed;
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("Deadline Environment is nullptr"));
-		return false;
-	}
-}
 /*Details*/
 TSharedRef<IDetailCustomization> FDeadlineCloudEnvironmentDetails::MakeInstance()
 {
-	return MakeShareable(new FDeadlineCloudEnvironmentDetails);
+    return MakeShareable(new FDeadlineCloudEnvironmentDetails);
 }
 
 void FDeadlineCloudEnvironmentDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
-	// The detail layout builder that is using us
-	MainDetailLayout = &DetailBuilder;
+    // The detail layout builder that is using us
+    MyDetailLayout = &DetailBuilder;
 
-	TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
-	MainDetailLayout->GetObjectsBeingCustomized(ObjectsBeingCustomized);
-	Settings = Cast<UDeadlineCloudEnvironment>(ObjectsBeingCustomized[0].Get());
+    TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
+    MyDetailLayout->GetObjectsBeingCustomized(ObjectsBeingCustomized);
+    Settings = Cast<UDeadlineCloudEnvironment>(ObjectsBeingCustomized[0].Get());
 
-	TSharedPtr<FDeadlineCloudDetailsWidgetsHelper::SConsistencyWidget> ConsistencyUpdateWidget;
-	FParametersConsistencyCheckResult result;
-
-	/* Consistency check */
-	if (Settings.IsValid() && Settings->Variables.Variables.Num() > 0)
-	{
-		UDeadlineCloudEnvironment* MyObject = Settings.Get();
-		bCheckConsistensyPassed = CheckConsistency(MyObject);
-	}
-
-	IDetailCategoryBuilder& PropertiesCategory = MainDetailLayout->EditCategory("Parameters");
-
-	PropertiesCategory.AddCustomRow(FText::FromString("Consistency"))
-		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FDeadlineCloudEnvironmentDetails::GetWidgetVisibility)))
-		.WholeRowContent()
-		[
-			SAssignNew(ConsistencyUpdateWidget, FDeadlineCloudDetailsWidgetsHelper::SConsistencyWidget)
-				.OnFixButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudEnvironmentDetails::OnConsistencyButtonClicked))
-		];
-
-	//  Dispatcher handle bind
-	if (Settings.IsValid() && (MainDetailLayout != nullptr))
-	{
-		Settings->OnPathChanged = FSimpleDelegate::CreateSP(this, &FDeadlineCloudEnvironmentDetails::ForceRefreshDetails);
-	};
+    //  Dispatcher handle bind
+    if (Settings.IsValid() && (MyDetailLayout != nullptr))
+    {
+        Settings->OnSomethingChanged = FSimpleDelegate::CreateSP(this, &FDeadlineCloudEnvironmentDetails::ForceRefreshDetails);
+    };
 }
-
-void FDeadlineCloudEnvironmentDetails::OnConsistencyButtonClicked()
-{
-	{
-		Settings->FixEnvironmentVariablesConsistency(Settings.Get());
-		UE_LOG(LogTemp, Warning, TEXT("FixStepParametersConsistency"));
-		ForceRefreshDetails();
-	}
-}
-
-
 void FDeadlineCloudEnvironmentDetails::ForceRefreshDetails()
 {
-	MainDetailLayout->ForceRefreshDetails();
+   MyDetailLayout->ForceRefreshDetails();
 }
 
 TSharedRef<FDeadlineCloudEnvironmentParametersMapBuilder> FDeadlineCloudEnvironmentParametersMapBuilder::MakeInstance(TSharedRef<IPropertyHandle> InPropertyHandle)
@@ -104,7 +56,7 @@ TSharedRef<FDeadlineCloudEnvironmentParametersMapBuilder> FDeadlineCloudEnvironm
 }
 
 FDeadlineCloudEnvironmentParametersMapBuilder::FDeadlineCloudEnvironmentParametersMapBuilder(TSharedRef<IPropertyHandle> InPropertyHandle)
-	: MapProperty(InPropertyHandle->AsMap()),
+    : MapProperty(InPropertyHandle->AsMap()),
 	BaseProperty(InPropertyHandle)
 {
 	check(MapProperty.IsValid());
@@ -140,30 +92,19 @@ void FDeadlineCloudEnvironmentParametersMapBuilder::GenerateChildContent(IDetail
 		TSharedPtr<SWidget> NameWidget;
 		TSharedPtr<SWidget> ValueWidget;
 
-		ItemRow.GetDefaultWidgets(NameWidget, ValueWidget);
+		ItemRow.GetDefaultWidgets( NameWidget, ValueWidget);
+
 		ItemRow.CustomWidget(true)
 			.CopyAction(EmptyCopyPasteAction)
 			.PasteAction(EmptyCopyPasteAction)
-			.WholeRowContent()
+			.NameContent()
 			[
-				SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(2.0f, 0.0f)
-					.HAlign(HAlign_Left)
-					.VAlign(VAlign_Center)
-					[
-						NameWidget.ToSharedRef()
-					]
-					+ SHorizontalBox::Slot()
-					.FillWidth(1.0f)
-					.Padding(2.0f, 0.0f)
-					[
-						ValueWidget.ToSharedRef()
-					]
+				NameWidget.ToSharedRef()
+			]
+			.ValueContent()
+			[
+				ValueWidget.ToSharedRef()
 			];
-
-		NameWidget->SetEnabled(false);
 	}
 }
 
@@ -177,43 +118,9 @@ void FDeadlineCloudEnvironmentParametersMapBuilder::SetOnRebuildChildren(FSimple
 	OnRebuildChildren = InOnRebuildChildren;
 }
 
-bool FDeadlineCloudEnvironmentParametersMapCustomization::IsResetToDefaultVisible(TSharedPtr<IPropertyHandle> PropertyHandle) const
-{
-	if (!PropertyHandle.IsValid())
-	{
-		return false;
-	}
-
-	auto OuterEnvironment = GetOuterEnvironment(PropertyHandle.ToSharedRef());
-
-	if (!IsValid(OuterEnvironment))
-	{
-		return false;
-	}
-
-	return !OuterEnvironment->IsDefaultVariables();
-}
-
-void FDeadlineCloudEnvironmentParametersMapCustomization::ResetToDefaultHandler(TSharedPtr<IPropertyHandle> PropertyHandle) const
-{
-	if (!PropertyHandle.IsValid())
-	{
-		return;
-	}
-
-	auto OuterEnvironment = GetOuterEnvironment(PropertyHandle.ToSharedRef());
-
-	if (!IsValid(OuterEnvironment))
-	{
-		return;
-	}
-
-	OuterEnvironment->ResetVariables();
-}
-
 void FDeadlineCloudEnvironmentParametersMapCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> InPropertyHandle, FDetailWidgetRow& InHeaderRow, IPropertyTypeCustomizationUtils& InCustomizationUtils)
 {
-	TSharedPtr<IPropertyHandle> ArrayHandle = InPropertyHandle->GetChildHandle("Variables", false);
+    TSharedPtr<IPropertyHandle> ArrayHandle = InPropertyHandle->GetChildHandle("Variables", false);
 
 	EmptyCopyPasteAction = FUIAction(
 		FExecuteAction::CreateLambda([]() {}),
@@ -223,10 +130,36 @@ void FDeadlineCloudEnvironmentParametersMapCustomization::CustomizeHeader(TShare
 	auto OuterEnvironment = GetOuterEnvironment(InPropertyHandle);
 	if (IsValid(OuterEnvironment))
 	{
-		const FResetToDefaultOverride ResetDefaultOverride = FResetToDefaultOverride::Create(
-			FIsResetToDefaultVisible::CreateSP(this, &FDeadlineCloudEnvironmentParametersMapCustomization::IsResetToDefaultVisible),
-			FResetToDefaultHandler::CreateSP(this, &FDeadlineCloudEnvironmentParametersMapCustomization::ResetToDefaultHandler)
-		);
+        const FResetToDefaultOverride ResetDefaultOverride = FResetToDefaultOverride::Create(
+			FIsResetToDefaultVisible::CreateSPLambda(this, [this, OuterEnvironment](TSharedPtr<IPropertyHandle> PropertyHandle)->bool 
+                { 
+                    if (!PropertyHandle.IsValid())
+                    {
+                        return false;
+                    }
+
+					if (!IsValid(OuterEnvironment))
+					{
+                        return false;
+					}
+
+                    return !OuterEnvironment->IsDefaultVariables(); 
+                }),
+            FResetToDefaultHandler::CreateSPLambda(this, [this, OuterEnvironment](TSharedPtr<IPropertyHandle> PropertyHandle) 
+                {
+                    if (!PropertyHandle.IsValid())
+                    {
+                        return;
+                    }
+
+					if (!IsValid(OuterEnvironment))
+					{
+                        return;
+					}
+
+					OuterEnvironment->ResetVariables();
+                })
+        );
 		InHeaderRow.OverrideResetToDefault(ResetDefaultOverride);
 	}
 	else
@@ -243,9 +176,9 @@ void FDeadlineCloudEnvironmentParametersMapCustomization::CustomizeHeader(TShare
 		.MaxDesiredWidth(170.f);
 
 	InHeaderRow.NameContent()
-		[
-			ArrayHandle->CreatePropertyNameWidget()
-		];
+	[
+		ArrayHandle->CreatePropertyNameWidget()
+	];
 
 	InHeaderRow.CopyAction(EmptyCopyPasteAction);
 	InHeaderRow.PasteAction(EmptyCopyPasteAction);
