@@ -59,7 +59,7 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
         return u_environment
 
     @unreal.ufunction(override=True)
-    def open_job_file(self, path: str):
+    def open_job_file(self, path: str) -> list[unreal.ParameterDefinition]:
         with open(path, 'r') as f:
             job_template = yaml.safe_load(f)
 
@@ -74,7 +74,7 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
         return u_parameter_definitions
 
     @unreal.ufunction(override=True)
-    def open_step_file(self, path: str):
+    def open_step_file(self, path: str) -> unreal.StepStruct:
         with open(path, 'r') as f:
             step_template = yaml.safe_load(f)
 
@@ -86,10 +86,14 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
             )
             u_step_task_parameter_definitions.append(u_step_task_parameter_definition.copy())
 
-        return u_step_task_parameter_definitions
+        u_step_struct = unreal.StepStruct()
+        u_step_struct.name = step_template['name']
+        u_step_struct.parameters = u_step_task_parameter_definitions
+
+        return u_step_struct
 
     @unreal.ufunction(override=True)
-    def open_env_file(self, path: str):
+    def open_env_file(self, path: str) -> unreal.EnvironmentStruct:
         with open(path, 'r') as f:
             environment_template = yaml.safe_load(f)
 
