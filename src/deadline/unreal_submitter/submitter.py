@@ -285,10 +285,3 @@ class UnrealRenderOpenJobSubmitter(UnrealSubmitter):
         render_open_job = self._open_job_class.from_data_asset(mrq_job.job_preset)
         render_open_job.mrq_job = mrq_job
         self._jobs.append(render_open_job)
-
-    @error_notify('Submission failed')
-    def submit_jobs(self):
-        for job in self._jobs:
-            unreal.log("Creating job from bundle...")
-            job_bundle_path = job.create_job_bundle()
-            self.show_message_dialog(message=job_bundle_path)

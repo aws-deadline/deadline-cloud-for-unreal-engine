@@ -166,6 +166,19 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
             extra_parameters=data_asset.get_step_parameters()
         )
 
+    def _check_parameters_consistency(self):
+        import open_job_template_api
+
+        template = self.get_template_object()
+
+        result = open_job_template_api.ParametersConsistencyChecker.check_parameters_consistency(
+            yaml_parameters=[(p['name'], p['type']) for p in template['parameterSpace']['taskParameterDefinitions']],
+            data_asset_parameters=[(p.name, p.type.name) for p in self._extra_parameters]
+        )
+
+        result.reason = f'OpenJob Step "{self.name}": ' + result.reason
+        return result
+
     def _build_step_parameter_definition_list(self) -> list:
         """
         Build the job parameter definition list from the step template object.
@@ -187,11 +200,12 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
                 param.update(dict(name=override_param.name, range=param_range))
 
             param_definition_cls = param_descriptor.task_parameter_openjd_class
+            unreal.log(f'STEP PARAM BUILD: {param}')
             step_parameter_definition_list.append(param_definition_cls(**param))
 
         return step_parameter_definition_list
         
-    def build_template(self) -> StepTemplate:
+    def _build_template(self) -> StepTemplate:
         step_template_object = self.get_template_object()
 
         step_parameters = self._build_step_parameter_definition_list()
@@ -328,12 +342,17 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         Get parameters
         """
 
-        task_chunk_size = next(
-            (int(p.range[0]) for p in self._extra_parameters if p.name == 'TaskChunkSize'),
-            self._shots_count  # by default chunks length = 1, all shots for one worker
-        )
         if not self._shots_count:
             raise ValueError('Shots count must be provided')
+
+        task_chunk_size_param = next((p for p in self._extra_parameters if p.name == 'TaskChunkSize'), None)
+        if task_chunk_size_param is None:
+            raise ValueError('Render Step\'s parameter "TaskChunkSize " must be provided')
+
+        if len(task_chunk_size_param.range) == 0 or task_chunk_size_param.range[0] == 0:
+            task_chunk_size = self._shots_count  # by default 1 chunk consist of all the shots
+        else:
+            task_chunk_size = int(task_chunk_size_param.range[0])
 
         task_chunk_ids_count = math.ceil(self._shots_count / task_chunk_size)
         return task_chunk_ids_count
@@ -347,16 +366,11 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
             self._extra_parameters.remove(existed_parameter)
         self._extra_parameters.append(extra_parameter)
 
-    def build_template(self) -> StepTemplate:
+    def _build_template(self) -> StepTemplate:
         """
         Build the definition template entity
         """
 
-        # TODO remove task chunk size update
-        task_chunk_size_param_definition = RenderUnrealOpenJobStep.build_u_step_task_parameter(
-            'TaskChunkSize', 'INT', [str(self._shots_count)]
-        )
-        self._update_extra_parameter(task_chunk_size_param_definition)
         task_chunk_id_param_definition = RenderUnrealOpenJobStep.build_u_step_task_parameter(
             'TaskChunkId', 'INT', [str(i) for i in range(self._get_chunk_ids_count())]
         )
@@ -372,7 +386,7 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         )
         self._update_extra_parameter(manifest_param_definition)
 
-        step_entity = super().build_template()
+        step_entity = super()._build_template()
         
         RenderUnrealOpenJobStep.validate_parameters(
             step_entity.parameterSpace.taskParameterDefinitions

@@ -3,7 +3,7 @@ import re
 import json
 import unreal
 from collections import OrderedDict
-from typing import List, Dict, Any, Literal, Union
+from typing import List, Dict, Any
 
 from openjd.model.v2023_09 import *
 from deadline.client.job_bundle.submission import AssetReferences
@@ -194,10 +194,6 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             if extra_param:
                 python_class = PARAMETER_DEFINITION_MAPPING.get(param['type']).python_class
                 param_value = python_class(extra_param.value)
-                #param_value = getattr(
-                #    extra_param,
-                #    PARAMETER_DEFINITION_MAPPING.get(param['type']).job_parameter_attribute_name
-                #)
             else:
                 param_value = param.get('default')
 
@@ -211,7 +207,19 @@ class UnrealOpenJob(UnrealOpenJobEntity):
     def _get_asset_references(self) -> AssetReferences:
         return AssetReferences()
 
-    def build_template(self) -> JobTemplate:
+    def _check_parameters_consistency(self):
+        import open_job_template_api
+
+        template = self.get_template_object()
+
+        result = open_job_template_api.ParametersConsistencyChecker.check_parameters_consistency(
+            yaml_parameters=[(p['name'], p['type']) for p in template['parameterDefinitions']],
+            data_asset_parameters=[(p.name, p.type.name) for p in self._extra_parameters]
+        )
+        result.reason = f'OpenJob: ' + result.reason
+        return result
+
+    def _build_template(self) -> JobTemplate:
         job_template = self.template_class(
             specificationVersion=settings.JOB_TEMPLATE_VERSION,
             name=self.name,

@@ -10,8 +10,6 @@ from abc import ABC, abstractmethod
 from openjd.model.v2023_09 import *
 from openjd.model import DocumentType
 
-from deadline.unreal_submitter import common
-
 
 Template = Union[JobTemplate, StepTemplate, EnvironmentTemplate]
 TemplateClass = Union[Type[JobTemplate], Type[StepTemplate], Type[EnvironmentTemplate]]
@@ -95,6 +93,25 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
     def file_path(self) -> str:
         return self._file_path
 
+    def _build_template(self) -> Template:
+        template_object = self.get_template_object()
+        return self.template_class(**template_object)
+
+    def _validate_parameters(self):
+        result = self._check_parameters_consistency()
+        if not result.passed:
+            raise Exception(result.reason)
+
+    def _check_parameters_consistency(self) -> unreal.ParametersConsistencyCheckResult:
+        result = unreal.ParametersConsistencyCheckResult()
+        result.passed = True
+        result.reason = 'Parameters are consensual'
+        return result
+
+    def build_template(self) -> Template:
+        self._validate_parameters()
+        return self._build_template()
+
     def get_template_object(self) -> dict:
         if not os.path.exists(self.file_path):
             raise FileNotFoundError(f'Descriptor file "{self.file_path}" not found')
@@ -105,11 +122,6 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
             template = json.load(f) if file_type == DocumentType.JSON else yaml.safe_load(f)
 
         return template
-
-    def build_template(self) -> Template:
-        # TODO: Validate the template object
-        template_object = self.get_template_object()
-        return self.template_class(**template_object)
 
 
 @dataclass
