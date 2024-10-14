@@ -86,7 +86,7 @@ TArray<FString> UDeadlineCloudStep::GetDependsList()
 			DataAsset.LoadSynchronous();
 
 			UDeadlineCloudStep* StepAsset = Cast<UDeadlineCloudStep>(DataAsset.Get());
-			if (StepAsset && StepAsset->Name != Name)
+			if (StepAsset && StepAsset->Name != Name && !StepAsset->Name.IsEmpty())
 			{
 				DependsList.Add(StepAsset->Name);
 			}

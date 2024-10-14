@@ -91,6 +91,9 @@ private:
 
 class FDeadlineCloudJobDetails : public IDetailCustomization
 {
+private:
+
+
 public:
 
     static TSharedRef<IDetailCustomization> MakeInstance();
@@ -98,13 +101,47 @@ public:
     IDetailLayoutBuilder* MyDetailLayout;
 
     TWeakObjectPtr<UDeadlineCloudJob> Settings;
+  
+public:
+    
+    void HandlePathChanged()
+    {
+        if (Settings.IsValid())
+        {
+
+            UE_LOG(LogTemp, Log, TEXT("Something changed!"));
+        }
+    }
 
     void OnButtonClicked();
-	EVisibility GetConsistencyWidgetVisibility() const;
 
-private:  
+protected:
+
+private:
+    
+
+    //TSharedRef<SWidget> CreateNameWidget(FString Parameter);
+    //TSharedRef<SWidget> CreatePathWidget(TSharedPtr<IPropertyHandle> ParameterHandle);
+    //TSharedRef<SWidget> CreateStringWidget(FParameterDefinition *Parameter);
+
     void ForceRefreshDetails();
     bool CheckConsistency(UDeadlineCloudJob* Job);
-    bool bCheckConsistensyPassed = true;
+
+
+    bool CheckConsidtensyPassed = true;
+public:
+	bool IsStepContainsErrors() const;
+	EVisibility GetStepErrorWidgetVisibility() const;
+	EVisibility GetStepDefaultWidgetVisibility() const;
+
+	bool IsEnvironmentContainsErrors() const;
+	EVisibility GetEnvironmentErrorWidgetVisibility() const;
+	EVisibility GetEnvironmentDefaultWidgetVisibility() const;
+
+    EVisibility GetWidgetVisibility() const
+    {
+        // if true, widget collapsed
+        return (!CheckConsidtensyPassed) ? EVisibility::Visible : EVisibility::Collapsed;
+    }
 };
 

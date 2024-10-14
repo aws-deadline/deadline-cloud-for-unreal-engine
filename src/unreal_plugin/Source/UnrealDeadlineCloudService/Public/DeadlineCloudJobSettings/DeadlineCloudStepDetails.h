@@ -129,11 +129,14 @@ public:
     static TSharedRef<IDetailCustomization> MakeInstance();
     virtual  void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
 
-	void OnButtonClicked();
-	bool CheckConsistency(UDeadlineCloudStep* Step);
-	bool bCheckConsistensyPassed = true;
-	EVisibility GetWidgetVisibility() const	{ return (!bCheckConsistensyPassed) ? EVisibility::Visible : EVisibility::Collapsed;	}
+
+	bool IsEnvironmentContainsErrors() const;
+	EVisibility GetEnvironmentErrorWidgetVisibility() const;
+	EVisibility GetEnvironmentDefaultWidgetVisibility() const;
 
 private:
+    TSharedRef<SWidget> GenerateStringsArrayContent(const TArray<FString>& StringArray);
+    TSharedRef<SWidget> GenerateTasksContent(const TArray<FStepTaskParameterDefinition> tasks);
+
     void ForceRefreshDetails();
 };

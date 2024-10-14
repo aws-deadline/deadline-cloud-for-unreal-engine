@@ -28,7 +28,7 @@ public:
 	FString Name;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 3, GetOptions = "GetDependsList"))
-	FString DependsOn;
+	TSet<FString> DependsOn;
 
 	UPROPERTY( EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 2))
 	FFilePath PathToTemplate;
