@@ -166,10 +166,9 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         while (
             self._unreal_is_running
             and not self._has_exception
-            and len(self._action_queue)
-            > 0  # for now the initializing actions in the action queue, defined by
-            # _populate_action_queue() method.
-            # So we wait for them to be done or for time is out.
+            and len(self._action_queue) > 0  # for now the initializing actions in the action queue, defined by
+                                             # _populate_client_loaded_action() method.
+                                             # So we wait for them to be done or for time is out.
             and is_not_timed_out()
         ):
             time.sleep(0.1)
@@ -334,23 +333,12 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
             stderr_handler=regexhandler,
         )
 
-    def _populate_action_queue(self) -> None:
+    def _populate_client_loaded_action(self) -> None:
         """
-        Populates the adaptor server's action queue with actions from the init_data that the Unreal
-        Client will request and perform.
+        Populates the adaptor server's action queue with the specific action to check if UE initialized or not yet
         """
-        pass
-        # Set up all pathmapping rules
-        # self._action_queue.enqueue_action(
-        #     Action(
-        #         "path_mapping",
-        #         {
-        #             "path_mapping_rules": {
-        #                 rule.source_path: rule.destination_path for rule in self.path_mapping_rules
-        #             }
-        #         },
-        #     )
-        # )
+
+        self._action_queue.enqueue_action(Action(name='client_loaded'))
 
     def _get_deadline_telemetry_client(self):
         """
@@ -387,7 +375,7 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         # Starts the unreal adaptor server
         self._start_unreal_server_thread()
 
-        self._populate_action_queue()
+        self._populate_client_loaded_action()
 
         # Add the openjd and adaptor namespace directory to PYTHONPATH, so that adaptor_runtime_client
         # will be available directly to the adaptor client.
