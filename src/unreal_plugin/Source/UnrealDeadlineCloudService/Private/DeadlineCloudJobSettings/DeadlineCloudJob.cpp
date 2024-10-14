@@ -48,10 +48,9 @@ void UDeadlineCloudJob::FixJobParametersConsistency(UDeadlineCloudJob* Job)
 }
 
 
-FParametersConsistencyCheckResult UDeadlineCloudJob::CheckJobParametersConsistency(UDeadlineCloudJob* Self)
+FParametersConsistencyCheckResult UDeadlineCloudJob::CheckJobParametersConsistency(UDeadlineCloudJob* Job)
 {
-	FParametersConsistencyCheckResult result = UPythonParametersConsistencyChecker::Get()->CheckJobParametersConsistency(Self);
-	return result;
+	return UPythonParametersConsistencyChecker::Get()->CheckJobParametersConsistency(Job);
 }
 
 TArray<FString> UDeadlineCloudJob::GetCpuArchitectures()

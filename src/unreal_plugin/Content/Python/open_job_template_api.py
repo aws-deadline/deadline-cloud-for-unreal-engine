@@ -271,7 +271,7 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
 
         return self.check_parameters_consistency(
             yaml_parameters=[(k, 'VARIABLE') for k in environment_template['variables'].keys()],
-            data_asset_parameters=[(v.name, 'VARIABLE') for v in open_job_environment.environment_structure.variables]
+            data_asset_parameters=[(v.name, 'VARIABLE') for v in open_job_environment.variables.variables]
         )
 
     @unreal.ufunction(override=True)
@@ -284,11 +284,11 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
 
         missed_in_yaml, missed_in_data_asset = ParametersConsistencyChecker.get_parameters_symmetric_difference(
             parameters_left=[(k, 'VARIABLE') for k in environment_template['variables'].keys()],
-            parameters_right=[(v.name, 'VARIABLE') for v in open_job_environment.environment_structure.variables]
+            parameters_right=[(v.name, 'VARIABLE') for v in open_job_environment.variables.variables]
         )
         if missed_in_yaml or missed_in_data_asset:
             fixed_environment_variables: list[unreal.EnvVariable] = []
-            for u_variable in open_job_environment.environment_structure.variables:
+            for u_variable in open_job_environment.variables.variables:
                 if (u_variable.name, 'VARIABLE') not in missed_in_yaml:
                     fixed_environment_variables.append(u_variable.copy())
 
@@ -301,4 +301,4 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
 
             unreal.log(f'Fixed OpenJobEnvironment variables: {fixed_environment_variables}')
 
-            open_job_environment.environment_structure.variables = fixed_environment_variables
+            open_job_environment.variables.variables = fixed_environment_variables

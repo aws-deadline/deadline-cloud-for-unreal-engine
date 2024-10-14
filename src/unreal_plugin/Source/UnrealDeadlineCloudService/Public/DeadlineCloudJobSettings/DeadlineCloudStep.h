@@ -57,8 +57,6 @@ public:
 	UFUNCTION()
 	void OpenStepFile(const FString& Path);
 
-
-
 	UFUNCTION()
 	FParametersConsistencyCheckResult CheckStepParametersConsistency(UDeadlineCloudStep* Step);
 

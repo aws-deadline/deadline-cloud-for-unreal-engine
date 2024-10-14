@@ -138,7 +138,6 @@ public:
 
 	EVisibility GetWidgetVisibility() const
 	{
-		// if true, widget collapsed
 		return (!bCheckConsistensyPassed) ? EVisibility::Visible : EVisibility::Collapsed;
 	}
 private:

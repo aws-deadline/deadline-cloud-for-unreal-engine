@@ -84,7 +84,7 @@ bool FDeadlineCloudJobDetails::CheckConsistency(UDeadlineCloudJob* Job)
     FParametersConsistencyCheckResult result;
     result = Job->CheckJobParametersConsistency(Job);
        
-    UE_LOG(LogTemp, Warning, TEXT("check consistency result: %s"), *result.Reason);
+    UE_LOG(LogTemp, Warning, TEXT("Check consistency result: %s"), *result.Reason);
     return result.Passed;
 }
 

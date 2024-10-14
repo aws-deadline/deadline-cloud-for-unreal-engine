@@ -17,10 +17,14 @@ void UDeadlineCloudEnvironment::OpenEnvFile(const FString& Path)
 	}
 }
 
-void UDeadlineCloudEnvironment::CheckEnvironmentVariablesConsistency(UDeadlineCloudEnvironment* Self)
+FParametersConsistencyCheckResult UDeadlineCloudEnvironment::CheckEnvironmentVariablesConsistency(UDeadlineCloudEnvironment* Env)
 {
-	FParametersConsistencyCheckResult  result = UPythonParametersConsistencyChecker::Get()->CheckEnvironmentVariablesConsistency(Self);
-	
+	return UPythonParametersConsistencyChecker::Get()->CheckEnvironmentVariablesConsistency(Env);	
+}
+
+void UDeadlineCloudEnvironment::FixEnvironmentVariablesConsistency(UDeadlineCloudEnvironment* Env)
+{
+	UPythonParametersConsistencyChecker::Get()->FixEnvironmentVariablesConsistency(Env);
 }
 
 bool UDeadlineCloudEnvironment::IsDefaultVariables()

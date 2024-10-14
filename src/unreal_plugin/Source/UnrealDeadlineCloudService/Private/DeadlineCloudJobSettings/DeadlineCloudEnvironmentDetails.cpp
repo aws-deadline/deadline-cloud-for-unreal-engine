@@ -12,15 +12,22 @@
 #include "IDetailsView.h"
 #include "IDetailChildrenBuilder.h"
 #include "IDetailPropertyRow.h"
-
-
+#include "DeadlineCloudJobSettings/DeadlineCloudDetailsWidgetsHelper.h"
+#include "PythonAPILibraries/PythonParametersConsistencyChecker.h"
 #include "EditorDirectories.h"
 #include "Widgets/Input/SFilePathPicker.h"
 #include "Widgets/Input/SEditableTextBox.h"
 
 #define LOCTEXT_NAMESPACE "EnvironmentDetails"
 
+bool FDeadlineCloudEnvironmentDetails::CheckConsistency(UDeadlineCloudEnvironment* Env)
+{
+	FParametersConsistencyCheckResult result;
+	result = Env->CheckEnvironmentVariablesConsistency(Env);
 
+	UE_LOG(LogTemp, Warning, TEXT("Check consistency result: %s"), *result.Reason);
+	return result.Passed;
+}
 /*Details*/
 TSharedRef<IDetailCustomization> FDeadlineCloudEnvironmentDetails::MakeInstance()
 {
@@ -36,12 +43,40 @@ void FDeadlineCloudEnvironmentDetails::CustomizeDetails(IDetailLayoutBuilder& De
     MyDetailLayout->GetObjectsBeingCustomized(ObjectsBeingCustomized);
     Settings = Cast<UDeadlineCloudEnvironment>(ObjectsBeingCustomized[0].Get());
 
+	TSharedPtr<FDeadlineCloudDetailsWidgetsHelper::SConsistencyWidget> ConsistencyUpdateWidget;
+	FParametersConsistencyCheckResult result;
+
+	/* Consistency check */
+	if (Settings.IsValid() && Settings->Variables.Variables.Num() > 0)
+	{
+		UDeadlineCloudEnvironment* MyObject = Settings.Get();
+		bCheckConsistensyPassed = CheckConsistency(MyObject);
+	}
+
+	/* If passed - Open job file*/
+	if (bCheckConsistensyPassed || Settings->Variables.Variables.Num() == 0)
+	{
+		Settings->OpenEnvFile(Settings->PathToTemplate.FilePath);
+	}
+
+	IDetailCategoryBuilder& PropertiesCategory = MyDetailLayout->EditCategory("Parameters");
+
+	PropertiesCategory.AddCustomRow(FText::FromString("Consistency"))
+		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FDeadlineCloudEnvironmentDetails::GetWidgetVisibility)))
+		.WholeRowContent()
+		[
+			SAssignNew(ConsistencyUpdateWidget, FDeadlineCloudDetailsWidgetsHelper::SConsistencyWidget)
+				.OnFixButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudEnvironmentDetails::OnButtonClicked))
+		];
+
     //  Dispatcher handle bind
     if (Settings.IsValid() && (MyDetailLayout != nullptr))
     {
         Settings->OnSomethingChanged = FSimpleDelegate::CreateSP(this, &FDeadlineCloudEnvironmentDetails::ForceRefreshDetails);
     };
 }
+
+
 void FDeadlineCloudEnvironmentDetails::ForceRefreshDetails()
 {
    MyDetailLayout->ForceRefreshDetails();

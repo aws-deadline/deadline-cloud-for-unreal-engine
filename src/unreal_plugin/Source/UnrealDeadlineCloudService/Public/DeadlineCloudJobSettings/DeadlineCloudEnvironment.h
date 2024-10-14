@@ -36,7 +36,10 @@ public:
 	void OpenEnvFile(const FString& Path);
 
 	UFUNCTION()
-	void CheckEnvironmentVariablesConsistency( UDeadlineCloudEnvironment* Self) ;
+	FParametersConsistencyCheckResult CheckEnvironmentVariablesConsistency( UDeadlineCloudEnvironment* Env) ;
+
+	UFUNCTION()
+	void FixEnvironmentVariablesConsistency(UDeadlineCloudEnvironment* Env);
 
 	bool IsDefaultVariables();
 	void ResetVariables();
