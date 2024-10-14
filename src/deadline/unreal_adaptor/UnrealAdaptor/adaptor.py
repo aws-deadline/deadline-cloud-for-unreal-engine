@@ -69,6 +69,22 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
     def integration_data_interface_version(self) -> SemanticVersion:
         return SemanticVersion(major=0, minor=1)  # pragma: no cover
 
+    @property
+    def telemetry_client(self) -> TelemetryClient:
+        """
+        Wrapper around the Deadline Client Library telemetry client, in order to set package-specific information
+        """
+        if not self._telemetry_client:
+            self._telemetry_client = get_deadline_cloud_library_telemetry_client()
+            self._telemetry_client.update_common_details(
+                {
+                    'deadline-cloud-for-unreal-engine-adaptor-version': adaptor_version,
+                    'open-jd-adaptor-runtime-version': openjd_adaptor_version
+                }
+            )
+        return self._telemetry_client
+
+
     @staticmethod
     def get_timer(timeout: int | float) -> Callable[[], bool]:
         """Given a timeout length, returns a lambda which returns True until the timeout occurs"""
@@ -174,7 +190,7 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         ):
             time.sleep(0.1)
 
-        self._get_deadline_telemetry_client().record_event(
+        self.telemetry_client.record_event(
             event_type="com.amazon.rum.deadline.adaptor.runtime.start", event_details={}
         )
 
@@ -219,12 +235,20 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
 
         callbacks = []
 
+        # We should get UE version to write the telemetry in the most proper way
+        callbacks.append(
+            RegexCallback(
+                [re.compile('.*Engine Version: (.*)'), re.compile('.*engineversion=\"(.*)\"')],
+                self._handle_unreal_engine_version
+            )
+        )
+
         from deadline.unreal_adaptor.UnrealClient.step_handlers import get_step_handler_class
 
         for handler_name in ["render", "custom"]:
             handler_class = get_step_handler_class(handler_name)
 
-            logger.info(f"Gettings regex pattertns from step handler: {handler_class}...")
+            logger.info(f"Getting regex patterns from step handler: {handler_class}...")
 
             callbacks.append(
                 RegexCallback(handler_class.regex_pattern_progress(), self._handle_progress)
@@ -268,6 +292,17 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         :raises RuntimeError: Always raises a runtime error to halt the adaptor.
         """
         self._exc_info = RuntimeError(f"Unreal Encountered an Error: {match.group(0)}")
+
+    def _handle_unreal_engine_version(self, match: re.Match) -> None:
+        """
+        Callback for stdout that indicates Unreal Engine version running
+
+        :param match: re.Match object from the regex pattern that was matched the message
+        :type match: re.Match
+        """
+
+        if match and len(match.groups()) > 0:
+            self._telemetry_client.update_common_details({'unreal-engine-version': match.groups()[0]})
 
     def _start_unreal_client(self) -> None:
         """
@@ -350,20 +385,16 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
 
         self._action_queue.enqueue_action(Action(name="client_loaded"))
 
-    def _get_deadline_telemetry_client(self):
+    def _record_error_and_raise(self, exc: Exception, exception_scope: str, exit_code: int = None) -> None:
         """
-        Wrapper around the Deadline Client Library telemetry client, in order to set package-specific information
+        Record telemetry error event and raise given exception
         """
-        if not self._telemetry_client:
-            self._telemetry_client = get_deadline_cloud_library_telemetry_client()
-            self._telemetry_client.update_common_details(
-                {
-                    "deadline-cloud-for-unreal-engine-adaptor-version": adaptor_version,
-                    "open-jd-adaptor-runtime-version": openjd_adaptor_version,
-                    # TODO: add unreal-engine-version
-                }
-            )
-        return self._telemetry_client
+        self._telemetry_client.record_error(
+            event_details={"exit_code": exit_code, "exception_scope": exception_scope},
+            exception_type=str(type(exc)),
+            from_gui=False
+        )
+        raise exc
 
     def on_start(self) -> None:
         """
@@ -377,13 +408,19 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
             FileNotFoundError: If the unreal_client.py file could not be found.
         """
 
-        self.data_validation.validate_init_data(self.init_data)
+        try:
+            self.data_validation.validate_init_data(self.init_data)
+        except Exception as e:
+            self._record_error_and_raise(exc=e, exception_scope='on_start')
 
         # Notify worker agent about starting Unreal
         self.update_status(progress=0, status_message="Initializing Unreal Engine")
 
         # Starts the unreal adaptor server
-        self._start_unreal_server_thread()
+        try:
+            self._start_unreal_server_thread()
+        except Exception as e:
+            self._record_error_and_raise(exc=e, exception_scope='on_start')
 
         self._populate_client_loaded_action()
 
@@ -405,9 +442,11 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
 
         add_module_to_pythonpath(os.path.dirname(os.path.dirname(deadline.unreal_adaptor.__file__)))
 
-        self._start_unreal_client()
-
-        self._wait_for_unreal_started()
+        try:
+            self._start_unreal_client()
+            self._wait_for_unreal_started()
+        except Exception as e:
+            self._record_error_and_raise(exc=e, exception_scope='on_start')
 
     def on_run(self, run_data: dict) -> None:
         """
@@ -417,9 +456,15 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         :type run_data: dict
         """
         if not self._unreal_is_running:
-            raise UnrealNotRunningError("Cannot render because Unreal is not running.")
+            self._record_error_and_raise(
+                exc=UnrealNotRunningError("Cannot render because Unreal is not running"),
+                exception_scope='on_run'
+            )
 
-        self.data_validation.validate_run_data(run_data)
+        try:
+            self.data_validation.validate_run_data(run_data)
+        except Exception as e:
+            self._record_error_and_raise(exc=e, exception_scope='on_run')
 
         # Set up the step handler
         self._action_queue.enqueue_action(
@@ -445,12 +490,13 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
             #  This is always an error case because the Unreal Client should still be running and
             #  waiting for the next command. If the thread finished, then we cannot continue
             exit_code = self._unreal_client.returncode
-            self._get_deadline_telemetry_client().record_error(
-                {"exit_code": exit_code, "exception_scope": "on_run"}, str(RuntimeError)
-            )
-            raise RuntimeError(
-                "Unreal exited early and did not render successfully, please check render logs. "
-                f"Exit code {exit_code}"
+            self._record_error_and_raise(
+                exc=RuntimeError(
+                    "Unreal exited early and did not render successfully, please check render logs. "
+                    f"Exit code {exit_code}"
+                ),
+                exception_scope='on_run',
+                exit_code=exit_code
             )
 
     def on_stop(self) -> None:
