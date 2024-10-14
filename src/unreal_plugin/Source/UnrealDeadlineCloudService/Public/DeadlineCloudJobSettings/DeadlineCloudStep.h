@@ -57,8 +57,13 @@ public:
 	UFUNCTION()
 	void OpenStepFile(const FString& Path);
 
+
+
 	UFUNCTION()
-	void CheckStepParametersConsistency(UDeadlineCloudStep* Self);
+	FParametersConsistencyCheckResult CheckStepParametersConsistency(UDeadlineCloudStep* Step);
+
+	UFUNCTION(BlueprintCallable, Category = "Parameters")
+	void FixStepParametersConsistency(UDeadlineCloudStep* Step);
 
     UFUNCTION(BlueprintCallable, Category="Parameters")
 	TArray<FStepTaskParameterDefinition> GetStepParameters();

@@ -11,88 +11,33 @@
 #include "Widgets/Input/SFilePathPicker.h"
 #include "IDetailChildrenBuilder.h"
 #include "Widgets/Input/SNumericEntryBox.h"
-
+#include "PythonAPILibraries/PythonParametersConsistencyChecker.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudDetailsWidgetsHelper.h"
 
 #define LOCTEXT_NAMESPACE "StepDetails"
 
 
+
+
+bool FDeadlineCloudStepDetails::CheckConsistency(UDeadlineCloudStep* Step)
+{
+	FParametersConsistencyCheckResult result;
+	result = Step->CheckStepParametersConsistency(Step);
+
+	UE_LOG(LogTemp, Warning, TEXT("check consistency result: %s"), *result.Reason);
+	return result.Passed;
+}
+
+void FDeadlineCloudStepDetails::OnButtonClicked()
+{
+	Settings->FixStepParametersConsistency(Settings.Get());
+	UE_LOG(LogTemp, Warning, TEXT("FixStepParametersConsistency"));
+	ForceRefreshDetails();
+}
+
 void FDeadlineCloudStepDetails::ForceRefreshDetails()
 {
     MyDetailLayout->ForceRefreshDetails();
-}
-
-TSharedRef<SWidget> FDeadlineCloudStepDetails::GenerateStringsArrayContent(const TArray<FString>& StringArray)
-{
-
-    TSharedRef<SVerticalBox> VBox = SNew(SVerticalBox);
-    if (StringArray.Num() > 0)
-    {
-        for (const FString& Str : StringArray)
-        {
-            VBox->AddSlot()
-                .AutoHeight()
-                .Padding(5)
-                [
-                    SNew(SEditableTextBox)
-                        .Text(FText::FromString(Str))
-                ];
-        }
-    }
-
-    return VBox;
-}
-
-TSharedRef<SWidget> FDeadlineCloudStepDetails::GenerateTasksContent(const TArray<FStepTaskParameterDefinition> tasks)
-{
-
-    TSharedRef<SVerticalBox> VBox = SNew(SVerticalBox);
-    if (tasks.Num() > 0)
-    {
-        for (auto& task : tasks)
-        {
-            VBox->AddSlot()
-                .AutoHeight()
-                .HAlign(HAlign_Fill)
-                .Padding(2)
-                [
-                    SNew(SHorizontalBox)
-
-                        + SHorizontalBox::Slot()
-                        .AutoWidth()
-                        .VAlign(VAlign_Top)
-                        .Padding(2)
-                        [
-                            SNew(STextBlock)
-                                .Text(FText::FromString(task.Name))
-                        ]
-
-                        + SHorizontalBox::Slot()
-                        //.FillWidth(1.0f)
-                        .VAlign(VAlign_Top)
-                        .Padding(2)
-                        [
-                            SNew(SEditableTextBox)
-                                .Text(FText::FromString(""))
-                        ]
-
-                        + SHorizontalBox::Slot()
-                        .AutoWidth()
-                        .VAlign(VAlign_Top)
-                        .Padding(2)
-                        [
-                            SNew(SVerticalBox)
-                                + SVerticalBox::Slot()
-                                .AutoHeight()
-                                [
-                                    this->GenerateStringsArrayContent(task.Range)
-                                ]
-                        ]
-                ];
-        }
-    }
-
-    return VBox;
 }
 
 /*Details*/
@@ -108,46 +53,36 @@ void FDeadlineCloudStepDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBui
     DetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
     Settings = Cast<UDeadlineCloudStep>(ObjectsBeingCustomized[0].Get());
 
+	TSharedPtr<FDeadlineCloudDetailsWidgetsHelper::SConsistencyWidget> ConsistencyUpdateWidget;
+	FParametersConsistencyCheckResult result;
+
+	/* Consistency check */
+	if (Settings.IsValid() && Settings->GetStepParameters().Num() > 0)
+	{
+		UDeadlineCloudStep* MyObject = Settings.Get();
+		bCheckConsistensyPassed = CheckConsistency(MyObject);
+	}
+
+	/* If passed - Open job file*/
+	if (bCheckConsistensyPassed || Settings->GetStepParameters().Num() == 0)
+	{
+		Settings->OpenStepFile(Settings->PathToTemplate.FilePath);
+	}
+
+	IDetailCategoryBuilder& PropertiesCategory = MyDetailLayout->EditCategory("Parameters");
+
+	PropertiesCategory.AddCustomRow(FText::FromString("Consistency"))
+		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FDeadlineCloudStepDetails::GetWidgetVisibility)))
+		.WholeRowContent()
+		[
+			SAssignNew(ConsistencyUpdateWidget, FDeadlineCloudDetailsWidgetsHelper::SConsistencyWidget)
+				.OnFixButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudStepDetails::OnButtonClicked))
+		];
+
     if (Settings.IsValid() && (MyDetailLayout != nullptr))
     {
         Settings->OnSomethingChanged = FSimpleDelegate::CreateSP(this, &FDeadlineCloudStepDetails::ForceRefreshDetails);
     };
-
-    //FString CurrentName;
-
-    //if (Settings->PathToTemplate.FilePath.Len() > 0)
-    //{
-    //    TArray <FStepTaskParameterDefinition> Parameters;
-    //    Settings->OpenStepFile(Settings->PathToTemplate.FilePath);
-    //    Parameters = Settings->GetStepParameters();
-    //    if (Parameters.Num() > 0) {
-
-    //        IDetailCategoryBuilder& PropertiesCategory = DetailBuilder.EditCategory("DeadlineCloudStepParameters");
-
-    //        for (auto& StepParameter : Parameters) {
-
-    //            CurrentName = StepParameter.Name;
-
-    //            {
-    //                PropertiesCategory.AddCustomRow(LOCTEXT("Parameter Definitions", "Parameter Definitions"))
-    //                    .NameContent()
-    //                    [CreateStepNameWidget(StepParameter.Name)]
-    //                    .ValueContent()
-    //                    [GenerateStringsArrayContent(StepParameter.Range)];
-    //            }
-
-    //        }
-    //    }
-    //    else
-    //    {
-    //        UE_LOG(LogTemp, Error, TEXT("PARAMETERS PARSING ERROR"));
-    //    }
-    //}
-
-    //else
-    //{
-    //    UE_LOG(LogTemp, Warning, TEXT("Empty step path string"));
-    //}
 }
 
 void FDeadlineCloudStepParametersArrayCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> InPropertyHandle, FDetailWidgetRow& InHeaderRow, IPropertyTypeCustomizationUtils& InCustomizationUtils)

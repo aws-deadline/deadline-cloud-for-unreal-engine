@@ -243,7 +243,7 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
 
         if missed_in_yaml or missed_in_data_asset:
             fixed_step_task_parameter_definitions: list[unreal.StepTaskParameterDefinition] = []
-            for u_parameter_definition in open_job_step.step_task_parameter_definitions:
+            for u_parameter_definition in open_job_step.task_parameter_definitions:
                 if (u_parameter_definition.name, u_parameter_definition.type.name) not in missed_in_yaml:
                     fixed_step_task_parameter_definitions.append(u_parameter_definition.copy())
 

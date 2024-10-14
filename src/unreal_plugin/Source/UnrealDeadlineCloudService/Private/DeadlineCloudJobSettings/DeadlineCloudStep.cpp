@@ -16,9 +16,17 @@ void UDeadlineCloudStep::OpenStepFile(const FString& Path)
 	TaskParameterDefinitions.Parameters = StepStruct.Parameters;
 }
 
-void UDeadlineCloudStep::CheckStepParametersConsistency(UDeadlineCloudStep* Self)
+
+void UDeadlineCloudStep::FixStepParametersConsistency(UDeadlineCloudStep* Step)
 {
-	FParametersConsistencyCheckResult  result = UPythonParametersConsistencyChecker::Get()->CheckStepParametersConsistency(Self);
+	UPythonParametersConsistencyChecker::Get()->FixStepParametersConsistency(Step);
+}
+
+
+FParametersConsistencyCheckResult UDeadlineCloudStep::CheckStepParametersConsistency(UDeadlineCloudStep* Self)
+{
+	FParametersConsistencyCheckResult result = UPythonParametersConsistencyChecker::Get()->CheckStepParametersConsistency(Self);
+	return result;
 }
 
 TArray<FStepTaskParameterDefinition> UDeadlineCloudStep::GetStepParameters()

@@ -176,6 +176,37 @@ private:
 	TSharedPtr<IPropertyHandle> Property;
 };
 
+
+	void FDeadlineCloudDetailsWidgetsHelper::SConsistencyWidget::Construct(const FArguments & InArgs) {
+
+		OnFixButtonClicked = InArgs._OnFixButtonClicked;
+
+		ChildSlot
+			[
+				SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(5)
+					[
+						SNew(STextBlock)
+							.Text(FText::FromString("Parameters changed. Update parameters?"))
+							.ColorAndOpacity(FLinearColor::Yellow) // 
+					]
+
+					//update?
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SButton)
+							.Text(FText::FromString("OK"))
+							.OnClicked(this, &SConsistencyWidget::HandleButtonClicked)
+					]
+			];
+	};
+
+
+
+
 TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(TSharedPtr<IPropertyHandle> ParameterHandle, EValueType Type)
 {
 	switch (Type)
@@ -218,6 +249,14 @@ TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateNameWidget(FString
 					.Font(IDetailLayoutBuilder::GetDetailFont())
 					.ColorAndOpacity(FSlateColor::UseForeground())
 			];
+}
+
+TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateConsistencyWidget(FString ResultString)
+{
+	TSharedRef<SConsistencyWidget> ConsistensyWidget = SNew(SConsistencyWidget)
+		.CheckResult(ResultString)
+		.Visibility(EVisibility::Collapsed);
+	return  ConsistensyWidget;
 }
 
 TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreatePathWidget(TSharedPtr<IPropertyHandle> ParameterHandle)

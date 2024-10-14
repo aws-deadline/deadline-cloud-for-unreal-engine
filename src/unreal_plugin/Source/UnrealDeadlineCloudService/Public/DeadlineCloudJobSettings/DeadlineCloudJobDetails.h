@@ -103,15 +103,6 @@ public:
     TWeakObjectPtr<UDeadlineCloudJob> Settings;
   
 public:
-    
-    void HandlePathChanged()
-    {
-        if (Settings.IsValid())
-        {
-
-            UE_LOG(LogTemp, Log, TEXT("Something changed!"));
-        }
-    }
 
     void OnButtonClicked();
 
@@ -119,22 +110,12 @@ protected:
 
 private:
     
-
-    //TSharedRef<SWidget> CreateNameWidget(FString Parameter);
-    //TSharedRef<SWidget> CreatePathWidget(TSharedPtr<IPropertyHandle> ParameterHandle);
-    //TSharedRef<SWidget> CreateStringWidget(FParameterDefinition *Parameter);
-
     void ForceRefreshDetails();
     bool CheckConsistency(UDeadlineCloudJob* Job);
-
-
-    bool CheckConsidtensyPassed = true;
+    bool bCheckConsistensyPassed = true;
 public:
 
-    EVisibility GetWidgetVisibility() const
-    {
-        // if true, widget collapsed
-        return (!CheckConsidtensyPassed) ? EVisibility::Visible : EVisibility::Collapsed;
-    }
+	EVisibility GetConsistencyWidgetVisibility() const;
+
 };
 

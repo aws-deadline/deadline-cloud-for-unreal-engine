@@ -129,9 +129,19 @@ public:
     static TSharedRef<IDetailCustomization> MakeInstance();
     virtual  void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
 
+
+	void OnButtonClicked();
+
+	bool CheckConsistency(UDeadlineCloudStep* Step);
+	bool bCheckConsistensyPassed = true;
+
+
+	EVisibility GetWidgetVisibility() const
+	{
+		// if true, widget collapsed
+		return (!bCheckConsistensyPassed) ? EVisibility::Visible : EVisibility::Collapsed;
+	}
 private:
-    TSharedRef<SWidget> GenerateStringsArrayContent(const TArray<FString>& StringArray);
-    TSharedRef<SWidget> GenerateTasksContent(const TArray<FStepTaskParameterDefinition> tasks);
 
     void ForceRefreshDetails();
 };
