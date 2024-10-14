@@ -10,7 +10,10 @@ UDeadlineCloudStep::UDeadlineCloudStep()
 
 void UDeadlineCloudStep::OpenStepFile(const FString& Path)
 {
-	TaskParameterDefinitions.Parameters = UPythonYamlLibrary::Get()->OpenStepFile(Path);
+	auto StepStruct = UPythonYamlLibrary::Get()->OpenStepFile(Path);
+
+	Name = StepStruct.Name;
+	TaskParameterDefinitions.Parameters = StepStruct.Parameters;
 }
 
 void UDeadlineCloudStep::CheckStepParametersConsistency(UDeadlineCloudStep* Self)
@@ -86,7 +89,7 @@ TArray<FString> UDeadlineCloudStep::GetDependsList()
 
 bool UDeadlineCloudStep::IsParameterArrayDefault(FString ParameterName)
 {
-	TArray<FStepTaskParameterDefinition> DefaultParameters = UPythonYamlLibrary::Get()->OpenStepFile(PathToTemplate.FilePath);
+	TArray<FStepTaskParameterDefinition> DefaultParameters = UPythonYamlLibrary::Get()->OpenStepFile(PathToTemplate.FilePath).Parameters;
 
 	for (FStepTaskParameterDefinition& Parameter : TaskParameterDefinitions.Parameters)
 	{
@@ -119,7 +122,7 @@ bool UDeadlineCloudStep::IsParameterArrayDefault(FString ParameterName)
 
 void UDeadlineCloudStep::ResetParameterArray(FString ParameterName)
 {
-	TArray<FStepTaskParameterDefinition> DefaultParameters = UPythonYamlLibrary::Get()->OpenStepFile(PathToTemplate.FilePath);
+	TArray<FStepTaskParameterDefinition> DefaultParameters = UPythonYamlLibrary::Get()->OpenStepFile(PathToTemplate.FilePath).Parameters;
 
 	bool bFound = false;
 	for (FStepTaskParameterDefinition& Parameter : TaskParameterDefinitions.Parameters)

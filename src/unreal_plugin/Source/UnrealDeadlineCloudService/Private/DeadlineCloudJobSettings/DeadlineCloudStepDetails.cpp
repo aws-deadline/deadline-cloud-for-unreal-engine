@@ -354,7 +354,7 @@ TSharedRef<FDeadlineCloudStepParameterListBuilder> FDeadlineCloudStepParameterLi
 }
 
 FDeadlineCloudStepParameterListBuilder::FDeadlineCloudStepParameterListBuilder(TSharedRef<IPropertyHandle> InPropertyHandle)
-    : FDetailArrayBuilder(InPropertyHandle, false, false, true),
+    : FDetailArrayBuilder(InPropertyHandle, true, false, true),
 		ArrayProperty(InPropertyHandle->AsArray())
 {
 }
@@ -405,7 +405,7 @@ void FDeadlineCloudStepParameterListBuilder::OnGenerateEntry(TSharedRef<IPropert
 		FResetToDefaultOverride::Create(TAttribute<bool>(false));
 
 	PropertyRow.OverrideResetToDefault(ResetDefaultOverride);
-	PropertyRow.ShowPropertyButtons(false);
+	PropertyRow.ShowPropertyButtons(true);
 
 	TSharedPtr<SWidget> NameWidget;
 	TSharedPtr<SWidget> ValueWidget;
@@ -422,7 +422,8 @@ void FDeadlineCloudStepParameterListBuilder::OnGenerateEntry(TSharedRef<IPropert
 		]
 		.ValueContent()
 		.HAlign(HAlign_Fill)
-		[		
+		.VAlign(VAlign_Center)
+		[	
 			FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(ElementProperty, Type)
 		];
 

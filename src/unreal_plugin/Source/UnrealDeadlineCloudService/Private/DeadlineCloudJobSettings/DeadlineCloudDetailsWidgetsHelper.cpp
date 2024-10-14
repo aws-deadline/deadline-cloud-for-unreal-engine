@@ -57,16 +57,22 @@ public:
         SLATE_ARGUMENT(TSharedPtr<IPropertyHandle>, StringPropertyHandle)
     SLATE_END_ARGS()
 
-    void Construct(const FArguments& InArgs)
-    {
+	void Construct(const FArguments& InArgs)
+	{
 		PathProperty = InArgs._StringPropertyHandle;
 
-        ChildSlot
-            [
-                SNew(SEditableTextBox)
-					.Font(IDetailLayoutBuilder::GetDetailFont())
-                    .OnTextChanged(this, &SDeadlineCloudStringWidget::HandleTextChanged)
-                    .Text(this, &SDeadlineCloudStringWidget::GetText)
+		ChildSlot
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+					.FillWidth(1.0f)
+					.VAlign(VAlign_Center)
+					[
+						SNew(SEditableTextBox)
+							.Font(IDetailLayoutBuilder::GetDetailFont())
+							.OnTextChanged(this, &SDeadlineCloudStringWidget::HandleTextChanged)
+							.Text(this, &SDeadlineCloudStringWidget::GetText)
+					]
             ];
     }
 
@@ -100,6 +106,11 @@ public:
 
         ChildSlot
             [
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+					.FillWidth(1.0f)
+					.VAlign(VAlign_Center)
+					[
 				SNew(SNumericEntryBox<int32>)
 					.Font(IDetailLayoutBuilder::GetDetailFont())
 					.AllowSpin(false)
@@ -114,6 +125,7 @@ public:
 						{
 							Property->SetValue(FString::FromInt(Value));
 						})
+					]
             ];
     }
 
@@ -135,6 +147,11 @@ public:
 
         ChildSlot
             [
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+					.FillWidth(1.0f)
+					.VAlign(VAlign_Center)
+					[
 				SNew(SNumericEntryBox<float>)
 					.Font(IDetailLayoutBuilder::GetDetailFont())
 					.AllowSpin(false)
@@ -150,6 +167,7 @@ public:
 						{
 							Property->SetValue(FString::SanitizeFloat(Value));
 						})
+					]
             ];
     }
 

@@ -108,6 +108,18 @@ Env .yaml struct
  */
 
 
+USTRUCT(BlueprintType)
+struct FStepStruct
+{
+	GENERATED_BODY()
+
+	// Name
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Environment")
+	FString Name;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
+	TArray <FStepTaskParameterDefinition> Parameters;
+};
 
 USTRUCT(BlueprintType)
 struct FEnvironmentStruct
@@ -146,7 +158,7 @@ public:
 
 	// steps 
 	UFUNCTION(BlueprintImplementableEvent)
-	TArray<FStepTaskParameterDefinition> OpenStepFile(const FString& Path);
+	FStepStruct OpenStepFile(const FString& Path);
 
 	// env
 	UFUNCTION(BlueprintImplementableEvent)
