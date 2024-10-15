@@ -36,9 +36,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 5))
 	TArray<UDeadlineCloudEnvironment*> Environments;
 
-	//UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 4))
-	//TArray<FStepTaskParameterDefinition> TaskParameterDefinitions;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 4))
 	FDeadlineCloudStepParametersArray TaskParameterDefinitions;
 

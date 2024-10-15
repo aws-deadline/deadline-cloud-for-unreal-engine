@@ -70,35 +70,20 @@ private:
 
 class FDeadlineCloudEnvironmentDetails : public IDetailCustomization
 {
-
 public:
 
     static TSharedRef<IDetailCustomization> MakeInstance();
     virtual  void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
     IDetailLayoutBuilder* MyDetailLayout;
-
     TWeakObjectPtr<UDeadlineCloudEnvironment> Settings;
-	void OnButtonClicked()
-	{
-		{
-			Settings->FixEnvironmentVariablesConsistency(Settings.Get());
-			UE_LOG(LogTemp, Warning, TEXT("FixStepParametersConsistency"));
-			ForceRefreshDetails();
-		}
-	};
 
+	void OnButtonClicked();
+	EVisibility GetWidgetVisibility() const	{ return (!bCheckConsistensyPassed) ? EVisibility::Visible : EVisibility::Collapsed; }
 
 private:
 
     void ForceRefreshDetails();
-
 	bool CheckConsistency(UDeadlineCloudEnvironment* Env);
 	bool bCheckConsistensyPassed = true;
-
-public:
-	EVisibility GetWidgetVisibility() const
-	{
-		return (!bCheckConsistensyPassed) ? EVisibility::Visible : EVisibility::Collapsed;
-	}
 };
 

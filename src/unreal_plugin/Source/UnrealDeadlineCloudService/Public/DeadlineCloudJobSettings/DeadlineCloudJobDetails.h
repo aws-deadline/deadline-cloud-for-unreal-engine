@@ -91,9 +91,6 @@ private:
 
 class FDeadlineCloudJobDetails : public IDetailCustomization
 {
-private:
-
-
 public:
 
     static TSharedRef<IDetailCustomization> MakeInstance();
@@ -101,21 +98,13 @@ public:
     IDetailLayoutBuilder* MyDetailLayout;
 
     TWeakObjectPtr<UDeadlineCloudJob> Settings;
-  
-public:
 
     void OnButtonClicked();
+	EVisibility GetConsistencyWidgetVisibility() const;
 
-protected:
-
-private:
-    
+private:  
     void ForceRefreshDetails();
     bool CheckConsistency(UDeadlineCloudJob* Job);
     bool bCheckConsistensyPassed = true;
-public:
-
-	EVisibility GetConsistencyWidgetVisibility() const;
-
 };
 

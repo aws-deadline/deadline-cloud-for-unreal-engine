@@ -76,6 +76,15 @@ void FDeadlineCloudEnvironmentDetails::CustomizeDetails(IDetailLayoutBuilder& De
     };
 }
 
+void FDeadlineCloudEnvironmentDetails::OnButtonClicked()
+{
+	{
+		Settings->FixEnvironmentVariablesConsistency(Settings.Get());
+		UE_LOG(LogTemp, Warning, TEXT("FixStepParametersConsistency"));
+		ForceRefreshDetails();
+	}
+}
+
 
 void FDeadlineCloudEnvironmentDetails::ForceRefreshDetails()
 {
