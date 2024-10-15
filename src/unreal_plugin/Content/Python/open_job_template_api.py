@@ -272,7 +272,7 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
 
         return self.check_parameters_consistency(
             yaml_parameters=[(k, 'VARIABLE') for k in environment_template['variables'].keys()],
-            data_asset_parameters=[(v.name, 'VARIABLE') for v in open_job_environment.variables.variables]
+            data_asset_parameters=[(v, 'VARIABLE') for v in open_job_environment.variables.variables.keys()]
         )
 
     @unreal.ufunction(override=True)
@@ -282,24 +282,24 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
 
         with open(open_job_environment.path_to_template.file_path, 'r') as f:
             environment_template = yaml.safe_load(f)
-
+        variables_map = open_job_environment.variables.get_editor_property('variables')
         missed_in_yaml, missed_in_data_asset = ParametersConsistencyChecker.get_parameters_symmetric_difference(
             parameters_left=[(k, 'VARIABLE') for k in environment_template['variables'].keys()],
-            parameters_right=[(v.name, 'VARIABLE') for v in open_job_environment.variables.variables]
+            parameters_right=[(v, 'VARIABLE') for v in open_job_environment.variables.variables.keys()]
         )
         if missed_in_yaml or missed_in_data_asset:
-            fixed_environment_variables: list[unreal.EnvVariable] = []
-            for u_variable in open_job_environment.variables.variables:
-                if (u_variable.name, 'VARIABLE') not in missed_in_yaml:
-                    fixed_environment_variables.append(u_variable.copy())
+            for key in variables_map.keys():
+                if (key, 'VARIABLE') not in missed_in_yaml:
+                    unreal.log(f'.yaml parameter: {key}')
+
+            keys = list(variables_map.keys())
+            for key in keys:
+                variables_map.pop(key)
+            open_job_environment.variables.set_editor_property('variables', variables_map)
 
             for var_name, var_value in environment_template['variables'].items():
-                if (var_name, 'VARIABLE') in missed_in_data_asset:
-                    u_variable = unreal.EnvVariable()
-                    u_variable.name = var_name
-                    u_variable.value = var_value
-                    fixed_environment_variables.append(u_variable.copy())
+                variables_map[var_name] = var_value
 
-            unreal.log(f'Fixed OpenJobEnvironment variables: {fixed_environment_variables}')
+            open_job_environment.variables.set_editor_property('variables', variables_map)
+            unreal.log(f'Fixed OpenJobEnvironment variables: {variables_map}')
 
-            open_job_environment.variables.variables = fixed_environment_variables
