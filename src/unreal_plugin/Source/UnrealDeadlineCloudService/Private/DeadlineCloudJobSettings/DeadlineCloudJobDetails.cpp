@@ -50,12 +50,6 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
         bCheckConsistensyPassed = CheckConsistency(MyObject);
     }
 
-    /* If passed - Open job file*/
-    if (bCheckConsistensyPassed || Settings->GetJobParameters().Num() == 0)
-    {
-        Settings->OpenJobFile(Settings->PathToTemplate.FilePath);
-    }
-
     TSharedRef<IPropertyHandle> StepsHandle = MyDetailLayout->GetProperty("Steps");
 	IDetailPropertyRow* StepsRow = MyDetailLayout->EditDefaultProperty(StepsHandle);
 	TSharedPtr<SWidget> OutNameWidget;

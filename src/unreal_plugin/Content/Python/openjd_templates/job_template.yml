@@ -1,0 +1,9 @@
+specificationVersion: jobtemplate-2023-09
+parameterDefinitions:
+- name: ProjectFilePath
+  type: PATH
+  objectType: FILE
+  dataFlow: IN
+- name: ExtraCmdArgs
+  type: STRING
+  default: '-log'

@@ -100,12 +100,6 @@ void FDeadlineCloudStepDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBui
 		bCheckConsistensyPassed = CheckConsistency(MyObject);
 	}
 
-	/* If passed - Open job file*/
-	if (bCheckConsistensyPassed || Settings->GetStepParameters().Num() == 0)
-	{
-		Settings->OpenStepFile(Settings->PathToTemplate.FilePath);
-	}
-
 	IDetailCategoryBuilder& PropertiesCategory = MyDetailLayout->EditCategory("Parameters");
 
 	PropertiesCategory.AddCustomRow(FText::FromString("Consistency"))

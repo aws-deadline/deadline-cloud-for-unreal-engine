@@ -53,12 +53,6 @@ void FDeadlineCloudEnvironmentDetails::CustomizeDetails(IDetailLayoutBuilder& De
 		bCheckConsistensyPassed = CheckConsistency(MyObject);
 	}
 
-	/* If passed - Open job file*/
-	if (bCheckConsistensyPassed || Settings->Variables.Variables.Num() == 0)
-	{
-		Settings->OpenEnvFile(Settings->PathToTemplate.FilePath);
-	}
-
 	IDetailCategoryBuilder& PropertiesCategory = MyDetailLayout->EditCategory("Parameters");
 
 	PropertiesCategory.AddCustomRow(FText::FromString("Consistency"))
