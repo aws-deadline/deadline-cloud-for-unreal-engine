@@ -134,6 +134,10 @@ public:
 	EVisibility GetEnvironmentErrorWidgetVisibility() const;
 	EVisibility GetEnvironmentDefaultWidgetVisibility() const;
 
+	bool IsEnvironmentContainsErrors() const;
+	EVisibility GetEnvironmentErrorWidgetVisibility() const;
+	EVisibility GetEnvironmentDefaultWidgetVisibility() const;
+
 private:
     TSharedRef<SWidget> GenerateStringsArrayContent(const TArray<FString>& StringArray);
     TSharedRef<SWidget> GenerateTasksContent(const TArray<FStepTaskParameterDefinition> tasks);

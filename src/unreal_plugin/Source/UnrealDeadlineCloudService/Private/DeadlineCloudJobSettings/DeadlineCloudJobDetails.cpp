@@ -18,68 +18,12 @@
 #include "IDetailsView.h"
 #include "PythonAPILibraries/PythonParametersConsistencyChecker.h"
 #include "IDetailChildrenBuilder.h"
-//#include "Widgets/Dialogs/SMessageDialog.h"
 #include "Misc/MessageDialog.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudDetailsWidgetsHelper.h"
 
 #define LOCTEXT_NAMESPACE "JobDetails"
 
 
-class  SConsistencyUpdateWidget : public SCompoundWidget
-{
-public:
-	SLATE_BEGIN_ARGS(SConsistencyUpdateWidget) {}
-		SLATE_ARGUMENT(FString, CheckResult)
-		SLATE_EVENT(FSimpleDelegate, OnFixButtonClicked)
-	SLATE_END_ARGS()
-	void Construct(const FArguments& InArgs) {
-
-		OnFixButtonClicked = InArgs._OnFixButtonClicked;
-
-		ChildSlot
-			[
-				SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(5)
-					[
-						SNew(STextBlock)
-							.Text(FText::FromString("Parameters changed. Update parameters?"))
-							.ColorAndOpacity(FLinearColor::Yellow) // 
-					]
-
-					//update?
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					[
-						SNew(SButton)
-							.Text(FText::FromString("OK"))
-							.OnClicked(this, &SConsistencyUpdateWidget::HandleButtonClicked)
-					]
-			];
-	};
-
-
-private:
-	FSimpleDelegate OnFixButtonClicked;
-	FReply HandleButtonClicked()
-	{
-		if (OnFixButtonClicked.IsBound())
-		{
-			OnFixButtonClicked.Execute();  // 
-		}
-
-		return FReply::Handled();
-	}
-};
-
-TSharedRef<SWidget> CreateConsistencyUpdateWidget(FString ResultString)
-{
-	TSharedRef<SConsistencyUpdateWidget> ConsistensyWidget = SNew(SConsistencyUpdateWidget)
-		.CheckResult(ResultString)
-		.Visibility(EVisibility::Collapsed);
-	return  ConsistensyWidget;
-}
 
 /*Details*/
 TSharedRef<IDetailCustomization> FDeadlineCloudJobDetails::MakeInstance()
@@ -96,23 +40,23 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
 	MyDetailLayout->GetObjectsBeingCustomized(ObjectsBeingCustomized);
 	Settings = Cast<UDeadlineCloudJob>(ObjectsBeingCustomized[0].Get());
 
-	TSharedPtr<SConsistencyUpdateWidget> ConsistencyUpdateWidget;
-	FParametersConsistencyCheckResult result;
+	TSharedPtr<FDeadlineCloudDetailsWidgetsHelper::SConsistencyWidget> ConsistencyUpdateWidget;
+    FParametersConsistencyCheckResult result;
 
-	/* Consistency check */
-	if (Settings.IsValid() && Settings->GetJobParameters().Num() > 0)
-	{
-		UDeadlineCloudJob* MyObject = Settings.Get();
-		CheckConsidtensyPassed = CheckConsistency(MyObject);
-	}
+    /* Consistency check */
+    if (Settings.IsValid() && Settings->GetJobParameters().Num() > 0)
+    {
+        UDeadlineCloudJob* MyObject = Settings.Get();
+        bCheckConsistensyPassed = CheckConsistency(MyObject);
+    }
 
-	/* If passed - Open job file*/
-	if (CheckConsidtensyPassed || Settings->GetJobParameters().Num() == 0)
-	{
-		Settings->OpenJobFile(Settings->PathToTemplate.FilePath);
-	}
+    /* If passed - Open job file*/
+    if (bCheckConsistensyPassed || Settings->GetJobParameters().Num() == 0)
+    {
+        Settings->OpenJobFile(Settings->PathToTemplate.FilePath);
+    }
 
-	TSharedRef<IPropertyHandle> StepsHandle = MyDetailLayout->GetProperty("Steps");
+    TSharedRef<IPropertyHandle> StepsHandle = MyDetailLayout->GetProperty("Steps");
 	IDetailPropertyRow* StepsRow = MyDetailLayout->EditDefaultProperty(StepsHandle);
 	TSharedPtr<SWidget> OutNameWidget;
 	TSharedPtr<SWidget> OutValueWidget;
@@ -187,18 +131,17 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
 							OutValueWidgetEnv.ToSharedRef()
 						]
 				]
-		];	
-
-	IDetailCategoryBuilder& PropertiesCategory = MyDetailLayout->EditCategory("Parameters");
-
-	PropertiesCategory.AddCustomRow(FText::FromString("Consistency"))
-		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FDeadlineCloudJobDetails::GetWidgetVisibility)))
-		.WholeRowContent()
-		[
-			SAssignNew(ConsistencyUpdateWidget, SConsistencyUpdateWidget)
-				//.Visibility(this, &FDeadlineCloudJobDetails::GetWidgetVisibility)
-				.OnFixButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudJobDetails::OnButtonClicked))
 		];
+
+    IDetailCategoryBuilder& PropertiesCategory = MyDetailLayout->EditCategory("Parameters");
+      
+    PropertiesCategory.AddCustomRow(FText::FromString("Consistency"))
+		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FDeadlineCloudJobDetails::GetConsistencyWidgetVisibility)))
+        .WholeRowContent()
+        [
+		     SAssignNew(ConsistencyUpdateWidget, FDeadlineCloudDetailsWidgetsHelper::SConsistencyWidget)
+                .OnFixButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudJobDetails::OnButtonClicked))
+        ];
 
 	//  Dispatcher handle bind
 	if (Settings.IsValid() && (MyDetailLayout != nullptr))
@@ -213,11 +156,16 @@ void FDeadlineCloudJobDetails::ForceRefreshDetails()
 
 bool FDeadlineCloudJobDetails::CheckConsistency(UDeadlineCloudJob* Job)
 {
-	FParametersConsistencyCheckResult result;
-	result = Job->CheckJobParametersConsistency(Job);
+    FParametersConsistencyCheckResult result;
+    result = Job->CheckJobParametersConsistency(Job);
+       
+    UE_LOG(LogTemp, Warning, TEXT("Check consistency result: %s"), *result.Reason);
+    return result.Passed;
+}
 
-	UE_LOG(LogTemp, Warning, TEXT("check consistency result: %s"), *result.Reason);
-	return result.Passed;
+EVisibility FDeadlineCloudJobDetails::GetConsistencyWidgetVisibility() const
+{
+		return (!bCheckConsistensyPassed) ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 bool FDeadlineCloudJobDetails::IsStepContainsErrors() const
@@ -274,9 +222,9 @@ EVisibility FDeadlineCloudJobDetails::GetEnvironmentDefaultWidgetVisibility() co
 
 void FDeadlineCloudJobDetails::OnButtonClicked()
 {
-	Settings->FixJobParametersConsistency(Settings.Get());
-	UE_LOG(LogTemp, Warning, TEXT("FixJobParametersConsistency"));
-	ForceRefreshDetails();
+    Settings->FixJobParametersConsistency(Settings.Get());
+    UE_LOG(LogTemp, Warning, TEXT("FixJobParametersConsistency"));
+    ForceRefreshDetails();
 }
 
 TSharedRef<FDeadlineCloudJobParametersArrayBuilder> FDeadlineCloudJobParametersArrayBuilder::MakeInstance(TSharedRef<IPropertyHandle> InPropertyHandle)
@@ -290,9 +238,9 @@ TSharedRef<FDeadlineCloudJobParametersArrayBuilder> FDeadlineCloudJobParametersA
 }
 
 FDeadlineCloudJobParametersArrayBuilder::FDeadlineCloudJobParametersArrayBuilder(TSharedRef<IPropertyHandle> InPropertyHandle)
-	: FDetailArrayBuilder(InPropertyHandle, false, false, true),
-	ArrayProperty(InPropertyHandle->AsArray()),
-	BaseProperty(InPropertyHandle)
+    : FDetailArrayBuilder(InPropertyHandle, false, false, true),
+		ArrayProperty(InPropertyHandle->AsArray()),
+	    BaseProperty(InPropertyHandle)
 {
 }
 

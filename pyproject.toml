@@ -28,10 +28,9 @@ classifiers = [
 ]
 
 dependencies = [
-    "deadline >= 0.49,< 0.50",
-    "openjd-adaptor-runtime >= 0.8.1,< 0.10",
-    "openjd-model",
-    "p4python == 2024.2.2682690"
+    "deadline == 0.48.*",
+    "openjd-adaptor-runtime >= 0.7,< 0.9",
+    "openjd-model"
 ]
 
 [project.urls]
@@ -40,6 +39,8 @@ Source = "https://github.com/aws-deadline/deadline-cloud-for-unreal-engine"
 
 [project.scripts]
 unreal-engine-openjd = "deadline.unreal_adaptor.UnrealAdaptor:main"
+# TODO: This is deprecated, use unreal-engine-openjd
+UnrealAdaptor = "deadline.unreal_adaptor.UnrealAdaptor:main"
 
 [tool.hatch.build]
 artifacts = [
@@ -64,7 +65,6 @@ path = "hatch_custom_hook.py"
 destinations = [
   "src/deadline/unreal_adaptor",
   "src/deadline/unreal_submitter",
-  "src/deadline/unreal_logger",
 ]
 
 [tool.hatch.build.targets.sdist]
@@ -112,7 +112,6 @@ addopts = [
     "--durations=5",
     "--cov=src/deadline/unreal_adaptor",
     "--cov=src/deadline/unreal_submitter",
-    "--cov=src/deadline/unreal_logger",
     "--color=yes",
     "--cov-report=html:build/coverage",
     "--cov-report=xml:build/coverage/coverage.xml",
@@ -131,11 +130,7 @@ filterwarnings = [
 
 
 [tool.coverage.run]
-source_pkgs = [
-    "src/deadline/unreal_adaptor",
-    "src/deadline/unreal_submitter",
-    "src/deadline/unreal_logger"
-]
+source_pkgs = [ "src/deadline/unreal_adaptor", "src/deadline/unreal_submitter" ]
 branch = true
 parallel = true
 omit = [
