@@ -118,6 +118,21 @@ FDeadlineCloudJobPresetStruct UMoviePipelineDeadlineCloudExecutorJob::GetDeadlin
 	return ReturnValue;
 }
 
+
+FDeadlineCloudJobParametersArray UMoviePipelineDeadlineCloudExecutorJob::GetParameterDefinitionWithOverrides() const
+{
+	// Start with preset properties
+	FDeadlineCloudJobParametersArray ReturnValue = JobPreset->ParameterDefinition;
+	GetPresetStructWithOverrides(
+		FDeadlineCloudJobParametersArray::StaticStruct(),
+		&ParameterDefinitionOverrides.Parameters,
+		&ReturnValue.Parameters
+	);
+
+	return ReturnValue;
+
+}
+
 void UMoviePipelineDeadlineCloudExecutorJob::UpdateAttachmentFields()
 {
 	if (PresetOverrides.JobAttachments.InputFiles.bShowAutoDetected)
@@ -150,6 +165,9 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyCha
 
 			this->PresetOverrides.JobAttachments.OutputDirectories.Directories =
 				SelectedJobPreset->JobPresetStruct.JobAttachments.OutputDirectories.Directories;
+
+			this->ParameterDefinitionOverrides.Parameters =
+				SelectedJobPreset->ParameterDefinition.Parameters;
 
 		}
 		// UpdateAttachmentFields();

@@ -43,6 +43,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "DeadlineCloud")
 	FDeadlineCloudJobPresetStruct GetDeadlineJobPresetStructWithOverrides() const;
 
+	UFUNCTION(BlueprintCallable, Category = "DeadlineCloud")
+	FDeadlineCloudJobParametersArray GetParameterDefinitionWithOverrides() const;
+
+
 #if WITH_EDITOR
 	void UpdateAttachmentFields();
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
@@ -80,6 +84,12 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
 	FDeadlineCloudJobPresetStruct PresetOverrides = FDeadlineCloudJobPresetStruct();
+
+	/**
+ * Reference to Deadline Cloud job parameters. Contains overriden job settings
+ */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
+	FDeadlineCloudJobParametersArray ParameterDefinitionOverrides = FDeadlineCloudJobParametersArray();
 	
 protected:
 
