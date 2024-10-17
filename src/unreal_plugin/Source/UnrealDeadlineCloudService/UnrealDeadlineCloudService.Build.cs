@@ -1,6 +1,7 @@
 ﻿// Copyright Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
+using UnrealBuildTool.Rules;
 
 public class UnrealDeadlineCloudService : ModuleRules
 {
@@ -49,7 +50,7 @@ public class UnrealDeadlineCloudService : ModuleRules
                 "EditorStyle",
                 "EditorWidgets",
                 "DesktopWidgets",
-                 "DesktopPlatform",
+                "DesktopPlatform",
                 "UnrealEd",
                 "LevelEditor",
                 "InteractiveToolsFramework",
@@ -58,8 +59,8 @@ public class UnrealDeadlineCloudService : ModuleRules
                 "PropertyEditor",
                 "DeveloperSettings",
                 "JsonUtilities",
-                 "AssetTools",
-               
+                "AssetTools",
+                "Projects",
                 "AssetRegistry"
             }
             );
