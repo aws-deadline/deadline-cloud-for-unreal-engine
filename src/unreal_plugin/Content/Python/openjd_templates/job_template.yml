@@ -1,4 +1,5 @@
 specificationVersion: jobtemplate-2023-09
+name: RenderJob
 parameterDefinitions:
 - name: ProjectFilePath
   type: PATH
