@@ -161,7 +161,7 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         return cls(
             file_path=data_asset.path_to_template,
             name=data_asset.name,
-            step_dependencies=[data_asset.depends_on],  # TODO depends_on should be list of steps
+            step_dependencies=list(data_asset.depends_on),
             environments=[UnrealOpenJobEnvironment.from_data_asset(env) for env in data_asset.environments],
             extra_parameters=data_asset.get_step_parameters()
         )
@@ -220,13 +220,14 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
             name=self.name,
             script=StepScript(**step_template_object['script']),
             parameterSpace=StepParameterSpaceDefinition(
-                taskParameterDefinitions=step_parameters
+                taskParameterDefinitions=step_parameters,
+                combination=step_template_object['parameterSpace'].get('combination')
             ) if step_parameters else None,
             stepEnvironments=[env.build_template() for env in self._environments] if self._environments else None,
             dependencies=[
                 StepDependency(dependsOn=step_dependency)
                 for step_dependency in self._step_dependencies
-            ] if all(self._step_dependencies) else None,
+            ] if self._step_dependencies else None,
             hostRequirements=host_requirements_template
         )
 
