@@ -4,8 +4,8 @@ import json
 import unreal
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Type, Union, Literal
 from abc import ABC, abstractmethod
+from typing import Type, Union, Literal
 
 from openjd.model.v2023_09 import *
 from openjd.model import DocumentType
@@ -159,3 +159,27 @@ PARAMETER_DEFINITION_MAPPING = {
     'STRING': ParameterDefinitionDescriptor('STRING', JobStringParameterDefinition, 'string_value', StringTaskParameterDefinition, str),
     'PATH': ParameterDefinitionDescriptor('PATH', JobPathParameterDefinition, 'path_value', PathTaskParameterDefinition, str)
 }
+
+
+class OpenJobParameterNames:
+
+    UNREAL_PROJECT_PATH = 'ProjectFilePath'
+    UNREAL_PROJECT_NAME = 'UnrealProjectName'
+    UNREAL_PROJECT_RELATIVE_PATH = 'UnrealProjectRelativePath'
+    UNREAL_EXTRA_CMD_ARGS = 'ExtraCmdArgs'
+
+    PERFORCE_STREAM_PATH = 'PerforceStreamPath'
+    PERFORCE_CHANGELIST_NUMBER = 'ChangelistNumber'
+
+
+class OpenJobStepParameterNames:
+
+    QUEUE_MANIFEST_PATH = 'QueueManifestPath'
+    MOVIE_PIPELINE_QUEUE_PATH = 'MoviePipelineQueuePath'
+    LEVEL_SEQUENCE_PATH = 'LevelSequencePath'
+    LEVEL_PATH = 'LevelPath'
+    MRQ_JOB_CONFIGURATION_PATH = 'MrqJobConfigurationPath'
+
+    ADAPTOR_HANDLER = 'Handler'
+    TASK_CHUNK_SIZE = 'TaskChunkSize'
+    TASK_CHUNK_ID = 'TaskChunkId'

@@ -38,6 +38,17 @@ def get_project_directory() -> str:
     return project_directory
 
 
+def get_project_name() -> str:
+    """
+    Returns the Unreal project pure name without extension
+
+    :return: the Unreal project name
+    :rtype: str
+    """
+
+    return Path(get_project_file_path()).stem
+
+
 def soft_obj_path_to_str(soft_obj_path: unreal.SoftObjectPath) -> str:
     """
     Converts the given unreal.SoftObjectPath to the Unreal path

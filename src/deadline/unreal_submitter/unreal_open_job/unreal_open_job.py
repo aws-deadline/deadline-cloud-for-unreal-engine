@@ -14,14 +14,16 @@ from deadline.unreal_submitter import settings
 from deadline.unreal_submitter.unreal_dependency_collector import DependencyCollector, DependencyFilters
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import (
     UnrealOpenJobEntity,
-    PARAMETER_DEFINITION_MAPPING
+    OpenJobParameterNames,
+    PARAMETER_DEFINITION_MAPPING,
 )
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step import (
     UnrealOpenJobStep,
     RenderUnrealOpenJobStep
 )
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment import (
-    UnrealOpenJobEnvironment
+    UnrealOpenJobEnvironment,
+    UnrealOpenJobUgsEnvironment
 )
 
 
@@ -280,6 +282,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
     """
 
     job_environment_map = {
+        unreal.DeadlineCloudUgsEnvironment: UnrealOpenJobUgsEnvironment
     }
 
     job_step_map = {
@@ -303,7 +306,6 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         self._dependency_collector = DependencyCollector()
 
         self._manifest_path = ''
-        self._extra_cmd_args_file_path = ''
 
         super().__init__(file_path, name, steps, environments, extra_parameters, job_shared_settings)
 
@@ -322,7 +324,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             step.host_requirements = self._mrq_job.preset_overrides.host_requirements
 
             if isinstance(step, RenderUnrealOpenJobStep):
-                step.mrq_job = self._mrq_job
+                step.shots_count = len(self._mrq_job.shot_info)
                 step.queue_manifest_path = self._save_manifest_file()
 
         self.job_shared_settings = self._mrq_job.preset_overrides.job_shared_settings
@@ -354,13 +356,19 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             job_step.host_requirements = data_asset.job_preset_struct.host_requirements
             steps.append(job_step)
 
+        environments = []
+        for source_environment in data_asset.environments:
+            job_env_cls = cls.job_environment_map.get(type(source_environment), UnrealOpenJobEnvironment)
+            job_env = job_env_cls.from_data_asset(source_environment)
+            environments.append(job_env)
+
         shared_settings = data_asset.job_preset_struct.job_shared_settings
 
         return cls(
             file_path=data_asset.path_to_template,
             name=None if shared_settings.name in ['', 'Untitled'] else shared_settings.name,
             steps=steps,
-            environments=[UnrealOpenJobEnvironment.from_data_asset(env) for env in data_asset.environments],
+            environments=environments,
             extra_parameters=data_asset.get_job_parameters(),
             job_shared_settings=shared_settings,
             changelist_number=None,  # TODO data_asset.changelist_number,
@@ -372,39 +380,43 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         render_step = next((s for s in data_asset.steps if isinstance(s, unreal.DeadlineCloudRenderStep)), None)
         return render_step is not None
 
-    def _write_cmd_args_to_file(self) -> str:
+    @staticmethod
+    def update_job_parameter_values(
+            job_parameter_values: list[dict[str, Any]],
+            job_parameter_name: str,
+            job_parameter_value: Any
+    ) -> list[dict[str, Any]]:
+        param = next((p for p in job_parameter_values if p['name'] == job_parameter_name), None)
+        if param:
+            param['value'] = job_parameter_value
+        else:
+            job_parameter_values.append(dict(name=job_parameter_name, value=job_parameter_value))
 
-        cmd_args_file = unreal.Paths.create_temp_filename(
-            unreal.SystemLibrary.get_project_saved_directory(),
-            prefix='ExtraCmdArgs',
-            extension='.txt'
-        )
-
-        with open(cmd_args_file, 'w') as manifest:
-            unreal.log(f"Saving ExtraCmdArgs file `{cmd_args_file}`")
-            ue_cmd_args = ' '.join(self._get_ue_cmd_args())
-            manifest.write(ue_cmd_args)
-
-        self._extra_cmd_args_file_path = unreal.Paths.convert_relative_path_to_full(cmd_args_file)
-        return self._extra_cmd_args_file_path
+        return job_parameter_values
 
     def _build_parameter_values(self):
 
         parameter_values = super()._build_parameter_values()
 
-        cmd_args_file_path = self._write_cmd_args_to_file().replace('\\', '/')
+        parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+            job_parameter_values=parameter_values,
+            job_parameter_name=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS,
+            job_parameter_value=' '.join(self._get_ue_cmd_args())
+        )
 
-        extra_cmd_args_param = next((p for p in parameter_values if p['name'] == 'ExtraCmdArgsFile'), None)
-        if extra_cmd_args_param:
-            extra_cmd_args_param['value'] = cmd_args_file_path
-        else:
-            parameter_values.append(dict(name='ExtraCmdArgsFile', value=cmd_args_file_path))
+        parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+            job_parameter_values=parameter_values,
+            job_parameter_name=OpenJobParameterNames.UNREAL_PROJECT_PATH,
+            job_parameter_value=common.get_project_file_path()
+        )
 
-        project_file_param = next((p for p in parameter_values if p['name'] == 'ProjectFilePath'), None)
-        if project_file_param:
-            project_file_param['value'] = common.get_project_file_path()
-        else:
-            parameter_values.append(dict(name='ProjectFilePath', value=common.get_project_file_path()))
+        for env in self._environments:
+            for parameter in env.get_used_job_parameter_values():
+                RenderUnrealOpenJob.update_job_parameter_values(
+                    job_parameter_values=parameter_values,
+                    job_parameter_name=parameter['name'],
+                    job_parameter_value=parameter['value']
+                )
 
         return parameter_values
 
@@ -539,10 +551,6 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         # add manifest to attachments
         if os.path.exists(self._manifest_path):
             asset_references.input_filenames.add(self._manifest_path)
-
-        # add ue cmd args  file
-        if os.path.exists(self._extra_cmd_args_file_path):
-            asset_references.input_filenames.add(self._extra_cmd_args_file_path)
 
         # add other input files to attachments
         job_input_files = [

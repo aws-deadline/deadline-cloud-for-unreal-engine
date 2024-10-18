@@ -1,8 +1,13 @@
 import unreal
+from typing import Any
 
 from openjd.model.v2023_09 import *
 
-from deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import UnrealOpenJobEntity
+from deadline.unreal_submitter import common
+from deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import (
+    UnrealOpenJobEntity,
+    OpenJobParameterNames
+)
 
 
 class UnrealOpenJobEnvironment(UnrealOpenJobEntity):
@@ -52,3 +57,27 @@ class UnrealOpenJobEnvironment(UnrealOpenJobEntity):
             script=EnvironmentScript(**script) if script else None,
             variables=self._variables
         )
+
+    @staticmethod
+    def get_used_job_parameter_values() -> list[dict[str, Any]]:
+        """ Returns a list of OpenJob parameter values that can be used in this environment """
+        return []
+
+
+class UnrealOpenJobUgsEnvironment(UnrealOpenJobEnvironment):
+
+    @staticmethod
+    def get_used_job_parameter_values() -> list[dict[str, Any]]:
+
+        perforce_client_root = ''.replace('\\', '/')  # TODO get workspace root from C++ API
+        unreal_project_path = common.get_project_file_path().replace('\\', '/')
+
+        unreal_project_relative_path = unreal_project_path.replace(perforce_client_root, '')
+
+        return [
+            {'name': OpenJobParameterNames.PERFORCE_STREAM_PATH, 'value': ''},  # TODO get from C++ API
+            {'name': OpenJobParameterNames.UNREAL_PROJECT_NAME, 'value': common.get_project_name()},
+            {'name': OpenJobParameterNames.UNREAL_PROJECT_RELATIVE_PATH, 'value': unreal_project_relative_path},
+            {'name': OpenJobParameterNames.PERFORCE_CHANGELIST_NUMBER, 'value': '"latest"'}  # TODO get from C++ API
+        ]
+
