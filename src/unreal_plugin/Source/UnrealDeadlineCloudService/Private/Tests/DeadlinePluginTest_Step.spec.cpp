@@ -1,6 +1,7 @@
-// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-
 #pragma once
+
+//#if WITH_AUTOMATION_TESTS
+
 #include "Misc/AutomationTest.h"
 #include "CoreMinimal.h"
 #include "Engine/Engine.h"
@@ -26,9 +27,13 @@ BEGIN_DEFINE_SPEC(FDeadlinePluginStepSpec, "Deadline",
 UDeadlineCloudStep* CreatedStepDataAsset;
 FParametersConsistencyCheckResult result;
 
+//All filepaths
+FString PluginContentDir;
 FString PathToStepTemplate;
-FString DefaultTemplate = "/Source/UnrealDeadlineCloudService/Private/Tests/openjd_templates/render_step.yml";
+
+FString DefaultTemplate = "/Content/Python/openjd_templates/render_step_template.yml";
 FString ChangedTemplate = "/Test/";
+
 
 END_DEFINE_SPEC(FDeadlinePluginStepSpec);
 
@@ -37,25 +42,22 @@ void FDeadlinePluginStepSpec::Define()
 
     Describe("FOpenDeadlineStep", [this]()
         {
-
+            // DataAsset for all tests
             BeforeEach([this]()
                 {
                     if (!CreatedStepDataAsset)
                     {
-                        FString PluginContentDir = IPluginManager::Get().FindPlugin(TEXT("UnrealDeadlineCloudService"))->GetBaseDir();
+
+                        PluginContentDir = IPluginManager::Get().FindPlugin(TEXT("UnrealDeadlineCloudService"))->GetBaseDir();
                         PluginContentDir = FPaths::ConvertRelativePathToFull(PluginContentDir);
                         PathToStepTemplate = FPaths::Combine(PluginContentDir, DefaultTemplate);
                         FPaths::NormalizeDirectoryName(PathToStepTemplate);
 
+                        //Create asset
                         CreatedStepDataAsset = NewObject<UDeadlineCloudStep>();
                         CreatedStepDataAsset->PathToTemplate.FilePath = PathToStepTemplate;
 
                     }
-                });
-
-            AfterEach([this]()
-                {
-                    CreatedStepDataAsset = nullptr;
                 });
 
             It("Read DeadlineCloudStep from template", [this]()
@@ -65,7 +67,7 @@ void FDeadlinePluginStepSpec::Define()
                         CreatedStepDataAsset->OpenStepFile(CreatedStepDataAsset->PathToTemplate.FilePath);
                         if (CreatedStepDataAsset->GetStepParameters().Num() > 0)
                         {
-                            TestTrue("Read DeadlineCloudStep from template", true);
+                            TestTrue("Parameters ok", true);
                         }
 
                         else
@@ -94,7 +96,6 @@ void FDeadlinePluginStepSpec::Define()
 
             It("Change DeadlineCloudStep parameters in template", [this]()
                 {
-                    /*  Create changed .yaml step template in /Tests/ */
                     FString DestinationDirectory = FPaths::Combine(FPaths::ProjectContentDir(), ChangedTemplate);
                     DestinationDirectory = FPaths::ConvertRelativePathToFull(DestinationDirectory);
                     FPaths::NormalizeDirectoryName(DestinationDirectory);
@@ -103,7 +104,7 @@ void FDeadlinePluginStepSpec::Define()
 
                     if (FileManager.FileExists(*PathToStepTemplate))
                     {
-                        /*  Directory of changed template */
+                        //Destination dir
                         if (!FileManager.DirectoryExists(*DestinationDirectory))
                         {
                             FileManager.MakeDirectory(*DestinationDirectory);
@@ -121,23 +122,22 @@ void FDeadlinePluginStepSpec::Define()
                                 FString str0 = "QueueManifestPath"; FString str1 = "Path";
                                 if (TemplateContent.Contains("QueueManifestPath"))
                                 {
-                                    /*    Change step template  */
+                                    //Change job template
                                     TemplateContent.ReplaceInline(*str0, *str1);
                                     if (FFileHelper::SaveStringToFile(TemplateContent, *DestinationFilePath))
                                     {
-                                        /*   Load default step parameters from file    */
+
                                         CreatedStepDataAsset->OpenStepFile(CreatedStepDataAsset->PathToTemplate.FilePath);
-                                        /*   Change step parameters file  in step DataAsset  */
                                         CreatedStepDataAsset->PathToTemplate.FilePath = DestinationFilePath;
                                         result = CreatedStepDataAsset->CheckStepParametersConsistency(CreatedStepDataAsset);
                                         if (result.Passed == false) {
                                             TestTrue("Parameters are non-consistent as expected", true);
-                                            FileManager.DeleteDirectory(*DestinationDirectory);
+
                                         }
                                         else
                                         {
                                             TestFalse(result.Reason, (result.Passed == false));
-                                            FileManager.DeleteDirectory(*DestinationDirectory);
+
                                         }
                                     }
                                 }
@@ -145,8 +145,7 @@ void FDeadlinePluginStepSpec::Define()
                             }
                             else
                             {
-                                TestFalse(result.Reason, (result.Passed == false));
-                                FileManager.DeleteDirectory(*DestinationDirectory);
+                                UE_LOG(LogTemp, Error, TEXT("Failed to load file: %s"), *DestinationFilePath);
                             }
                         }
 
@@ -157,50 +156,36 @@ void FDeadlinePluginStepSpec::Define()
                 {
                     CreatedStepDataAsset->OpenStepFile(CreatedStepDataAsset->PathToTemplate.FilePath);
                     TArray <FStepTaskParameterDefinition> Parameters = CreatedStepDataAsset->GetStepParameters();
-                    if (Parameters.Num() > 0)
-                    {
-                        Parameters.RemoveAt(0);
-                        CreatedStepDataAsset->SetStepParameters(Parameters);
+                    Parameters.RemoveAt(0);
+                    CreatedStepDataAsset->SetStepParameters(Parameters);
 
-                        result = CreatedStepDataAsset->CheckStepParametersConsistency(CreatedStepDataAsset);
-                        if (result.Passed == false) {
-                            TestTrue("Parameters are non-consistent as expected", true);
-                        }
-                        else
-                        {
-                            TestFalse(result.Reason, (result.Passed == false));
-                        }
+                    result = CreatedStepDataAsset->CheckStepParametersConsistency(CreatedStepDataAsset);
+                    if (result.Passed == false) {
+                        TestTrue("Parameters are non-consistent as expected", true);
                     }
                     else
                     {
-                        TestFalse("Error loading parameters", true);
+                        TestFalse(result.Reason, (result.Passed == false));
                     }
                 });
 
             It("Fix DeadlineCloudStep consistency", [this]()
                 {
-                    if (CreatedStepDataAsset) {
-                        TArray<FStepTaskParameterDefinition> EmptyArray;
-                        CreatedStepDataAsset->SetStepParameters(EmptyArray);
+                    TArray<FStepTaskParameterDefinition> EmptyArray;
+                    CreatedStepDataAsset->SetStepParameters(EmptyArray);
+                    result = CreatedStepDataAsset->CheckStepParametersConsistency(CreatedStepDataAsset);
+                    if (result.Passed == false) {
+
+                        CreatedStepDataAsset->FixStepParametersConsistency(CreatedStepDataAsset);
                         result = CreatedStepDataAsset->CheckStepParametersConsistency(CreatedStepDataAsset);
-                        if (result.Passed == false) {
-
-                            CreatedStepDataAsset->FixStepParametersConsistency(CreatedStepDataAsset);
-                            result = CreatedStepDataAsset->CheckStepParametersConsistency(CreatedStepDataAsset);
-                            if (result.Passed == true)
-                            {
-                                TestTrue("Parameters consistency fixed", true);
-                            }
-                        }
-                        else
+                        if (result.Passed == true)
                         {
-                            TestFalse(result.Reason, (result.Passed == false));
+                            TestTrue("Parameters consistency fixed", true);
                         }
-
                     }
                     else
                     {
-                        TestFalse("Error creating asset", !(CreatedStepDataAsset != nullptr));
+                        TestFalse(result.Reason, (result.Passed == false));
                     }
                 });
         });
@@ -208,3 +193,5 @@ void FDeadlinePluginStepSpec::Define()
 
 }
 
+
+//#endif

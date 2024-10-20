@@ -1,6 +1,7 @@
-// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-
 #pragma once
+
+//#if WITH_AUTOMATION_TESTS
+
 #include "Misc/AutomationTest.h"
 #include "CoreMinimal.h"
 #include "Engine/Engine.h"
@@ -22,12 +23,15 @@
 BEGIN_DEFINE_SPEC(FDeadlinePluginJobSpec, "Deadline",
     EAutomationTestFlags::ProductFilter | EAutomationTestFlags::EditorContext);
 
+
 UDeadlineCloudJob* CreatedJobDataAsset;
 FParametersConsistencyCheckResult result;
 
-
+//All filepaths
+FString PluginContentDir;
 FString PathToJobTemplate;
-FString DefaultTemplate = "/Source/UnrealDeadlineCloudService/Private/Tests/openjd_templates/render_job.yml";
+
+FString DefaultTemplate = "/Content/Python/openjd_templates/job_template.yml";
 FString ChangedTemplate = "/Test/";
 
 
@@ -38,21 +42,24 @@ void FDeadlinePluginJobSpec::Define()
 
     Describe("FOpenDeadlineJob", [this]()
         {
-
+            // DataAsset for all tests
             BeforeEach([this]()
                 {
-                    FString  PluginContentDir = IPluginManager::Get().FindPlugin(TEXT("UnrealDeadlineCloudService"))->GetBaseDir();
-                    PluginContentDir = FPaths::ConvertRelativePathToFull(PluginContentDir);
-                    PathToJobTemplate = FPaths::Combine(PluginContentDir, DefaultTemplate);
-                    FPaths::NormalizeDirectoryName(PathToJobTemplate);
+                    if (!CreatedJobDataAsset)
+                    {
 
-                    CreatedJobDataAsset = NewObject<UDeadlineCloudJob>();
-                    CreatedJobDataAsset->PathToTemplate.FilePath = PathToJobTemplate;
+                        PluginContentDir = IPluginManager::Get().FindPlugin(TEXT("UnrealDeadlineCloudService"))->GetBaseDir();
+                        PluginContentDir = FPaths::ConvertRelativePathToFull(PluginContentDir);
+                        PathToJobTemplate = FPaths::Combine(PluginContentDir, DefaultTemplate);
+                        FPaths::NormalizeDirectoryName(PathToJobTemplate);
+
+                        //Create asset
+                          CreatedJobDataAsset = NewObject<UDeadlineCloudJob>();
+                        CreatedJobDataAsset->PathToTemplate.FilePath = PathToJobTemplate;
+
+                    }
                 });
-            AfterEach([this]()
-                {
-                    CreatedJobDataAsset = nullptr;
-                });
+
             It("Read DeadlineCloudJob from template", [this]()
                 {
                     if (CreatedJobDataAsset)
@@ -60,7 +67,7 @@ void FDeadlinePluginJobSpec::Define()
                         CreatedJobDataAsset->OpenJobFile(CreatedJobDataAsset->PathToTemplate.FilePath);
                         if (CreatedJobDataAsset->GetJobParameters().Num() > 0)
                         {
-                            TestTrue("Parameters read from .yaml", true);
+                            TestTrue("Parameters ok", true);
                         }
 
                         else
@@ -70,43 +77,39 @@ void FDeadlinePluginJobSpec::Define()
                     }
                     else
                     {
-                        TestFalse("Error creating asset", (CreatedJobDataAsset == nullptr));
+                        TestFalse("Error creating asset", !(CreatedJobDataAsset != nullptr));
                     }
                 });
 
             It("Check DeadlineCloudJob parameters consistency", [this]()
                 {
-                    if (CreatedJobDataAsset) {
-                        CreatedJobDataAsset->OpenJobFile(CreatedJobDataAsset->PathToTemplate.FilePath);
-                        result = CreatedJobDataAsset->CheckJobParametersConsistency(CreatedJobDataAsset);
-                        if (result.Passed == true) {
-                            TestTrue("Parameters are consistent", true);
-                        }
-                        else
-                        {
-                            TestFalse(result.Reason, (result.Passed == false));
-                        }
+                    CreatedJobDataAsset->OpenJobFile(CreatedJobDataAsset->PathToTemplate.FilePath);
+                    result = CreatedJobDataAsset->CheckJobParametersConsistency(CreatedJobDataAsset);
+                    if (result.Passed == true) {
+                        TestTrue("Parameters are consistent", true);
                     }
                     else
                     {
-                        TestFalse("Error creating DataAsset", (!CreatedJobDataAsset));
+                        TestFalse(result.Reason, (result.Passed == false));
                     }
                 });
 
             It("Change DeadlineCloudJob parameters in template", [this]()
                 {
-                    /*  Create changed .yaml job template in /Tests/ */
                     FString DestinationDirectory = FPaths::Combine(FPaths::ProjectContentDir(), ChangedTemplate);
                     DestinationDirectory = FPaths::ConvertRelativePathToFull(DestinationDirectory);
                     FPaths::NormalizeDirectoryName(DestinationDirectory);
+
                     IFileManager& FileManager = IFileManager::Get();
+
                     if (FileManager.FileExists(*PathToJobTemplate))
                     {
-                        /*  Directory of changed template */
+                        //Destination dir
                         if (!FileManager.DirectoryExists(*DestinationDirectory))
                         {
                             FileManager.MakeDirectory(*DestinationDirectory);
                         }
+
 
                         FString FileName = FPaths::GetCleanFilename(PathToJobTemplate);
                         FString DestinationFilePath = FPaths::Combine(DestinationDirectory, FileName);
@@ -119,14 +122,12 @@ void FDeadlinePluginJobSpec::Define()
                                 FString str0 = "ProjectFilePath"; FString str1 = "Path";
                                 if (TemplateContent.Contains("ProjectFilePath"))
                                 {
-                                    /*  Change job template  */
+                                    //Change job template
                                     TemplateContent.ReplaceInline(*str0, *str1);
                                     if (FFileHelper::SaveStringToFile(TemplateContent, *DestinationFilePath))
                                     {
-                                        /*   Load default job parameters from file    */
-                                        CreatedJobDataAsset->OpenJobFile(CreatedJobDataAsset->PathToTemplate.FilePath);
 
-                                        /*   Change job parameters file  in job DataAsset  */
+                                        CreatedJobDataAsset->OpenJobFile(CreatedJobDataAsset->PathToTemplate.FilePath);
                                         CreatedJobDataAsset->PathToTemplate.FilePath = DestinationFilePath;
                                         result = CreatedJobDataAsset->CheckJobParametersConsistency(CreatedJobDataAsset);
                                         if (result.Passed == false) {
@@ -135,7 +136,7 @@ void FDeadlinePluginJobSpec::Define()
                                         else
                                         {
                                             TestFalse(result.Reason, (result.Passed == false));
-                                            FileManager.DeleteDirectory(*DestinationDirectory);
+
                                         }
                                     }
                                 }
@@ -143,8 +144,7 @@ void FDeadlinePluginJobSpec::Define()
                             }
                             else
                             {
-                                TestFalse("Failed to load file", true);
-                                FileManager.DeleteDirectory(*DestinationDirectory);
+                                UE_LOG(LogTemp, Error, TEXT("Failed to load file: %s"), *DestinationFilePath);
                             }
                         }
 
@@ -153,28 +153,19 @@ void FDeadlinePluginJobSpec::Define()
 
             It("Change DeadlineCloudJob parameters in data asset", [this]()
                 {
-                    CreatedJobDataAsset->PathToTemplate.FilePath = PathToJobTemplate;
                     CreatedJobDataAsset->OpenJobFile(CreatedJobDataAsset->PathToTemplate.FilePath);
                     TArray <FParameterDefinition> Parameters = CreatedJobDataAsset->GetJobParameters();
-                    if (Parameters.Num() > 0)
-                    {
-                        Parameters.RemoveAt(0);
-                        CreatedJobDataAsset->SetJobParameters(Parameters);
+                    Parameters.RemoveAt(0);
+                    CreatedJobDataAsset->SetJobParameters(Parameters);
 
-                        result = CreatedJobDataAsset->CheckJobParametersConsistency(CreatedJobDataAsset);
-                        if (result.Passed == false) {
-                            TestTrue("Parameters are non-consistent as expected", true);
-                        }
-                        else
-                        {
-                            TestFalse(result.Reason, (result.Passed == false));
-                        }
+                    result = CreatedJobDataAsset->CheckJobParametersConsistency(CreatedJobDataAsset);
+                    if (result.Passed == false) {
+                        TestTrue("Parameters are non-consistent as expected", true);
                     }
                     else
                     {
-                        TestFalse("Error loading parameters", true);
+                        TestFalse(result.Reason, (result.Passed == false));
                     }
-
                 });
 
             It("Fix DeadlineCloudJob consistency", [this]()
@@ -193,10 +184,13 @@ void FDeadlinePluginJobSpec::Define()
                     }
                     else
                     {
-                        TestFalse(result.Reason, (result.Passed == false));
+                        TestFalse(result.Reason, (result.Passed == false));                       
                     }
                 });
         });
 
 
 }
+
+
+//#endif

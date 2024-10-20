@@ -12,7 +12,6 @@ public:
 	static TSharedRef<SWidget> CreateNameWidget(FString Parameter);
 
 	static TSharedRef<SWidget> CreateConsistencyWidget(FString ResultString);
-	//class  SConsistencyWidget : public SCompoundWidget(FString f);
 	class SConsistencyWidget : public SCompoundWidget
 	{
 	public:
