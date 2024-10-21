@@ -1,27 +1,20 @@
 name: UgsSyncSmf
 script:
   embeddedFiles:
-    - name: UgsInit
-      filename: UgsInit.bat
-      type: TEXT
-      data: |
-        ugs init {{Param.PerforceStreamPath}} -client=%USERNAME%_%COMPUTERNAME%_{{Param.UnrealProjectName}} -project={{Param.UnrealProjectRelativePath}}
-    - name: UgsSync
-      filename: UgsSync.bat
-      data: |
-        set "WorkspaceFolderName={{Param.PerforceStreamPath}}"
-        set "WorkspaceFolderName=%WorkspaceFolderName:/=+%"
-        cd /d %WorkspaceFolderName%; ugs sync change={{Param.ChangelistNumber}}
-    - name: SaveWorkspacePathToEnvVariable
-      filename: SaveWorkspacePathToEnvVariable.bat
-      data: |
-        set "WorkspaceFolderName={{Param.PerforceStreamPath}}"
-        set "WorkspaceFolderName=%WorkspaceFolderName:/=+%"
-        set "P4_CLIENT_DIRECTORY=%CD%\%WorkspaceFolderName%"
-#        setx P4_CLIENT_DIRECTORY %CD%\%WorkspaceFolderName%
+  - name: UgsSync
+    filename: UgsSync.bat
+    type: TEXT
+    data: |
+      ugs switch {{Param.PerforceStreamPath}}
+      ugs init {{Param.PerforceStreamPath}} -client=%USERNAME%_%COMPUTERNAME%_{{Param.UnrealProjectName}} -project={{Param.UnrealProjectRelativePath}}
+      set "WorkspaceFolderName={{Param.PerforceStreamPath}}"
+      set "WorkspaceFolderName=%WorkspaceFolderName:/=+%"
+      cd /d %WorkspaceFolderName%
+      ugs sync -binaries -nogpf
+      setx P4_CLIENT_DIRECTORY %CD%\%WorkspaceFolderName%
   actions:
     onEnter:
-      command: '{{Env.File.UgsInit}}; {{Env.File.UgsSync}}; {{Env.File.SaveWorkspacePathToEnvVariable}}'
+      command: '{{Env.File.UgsSync}}'
       cancelation:
         mode: NOTIFY_THEN_TERMINATE
 # TODO what the ugs variant for p4 sync //...#0
