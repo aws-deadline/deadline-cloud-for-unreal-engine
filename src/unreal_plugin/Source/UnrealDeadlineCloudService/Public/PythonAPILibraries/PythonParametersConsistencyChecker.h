@@ -13,7 +13,7 @@ struct FParametersConsistencyCheckResult
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checker")
-	bool Passed;
+	bool Passed = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checker")
 	FString Reason;

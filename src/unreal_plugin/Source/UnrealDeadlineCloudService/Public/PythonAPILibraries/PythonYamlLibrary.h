@@ -32,7 +32,7 @@ struct FParameterDefinition
 	FString Name;
 	// Type	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
-	EValueType Type;
+	EValueType Type = EValueType::STRING;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
 	FString Value;
@@ -58,7 +58,7 @@ struct FStepTaskParameterDefinition
 	FString Name;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
-	EValueType Type;
+	EValueType Type = EValueType::STRING;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
 	TArray <FString> Range;
