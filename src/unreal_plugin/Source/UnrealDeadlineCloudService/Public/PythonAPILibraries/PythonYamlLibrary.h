@@ -32,7 +32,7 @@ struct FParameterDefinition
 	FString Name;
 	// Type	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
-	EValueType Type = EValueType::STRING;
+	EValueType Type;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
 	FString Value;
