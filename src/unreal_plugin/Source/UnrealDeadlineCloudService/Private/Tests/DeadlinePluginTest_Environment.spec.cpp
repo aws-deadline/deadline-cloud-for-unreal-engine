@@ -1,7 +1,5 @@
 #pragma once
 
-//#if WITH_AUTOMATION_TESTS
-
 #include "Misc/AutomationTest.h"
 #include "CoreMinimal.h"
 #include "Engine/Engine.h"
@@ -27,10 +25,8 @@ BEGIN_DEFINE_SPEC(FDeadlinePluginEnvironmentSpec, "Deadline",
 UDeadlineCloudEnvironment* CreatedEnvironmentDataAsset;
 FParametersConsistencyCheckResult result;
 
-//All filepaths
-FString PluginContentDir;
-FString PathToEnvironmentTemplate;
 
+FString PathToEnvironmentTemplate;
 FString DefaultTemplate = "/Content/Python/openjd_templates/launch_ue_environment_template.yml";
 FString ChangedTemplate = "/Test/";
 
@@ -42,24 +38,26 @@ void FDeadlinePluginEnvironmentSpec::Define()
 
     Describe("FOpenDeadlineEnvironment", [this]()
         {
-            // DataAsset for all tests
+
             BeforeEach([this]()
                 {
                     if (!CreatedEnvironmentDataAsset)
                     {
 
-                        PluginContentDir = IPluginManager::Get().FindPlugin(TEXT("UnrealDeadlineCloudService"))->GetBaseDir();
+                        FString PluginContentDir = IPluginManager::Get().FindPlugin(TEXT("UnrealDeadlineCloudService"))->GetBaseDir();
                         PluginContentDir = FPaths::ConvertRelativePathToFull(PluginContentDir);
                         PathToEnvironmentTemplate = FPaths::Combine(PluginContentDir, DefaultTemplate);
                         FPaths::NormalizeDirectoryName(PathToEnvironmentTemplate);
 
-                        //Create asset
                         CreatedEnvironmentDataAsset = NewObject<UDeadlineCloudEnvironment>();
                         CreatedEnvironmentDataAsset->PathToTemplate.FilePath = PathToEnvironmentTemplate;
 
                     }
                 });
-
+            AfterEach([this]()
+                {
+                    CreatedEnvironmentDataAsset = nullptr;
+                });
             It("Read DeadlineCloudEnvironment from template", [this]()
                 {
                     if (CreatedEnvironmentDataAsset)
@@ -67,7 +65,7 @@ void FDeadlinePluginEnvironmentSpec::Define()
                         CreatedEnvironmentDataAsset->OpenEnvFile(CreatedEnvironmentDataAsset->PathToTemplate.FilePath);
                         if (CreatedEnvironmentDataAsset->Variables.Variables.Num() > 0)
                         {
-                            TestTrue("Parameters ok", true);
+                            TestTrue("Read DeadlineCloudEnviromment from template", true);
                         }
 
                         else
@@ -104,7 +102,7 @@ void FDeadlinePluginEnvironmentSpec::Define()
 
                     if (FileManager.FileExists(*PathToEnvironmentTemplate))
                     {
-                        //Destination dir
+
                         if (!FileManager.DirectoryExists(*DestinationDirectory))
                         {
                             FileManager.MakeDirectory(*DestinationDirectory);
@@ -122,7 +120,6 @@ void FDeadlinePluginEnvironmentSpec::Define()
                                 FString str0 = "REMOTE_EXECUTION"; FString str1 = "Path";
                                 if (TemplateContent.Contains("REMOTE_EXECUTION"))
                                 {
-                                    //Change job template
                                     TemplateContent.ReplaceInline(*str0, *str1);
                                     if (FFileHelper::SaveStringToFile(TemplateContent, *DestinationFilePath))
                                     {
@@ -132,10 +129,12 @@ void FDeadlinePluginEnvironmentSpec::Define()
                                         result = CreatedEnvironmentDataAsset->CheckEnvironmentVariablesConsistency(CreatedEnvironmentDataAsset);
                                         if (result.Passed == false) {
                                             TestTrue("Parameters are non-consistent as expected", true);
+                                            FileManager.DeleteDirectory(*DestinationDirectory);
                                         }
                                         else
                                         {
                                             TestFalse(result.Reason, (result.Passed == false));
+                                            FileManager.DeleteDirectory(*DestinationDirectory);
                                         }
                                     }
                                 }
@@ -143,20 +142,17 @@ void FDeadlinePluginEnvironmentSpec::Define()
                             }
                             else
                             {
-                                UE_LOG(LogTemp, Error, TEXT("Failed to load file: %s"), *DestinationFilePath);
+                                TestFalse(result.Reason, (result.Passed == false));
+                                FileManager.DeleteDirectory(*DestinationDirectory);
                             }
                         }
-                      /*  if (FPaths::FileExists(DestinationFilePath))
-                        {
 
-                            FileManager.Delete(*DestinationFilePath);
-                        }*/
                     }
                 });
 
             It("Change DeadlineCloudEnvironment parameters in data asset", [this]()
                 {
-                    CreatedEnvironmentDataAsset->OpenEnvFile(CreatedEnvironmentDataAsset->PathToTemplate.FilePath);
+                    CreatedEnvironmentDataAsset->Variables.Variables.Empty();
                     result = CreatedEnvironmentDataAsset->CheckEnvironmentVariablesConsistency(CreatedEnvironmentDataAsset);
                     if (result.Passed == false) {
                         TestTrue("Parameters are non-consistent as expected", true);
@@ -169,8 +165,7 @@ void FDeadlinePluginEnvironmentSpec::Define()
 
             It("Fix DeadlineCloudEnvironment consistency", [this]()
                 {
-                    TMap<FString, FString> EmptyArray;
-                    CreatedEnvironmentDataAsset->Variables.Variables = EmptyArray;
+                    CreatedEnvironmentDataAsset->Variables.Variables.Empty();
                     result = CreatedEnvironmentDataAsset->CheckEnvironmentVariablesConsistency(CreatedEnvironmentDataAsset);
                     if (result.Passed == false) {
 
@@ -188,8 +183,5 @@ void FDeadlinePluginEnvironmentSpec::Define()
                 });
         });
 
-
 }
 
-
-//#endif
