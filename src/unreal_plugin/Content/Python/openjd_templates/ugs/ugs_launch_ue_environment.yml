@@ -7,10 +7,9 @@ script:
       filename: init-data.yaml
       type: TEXT
       data: |
-        executable: "%P4_CLIENT_DIRECTORY%/{{Param.ExecutableRelativePath}}"
-        project_path: "%P4_CLIENT_DIRECTORY%/{{Param.ProjectRelativePath}}"
+        project_path: %P4_CLIENT_ROOT%/{{Param.ProjectRelativePath}}
         extra_cmd_args: {{Param.ExtraCmdArgs}}
-        extra_cmd_args_file: {{Param.ExtraCmdArgsFile}}
+        executable: %P4_CLIENT_ROOT%/{{Param.ExecutableRelativePath}}
   actions:
     onEnter:
       command: unreal-engine-openjd

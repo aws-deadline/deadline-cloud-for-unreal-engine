@@ -9,15 +9,11 @@ parameterDefinitions:
   type: STRING
 - name: ExecutableRelativePath
   type: STRING
-- name: PerforceChangelistNumber
-  type: STRING
+- name: ChangelistNumber
+  type: INT
 - name: ExtraCmdArgs
   type: STRING
   default: '-log'
-- name: ExtraCmdArgsFile
-  type: PATH
-  objectType: FILE
-  dataFlow: IN
 - name: Executable
   type: STRING
   default: 'UnrealEditor-Cmd'

@@ -164,12 +164,13 @@ PARAMETER_DEFINITION_MAPPING = {
 class OpenJobParameterNames:
 
     UNREAL_PROJECT_PATH = 'ProjectFilePath'
-    UNREAL_PROJECT_NAME = 'UnrealProjectName'
-    UNREAL_PROJECT_RELATIVE_PATH = 'UnrealProjectRelativePath'
+    UNREAL_PROJECT_NAME = 'ProjectName'
+    UNREAL_PROJECT_RELATIVE_PATH = 'ProjectRelativePath'
     UNREAL_EXTRA_CMD_ARGS = 'ExtraCmdArgs'
+    UNREAL_EXECUTABLE_RELATIVE_PATH = 'ExecutableRelativePath'
 
     PERFORCE_STREAM_PATH = 'PerforceStreamPath'
-    PERFORCE_CHANGELIST_NUMBER = 'ChangelistNumber'
+    PERFORCE_CHANGELIST_NUMBER = 'PerforceChangelistNumber'
 
 
 class OpenJobStepParameterNames:

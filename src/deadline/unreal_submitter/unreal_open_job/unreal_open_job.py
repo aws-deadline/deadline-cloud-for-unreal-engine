@@ -282,7 +282,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
     """
 
     job_environment_map = {
-        unreal.DeadlineCloudUgsEnvironment: UnrealOpenJobUgsEnvironment
+        # unreal.DeadlineCloudUgsEnvironment: UnrealOpenJobUgsEnvironment
     }
 
     job_step_map = {

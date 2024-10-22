@@ -7,14 +7,11 @@ parameterSpace:
   - name: QueueManifestPath
     type: PATH
     range: []
-  - name: ChunkSize
-    type: INT
-    range: [1]
-  - name: ChunkId
+  - name: TaskChunkSize
     type: INT
     range: []
-  - name: OutputPath
-    type: PATH
+  - name: TaskChunkId
+    type: INT
     range: []
 script:
   embeddedFiles:
@@ -23,10 +20,7 @@ script:
     type: TEXT
     data: |
       handler: {{Task.Param.Handler}}
-      queue_manifest_path: {{Task.Param.QueueManifestPath}}
-      chunk_size: {{Task.Param.ChunkSize}}
-      chunk_id: {{Task.Param.ChunkId}}
-      output_path: {{Task.Param.OutputPath}}
+      queue_manifest_serialized: {{Task.Param.QueueManifestSerialized}}
   actions:
     onRun:
       command: unreal-engine-openjd
