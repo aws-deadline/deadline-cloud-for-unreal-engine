@@ -150,10 +150,10 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyCha
 	// Check if we changed the job Preset an update the override details
 	if (const FName PropertyName = PropertyChangedEvent.GetPropertyName(); PropertyName == "JobPreset")
 	{
-		//if (const UDeadlineCloudJobPreset* SelectedJobPreset = this->JobPreset)
+
 		if (const UDeadlineCloudJob* SelectedJobPreset = this->JobPreset)
 		{
-			// this->PresetOverrides = SelectedJobPreset->JobPresetStruct;
+
 			this->PresetOverrides.HostRequirements = SelectedJobPreset->JobPresetStruct.HostRequirements;
 			this->PresetOverrides.JobSharedSettings = SelectedJobPreset->JobPresetStruct.JobSharedSettings;
 

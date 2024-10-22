@@ -2,7 +2,6 @@
 
 #pragma once
 
-#include "DeadlineCloudJobSettings/DeadlineCloudJobDataAsset.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudJob.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudRenderJob.h"
 #include "IDetailCustomization.h"
@@ -77,6 +76,7 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DeadlineCloud")
 	//TObjectPtr<UDeadlineCloudJobPreset> JobPreset;
+	// TObjectPtr<UDeadlineCloudJob> JobPreset;
 	TObjectPtr<UDeadlineCloudRenderJob> JobPreset;
 
 	/**
