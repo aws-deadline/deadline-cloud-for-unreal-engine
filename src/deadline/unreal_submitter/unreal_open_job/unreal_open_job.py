@@ -2,6 +2,7 @@ import os
 import re
 import json
 import unreal
+from enum import IntEnum
 from collections import OrderedDict
 from typing import List, Dict, Any
 
@@ -193,7 +194,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         parameter_values = []
         for param in job_template_object['parameterDefinitions']:
             extra_param = next((extra_p for extra_p in self._extra_parameters if extra_p.name == param['name']), None)
-            if extra_param:
+            if extra_param and extra_param.value is not None:
                 python_class = PARAMETER_DEFINITION_MAPPING.get(param['type']).python_class
                 param_value = python_class(extra_param.value)
             else:
@@ -282,7 +283,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
     """
 
     job_environment_map = {
-        # unreal.DeadlineCloudUgsEnvironment: UnrealOpenJobUgsEnvironment
+        unreal.DeadlineCloudUgsEnvironment: UnrealOpenJobUgsEnvironment
     }
 
     job_step_map = {
@@ -539,20 +540,22 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         asset_references = AssetReferences()
 
-        # add dependencies to attachments
-        os_dependencies = []
-        job_dependencies = self._collect_mrq_job_dependencies()
-        for dependency in job_dependencies:
-            os_dependency = common.os_path_from_unreal_path(dependency, with_ext=True)
-            if os.path.exists(os_dependency):
-                os_dependencies.append(os_dependency)
+        if next((env for env in self._environments if isinstance(env, UnrealOpenJobUgsEnvironment)), None) is None:
+            # add dependencies to attachments
+            os_dependencies = []
+            job_dependencies = self._collect_mrq_job_dependencies()
+            for dependency in job_dependencies:
+                os_dependency = common.os_path_from_unreal_path(dependency, with_ext=True)
+                if os.path.exists(os_dependency):
+                    os_dependencies.append(os_dependency)
 
-        asset_references.input_filenames.update(os_dependencies)
+            asset_references.input_filenames.update(os_dependencies)
 
-        # step_input_files = []
-        # for step in self._steps:
-        #     step_input_files.extend(step.get_step_input_files())
-        # asset_references.input_filenames.update(step_input_files)
+            # required input directories
+            for sub_dir in ["Config", "Binaries"]:
+                input_directory = common.os_abs_from_relative(sub_dir)
+                if os.path.exists(input_directory):
+                    asset_references.input_directories.add(input_directory)
 
         # add manifest to attachments
         if os.path.exists(self._manifest_path):
@@ -566,12 +569,6 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         for input_file in job_input_files:
             if os.path.exists(input_file):
                 asset_references.input_filenames.add(input_file)
-
-        # required input directories
-        for sub_dir in ["Config", "Binaries"]:
-            input_directory = common.os_abs_from_relative(sub_dir)
-            if os.path.exists(input_directory):
-                asset_references.input_directories.add(input_directory)
 
         # input directories
         job_input_directories = [

@@ -43,7 +43,7 @@ class UnrealOpenJobEnvironment(UnrealOpenJobEntity):
         template = self.get_template_object()
 
         result = open_job_template_api.ParametersConsistencyChecker.check_parameters_consistency(
-            yaml_parameters=[(k, 'VARIABLE') for k in template['variables'].keys()],
+            yaml_parameters=[(k, 'VARIABLE') for k in template.get('variables', {}).keys()],
             data_asset_parameters=[(k, 'VARIABLE') for k in self._variables.keys()]
         )
 
@@ -56,7 +56,7 @@ class UnrealOpenJobEnvironment(UnrealOpenJobEntity):
         return self.template_class(
             name=self.name,
             script=EnvironmentScript(**script) if script else None,
-            variables=self._variables
+            variables=self._variables if self._variables else None
         )
 
     @staticmethod

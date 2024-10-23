@@ -10,7 +10,7 @@ parameterDefinitions:
 - name: ExecutableRelativePath
   type: STRING
 - name: PerforceChangelistNumber
-  type: INT
+  type: STRING
 - name: ExtraCmdArgs
   type: STRING
   default: '-log'

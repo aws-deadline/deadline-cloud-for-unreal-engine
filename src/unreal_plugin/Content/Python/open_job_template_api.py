@@ -211,6 +211,7 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
             unreal.log(f'Fixed OpenJob parameters: {fixed_parameter_definitions}')
 
             open_job.set_job_parameters(fixed_parameter_definitions)
+            unreal.EditorAssetLibrary.save_asset(open_job)
 
     @unreal.ufunction(override=True)
     def check_step_parameters_consistency(
@@ -258,6 +259,7 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
             unreal.log(f'Fixed OpenJobStep parameters: {fixed_step_task_parameter_definitions}')
 
             open_job_step.set_step_parameters(fixed_step_task_parameter_definitions)
+            unreal.EditorAssetLibrary.save_asset(open_job_step)
 
     @unreal.ufunction(override=True)
     def check_environment_variables_consistency(
@@ -302,4 +304,5 @@ class ParametersConsistencyChecker(unreal.PythonParametersConsistencyChecker):
 
             open_job_environment.variables.set_editor_property('variables', variables_map)
             unreal.log(f'Fixed OpenJobEnvironment variables: {variables_map}')
+            unreal.EditorAssetLibrary.save_asset(open_job_environment)
 
