@@ -384,12 +384,13 @@ class RenderUnrealOpenJob(UnrealOpenJob):
     def update_job_parameter_values(
             job_parameter_values: list[dict[str, Any]],
             job_parameter_name: str,
-            job_parameter_value: Any
+            job_parameter_value: Any,
+            create_if_not_exists: bool = False
     ) -> list[dict[str, Any]]:
         param = next((p for p in job_parameter_values if p['name'] == job_parameter_name), None)
         if param:
             param['value'] = job_parameter_value
-        else:
+        elif create_if_not_exists:
             job_parameter_values.append(dict(name=job_parameter_name, value=job_parameter_value))
 
         return job_parameter_values
@@ -398,25 +399,30 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         parameter_values = super()._build_parameter_values()
 
-        parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
-            job_parameter_values=parameter_values,
-            job_parameter_name=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS,
-            job_parameter_value=' '.join(self._get_ue_cmd_args())
-        )
+        parameter_names = [p.name for p in self._extra_parameters]
 
-        parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
-            job_parameter_values=parameter_values,
-            job_parameter_name=OpenJobParameterNames.UNREAL_PROJECT_PATH,
-            job_parameter_value=common.get_project_file_path()
-        )
+        if OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS in parameter_names:
+            parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+                job_parameter_values=parameter_values,
+                job_parameter_name=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS,
+                job_parameter_value=' '.join(self._get_ue_cmd_args())
+            )
+
+        if OpenJobParameterNames.UNREAL_PROJECT_PATH:
+            parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+                job_parameter_values=parameter_values,
+                job_parameter_name=OpenJobParameterNames.UNREAL_PROJECT_PATH,
+                job_parameter_value=common.get_project_file_path()
+            )
 
         for env in self._environments:
             for parameter in env.get_used_job_parameter_values():
-                RenderUnrealOpenJob.update_job_parameter_values(
-                    job_parameter_values=parameter_values,
-                    job_parameter_name=parameter['name'],
-                    job_parameter_value=parameter['value']
-                )
+                if parameter['name'] in parameter_names:
+                    RenderUnrealOpenJob.update_job_parameter_values(
+                        job_parameter_values=parameter_values,
+                        job_parameter_name=parameter['name'],
+                        job_parameter_value=parameter['value']
+                    )
 
         return parameter_values
 
