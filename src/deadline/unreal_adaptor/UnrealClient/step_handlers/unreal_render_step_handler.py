@@ -240,7 +240,7 @@ class UnrealRenderStepHandler(BaseStepHandler):
                 job_configuration_path=args.get("job_configuration_path", ""),
             )
 
-        if args.get('task_chunk_size') and args.get('task_chunk_id'):
+        if 'task_chunk_size' in args and 'task_chunk_id' in args:
             for job in subsystem.get_queue().get_jobs():
                 UnrealRenderStepHandler.enable_shots_by_chunk(
                     render_job=job,

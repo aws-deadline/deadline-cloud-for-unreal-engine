@@ -21,6 +21,8 @@ script:
     data: |
       handler: {{Task.Param.Handler}}
       queue_manifest_path: {{Task.Param.QueueManifestPath}}
+      task_chunk_size: {{Task.Param.TaskChunkSize}}
+      task_chunk_id: {{Task.Param.TaskChunkId}}
   actions:
     onRun:
       command: unreal-engine-openjd
