@@ -321,7 +321,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             step.host_requirements = self._mrq_job.preset_overrides.host_requirements
 
             if isinstance(step, RenderUnrealOpenJobStep):
-                step.shots_count = len(self._mrq_job.shot_info)
+                step.mrq_job = self._mrq_job
                 step.queue_manifest_path = self._save_manifest_file()
 
         self.job_shared_settings = self._mrq_job.preset_overrides.job_shared_settings

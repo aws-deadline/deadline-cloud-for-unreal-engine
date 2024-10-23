@@ -9,8 +9,8 @@
         "queue_manifest_path": { "type": "string" },
         "script_path": { "type": "string" },
         "script_args": { "type": "object" },
-        "chunk_size": { "type": "integer" },
-        "chunk_id": { "type": "integer" }
+        "task_chunk_size": { "type": "integer" },
+        "task_chunk_id": { "type": "integer" }
     },
     "required": [
         "handler"
