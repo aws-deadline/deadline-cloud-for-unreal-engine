@@ -133,6 +133,15 @@ class UnrealRenderStepHandler(BaseStepHandler):
         unreal.log("Render Executor: Rendering is complete")
 
     @staticmethod
+    def copy_pipeline_queue_from_manifest_file(movie_pipeline_queue_subsystem, queue_manifest_path: str):
+        manifest_queue = unreal.MoviePipelineLibrary.load_manifest_file_from_string(
+            queue_manifest_path
+        )
+        pipeline_queue = movie_pipeline_queue_subsystem.get_queue()
+        pipeline_queue.delete_all_jobs()
+        pipeline_queue.copy_from(manifest_queue)
+
+    @staticmethod
     def create_queue_from_manifest(movie_pipeline_queue_subsystem, queue_manifest_path: str):
         """
         Create the unreal.MoviePipelineQueue object from the given queue manifest path
@@ -140,14 +149,43 @@ class UnrealRenderStepHandler(BaseStepHandler):
         :param movie_pipeline_queue_subsystem: The unreal.MoviePipelineQueueSubsystem instance
         :param queue_manifest_path: Path to the manifest file
         """
-        queue_manifest_path = queue_manifest_path.replace("\\", "/")
-        manifest_queue = unreal.MoviePipelineLibrary.load_manifest_file_from_string(
-            queue_manifest_path
-        )
+        manifest_path = queue_manifest_path.replace("\\", "/")
+        project_saved_dir = unreal.SystemLibrary.get_project_saved_directory().rstrip('/')
 
-        pipeline_queue = movie_pipeline_queue_subsystem.get_queue()
-        pipeline_queue.delete_all_jobs()
-        pipeline_queue.copy_from(manifest_queue)
+        # If QueueManifestPath under the Project's Saved dir (All stuff pulled via S3, all path mappings saved)
+        if manifest_path.startswith(project_saved_dir):
+            UnrealRenderStepHandler.copy_pipeline_queue_from_manifest_file(
+                movie_pipeline_queue_subsystem, manifest_path
+            )
+        # If Project synced via P4/UGS and queue manifest pulled via S3 to the OpenJob asset root
+        else:
+            serialized_manifest = unreal.MoviePipelineEditorLibrary.convert_manifest_file_to_string(
+                manifest_path
+            )
+
+            movie_render_pipeline_dir = os.path.join(
+                unreal.SystemLibrary.get_project_saved_directory(),
+                "MovieRenderPipeline",
+                "RenderJobManifests",
+            )
+            os.makedirs(movie_render_pipeline_dir, exist_ok=True)
+
+            render_job_manifest_path = unreal.Paths.create_temp_filename(
+                movie_render_pipeline_dir,
+                prefix='RenderJobManifest',
+                extension='.utxt'
+            )
+
+            with open(render_job_manifest_path, 'w') as manifest:
+                unreal.log(f"Saving Manifest file `{render_job_manifest_path}`")
+                manifest.write(serialized_manifest)
+
+            manifest_path = unreal.Paths.convert_relative_path_to_full(render_job_manifest_path)
+
+            # Go to the first case again
+            UnrealRenderStepHandler.copy_pipeline_queue_from_manifest_file(
+                movie_pipeline_queue_subsystem, manifest_path
+            )
 
     @staticmethod
     def create_queue_from_job_args(

@@ -9,7 +9,7 @@ parameterDefinitions:
   type: STRING
 - name: ExecutableRelativePath
   type: STRING
-- name: ChangelistNumber
+- name: PerforceChangelistNumber
   type: INT
 - name: ExtraCmdArgs
   type: STRING

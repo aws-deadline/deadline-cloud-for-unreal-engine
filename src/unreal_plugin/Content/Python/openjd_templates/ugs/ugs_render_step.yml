@@ -20,7 +20,7 @@ script:
     type: TEXT
     data: |
       handler: {{Task.Param.Handler}}
-      queue_manifest_serialized: {{Task.Param.QueueManifestSerialized}}
+      queue_manifest_path: {{Task.Param.QueueManifestPath}}
   actions:
     onRun:
       command: unreal-engine-openjd

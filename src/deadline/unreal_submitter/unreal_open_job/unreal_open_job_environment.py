@@ -1,3 +1,4 @@
+import sys
 import unreal
 from typing import Any
 
@@ -77,11 +78,14 @@ class UnrealOpenJobUgsEnvironment(UnrealOpenJobEnvironment):
 
         unreal_project_relative_path = unreal_project_path.replace(client_root, '')
 
+        unreal_executable_path = sys.executable.replace('\\', '/')
+        unreal_executable_relative_path = unreal_executable_path.replace(client_root, '')
+
         return [
             {'name': OpenJobParameterNames.PERFORCE_STREAM_PATH, 'value': perforce.get_stream_path()},
             {'name': OpenJobParameterNames.UNREAL_PROJECT_NAME, 'value': common.get_project_name()},
             {'name': OpenJobParameterNames.UNREAL_PROJECT_RELATIVE_PATH, 'value': unreal_project_relative_path},
             {'name': OpenJobParameterNames.PERFORCE_CHANGELIST_NUMBER, 'value': str(perforce.get_latest_changelist_number()) or 'latest'},
-            {'name': OpenJobParameterNames.UNREAL_EXECUTABLE_RELATIVE_PATH, 'value': ''}  # TODO
+            {'name': OpenJobParameterNames.UNREAL_EXECUTABLE_RELATIVE_PATH, 'value': unreal_executable_relative_path}
         ]
 
