@@ -30,6 +30,8 @@
 
 
 class UDeadlineCloudJob;
+class UMoviePipelineDeadlineCloudExecutorJob;
+
 
 class FDeadlineCloudJobParametersArrayBuilder
 	: public FDetailArrayBuilder
@@ -50,6 +52,8 @@ public:
 	FUIAction EmptyCopyPasteAction;
 	FOnIsEnabled OnIsEnabled;
 
+	UMoviePipelineDeadlineCloudExecutorJob* MrqJob = nullptr;
+
 private:
     static UDeadlineCloudJob* GetOuterJob(TSharedRef<IPropertyHandle> Handle);
 
@@ -57,6 +61,8 @@ private:
 
 	TSharedPtr<IPropertyHandleArray> ArrayProperty;
     TSharedRef<IPropertyHandle> BaseProperty;
+
+
 };
 
 class FDeadlineCloudJobParametersArrayCustomization : public IPropertyTypeCustomization
@@ -81,11 +87,13 @@ public:
 		IDetailChildrenBuilder& InChildBuilder,
 		IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
 	/** End IPropertyTypeCustomization interface */
-	
+
 private:
 	/*static UDeadlineCloudStep* GetOuterJob(TSharedRef<IPropertyHandle> Handle);*/
+	static UMoviePipelineDeadlineCloudExecutorJob* GetMrqJob(TSharedRef<IPropertyHandle> Handle);
 
 	TSharedPtr<FDeadlineCloudJobParametersArrayBuilder> ArrayBuilder;
+
 };
 
 
