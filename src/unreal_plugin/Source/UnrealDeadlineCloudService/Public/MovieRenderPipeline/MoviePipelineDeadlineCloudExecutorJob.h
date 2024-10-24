@@ -4,6 +4,7 @@
 
 #include "DeadlineCloudJobSettings/DeadlineCloudJob.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudRenderJob.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudRenderStep.h"
 #include "IDetailCustomization.h"
 #include "MoviePipelineQueue.h"
 
@@ -45,6 +46,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "DeadlineCloud")
 	FDeadlineCloudJobParametersArray GetParameterDefinitionWithOverrides() const;
 
+	//UFUNCTION(BlueprintCallable, Category = "DeadlineCloud")
+	//FDeadlineCloudStepParametersArray  GetStepParametersWithOverrides() const;
 
 #if WITH_EDITOR
 	void UpdateAttachmentFields();
@@ -75,8 +78,6 @@ public:
 	 * Reference to Deadline Cloud job preset DataAsset. Source for default job settings
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DeadlineCloud")
-	//TObjectPtr<UDeadlineCloudJobPreset> JobPreset;
-	// TObjectPtr<UDeadlineCloudJob> JobPreset;
 	TObjectPtr<UDeadlineCloudRenderJob> JobPreset;
 
 	/**
@@ -90,6 +91,9 @@ public:
  */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
 	FDeadlineCloudJobParametersArray ParameterDefinitionOverrides = FDeadlineCloudJobParametersArray();
+
+	//UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
+	//FDeadlineCloudStepParametersArray StepParameterOverrides = FDeadlineCloudStepParametersArray();
 	
 protected:
 

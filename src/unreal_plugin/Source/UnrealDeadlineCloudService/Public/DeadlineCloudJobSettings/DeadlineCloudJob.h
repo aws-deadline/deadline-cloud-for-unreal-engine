@@ -298,6 +298,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Parameters")
 	void FixJobParametersConsistency(UDeadlineCloudJob* Job);
 
+	TArray<FStepTaskParameterDefinition> GetStepParameterWithTaskChunkSize() const;
 public:
 
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override

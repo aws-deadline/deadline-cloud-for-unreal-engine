@@ -466,6 +466,10 @@ void FDeadlineCloudJobParametersArrayCustomization::CustomizeChildren(TSharedRef
 {
     
         ArrayBuilder->MrqJob = GetMrqJob(InPropertyHandle);
+        if(ArrayBuilder->MrqJob)
+        {
+
+        }
 
         InChildBuilder.AddCustomBuilder(ArrayBuilder.ToSharedRef());
 }
