@@ -349,10 +349,11 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         enabled_shots = [shot for shot in self.mrq_job.shot_info if shot.enabled]
 
         task_chunk_size_param = next((p for p in self._extra_parameters if p.name == 'TaskChunkSize'), None)
+        unreal.log(f'TaskChunkSize PARAM VALUE: {task_chunk_size_param}')
         if task_chunk_size_param is None:
             raise ValueError('Render Step\'s parameter "TaskChunkSize " must be provided')
 
-        if len(task_chunk_size_param.range) == 0 or task_chunk_size_param.range[0] == 0:
+        if len(task_chunk_size_param.range) == 0 or int(task_chunk_size_param.range[0]) == 0:
             task_chunk_size = 1  # by default 1 chunk consist of 1 shot
         else:
             task_chunk_size = int(task_chunk_size_param.range[0])
