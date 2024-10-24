@@ -353,7 +353,7 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
             raise ValueError('Render Step\'s parameter "TaskChunkSize " must be provided')
 
         if len(task_chunk_size_param.range) == 0 or task_chunk_size_param.range[0] == 0:
-            task_chunk_size = len(enabled_shots)  # by default 1 chunk consist of all the shots
+            task_chunk_size = 1  # by default 1 chunk consist of 1 shot
         else:
             task_chunk_size = int(task_chunk_size_param.range[0])
 

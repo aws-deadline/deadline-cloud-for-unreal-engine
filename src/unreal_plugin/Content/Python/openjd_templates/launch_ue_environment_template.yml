@@ -9,6 +9,7 @@ script:
       data: |
         project_path: {{Param.ProjectFilePath}}
         extra_cmd_args: {{Param.ExtraCmdArgs}}
+        extra_cmd_args_file: {{Param.ExtraCmdArgsFile}}
   actions:
     onEnter:
       command: unreal-engine-openjd

@@ -8,3 +8,7 @@ parameterDefinitions:
 - name: ExtraCmdArgs
   type: STRING
   default: '-log'
+- name: ExtraCmdArgsFile
+  type: PATH
+  objectType: FILE
+  dataFlow: IN

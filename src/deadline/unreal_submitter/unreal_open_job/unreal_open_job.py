@@ -303,6 +303,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         self._dependency_collector = DependencyCollector()
 
         self._manifest_path = ''
+        self._extra_cmd_args_file_path = ''
 
         super().__init__(file_path, name, steps, environments, extra_parameters, job_shared_settings)
 
@@ -371,16 +372,33 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         render_step = next((s for s in data_asset.steps if isinstance(s, unreal.DeadlineCloudRenderStep)), None)
         return render_step is not None
 
+    def _write_cmd_args_to_file(self) -> str:
+
+        cmd_args_file = unreal.Paths.create_temp_filename(
+            unreal.SystemLibrary.get_project_saved_directory(),
+            prefix='ExtraCmdArgs',
+            extension='.txt'
+        )
+
+        with open(cmd_args_file, 'w') as manifest:
+            unreal.log(f"Saving ExtraCmdArgs file `{cmd_args_file}`")
+            ue_cmd_args = ' '.join(self._get_ue_cmd_args())
+            manifest.write(ue_cmd_args)
+
+        self._extra_cmd_args_file_path = unreal.Paths.convert_relative_path_to_full(cmd_args_file)
+        return self._extra_cmd_args_file_path
+
     def _build_parameter_values(self):
 
         parameter_values = super()._build_parameter_values()
 
-        ue_cmd_args = ' '.join(self._get_ue_cmd_args())
-        extra_cmd_args_param = next((p for p in parameter_values if p['name'] == 'ExtraCmdArgs'), None)
+        cmd_args_file_path = self._write_cmd_args_to_file().replace('\\', '/')
+
+        extra_cmd_args_param = next((p for p in parameter_values if p['name'] == 'ExtraCmdArgsFile'), None)
         if extra_cmd_args_param:
-            extra_cmd_args_param['value'] = ue_cmd_args
+            extra_cmd_args_param['value'] = cmd_args_file_path
         else:
-            parameter_values.append(dict(name='ExtraCmdArgs', value=ue_cmd_args))
+            parameter_values.append(dict(name='ExtraCmdArgsFile', value=cmd_args_file_path))
 
         project_file_param = next((p for p in parameter_values if p['name'] == 'ProjectFilePath'), None)
         if project_file_param:
@@ -521,6 +539,10 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         # add manifest to attachments
         if os.path.exists(self._manifest_path):
             asset_references.input_filenames.add(self._manifest_path)
+
+        # add ue cmd args  file
+        if os.path.exists(self._extra_cmd_args_file_path):
+            asset_references.input_filenames.add(self._extra_cmd_args_file_path)
 
         # add other input files to attachments
         job_input_files = [
