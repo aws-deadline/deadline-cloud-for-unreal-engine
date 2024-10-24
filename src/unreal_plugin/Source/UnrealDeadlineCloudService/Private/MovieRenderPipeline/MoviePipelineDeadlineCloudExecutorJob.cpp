@@ -170,9 +170,8 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyCha
 			this->ParameterDefinitionOverrides.Parameters =
 				SelectedJobPreset->ParameterDefinition.Parameters;
 
-			//this->StepParameterOverrides.Parameters =
-			//	SelectedJobPreset->Steps[0]->TaskParameterDefinitions.Parameters;
-
+			this->StepParameterOverrides.Parameters =
+				SelectedJobPreset->GetTaskChunkSizeFromRenderStep();
 		}
 		// UpdateAttachmentFields();
 	}

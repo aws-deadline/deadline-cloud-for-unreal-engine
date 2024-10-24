@@ -47,21 +47,28 @@ void UDeadlineCloudJob::FixJobParametersConsistency(UDeadlineCloudJob* Job)
     UPythonParametersConsistencyChecker::Get()->FixJobParametersConsistency(Job);
 }
 
-TArray<FStepTaskParameterDefinition> UDeadlineCloudJob::GetStepParameterWithTaskChunkSize() const
+
+TArray<FStepTaskParameterDefinition> UDeadlineCloudJob::GetTaskChunkSizeFromRenderStep() const
 {
     TArray<FStepTaskParameterDefinition> result;
+    UDeadlineCloudRenderStep* StepAsset;
     for (auto step : Steps) {
-        for (auto parameter : step->TaskParameterDefinitions.Parameters)
+        StepAsset = Cast<UDeadlineCloudRenderStep>(step);
+        if (StepAsset)
         {
-            if (parameter.Name == "TaskChunkSize")
+            for (auto parameter : StepAsset->TaskParameterDefinitions.Parameters)
             {
-                result.Add(parameter);
-                break;
+                if (parameter.Name == "TaskChunkSize")
+                {
+                    result.Add(parameter);
+
+                }
             }
+            
         }
+       
     }
     return result;
-
 }
 
 
