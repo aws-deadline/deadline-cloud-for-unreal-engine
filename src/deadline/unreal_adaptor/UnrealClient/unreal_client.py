@@ -36,7 +36,7 @@ class UnrealClient(WinClientInterface):
             }
         )
 
-    def client_loaded(self) -> None:
+    def client_loaded(self, *args, **kwargs) -> None:
         """Log the message that UnrealClient loaded"""
 
         import unreal
