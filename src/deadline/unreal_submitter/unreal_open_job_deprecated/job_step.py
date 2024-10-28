@@ -248,7 +248,7 @@ class RenderJobStep(JobStep):
 
     def __init__(
             self, step_template, step_settings, host_requirements, queue_manifest_path, shots_count, task_chunk_size
-     ):
+    ):
         """
         Build JobStep, set its name, fill dependencies list and set queue manifest path parameter
         """
