@@ -1,31 +1,31 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
 #pragma once
 
 #include "PythonAPILibraries/PythonYamlLibrary.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudJob.h"
 #include "DetailLayoutBuilder.h"
 #include "IDetailCustomization.h"
-
- #include "Fonts/SlateFontInfo.h"
- #include "Misc/App.h"
- #include "Misc/FileHelper.h"
- #include "Misc/Paths.h"
- #include "Modules/ModuleManager.h"
- #include "Styling/SlateTypes.h"
- #include "Widgets/SBoxPanel.h"
- #include "Widgets/Text/STextBlock.h"
- #include "Widgets/Input/SButton.h"
- #include "Widgets/Input/SCheckBox.h"
- #include "Widgets/Input/SEditableTextBox.h"
- #include "Widgets/Input/SFilePathPicker.h"
- #include "Widgets/Input/SMultiLineEditableTextBox.h"
- #include "Widgets/Layout/SBorder.h"
- #include "Widgets/Layout/SSeparator.h"
- #include "Widgets/Notifications/SNotificationList.h"
- #include "Framework/Notifications/NotificationManager.h"
- #include "EditorDirectories.h"
- #include "EditorStyleSet.h"
- #include "SourceControlOperations.h"
-
+#include "Fonts/SlateFontInfo.h"
+#include "Misc/App.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
+#include "Styling/SlateTypes.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SFilePathPicker.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "EditorDirectories.h"
+#include "EditorStyleSet.h"
+#include "SourceControlOperations.h"
 #include "PropertyCustomizationHelpers.h"
 
 
@@ -34,32 +34,32 @@ class UMoviePipelineDeadlineCloudExecutorJob;
 
 
 class FDeadlineCloudJobParametersArrayBuilder
-	: public FDetailArrayBuilder
-	, public TSharedFromThis<FDeadlineCloudJobParametersArrayBuilder>
+    : public FDetailArrayBuilder
+    , public TSharedFromThis<FDeadlineCloudJobParametersArrayBuilder>
 {
 public:
 
-	static TSharedRef<FDeadlineCloudJobParametersArrayBuilder> MakeInstance(
-		TSharedRef<IPropertyHandle> InPropertyHandle);
+    static TSharedRef<FDeadlineCloudJobParametersArrayBuilder> MakeInstance(
+        TSharedRef<IPropertyHandle> InPropertyHandle);
 
-	FDeadlineCloudJobParametersArrayBuilder(
-		TSharedRef<IPropertyHandle> InPropertyHandle);
-	
-	virtual void GenerateHeaderRowContent(FDetailWidgetRow& NodeRow) override;
+    FDeadlineCloudJobParametersArrayBuilder(
+        TSharedRef<IPropertyHandle> InPropertyHandle);
 
-	void GenerateWrapperStructHeaderRowContent(FDetailWidgetRow& NodeRow, TSharedRef<SWidget> NameContent);
+    virtual void GenerateHeaderRowContent(FDetailWidgetRow& NodeRow) override;
 
-	FUIAction EmptyCopyPasteAction;
-	FOnIsEnabled OnIsEnabled;
+    void GenerateWrapperStructHeaderRowContent(FDetailWidgetRow& NodeRow, TSharedRef<SWidget> NameContent);
 
-	UMoviePipelineDeadlineCloudExecutorJob* MrqJob = nullptr;
+    FUIAction EmptyCopyPasteAction;
+    FOnIsEnabled OnIsEnabled;
+
+    UMoviePipelineDeadlineCloudExecutorJob* MrqJob = nullptr;
 
 private:
     static UDeadlineCloudJob* GetOuterJob(TSharedRef<IPropertyHandle> Handle);
 
-	void OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const;
+    void OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const;
 
-	TSharedPtr<IPropertyHandleArray> ArrayProperty;
+    TSharedPtr<IPropertyHandleArray> ArrayProperty;
     TSharedRef<IPropertyHandle> BaseProperty;
 
 
@@ -69,30 +69,30 @@ class FDeadlineCloudJobParametersArrayCustomization : public IPropertyTypeCustom
 {
 public:
 
-	static TSharedRef<IPropertyTypeCustomization> MakeInstance()
-	{
-		return MakeShared<FDeadlineCloudJobParametersArrayCustomization>();
-	}
+    static TSharedRef<IPropertyTypeCustomization> MakeInstance()
+    {
+        return MakeShared<FDeadlineCloudJobParametersArrayCustomization>();
+    }
 
-	FDeadlineCloudJobParametersArrayCustomization() {}
-	
-	/** Begin IPropertyTypeCustomization interface */
-	virtual void CustomizeHeader(
-		TSharedRef<IPropertyHandle> InPropertyHandle,
-		FDetailWidgetRow& InHeaderRow,
-		IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
+    FDeadlineCloudJobParametersArrayCustomization() {}
 
-	virtual void CustomizeChildren(
-		TSharedRef<IPropertyHandle> InPropertyHandle,
-		IDetailChildrenBuilder& InChildBuilder,
-		IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
-	/** End IPropertyTypeCustomization interface */
+    /** Begin IPropertyTypeCustomization interface */
+    virtual void CustomizeHeader(
+        TSharedRef<IPropertyHandle> InPropertyHandle,
+        FDetailWidgetRow& InHeaderRow,
+        IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
+
+    virtual void CustomizeChildren(
+        TSharedRef<IPropertyHandle> InPropertyHandle,
+        IDetailChildrenBuilder& InChildBuilder,
+        IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
+    /** End IPropertyTypeCustomization interface */
 
 private:
-	/*static UDeadlineCloudStep* GetOuterJob(TSharedRef<IPropertyHandle> Handle);*/
-	static UMoviePipelineDeadlineCloudExecutorJob* GetMrqJob(TSharedRef<IPropertyHandle> Handle);
+    /*static UDeadlineCloudStep* GetOuterJob(TSharedRef<IPropertyHandle> Handle);*/
+    static UMoviePipelineDeadlineCloudExecutorJob* GetMrqJob(TSharedRef<IPropertyHandle> Handle);
 
-	TSharedPtr<FDeadlineCloudJobParametersArrayBuilder> ArrayBuilder;
+    TSharedPtr<FDeadlineCloudJobParametersArrayBuilder> ArrayBuilder;
 
 };
 
@@ -108,7 +108,7 @@ public:
     TWeakObjectPtr<UDeadlineCloudJob> Settings;
 
     void OnButtonClicked();
-	EVisibility GetConsistencyWidgetVisibility() const;
+    EVisibility GetConsistencyWidgetVisibility() const;
 
 private:
     void ForceRefreshDetails();
@@ -116,11 +116,11 @@ private:
     bool bCheckConsistensyPassed = true;
 
     bool IsStepContainsErrors() const;
-	EVisibility GetStepErrorWidgetVisibility() const;
-	EVisibility GetStepDefaultWidgetVisibility() const;
+    EVisibility GetStepErrorWidgetVisibility() const;
+    EVisibility GetStepDefaultWidgetVisibility() const;
 
-	bool IsEnvironmentContainsErrors() const;
-	EVisibility GetEnvironmentErrorWidgetVisibility() const;
-	EVisibility GetEnvironmentDefaultWidgetVisibility() const;
+    bool IsEnvironmentContainsErrors() const;
+    EVisibility GetEnvironmentErrorWidgetVisibility() const;
+    EVisibility GetEnvironmentDefaultWidgetVisibility() const;
 };
 

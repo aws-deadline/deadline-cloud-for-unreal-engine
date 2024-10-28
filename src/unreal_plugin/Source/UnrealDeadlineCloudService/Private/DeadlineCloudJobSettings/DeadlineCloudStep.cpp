@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
 #include "DeadlineCloudJobSettings/DeadlineCloudStep.h"
 #include "PythonAPILibraries/PythonYamlLibrary.h"
 #include "PythonAPILibraries/PythonParametersConsistencyChecker.h"

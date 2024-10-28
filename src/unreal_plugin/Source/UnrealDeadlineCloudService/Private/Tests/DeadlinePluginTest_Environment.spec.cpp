@@ -1,5 +1,6 @@
-#pragma once
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
+#pragma once
 #include "Misc/AutomationTest.h"
 #include "CoreMinimal.h"
 #include "Engine/Engine.h"

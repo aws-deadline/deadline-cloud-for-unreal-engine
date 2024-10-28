@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
 #include "DeadlineCloudJobSettings/DeadlineCloudStepDetails.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudJobDetails.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudStep.h"

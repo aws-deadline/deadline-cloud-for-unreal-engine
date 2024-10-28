@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
 #include "DeadlineCloudJobSettings/DeadlineCloudJobDetails.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudJob.h"
 #include "PropertyEditorModule.h"

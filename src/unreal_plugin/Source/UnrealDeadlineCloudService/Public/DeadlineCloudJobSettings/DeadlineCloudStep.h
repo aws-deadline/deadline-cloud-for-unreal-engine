@@ -1,5 +1,6 @@
-#pragma once
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
+#pragma once
 
 #include "DeadlineCloudEnvironment.h"
 #include "DeadlineCloudStep.generated.h"

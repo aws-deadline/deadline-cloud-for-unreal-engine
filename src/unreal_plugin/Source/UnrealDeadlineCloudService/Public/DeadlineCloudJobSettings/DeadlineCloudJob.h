@@ -1,6 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
 #pragma once
-
-
 #include "DeadlineCloudStep.h"
 #include "DeadlineCloudRenderStep.h"
 #include "CoreMinimal.h"

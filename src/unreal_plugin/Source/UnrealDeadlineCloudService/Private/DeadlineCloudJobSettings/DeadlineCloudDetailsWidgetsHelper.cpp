@@ -1,6 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
 #include "DeadlineCloudJobSettings/DeadlineCloudDetailsWidgetsHelper.h"
-
-
 #include "Widgets/Input/SFilePathPicker.h"
 #include "DetailLayoutBuilder.h"
 #include "Widgets/Input/SNumericEntryBox.h"
