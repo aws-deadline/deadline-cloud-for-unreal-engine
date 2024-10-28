@@ -11,8 +11,8 @@ from openjd.model.v2023_09 import *
 from openjd.model import DocumentType
 
 
-Template = Union[JobTemplate, StepTemplate, EnvironmentTemplate]
-TemplateClass = Union[Type[JobTemplate], Type[StepTemplate], Type[EnvironmentTemplate]]
+Template = Union[JobTemplate, StepTemplate, Environment]
+TemplateClass = Union[Type[JobTemplate], Type[StepTemplate], Type[Environment]]
 
 
 class UnrealOpenJobEntityBase(ABC):

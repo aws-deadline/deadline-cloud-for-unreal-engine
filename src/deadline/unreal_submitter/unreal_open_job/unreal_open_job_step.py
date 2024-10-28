@@ -200,7 +200,6 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
                 param.update(dict(name=override_param.name, range=param_range))
 
             param_definition_cls = param_descriptor.task_parameter_openjd_class
-            unreal.log(f'STEP PARAM BUILD: {param}')
             step_parameter_definition_list.append(param_definition_cls(**param))
 
         return step_parameter_definition_list
