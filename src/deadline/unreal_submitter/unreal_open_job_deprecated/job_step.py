@@ -1,3 +1,4 @@
+#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 import math
 import os
 import yaml

@@ -1,3 +1,4 @@
+#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 import os
 
 TEMPLATES_DIRECTORY = f"{os.path.dirname(__file__)}/templates".replace("\\", "/")
