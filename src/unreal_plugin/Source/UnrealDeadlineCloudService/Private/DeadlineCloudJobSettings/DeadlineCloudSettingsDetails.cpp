@@ -1,5 +1,4 @@
 ﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-
 #include "DeadlineCloudJobSettings/DeadlineCloudSettingsDetails.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudDeveloperSettings.h"
 #include "DetailLayoutBuilder.h"
@@ -11,28 +10,28 @@
 
 TSharedRef<IDetailCustomization> FDeadlineCloudSettingsDetails::MakeInstance()
 {
-    return MakeShareable(new FDeadlineCloudSettingsDetails);
+	return MakeShareable(new FDeadlineCloudSettingsDetails);
 }
 
 /*
 FText FDeadlineCloudSettingsDetails::GetCredsState() const
 {
-    return FText::FromString(Settings->WorkStationConfiguration.State.CredsType);
+	return FText::FromString(Settings->WorkStationConfiguration.State.CredsType);
 }
 */
 
 void FDeadlineCloudSettingsDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
-    TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
-    DetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
-    Settings = Cast<UDeadlineCloudDeveloperSettings>(ObjectsBeingCustomized[0].Get());
-    DeadlineCloudStatusHandler = MakeUnique<FDeadlineCloudStatusHandler>(Settings.Get());
-    DeadlineCloudStatusHandler->StartDirectoryWatch();
+	TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
+	DetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
+	Settings = Cast<UDeadlineCloudDeveloperSettings>(ObjectsBeingCustomized[0].Get());
+	DeadlineCloudStatusHandler = MakeUnique<FDeadlineCloudStatusHandler>(Settings.Get());
+	DeadlineCloudStatusHandler->StartDirectoryWatch();
 
-    IDetailCategoryBuilder& LoginCategory = DetailBuilder.EditCategory("Login DeadlineCloud");
-    LoginCategory.AddCustomRow(LOCTEXT("DeadlineCloudLogin", "DeadlineCloudLogin"))
-        .ValueContent()
-    	[
+	IDetailCategoryBuilder& LoginCategory = DetailBuilder.EditCategory("Login DeadlineCloud");
+	LoginCategory.AddCustomRow(LOCTEXT("DeadlineCloudLogin", "DeadlineCloudLogin"))
+		.ValueContent()
+		[
 			SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot()
 			.Padding(FMargin(5, 5, 5, 5))
