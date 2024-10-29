@@ -329,6 +329,11 @@ class RenderUnrealOpenJob(UnrealOpenJob):
                 step.mrq_job = self._mrq_job
                 step.queue_manifest_path = self._save_manifest_file()
 
+                for parameter in self._mrq_job.step_parameter_overrides.parameters:
+                    step.update_extra_parameter(parameter)
+
+        self._extra_parameters = self._mrq_job.parameter_definition_overrides.parameters
+
         self.job_shared_settings = self._mrq_job.preset_overrides.job_shared_settings
 
         # Job name set order:
@@ -427,7 +432,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         cmd_args_str = ' '.join(self._get_ue_cmd_args())
 
-        if len(cmd_args_str) > 1024 and OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS in parameter_names:
+        if len(cmd_args_str) <= 1024 and OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS in parameter_names:
             parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
                 job_parameter_values=parameter_values,
                 job_parameter_name=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS,

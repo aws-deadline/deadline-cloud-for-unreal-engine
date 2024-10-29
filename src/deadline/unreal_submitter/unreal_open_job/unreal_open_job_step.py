@@ -400,3 +400,6 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         step_entity = super()._build_template()
         
         return step_entity
+
+    def update_extra_parameter(self, extra_parameter: unreal.StepTaskParameterDefinition):
+        self._update_extra_parameter(extra_parameter)
