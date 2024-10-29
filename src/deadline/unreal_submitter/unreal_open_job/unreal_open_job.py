@@ -307,6 +307,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         self._dependency_collector = DependencyCollector()
 
         self._manifest_path = ''
+        self._extra_cmd_args_file_path = ''
 
         super().__init__(file_path, name, steps, environments, extra_parameters, job_shared_settings)
 
@@ -325,7 +326,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             step.host_requirements = self._mrq_job.preset_overrides.host_requirements
 
             if isinstance(step, RenderUnrealOpenJobStep):
-                step.shots_count = len(self._mrq_job.shot_info)
+                step.mrq_job = self._mrq_job
                 step.queue_manifest_path = self._save_manifest_file()
 
         self.job_shared_settings = self._mrq_job.preset_overrides.job_shared_settings
@@ -396,17 +397,43 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         return job_parameter_values
 
+    def _write_cmd_args_to_file(self, cmd_args_str: str) -> str:
+
+        cmd_args_file = unreal.Paths.create_temp_filename(
+            unreal.SystemLibrary.get_project_saved_directory(),
+            prefix='ExtraCmdArgs',
+            extension='.txt'
+        )
+
+        with open(cmd_args_file, 'w') as manifest:
+            unreal.log(f"Saving ExtraCmdArgs file `{cmd_args_file}`")
+            manifest.write(cmd_args_str)
+
+        self._extra_cmd_args_file_path = unreal.Paths.convert_relative_path_to_full(cmd_args_file)
+        return self._extra_cmd_args_file_path
+
     def _build_parameter_values(self):
 
         parameter_values = super()._build_parameter_values()
 
         parameter_names = [p.name for p in self._extra_parameters]
 
-        if OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS in parameter_names:
+        cmd_args_str = ' '.join(self._get_ue_cmd_args())
+
+        if len(cmd_args_str) > 1024 and OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS in parameter_names:
             parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
                 job_parameter_values=parameter_values,
                 job_parameter_name=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS,
                 job_parameter_value=' '.join(self._get_ue_cmd_args())
+            )
+
+        if OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS_FILE in parameter_names:
+            cmd_args_file_path = self._write_cmd_args_to_file(cmd_args_str).replace('\\', '/')
+
+            parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+                job_parameter_values=parameter_values,
+                job_parameter_name=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS_FILE,
+                job_parameter_value=cmd_args_file_path
             )
 
         if OpenJobParameterNames.UNREAL_PROJECT_PATH:
@@ -560,6 +587,10 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         # add manifest to attachments
         if os.path.exists(self._manifest_path):
             asset_references.input_filenames.add(self._manifest_path)
+
+        # add ue cmd args  file
+        if os.path.exists(self._extra_cmd_args_file_path):
+            asset_references.input_filenames.add(self._extra_cmd_args_file_path)
 
         # add other input files to attachments
         job_input_files = [

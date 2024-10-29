@@ -167,6 +167,7 @@ class OpenJobParameterNames:
     UNREAL_PROJECT_NAME = 'ProjectName'
     UNREAL_PROJECT_RELATIVE_PATH = 'ProjectRelativePath'
     UNREAL_EXTRA_CMD_ARGS = 'ExtraCmdArgs'
+    UNREAL_EXTRA_CMD_ARGS_FILE = 'ExtraCmdArgsFile'
     UNREAL_EXECUTABLE_RELATIVE_PATH = 'ExecutableRelativePath'
 
     PERFORCE_STREAM_PATH = 'PerforceStreamPath'
