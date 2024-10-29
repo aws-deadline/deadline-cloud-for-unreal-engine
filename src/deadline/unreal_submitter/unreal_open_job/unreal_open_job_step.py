@@ -360,13 +360,10 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         return task_chunk_ids_count
 
     def _find_extra_parameter_by_name(self, parameter_name: str) -> Optional[unreal.StepTaskParameterDefinition]:
-        unreal.log(f'FIND PARAM BY NAME: {parameter_name}')
         return next((p for p in self._extra_parameters if p.name == parameter_name), None)
 
     def _update_extra_parameter(self, extra_parameter: unreal.StepTaskParameterDefinition):
         existed_parameter = self._find_extra_parameter_by_name(extra_parameter.name)
-        unreal.log(f'EXISTED_PARAMETER: {existed_parameter}')
-        unreal.log(f'EXTRA PARAMETERS: {self._extra_parameters}')
         if existed_parameter:
             self._extra_parameters.remove(existed_parameter)
         self._extra_parameters.append(extra_parameter)
