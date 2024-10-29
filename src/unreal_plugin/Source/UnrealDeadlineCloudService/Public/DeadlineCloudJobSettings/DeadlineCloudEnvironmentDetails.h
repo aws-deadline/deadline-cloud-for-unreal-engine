@@ -49,6 +49,10 @@ public:
 
 	FDeadlineCloudEnvironmentParametersMapCustomization() {}
 	
+	bool IsResetToDefaultVisible(TSharedPtr<IPropertyHandle> PropertyHandle) const;
+
+	void ResetToDefaultHandler(TSharedPtr<IPropertyHandle> PropertyHandle) const;
+
 	/** Begin IPropertyTypeCustomization interface */
 	virtual void CustomizeHeader(
 		TSharedRef<IPropertyHandle> InPropertyHandle,

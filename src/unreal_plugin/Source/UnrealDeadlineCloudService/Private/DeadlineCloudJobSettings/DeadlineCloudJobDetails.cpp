@@ -302,6 +302,44 @@ UDeadlineCloudJob* FDeadlineCloudJobParametersArrayBuilder::GetOuterJob(TSharedR
     return OuterJob;
 }
 
+bool FDeadlineCloudJobParametersArrayBuilder::IsResetToDefaultVisible(TSharedPtr<IPropertyHandle> PropertyHandle, FString InParameterName) const
+{
+	if (!PropertyHandle.IsValid())
+	{
+		return false;
+	}
+
+	auto OuterJob = GetOuterJob(PropertyHandle.ToSharedRef());
+
+	if (!IsValid(OuterJob))
+	{
+		return false;
+	}
+
+	FString DefaultValue = OuterJob->GetDefaultParameterValue(InParameterName);
+	FString CurrentValue;
+	PropertyHandle->GetValue(CurrentValue);
+
+	return !CurrentValue.Equals(DefaultValue);
+}
+
+void FDeadlineCloudJobParametersArrayBuilder::ResetToDefaultHandler(TSharedPtr<IPropertyHandle> PropertyHandle, FString InParameterName) const
+{
+	if (!PropertyHandle.IsValid())
+	{
+		return;
+	}
+
+	auto OuterJob = GetOuterJob(PropertyHandle.ToSharedRef());
+
+	if (!IsValid(OuterJob))
+	{
+		return;
+	}
+
+	FString DefaultValue = OuterJob->GetDefaultParameterValue(InParameterName);
+	PropertyHandle->SetValue(DefaultValue);
+}
 
 void FDeadlineCloudJobParametersArrayBuilder::OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const
 {
@@ -342,41 +380,10 @@ void FDeadlineCloudJobParametersArrayBuilder::OnGenerateEntry(TSharedRef<IProper
     if (IsValid(OuterJob))
     {
         const FResetToDefaultOverride ResetDefaultOverride = FResetToDefaultOverride::Create(
-            FIsResetToDefaultVisible::CreateSPLambda(this, [this, OuterJob, ParameterName](TSharedPtr<IPropertyHandle> PropertyHandle)->bool
-                {
-                    if (!PropertyHandle.IsValid())
-                    {
-                        return false;
-                    }
-
-                    if (!IsValid(OuterJob))
-                    {
-                        return false;
-                    }
-
-                    FString DefaultValue = OuterJob->GetDefaultParameterValue(ParameterName);
-                    FString CurrentValue;
-                    PropertyHandle->GetValue(CurrentValue);
-
-                    return !CurrentValue.Equals(DefaultValue);
-                }),
-            FResetToDefaultHandler::CreateSPLambda(this, [this, ParameterName, OuterJob](TSharedPtr<IPropertyHandle> PropertyHandle)
-                {
-                    if (!PropertyHandle.IsValid())
-                    {
-                        return;
-                    }
-
-                    if (!IsValid(OuterJob))
-                    {
-                        return;
-                    }
-
-                    FString DefaultValue = OuterJob->GetDefaultParameterValue(ParameterName);
-                    PropertyHandle->SetValue(DefaultValue);
-                })
-        );
-        PropertyRow.OverrideResetToDefault(ResetDefaultOverride);
+			FIsResetToDefaultVisible::CreateSP(this, &FDeadlineCloudJobParametersArrayBuilder::IsResetToDefaultVisible, ParameterName),
+			FResetToDefaultHandler::CreateSP(this, &FDeadlineCloudJobParametersArrayBuilder::ResetToDefaultHandler, ParameterName)
+		);
+		PropertyRow.OverrideResetToDefault(ResetDefaultOverride);
     }
     else
     {

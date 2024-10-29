@@ -144,6 +144,12 @@ EVisibility FDeadlineCloudStepDetails::GetEnvironmentDefaultWidgetVisibility() c
 	return IsEnvironmentContainsErrors() ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
+bool FDeadlineCloudStepParametersArrayCustomization::IsEnabled(TSharedRef<IPropertyHandle> InPropertyHandle) const
+{
+	auto OuterStep = FDeadlineCloudStepParametersArrayBuilder::GetOuterStep(InPropertyHandle);
+	return !OuterStep->TaskParameterDefinitions.Parameters.IsEmpty();
+}
+
 void FDeadlineCloudStepParametersArrayCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> InPropertyHandle, FDetailWidgetRow& InHeaderRow, IPropertyTypeCustomizationUtils& InCustomizationUtils)
 {
 	const TSharedPtr<IPropertyHandle> ArrayHandle = InPropertyHandle->GetChildHandle("Parameters", false);
@@ -152,10 +158,7 @@ void FDeadlineCloudStepParametersArrayCustomization::CustomizeHeader(TSharedRef<
 	auto OuterStep = FDeadlineCloudStepParametersArrayBuilder::GetOuterStep(InPropertyHandle);
 	if (IsValid(OuterStep))
 	{
-		ArrayBuilder->OnIsEnabled.BindSPLambda(this, [OuterStep]()->bool
-			{
-				return !OuterStep->TaskParameterDefinitions.Parameters.IsEmpty();
-			});
+		ArrayBuilder->OnIsEnabled.BindSP(this, &FDeadlineCloudStepParametersArrayCustomization::IsEnabled, InPropertyHandle);
 	}
 
     ArrayBuilder->GenerateWrapperStructHeaderRowContent(InHeaderRow, InPropertyHandle->CreatePropertyNameWidget());
@@ -240,6 +243,38 @@ void FDeadlineCloudStepParametersArrayBuilder::GenerateWrapperStructHeaderRowCon
 	);
 }
 
+bool FDeadlineCloudStepParametersArrayBuilder::IsResetToDefaultVisible(TSharedPtr<IPropertyHandle> PropertyHandle, FString InParameterName) const
+{
+	if (!PropertyHandle.IsValid())
+	{
+		return false;
+	}
+
+	auto OuterStep = FDeadlineCloudStepParametersArrayBuilder::GetOuterStep(PropertyHandle.ToSharedRef());
+	if (!IsValid(OuterStep))
+	{
+		return false;
+	}
+
+	return !OuterStep->IsParameterArrayDefault(InParameterName);
+}
+
+void FDeadlineCloudStepParametersArrayBuilder::ResetToDefaultHandler(TSharedPtr<IPropertyHandle> PropertyHandle, FString InParameterName) const
+{
+	if (!PropertyHandle.IsValid())
+	{
+		return;
+	}
+
+	auto OuterStep = FDeadlineCloudStepParametersArrayBuilder::GetOuterStep(PropertyHandle.ToSharedRef());
+	if (!IsValid(OuterStep))
+	{
+		return;
+	}
+
+	OuterStep->ResetParameterArray(InParameterName);
+}
+
 void FDeadlineCloudStepParametersArrayBuilder::OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const
 {
 	IDetailPropertyRow& PropertyRow = ChildrenBuilder.AddProperty(ElementProperty);
@@ -258,34 +293,8 @@ void FDeadlineCloudStepParametersArrayBuilder::OnGenerateEntry(TSharedRef<IPrope
 	if (IsValid(OuterStep))
 	{
         const FResetToDefaultOverride ResetDefaultOverride = FResetToDefaultOverride::Create(
-			FIsResetToDefaultVisible::CreateSPLambda(this, [this, OuterStep, ParameterName](TSharedPtr<IPropertyHandle> PropertyHandle)->bool 
-                { 
-                    if (!PropertyHandle.IsValid())
-                    {
-                        return false;
-                    }
-
-					if (!IsValid(OuterStep))
-					{
-                        return false;
-					}
-                          
-                    return !OuterStep->IsParameterArrayDefault(ParameterName); 
-                }),
-            FResetToDefaultHandler::CreateSPLambda(this, [this, ParameterName, OuterStep](TSharedPtr<IPropertyHandle> PropertyHandle) 
-                {
-                    if (!PropertyHandle.IsValid())
-                    {
-                        return;
-                    }
-
-					if (!IsValid(OuterStep))
-					{
-                        return;
-					}
-
-					OuterStep->ResetParameterArray(ParameterName);
-                })
+			FIsResetToDefaultVisible::CreateSP(this, &FDeadlineCloudStepParametersArrayBuilder::IsResetToDefaultVisible, ParameterName),
+            FResetToDefaultHandler::CreateSP(this, &FDeadlineCloudStepParametersArrayBuilder::ResetToDefaultHandler, ParameterName)
         );
 		PropertyRow.OverrideResetToDefault(ResetDefaultOverride);
 	}

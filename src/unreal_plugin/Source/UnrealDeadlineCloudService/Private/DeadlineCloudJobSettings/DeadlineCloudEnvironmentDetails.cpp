@@ -169,6 +169,40 @@ void FDeadlineCloudEnvironmentParametersMapBuilder::SetOnRebuildChildren(FSimple
 	OnRebuildChildren = InOnRebuildChildren;
 }
 
+bool FDeadlineCloudEnvironmentParametersMapCustomization::IsResetToDefaultVisible(TSharedPtr<IPropertyHandle> PropertyHandle) const
+{
+	if (!PropertyHandle.IsValid())
+	{
+		return false;
+	}
+
+	auto OuterEnvironment = GetOuterEnvironment(PropertyHandle.ToSharedRef());
+
+	if (!IsValid(OuterEnvironment))
+	{
+		return false;
+	}
+
+	return !OuterEnvironment->IsDefaultVariables();
+}
+
+void FDeadlineCloudEnvironmentParametersMapCustomization::ResetToDefaultHandler(TSharedPtr<IPropertyHandle> PropertyHandle) const
+{
+	if (!PropertyHandle.IsValid())
+	{
+		return;
+	}
+
+	auto OuterEnvironment = GetOuterEnvironment(PropertyHandle.ToSharedRef());
+
+	if (!IsValid(OuterEnvironment))
+	{
+		return;
+	}
+
+	OuterEnvironment->ResetVariables();
+}
+
 void FDeadlineCloudEnvironmentParametersMapCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> InPropertyHandle, FDetailWidgetRow& InHeaderRow, IPropertyTypeCustomizationUtils& InCustomizationUtils)
 {
     TSharedPtr<IPropertyHandle> ArrayHandle = InPropertyHandle->GetChildHandle("Variables", false);
@@ -182,34 +216,8 @@ void FDeadlineCloudEnvironmentParametersMapCustomization::CustomizeHeader(TShare
 	if (IsValid(OuterEnvironment))
 	{
         const FResetToDefaultOverride ResetDefaultOverride = FResetToDefaultOverride::Create(
-			FIsResetToDefaultVisible::CreateSPLambda(this, [this, OuterEnvironment](TSharedPtr<IPropertyHandle> PropertyHandle)->bool 
-                { 
-                    if (!PropertyHandle.IsValid())
-                    {
-                        return false;
-                    }
-
-					if (!IsValid(OuterEnvironment))
-					{
-                        return false;
-					}
-
-                    return !OuterEnvironment->IsDefaultVariables(); 
-                }),
-            FResetToDefaultHandler::CreateSPLambda(this, [this, OuterEnvironment](TSharedPtr<IPropertyHandle> PropertyHandle) 
-                {
-                    if (!PropertyHandle.IsValid())
-                    {
-                        return;
-                    }
-
-					if (!IsValid(OuterEnvironment))
-					{
-                        return;
-					}
-
-					OuterEnvironment->ResetVariables();
-                })
+			FIsResetToDefaultVisible::CreateSP(this, &FDeadlineCloudEnvironmentParametersMapCustomization::IsResetToDefaultVisible),
+            FResetToDefaultHandler::CreateSP(this, &FDeadlineCloudEnvironmentParametersMapCustomization::ResetToDefaultHandler)
         );
 		InHeaderRow.OverrideResetToDefault(ResetDefaultOverride);
 	}
