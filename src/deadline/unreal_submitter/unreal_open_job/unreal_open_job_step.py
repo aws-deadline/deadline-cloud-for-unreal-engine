@@ -336,7 +336,7 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         if task_chunk_size_param is None:
             raise ValueError('Render Step\'s parameter "TaskChunkSize " must be provided')
 
-        if len(task_chunk_size_param.range) == 0 or int(task_chunk_size_param.range[0]) == 0:
+        if len(task_chunk_size_param.range) == 0 or int(task_chunk_size_param.range[0]) <= 0:
             task_chunk_size = 1  # by default 1 chunk consist of 1 shot
         else:
             task_chunk_size = int(task_chunk_size_param.range[0])
@@ -364,7 +364,7 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
             OpenJobStepParameterNames.LEVEL_SEQUENCE_PATH,
             OpenJobStepParameterNames.LEVEL_PATH,
             OpenJobStepParameterNames.MRQ_JOB_CONFIGURATION_PATH
-        }.issubset(set(param_names)):
+        }.issubset(set(parameter_names)):
             return RenderUnrealOpenJobStep.RenderArgsType.RENDER_DATA
 
         raise ValueError(
