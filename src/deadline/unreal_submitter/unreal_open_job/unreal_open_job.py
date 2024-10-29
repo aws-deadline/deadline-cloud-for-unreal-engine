@@ -399,15 +399,22 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
     def _write_cmd_args_to_file(self, cmd_args_str: str) -> str:
 
-        cmd_args_file = unreal.Paths.create_temp_filename(
+        destination_dir = os.path.join(
             unreal.SystemLibrary.get_project_saved_directory(),
+            "UnrealDeadlineCloudService",
+            "ExtraCmdArgs",
+        )
+        os.makedirs(destination_dir, exist_ok=True)
+
+        cmd_args_file = unreal.Paths.create_temp_filename(
+            destination_dir,
             prefix='ExtraCmdArgs',
             extension='.txt'
         )
 
-        with open(cmd_args_file, 'w') as manifest:
+        with open(cmd_args_file, 'w') as f:
             unreal.log(f"Saving ExtraCmdArgs file `{cmd_args_file}`")
-            manifest.write(cmd_args_str)
+            f.write(cmd_args_str)
 
         self._extra_cmd_args_file_path = unreal.Paths.convert_relative_path_to_full(cmd_args_file)
         return self._extra_cmd_args_file_path
@@ -645,7 +652,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         movie_render_pipeline_dir = os.path.join(
             unreal.SystemLibrary.get_project_saved_directory(),
-            "MovieRenderPipeline",
+            "UnrealDeadlineCloudService",
             "RenderJobManifests",
         )
         os.makedirs(movie_render_pipeline_dir, exist_ok=True)

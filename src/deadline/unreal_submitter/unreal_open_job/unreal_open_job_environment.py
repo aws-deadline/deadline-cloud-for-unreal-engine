@@ -76,10 +76,11 @@ class UnrealOpenJobUgsEnvironment(UnrealOpenJobEnvironment):
         client_root = perforce.get_client_root()
         unreal_project_path = common.get_project_file_path().replace('\\', '/')
 
-        unreal_project_relative_path = unreal_project_path.replace(client_root, '')
+        unreal_project_relative_path = unreal_project_path.replace(client_root, '').lstrip('/')
 
         unreal_executable_path = sys.executable.replace('\\', '/')
-        unreal_executable_relative_path = unreal_executable_path.replace(client_root, '')
+        unreal_executable_relative_path = unreal_executable_path.replace(client_root, '').lstrip('/')
+        unreal_executable_relative_path = unreal_executable_relative_path
 
         return [
             {'name': OpenJobParameterNames.PERFORCE_STREAM_PATH, 'value': perforce.get_stream_path()},

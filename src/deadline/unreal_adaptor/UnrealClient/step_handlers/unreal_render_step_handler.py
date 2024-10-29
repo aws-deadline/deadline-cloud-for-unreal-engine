@@ -1,5 +1,6 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
+import os
 import re
 from pathlib import Path
 
@@ -165,7 +166,7 @@ class UnrealRenderStepHandler(BaseStepHandler):
 
             movie_render_pipeline_dir = os.path.join(
                 unreal.SystemLibrary.get_project_saved_directory(),
-                "MovieRenderPipeline",
+                "UnrealDeadlineCloudService",
                 "RenderJobManifests",
             )
             os.makedirs(movie_render_pipeline_dir, exist_ok=True)
