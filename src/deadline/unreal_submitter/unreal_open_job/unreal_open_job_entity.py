@@ -183,5 +183,5 @@ class OpenJobStepParameterNames:
     MRQ_JOB_CONFIGURATION_PATH = 'MrqJobConfigurationPath'
 
     ADAPTOR_HANDLER = 'Handler'
-    TASK_CHUNK_SIZE = 'TaskChunkSize'
-    TASK_CHUNK_ID = 'TaskChunkId'
+    TASK_CHUNK_SIZE = 'ChunkSize'
+    TASK_CHUNK_ID = 'ChunkId'
