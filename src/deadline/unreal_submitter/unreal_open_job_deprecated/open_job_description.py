@@ -465,7 +465,8 @@ class OpenJobDescription:
         # We remove the execcmds because, in some cases, users may execute a script that is local to their editor build
         # for some automated workflow but this is not ideal on the farm.
         # We will expect all custom startup commands for rendering to go through the `Start Command` in the MRQ settings
-        inherited_cmds = re.sub(pattern=".*(?P<cmds>-execcmds=[\s\S]+[\'\"])", repl="", string=inherited_cmds)
+        inherited_cmds = re.sub(pattern='(-execcmds=".*?")', repl="", string=inherited_cmds)
+        inherited_cmds = re.sub(pattern="(-execcmds='.*?')", repl="", string=inherited_cmds)
         cmd_args.extend(inherited_cmds.split(' '))
 
         # Append all of additional command line arguments from the editor
