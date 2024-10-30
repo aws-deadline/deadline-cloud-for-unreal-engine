@@ -465,8 +465,8 @@ class OpenJobDescription:
         # We remove the execcmds because, in some cases, users may execute a script that is local to their editor build
         # for some automated workflow but this is not ideal on the farm.
         # We will expect all custom startup commands for rendering to go through the `Start Command` in the MRQ settings
-        inherited_cmds = re.sub(pattern='(-execcmds=".*?")', repl="", string=inherited_cmds)
-        inherited_cmds = re.sub(pattern="(-execcmds='.*?')", repl="", string=inherited_cmds)
+        inherited_cmds = re.sub(pattern='(-execcmds="[^"]*")', repl="", string=inherited_cmds)
+        inherited_cmds = re.sub(pattern="(-execcmds='[^']*')", repl="", string=inherited_cmds)
         cmd_args.extend(inherited_cmds.split(' '))
 
         # Append all of additional command line arguments from the editor
@@ -493,22 +493,16 @@ class OpenJobDescription:
                 out_device_profile_cvars=job_device_profile_cvars,
                 out_exec_cmds=job_exec_cmds,
             )
-            # TODO is that necessary?
-            # Set the game override
-            # if setting.get_class() == unreal.MoviePipelineGameOverrideSetting.static_class():
-            #     game_override_class = setting.game_mode_override
 
         # Apply job cmd arguments
         cmd_args.extend(job_cmd_args)
 
         if job_device_profile_cvars:
-            # -dpcvars="arg0,arg1,..."
             cmd_args.append(
                 '-dpcvars="{}"'.format(",".join(job_device_profile_cvars))
             )
 
         if job_exec_cmds:
-            # -execcmds="cmd0,cmd1,..."
             cmd_args.append(
                 '-execcmds="{}"'.format(",".join(job_exec_cmds))
             )
@@ -519,5 +513,8 @@ class OpenJobDescription:
 
         # remove duplicates
         cmd_args = list(set(cmd_args))
+
+        # remove empty args
+        cmd_args = [a for a in cmd_args if a != '']
 
         return cmd_args
