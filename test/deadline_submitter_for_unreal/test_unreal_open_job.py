@@ -99,7 +99,54 @@ class TestUnrealOpenJob(unittest.TestCase):
         self.assertIn('Data Asset\'s parameters missed in YAML', consistency_check_result.reason)
 
 
+class TestRenderUnrealOpenJob(unittest.TestCase):
+
+    def test_update_job_parameter_values_existed(self):
+        parameters = [
+            dict(name='ParamInt', value=1, new_value=2),
+            dict(name='ParamFloat', value=1.0, new_value=2.0),
+            dict(name='ParamString', value='foo', new_value='bar'),
+            dict(name='ParamPath', value='path/to/file', new_value='path/to/new/file'),
+        ]
+
+        job_parameter_values = [dict(name=p['name'], value=p['value']) for p in parameters]
+        param_names_before_update = [p['name'] for p in job_parameter_values]
+
+        for p in parameters:
+            job_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+                job_parameter_values=job_parameter_values,
+                job_parameter_name=p['name'],
+                job_parameter_value=p['new_value']
+            )
+
+        self.assertEqual([p['name'] for p in job_parameter_values], param_names_before_update)
+        self.assertEqual([p['value'] for p in job_parameter_values], [p['new_value'] for p in parameters])
+
+    def test_update_job_parameter_values_new(self):
+        job_parameter_values = [dict(name='ParamExisted', value=1)]
+        job_parameters_count_before_update = len(job_parameter_values)
+
+        job_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+            job_parameter_values=job_parameter_values,
+            job_parameter_name='ParamNew',
+            job_parameter_value='foo',
+            create_if_not_exists=True
+        )
+        self.assertEqual(job_parameters_count_before_update + 1, len(job_parameter_values))
+
+    def test_update_job_parameter_values_not_existed(self):
+        job_parameter_values = [dict(name='ParamExisted', value=1)]
+        job_parameters_count_before_update = len(job_parameter_values)
+
+        job_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+            job_parameter_values=job_parameter_values,
+            job_parameter_name='ParamNotExisted',
+            job_parameter_value='foo'
+        )
+        self.assertEqual(job_parameters_count_before_update, len(job_parameter_values))
+
+
 if __name__ == '__main__':
-    for case in [TestUnrealOpenJob]:
+    for case in [TestUnrealOpenJob, TestRenderUnrealOpenJob]:
         suite = unittest.TestLoader().loadTestsFromTestCase(case)
         result = unittest.TextTestRunner(stream=sys.stdout, buffer=True).run(suite)

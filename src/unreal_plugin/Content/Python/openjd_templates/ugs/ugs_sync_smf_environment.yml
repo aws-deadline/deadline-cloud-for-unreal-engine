@@ -6,12 +6,12 @@ script:
     type: TEXT
     data: |
       ugs switch {{Param.PerforceStreamPath}}
-      ugs init {{Param.PerforceStreamPath}} -client=%USERNAME%_%COMPUTERNAME%_{{Param.UnrealProjectName}} -project={{Param.UnrealProjectRelativePath}}
+      ugs init {{Param.PerforceStreamPath}} -client=%USERNAME%_%COMPUTERNAME%_{{Param.ProjectName}} -project={{Param.ProjectRelativePath}}
       set "WorkspaceFolderName={{Param.PerforceStreamPath}}"
       set "WorkspaceFolderName=%WorkspaceFolderName:/=+%"
       cd /d %WorkspaceFolderName%
-      ugs sync change={{Param.PerforceChangelistNumber}} -binaries -nogpf
-      setx P4_CLIENT_DIRECTORY %CD%\%WorkspaceFolderName%
+      ugs sync {{Param.PerforceChangelistNumber}} -binaries -nogpf
+      setx P4_CLIENT_DIRECTORY %CD%
   actions:
     onEnter:
       command: '{{Env.File.UgsSync}}'

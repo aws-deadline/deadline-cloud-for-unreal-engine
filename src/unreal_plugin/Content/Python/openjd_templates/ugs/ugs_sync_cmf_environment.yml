@@ -13,8 +13,8 @@ script:
       set "WorkspaceFolderName={{Param.PerforceStreamPath}}"
       set "WorkspaceFolderName=%WorkspaceFolderName:/=+%"
       cd /d %P4_CLIENTS_ROOT_DIRECTORY%\%WorkspaceFolderName%
-      ugs sync change={{Param.PerforceChangelistNumber}} -binaries -nogpf
-      setx P4_CLIENT_DIRECTORY %P4_CLIENTS_ROOT_DIRECTORY%\%WorkspaceFolderName%
+      ugs sync {{Param.PerforceChangelistNumber}} -binaries -nogpf
+      setx P4_CLIENT_DIRECTORY %CD%
   actions:
     onEnter:
       command: '{{Env.File.UgsSync}}'

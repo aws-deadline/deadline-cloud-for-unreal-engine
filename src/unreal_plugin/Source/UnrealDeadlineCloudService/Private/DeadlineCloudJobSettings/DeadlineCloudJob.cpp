@@ -60,7 +60,7 @@ TArray<FStepTaskParameterDefinition> UDeadlineCloudJob::GetTaskChunkSizeFromRend
         {
             for (auto parameter : StepAsset->TaskParameterDefinitions.Parameters)
             {
-                if (parameter.Name == "TaskChunkSize")
+                if (parameter.Name == "ChunkSize")
                 {
                     result.Add(parameter);
 

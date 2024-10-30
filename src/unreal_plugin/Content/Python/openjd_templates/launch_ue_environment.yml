@@ -7,13 +7,10 @@ script:
       filename: init-data.yaml
       type: TEXT
       data: |
+        executable: {{Param.Executable}}
         project_path: {{Param.ProjectFilePath}}
         extra_cmd_args: {{Param.ExtraCmdArgs}}
-<<<<<<<< HEAD:src/unreal_plugin/Content/Python/openjd_templates/launch_ue_environment_template.yml
         extra_cmd_args_file: {{Param.ExtraCmdArgsFile}}
-========
-        executable: {{Param.Executable}}
->>>>>>>> d550574 (ugs sync wip):src/unreal_plugin/Content/Python/openjd_templates/launch_ue_environment.yml
   actions:
     onEnter:
       command: unreal-engine-openjd
