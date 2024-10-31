@@ -5,25 +5,32 @@ script:
     filename: UgsSync.bat
     type: TEXT
     data: |
+      :: Get or Create P4 workspace with UGS
       ugs switch {{Param.PerforceStreamPath}}
       ugs init {{Param.PerforceStreamPath}} -client=%USERNAME%_%COMPUTERNAME%_{{Param.ProjectName}} -project={{Param.ProjectRelativePath}}
+      
+      :: Find workspace root folder named as Stream path with "/" replaced by "+" (UGS CLI does it by default)
       set "WorkspaceFolderName={{Param.PerforceStreamPath}}"
       set "WorkspaceFolderName=%WorkspaceFolderName:/=+%"
+      
+      :: Go to this directory
+      :: Sync given changes without generating project files
+      :: Store this path to Env variable for future using while launching the Unreal Editor and Project within
       cd /d %WorkspaceFolderName%
-      ugs sync {{Param.PerforceChangelistNumber}} -binaries -nogpf
+      ugs sync {{Param.PerforceChangelistNumber}} -nogpf
       setx P4_CLIENT_DIRECTORY %CD%
+  - name: RemovePerforceWorkspace
+    filename: RemovePerforceWorkspace.bat
+    type: TEXT
+    data: |
+      p4 sync -f %P4_CLIENT_DIRECTORY%/...#0
+      p4 client -d -f %USERNAME%_%COMPUTERNAME%_{{Param.ProjectName}}
   actions:
     onEnter:
       command: '{{Env.File.UgsSync}}'
       cancelation:
         mode: NOTIFY_THEN_TERMINATE
-# TODO what the ugs variant for p4 sync /...#0
-#    onExit:
-#      command: unreal-engine-openjd
-#      args:
-#      - daemon
-#      - stop
-#      - --connection-file
-#      - '{{Session.WorkingDirectory}}/connection.json'
-#      cancelation:
-#        mode: NOTIFY_THEN_TERMINATE
+    onExit:
+      command: '{{Env.File.RemovePerforceWorkspace}}'
+      cancelation:
+        mode: NOTIFY_THEN_TERMINATE
