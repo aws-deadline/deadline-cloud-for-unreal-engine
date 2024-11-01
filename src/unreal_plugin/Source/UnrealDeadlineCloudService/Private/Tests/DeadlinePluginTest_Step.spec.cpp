@@ -27,7 +27,7 @@ UDeadlineCloudStep* CreatedStepDataAsset;
 FParametersConsistencyCheckResult result;
 
 FString PathToStepTemplate;
-FString DefaultTemplate = "/Content/Python/openjd_templates/render_step_template.yml";
+FString DefaultTemplate = "/Source/UnrealDeadlineCloudService/Private/Tests/openjd_templates/render_step.yml";
 FString ChangedTemplate = "/Test/";
 
 END_DEFINE_SPEC(FDeadlinePluginStepSpec);
@@ -172,6 +172,7 @@ void FDeadlinePluginStepSpec::Define()
 
             It("Fix DeadlineCloudStep consistency", [this]()
                 {
+                    if (CreatedStepDataAsset){
                     TArray<FStepTaskParameterDefinition> EmptyArray;
                     CreatedStepDataAsset->SetStepParameters(EmptyArray);
                     result = CreatedStepDataAsset->CheckStepParametersConsistency(CreatedStepDataAsset);
@@ -187,6 +188,12 @@ void FDeadlinePluginStepSpec::Define()
                     else
                     {
                         TestFalse(result.Reason, (result.Passed == false));
+                    }
+
+                    }
+                    else
+                    {
+                        TestFalse("Error creating asset", !(CreatedStepDataAsset != nullptr));
                     }
                 });
         });
