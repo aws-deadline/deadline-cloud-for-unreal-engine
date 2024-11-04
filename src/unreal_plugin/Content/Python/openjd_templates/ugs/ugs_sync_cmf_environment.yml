@@ -8,7 +8,9 @@ script:
     type: TEXT
     data: |
       :: Go to the directory where all workspaces live
-      cd /d %P4_CLIENTS_ROOT_DIRECTORY%
+      set "WorkspaceDir=%P4_CLIENTS_ROOT_DIRECTORY%\%USERNAME%_%COMPUTERNAME%_{{Param.ProjectName}}"
+      mkdir %WorkspaceDir%
+      cd /d %WorkspaceDir%
       
       :: Get or Create P4 workspace with UGS
       ugs switch {{Param.PerforceStreamPath}}
@@ -19,13 +21,42 @@ script:
       set "WorkspaceFolderName=%WorkspaceFolderName:/=+%"
       
       :: Go to this directory
-      :: Sync given changes without generating project files
-      :: Store this path to Env variable for future using while launching the Unreal Editor and Project within
       cd /d %P4_CLIENTS_ROOT_DIRECTORY%\%WorkspaceFolderName%
-      ugs sync {{Param.PerforceChangelistNumber}} -nogpf
+      
+      @echo off
+      :: Sync given changes without generating project files and redirect output to the file
+      ugs sync {{Param.PerforceChangelistNumber}} -nogpf > output.log 2>&1
+      
+      :: Search the output for the error string
+      findstr /i "Aborted sync due to errors" output.log >nul
+      :: findstr set errorlevel to 0 if string was found
+      set error_found=%errorlevel%
+      
+      :: Print output to stdout and delete file
+      type output.log
+      del output.log
+      
+      :: If string was found, exiting
+      if %error_found% equ 0 (
+          echo Error detected while syncing the changes. Exiting...
+          exit /b 1
+      )
+      echo Sync completed successfuly
+      
+      :: Store this path to Env variable for future using while launching the Unreal Editor and Project within
       setx P4_CLIENT_DIRECTORY %CD%
+  - name: RemovePerforceWorkspace
+    filename: RemovePerforceWorkspace.bat
+    type: TEXT
+    data: |
+      :: Remove env variable
+      setx P4_CLIENT_DIRECTORY ""
   actions:
     onEnter:
       command: '{{Env.File.UgsSync}}'
+      cancelation:
+        mode: NOTIFY_THEN_TERMINATE
+    onExit:
+      command: '{{Env.File.RemovePerforceWorkspace}}'
       cancelation:
         mode: NOTIFY_THEN_TERMINATE

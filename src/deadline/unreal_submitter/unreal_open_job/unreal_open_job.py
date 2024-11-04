@@ -522,10 +522,8 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         extra_cmd_args = next((str(p.value) for p in self._extra_parameters if p.name == 'ExtraCmdArgs'), None)
         if extra_cmd_args:
-            cleared_extra_cmds_args = re.sub(
-                pattern=".*(?P<cmds>-execcmds=[\s\S]+[\'\"])",
-                repl="", string=extra_cmd_args
-            )
+            cleared_extra_cmds_args = re.sub(pattern='(-execcmds="[^"]*")', repl='', string=extra_cmd_args)
+            cleared_extra_cmds_args = re.sub(pattern="(-execcmds='[^']*')", repl='', string=cleared_extra_cmds_args)
             if cleared_extra_cmds_args:
                 cmd_args.extend(cleared_extra_cmds_args.split(' '))
 

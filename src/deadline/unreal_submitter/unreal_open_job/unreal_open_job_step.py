@@ -6,6 +6,7 @@ from typing import Any, Literal, Optional
 from openjd.model.v2023_09 import *
 from openjd.model.v2023_09._model import StepDependency
 
+from deadline.unreal_submitter import common
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import (
     UnrealOpenJobEntity,
     OpenJobStepParameterNames,
@@ -354,7 +355,7 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         existed_parameter = self._find_extra_parameter_by_name(extra_parameter.name)
         if existed_parameter:
             self._extra_parameters.remove(existed_parameter)
-        self._extra_parameters.append(extra_parameter)
+            self._extra_parameters.append(extra_parameter)
 
     def _get_render_arguments_type(self) -> Optional['RenderUnrealOpenJobStep.RenderArgsType']:
         parameter_names = [p.name for p in self._extra_parameters]
@@ -393,6 +394,16 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
             OpenJobStepParameterNames.ADAPTOR_HANDLER, 'STRING', ['render']
         )
         self._update_extra_parameter(handler_param_definition)
+
+        output_setting = self._mrq_job.get_configuration().find_setting_by_class(unreal.MoviePipelineOutputSetting)
+        output_path = output_setting.output_directory.path
+        path_context = common.get_path_context_from_mrq_job(self._mrq_job)
+        output_path = output_path.format_map(path_context).rstrip("/")
+
+        output_param_definition = RenderUnrealOpenJobStep.build_u_step_task_parameter(
+            OpenJobStepParameterNames.OUTPUT_PATH, 'PATH', [output_path]
+        )
+        self._update_extra_parameter(output_param_definition)
 
         if self._render_args_type == RenderUnrealOpenJobStep.RenderArgsType.QUEUE_MANIFEST_PATH:
             manifest_param_definition = RenderUnrealOpenJobStep.build_u_step_task_parameter(

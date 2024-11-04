@@ -287,6 +287,13 @@ class UnrealRenderStepHandler(BaseStepHandler):
                     task_chunk_id=args['chunk_id']
                 )
 
+        if args.get('output_path') and os.path.exists(args['output_path']):
+            new_output_dir = unreal.DirectoryPath()
+            new_output_dir.set_editor_property('path', args['output_path'].replace('\\', '/'))
+
+            output_setting = job.get_configuration().find_setting_by_class(unreal.MoviePipelineOutputSetting)
+            output_setting.output_directory = new_output_dir
+
         # Initialize Render executor
         executor = RemoteRenderMoviePipelineEditorExecutor()
 

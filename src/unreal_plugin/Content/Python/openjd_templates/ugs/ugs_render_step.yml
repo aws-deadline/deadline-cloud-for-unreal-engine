@@ -13,6 +13,9 @@ parameterSpace:
   - name: ChunkId
     type: INT
     range: []
+  - name: OutputPath
+    type: PATH
+    range: []
 script:
   embeddedFiles:
   - name: runData
@@ -23,6 +26,7 @@ script:
       queue_manifest_path: {{Task.Param.QueueManifestPath}}
       chunk_size: {{Task.Param.ChunkSize}}
       chunk_id: {{Task.Param.ChunkId}}
+      output_path: {{Task.Param.OutputPath}}
   actions:
     onRun:
       command: unreal-engine-openjd

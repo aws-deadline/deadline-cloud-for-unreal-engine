@@ -181,6 +181,7 @@ class OpenJobStepParameterNames:
     LEVEL_SEQUENCE_PATH = 'LevelSequencePath'
     LEVEL_PATH = 'LevelPath'
     MRQ_JOB_CONFIGURATION_PATH = 'MrqJobConfigurationPath'
+    OUTPUT_PATH = 'OutputPath'
 
     ADAPTOR_HANDLER = 'Handler'
     TASK_CHUNK_SIZE = 'ChunkSize'
