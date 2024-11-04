@@ -387,7 +387,7 @@ void FDeadlineCloudStepParametersArrayBuilder::OnGenerateEntry(TSharedRef<IPrope
 
     PropertyRow.IsEnabled(TAttribute<bool>::CreateLambda([this, ParameterName]() -> bool
         {
-            //todo: only if MRQ
+            //hide|show properties only if MRQ
 
             if (OnIsEnabled.IsBound())
                 return OnIsEnabled.Execute();

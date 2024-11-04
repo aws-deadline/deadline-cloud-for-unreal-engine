@@ -37,7 +37,8 @@ public:
     FUIAction EmptyCopyPasteAction;
     FOnIsEnabled OnIsEnabled;
 
-    UMoviePipelineDeadlineCloudExecutorJob* MrqJob = nullptr;
+    TObjectPtr<UMoviePipelineDeadlineCloudExecutorJob> MrqJob;
+
     static UMoviePipelineDeadlineCloudExecutorJob* GetMrqJob(TSharedRef<IPropertyHandle> Handle);
     bool IsPropertyEditable(FName PropertyName) 
     {
@@ -102,8 +103,6 @@ public:
 
     FUIAction EmptyCopyPasteAction;
     FOnIsEnabled OnIsEnabled;
-  //  UMoviePipelineDeadlineCloudExecutorJob* MrqJob = nullptr;
-  //  static UMoviePipelineDeadlineCloudExecutorJob* GetMrqJob(TSharedRef<IPropertyHandle> Handle);
 
 private:
     void OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const;
