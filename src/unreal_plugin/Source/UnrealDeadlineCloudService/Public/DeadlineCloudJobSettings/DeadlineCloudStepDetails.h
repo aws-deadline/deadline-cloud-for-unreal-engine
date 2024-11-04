@@ -10,123 +10,135 @@
 #include "IPropertyTypeCustomization.h"
 
 class UDeadlineCloudStep;
+class UMoviePipelineDeadlineCloudExecutorJob;
 
 class FDeadlineCloudStepParametersArrayBuilder
-	: public FDetailArrayBuilder
-	, public TSharedFromThis<FDeadlineCloudStepParametersArrayBuilder>
+    : public FDetailArrayBuilder
+    , public TSharedFromThis<FDeadlineCloudStepParametersArrayBuilder>
 {
 public:
 
-	static TSharedRef<FDeadlineCloudStepParametersArrayBuilder> MakeInstance(
-		TSharedRef<IPropertyHandle> InPropertyHandle);
+    static TSharedRef<FDeadlineCloudStepParametersArrayBuilder> MakeInstance(
+        TSharedRef<IPropertyHandle> InPropertyHandle);
 
-	FDeadlineCloudStepParametersArrayBuilder(
-		TSharedRef<IPropertyHandle> InPropertyHandle);
-	
-	virtual void GenerateHeaderRowContent(FDetailWidgetRow& NodeRow) override;
+    FDeadlineCloudStepParametersArrayBuilder(
+        TSharedRef<IPropertyHandle> InPropertyHandle);
 
-	void GenerateWrapperStructHeaderRowContent(FDetailWidgetRow& NodeRow, TSharedRef<SWidget> NameContent);
+    virtual void GenerateHeaderRowContent(FDetailWidgetRow& NodeRow) override;
 
-	bool IsResetToDefaultVisible(TSharedPtr<IPropertyHandle> PropertyHandle, FString InParameterName) const;
+    void GenerateWrapperStructHeaderRowContent(FDetailWidgetRow& NodeRow, TSharedRef<SWidget> NameContent);
 
-	void ResetToDefaultHandler(TSharedPtr<IPropertyHandle> PropertyHandle, FString InParameterName) const;
+    bool IsResetToDefaultVisible(TSharedPtr<IPropertyHandle> PropertyHandle, FString InParameterName) const;
 
-	static UDeadlineCloudStep* GetOuterStep(TSharedRef<IPropertyHandle> Handle);
+    void ResetToDefaultHandler(TSharedPtr<IPropertyHandle> PropertyHandle, FString InParameterName) const;
 
-	FUIAction EmptyCopyPasteAction;
-	FOnIsEnabled OnIsEnabled;
+    static UDeadlineCloudStep* GetOuterStep(TSharedRef<IPropertyHandle> Handle);
+
+    FUIAction EmptyCopyPasteAction;
+    FOnIsEnabled OnIsEnabled;
+
+    UMoviePipelineDeadlineCloudExecutorJob* MrqJob = nullptr;
+    static UMoviePipelineDeadlineCloudExecutorJob* GetMrqJob(TSharedRef<IPropertyHandle> Handle);
+    bool IsPropertyEditable(FName PropertyName) 
+    {
+        return PropertiesToShow.Contains(PropertyName);
+    }
 
 private:
-	void OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const;
+    void OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const;
 
-
-	TSharedPtr<IPropertyHandleArray> ArrayProperty;
+    // We set these properties to non-editable in MRQ widget
+    TArray<FName> PropertiesToShow = { "ChunkSize" };
+    TSharedPtr<IPropertyHandleArray> ArrayProperty;
 };
 
 class FDeadlineCloudStepParametersArrayCustomization : public IPropertyTypeCustomization
 {
 public:
 
-	static TSharedRef<IPropertyTypeCustomization> MakeInstance()
-	{
-		return MakeShared<FDeadlineCloudStepParametersArrayCustomization>();
-	}
+    static TSharedRef<IPropertyTypeCustomization> MakeInstance()
+    {
+        return MakeShared<FDeadlineCloudStepParametersArrayCustomization>();
+    }
 
 
-	bool IsEnabled(TSharedRef<IPropertyHandle> InPropertyHandle) const;
+    bool IsEnabled(TSharedRef<IPropertyHandle> InPropertyHandle) const;
 
-	FDeadlineCloudStepParametersArrayCustomization() {}
-	
-	/** Begin IPropertyTypeCustomization interface */
-	virtual void CustomizeHeader(
-		TSharedRef<IPropertyHandle> InPropertyHandle,
-		FDetailWidgetRow& InHeaderRow,
-		IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
+    FDeadlineCloudStepParametersArrayCustomization() {}
 
-	virtual void CustomizeChildren(
-		TSharedRef<IPropertyHandle> InPropertyHandle,
-		IDetailChildrenBuilder& InChildBuilder,
-		IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
-	/** End IPropertyTypeCustomization interface */
-	
+    /** Begin IPropertyTypeCustomization interface */
+    virtual void CustomizeHeader(
+        TSharedRef<IPropertyHandle> InPropertyHandle,
+        FDetailWidgetRow& InHeaderRow,
+        IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
+
+    virtual void CustomizeChildren(
+        TSharedRef<IPropertyHandle> InPropertyHandle,
+        IDetailChildrenBuilder& InChildBuilder,
+        IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
+    /** End IPropertyTypeCustomization interface */
+
 private:
 
-	TSharedPtr<FDeadlineCloudStepParametersArrayBuilder> ArrayBuilder;
+    TSharedPtr<FDeadlineCloudStepParametersArrayBuilder> ArrayBuilder;
 };
 
 class FDeadlineCloudStepParameterListBuilder
-	: public FDetailArrayBuilder
-	, public TSharedFromThis<FDeadlineCloudStepParameterListBuilder>
+    : public FDetailArrayBuilder
+    , public TSharedFromThis<FDeadlineCloudStepParameterListBuilder>
 {
 public:
 
-	static TSharedRef<FDeadlineCloudStepParameterListBuilder> MakeInstance(
-		TSharedRef<IPropertyHandle> InPropertyHandle, EValueType Type
-	);
+    static TSharedRef<FDeadlineCloudStepParameterListBuilder> MakeInstance(
+        TSharedRef<IPropertyHandle> InPropertyHandle, EValueType Type
+    );
 
-	FDeadlineCloudStepParameterListBuilder(
-		TSharedRef<IPropertyHandle> InPropertyHandle);
-	
-	virtual void GenerateHeaderRowContent(FDetailWidgetRow& NodeRow) override;
+    FDeadlineCloudStepParameterListBuilder(
+        TSharedRef<IPropertyHandle> InPropertyHandle);
 
-	void GenerateWrapperStructHeaderRowContent(FDetailWidgetRow& NodeRow, TSharedRef<SWidget> NameContent);
+    virtual void GenerateHeaderRowContent(FDetailWidgetRow& NodeRow) override;
 
-	FUIAction EmptyCopyPasteAction;
-	FOnIsEnabled OnIsEnabled;
+    void GenerateWrapperStructHeaderRowContent(FDetailWidgetRow& NodeRow, TSharedRef<SWidget> NameContent);
+
+    FUIAction EmptyCopyPasteAction;
+    FOnIsEnabled OnIsEnabled;
+  //  UMoviePipelineDeadlineCloudExecutorJob* MrqJob = nullptr;
+  //  static UMoviePipelineDeadlineCloudExecutorJob* GetMrqJob(TSharedRef<IPropertyHandle> Handle);
 
 private:
-	void OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const;
+    void OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const;
 
-	EValueType Type;
-	TSharedPtr<IPropertyHandleArray> ArrayProperty;
+    EValueType Type;
+    TSharedPtr<IPropertyHandleArray> ArrayProperty;
+
 };
 
 class FDeadlineCloudStepParameterListCustomization : public IPropertyTypeCustomization
 {
 public:
 
-	static TSharedRef<IPropertyTypeCustomization> MakeInstance()
-	{
-		return MakeShared<FDeadlineCloudStepParameterListCustomization>();
-	}
+    static TSharedRef<IPropertyTypeCustomization> MakeInstance()
+    {
+        return MakeShared<FDeadlineCloudStepParameterListCustomization>();
+    }
 
-	FDeadlineCloudStepParameterListCustomization() {}
-	
-	/** Begin IPropertyTypeCustomization interface */
-	virtual void CustomizeHeader(
-		TSharedRef<IPropertyHandle> InPropertyHandle,
-		FDetailWidgetRow& InHeaderRow,
-		IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
+    FDeadlineCloudStepParameterListCustomization() {}
 
-	virtual void CustomizeChildren(
-		TSharedRef<IPropertyHandle> InPropertyHandle,
-		IDetailChildrenBuilder& InChildBuilder,
-		IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
-	/** End IPropertyTypeCustomization interface */
-	
+    /** Begin IPropertyTypeCustomization interface */
+    virtual void CustomizeHeader(
+        TSharedRef<IPropertyHandle> InPropertyHandle,
+        FDetailWidgetRow& InHeaderRow,
+        IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
+
+    virtual void CustomizeChildren(
+        TSharedRef<IPropertyHandle> InPropertyHandle,
+        IDetailChildrenBuilder& InChildBuilder,
+        IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
+    /** End IPropertyTypeCustomization interface */
+
 private:
 
-	TSharedPtr<FDeadlineCloudStepParameterListBuilder> ArrayBuilder;
+    TSharedPtr<FDeadlineCloudStepParameterListBuilder> ArrayBuilder;
 };
 
 class FDeadlineCloudStepDetails : public IDetailCustomization
@@ -138,14 +150,14 @@ public:
     static TSharedRef<IDetailCustomization> MakeInstance();
     virtual  void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
 
+    void OnButtonClicked();
+    bool CheckConsistency(UDeadlineCloudStep* Step);
+    bool bCheckConsistensyPassed = true;
+    EVisibility GetWidgetVisibility() const { return (!bCheckConsistensyPassed) ? EVisibility::Visible : EVisibility::Collapsed; }
 
-	bool IsEnvironmentContainsErrors() const;
-	EVisibility GetEnvironmentErrorWidgetVisibility() const;
-	EVisibility GetEnvironmentDefaultWidgetVisibility() const;
-
-	bool IsEnvironmentContainsErrors() const;
-	EVisibility GetEnvironmentErrorWidgetVisibility() const;
-	EVisibility GetEnvironmentDefaultWidgetVisibility() const;
+    bool IsEnvironmentContainsErrors() const;
+    EVisibility GetEnvironmentErrorWidgetVisibility() const;
+    EVisibility GetEnvironmentDefaultWidgetVisibility() const;
 
 private:
     TSharedRef<SWidget> GenerateStringsArrayContent(const TArray<FString>& StringArray);

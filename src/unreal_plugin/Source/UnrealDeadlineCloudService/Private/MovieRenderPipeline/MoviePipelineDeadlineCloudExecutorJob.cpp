@@ -1,11 +1,11 @@
 ﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
-
 #include "MovieRenderPipeline/MoviePipelineDeadlineCloudExecutorJob.h"
 #include "DetailCategoryBuilder.h"
 #include "DetailLayoutBuilder.h"
 #include "Async/Async.h"
 #include "PythonAPILibraries/DeadlineCloudJobBundleLibrary.h"
+
 
 UMoviePipelineDeadlineCloudExecutorJob::UMoviePipelineDeadlineCloudExecutorJob()
 {
@@ -117,6 +117,22 @@ FDeadlineCloudJobPresetStruct UMoviePipelineDeadlineCloudExecutorJob::GetDeadlin
 	return ReturnValue;
 }
 
+
+FDeadlineCloudJobParametersArray UMoviePipelineDeadlineCloudExecutorJob::GetParameterDefinitionWithOverrides() const
+{
+	// Start with preset properties
+	FDeadlineCloudJobParametersArray ReturnValue = JobPreset->ParameterDefinition;
+	GetPresetStructWithOverrides(
+		FDeadlineCloudJobParametersArray::StaticStruct(),
+		&ParameterDefinitionOverrides.Parameters,
+		&ReturnValue.Parameters
+	);
+
+	return ReturnValue;
+
+}
+
+
 void UMoviePipelineDeadlineCloudExecutorJob::UpdateAttachmentFields()
 {
 	if (PresetOverrides.JobAttachments.InputFiles.bShowAutoDetected)
@@ -134,9 +150,10 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyCha
 	// Check if we changed the job Preset an update the override details
 	if (const FName PropertyName = PropertyChangedEvent.GetPropertyName(); PropertyName == "JobPreset")
 	{
-		if (const UDeadlineCloudJobPreset* SelectedJobPreset = this->JobPreset)
+
+		if (const UDeadlineCloudJob* SelectedJobPreset = this->JobPreset)
 		{
-			// this->PresetOverrides = SelectedJobPreset->JobPresetStruct;
+
 			this->PresetOverrides.HostRequirements = SelectedJobPreset->JobPresetStruct.HostRequirements;
 			this->PresetOverrides.JobSharedSettings = SelectedJobPreset->JobPresetStruct.JobSharedSettings;
 
@@ -149,6 +166,16 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyCha
 			this->PresetOverrides.JobAttachments.OutputDirectories.Directories =
 				SelectedJobPreset->JobPresetStruct.JobAttachments.OutputDirectories.Directories;
 
+			this->ParameterDefinitionOverrides.Parameters =
+				SelectedJobPreset->ParameterDefinition.Parameters;
+
+			//Overrides from all of the steps
+
+			const TArray<UDeadlineCloudStep*> SelectedJobSteps = SelectedJobPreset->Steps;
+			for (auto step : SelectedJobSteps)
+			{
+				this->StepsParameterOverrides.Add(step->TaskParameterDefinitions);
+			}
 		}
 		// UpdateAttachmentFields();
 	}

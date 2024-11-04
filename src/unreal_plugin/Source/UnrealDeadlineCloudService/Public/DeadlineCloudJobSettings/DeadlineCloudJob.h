@@ -301,6 +301,8 @@ public:
 
 	TArray<FStepTaskParameterDefinition> GetTaskChunkSizeFromRenderStep() const;
 
+	TArray<FStepTaskParameterDefinition> GetAllStepParameters() const;
+
 public:
 
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override

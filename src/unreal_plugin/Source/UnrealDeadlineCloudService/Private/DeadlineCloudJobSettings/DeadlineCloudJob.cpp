@@ -73,6 +73,21 @@ TArray<FStepTaskParameterDefinition> UDeadlineCloudJob::GetTaskChunkSizeFromRend
     return result;
 }
 
+TArray<FStepTaskParameterDefinition> UDeadlineCloudJob::GetAllStepParameters() const
+{
+    TArray<FStepTaskParameterDefinition> result;
+    UDeadlineCloudStep* StepAsset;    
+    StepAsset = Steps.IsValidIndex(0) ? Steps[0] : nullptr;
+      
+        if (StepAsset)
+        {
+            result = StepAsset->GetStepParameters();
+        }
+
+    
+    return result;
+}
+
 
 FParametersConsistencyCheckResult UDeadlineCloudJob::CheckJobParametersConsistency(UDeadlineCloudJob* Job)
 {
