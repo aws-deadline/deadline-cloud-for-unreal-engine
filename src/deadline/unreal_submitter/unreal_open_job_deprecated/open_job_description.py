@@ -162,6 +162,30 @@ class OpenJobDescription:
         """
         return self._job_bundle_path
 
+    @staticmethod
+    def get_enabled_shot_names(mrq_job: unreal.MoviePipelineExecutorJob) -> list[str]:
+        """
+        Returns the list of enabled shot names in MRQ Job
+
+        :param mrq_job: unreal.MoviePipelineExecutorJob instance
+        :type mrq_job: unreal.MoviePipelineExecutorJob
+
+        :return: list of enabled shot
+        :rtype: list[str]
+        """
+
+        shots_to_render = []
+        for shot_index, shot in enumerate(mrq_job.shot_info):
+            if not shot.enabled:
+                unreal.log(
+                    f"Skipped submitting shot {shot_index} in {mrq_job.job_name} "
+                    f"to server due to being already disabled!"
+                )
+            else:
+                shots_to_render.append(shot.outer_name)
+
+        return shots_to_render
+
     def _create_open_job_from_mrq_job(
             self,
             mrq_job: unreal.MoviePipelineExecutorJob
@@ -386,15 +410,7 @@ class OpenJobDescription:
         preset_overrides: unreal.DeadlineCloudJobPresetStruct = mrq_job.preset_overrides
         unreal.log(f"Preset overrides: {preset_overrides}")
 
-        shots_to_render = []
-        for shot_index, shot in enumerate(mrq_job.shot_info):
-            if not shot.enabled:
-                unreal.log(
-                    f"Skipped submitting shot {shot_index} in {mrq_job.job_name} "
-                    f"to server due to being already disabled!"
-                )
-            else:
-                shots_to_render.append(shot.outer_name)
+        shots_to_render = OpenJobDescription.get_enabled_shot_names(mrq_job)
 
         try:
             self._steps = JobStepFactory.create_steps(
