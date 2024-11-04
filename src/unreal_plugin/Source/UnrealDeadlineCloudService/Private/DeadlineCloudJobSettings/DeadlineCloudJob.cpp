@@ -50,41 +50,16 @@ void UDeadlineCloudJob::FixJobParametersConsistency(UDeadlineCloudJob* Job)
 }
 
 
-TArray<FStepTaskParameterDefinition> UDeadlineCloudJob::GetTaskChunkSizeFromRenderStep() const
-{
-    TArray<FStepTaskParameterDefinition> result;
-    UDeadlineCloudRenderStep* StepAsset;
-    for (auto step : Steps) {
-        StepAsset = Cast<UDeadlineCloudRenderStep>(step);
-        if (StepAsset)
-        {
-            for (auto parameter : StepAsset->TaskParameterDefinitions.Parameters)
-            {
-                if (parameter.Name == "ChunkSize")
-                {
-                    result.Add(parameter);
-
-                }
-            }
-            
-        }
-       
-    }
-    return result;
-}
-
 TArray<FStepTaskParameterDefinition> UDeadlineCloudJob::GetAllStepParameters() const
 {
     TArray<FStepTaskParameterDefinition> result;
-    UDeadlineCloudStep* StepAsset;    
+    UDeadlineCloudStep* StepAsset;
     StepAsset = Steps.IsValidIndex(0) ? Steps[0] : nullptr;
-      
-        if (StepAsset)
-        {
-            result = StepAsset->GetStepParameters();
-        }
 
-    
+    if (StepAsset)
+    {
+        result = StepAsset->GetStepParameters();
+    }
     return result;
 }
 

@@ -299,7 +299,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Parameters")
 	void FixJobParametersConsistency(UDeadlineCloudJob* Job);
 
-	TArray<FStepTaskParameterDefinition> GetTaskChunkSizeFromRenderStep() const;
+	//TArray<FStepTaskParameterDefinition> GetTaskChunkSizeFromRenderStep() const;
 
 	TArray<FStepTaskParameterDefinition> GetAllStepParameters() const;
 
