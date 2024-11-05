@@ -15,6 +15,24 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudStepParametersArray
 	TArray<FStepTaskParameterDefinition> Parameters;
 };
 
+USTRUCT(BlueprintType)
+struct  FDeadlineCloudStepOverride
+{
+	GENERATED_BODY()
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 1))
+	FString Name;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 3, GetOptions = "GetDependsList"))
+	TSet<FString> DependsOn;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 4))
+	TArray<FDeadlineCloudEnvironmentOverride> EnvironmentsToOverride;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 4))
+	FDeadlineCloudStepParametersArray TaskParameterDefinitions;
+};
+
 UCLASS(BlueprintType, Blueprintable)
 class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudStep : public UDataAsset
 {
@@ -44,6 +62,9 @@ public:
 
 	UFUNCTION()
 	TArray<FString> GetDependsList();
+
+	UFUNCTION()
+	FDeadlineCloudStepOverride GetStepDataToOverride();
 
 	bool IsParameterArrayDefault(FString ParameterName);
 	void ResetParameterArray(FString ParameterName);

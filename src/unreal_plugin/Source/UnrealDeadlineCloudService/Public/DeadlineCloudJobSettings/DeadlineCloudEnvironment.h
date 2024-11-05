@@ -13,6 +13,18 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudEnvironmentVariablesMap
 	TMap<FString, FString> Variables;
 };
 
+USTRUCT(BlueprintType)
+struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudEnvironmentOverride
+{
+	GENERATED_BODY()
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Parameters")
+	FString Name;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
+	FDeadlineCloudEnvironmentVariablesMap Variables;
+};
+
 UCLASS(BlueprintType, Blueprintable)
 class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudEnvironment : public UDataAsset
 {

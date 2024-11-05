@@ -93,10 +93,14 @@ public:
 	FDeadlineCloudJobParametersArray ParameterDefinitionOverrides = FDeadlineCloudJobParametersArray();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
-	TArray<FDeadlineCloudStepParametersArray> StepsParameterOverrides = TArray<FDeadlineCloudStepParametersArray>();
+	TArray<FDeadlineCloudStepOverride> StepsOverrides = TArray<FDeadlineCloudStepOverride>();
+
+	
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
 	TArray<FDeadlineCloudEnvironmentVariablesMap> EnvironmentsVariablesOverrides = TArray<FDeadlineCloudEnvironmentVariablesMap>();
+		//UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
+//	TArray<FEnvironmentStruct> EnvironmentsOverrides = TArray<FEnvironmentStruct>();
 	
 protected:
 
