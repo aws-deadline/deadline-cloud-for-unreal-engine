@@ -298,11 +298,9 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             environments: list = None,
             extra_parameters: list = None,
             job_shared_settings: unreal.DeadlineCloudJobSharedSettingsStruct = None,
-            mrq_job: unreal.MoviePipelineExecutorJob = None,
-            changelist_number: int = None,
+            mrq_job: unreal.MoviePipelineExecutorJob = None
     ):
         self._mrq_job = mrq_job
-        self._changelist_number = changelist_number
 
         self._dependency_collector = DependencyCollector()
 
@@ -377,8 +375,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             steps=steps,
             environments=environments,
             extra_parameters=data_asset.get_job_parameters(),
-            job_shared_settings=shared_settings,
-            changelist_number=None,  # TODO data_asset.changelist_number,
+            job_shared_settings=shared_settings
         )
 
     @staticmethod

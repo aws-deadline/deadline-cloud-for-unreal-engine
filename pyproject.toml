@@ -39,8 +39,6 @@ Source = "https://github.com/aws-deadline/deadline-cloud-for-unreal-engine"
 
 [project.scripts]
 unreal-engine-openjd = "deadline.unreal_adaptor.UnrealAdaptor:main"
-# TODO: This is deprecated, use unreal-engine-openjd
-UnrealAdaptor = "deadline.unreal_adaptor.UnrealAdaptor:main"
 
 [tool.hatch.build]
 artifacts = [

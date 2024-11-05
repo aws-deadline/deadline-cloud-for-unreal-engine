@@ -246,8 +246,7 @@ void FDeadlineCloudAttachmentDetailsCustomization::CustomizeChildren(
 	else
 		PropertyOverrideHandler->DisableRowInDataAsset(AutoDetectedPathsRow);
 
-	// TODO: bad place for updating auto-detected files
-	// But since we do it mostly to show them in the UI. We don't want to put it into job initialization methods
+	// Since we updating auto-detected files mostly to show them in the UI. We don't want to put it into job initialization methods
 	if (OuterJob && StructHandle->GetProperty()->GetName() == "InputFiles")
 	{
 		OuterJob->UpdateAttachmentFields();

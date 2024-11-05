@@ -26,13 +26,6 @@ class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelineExecutorBase)
 
         self.pipeline_queue = pipeline_queue
 
-        # TODO how do they use it?
-        # deadline_settings = unreal.get_default_object(
-        #     unreal.DeadlineCloudRenderStepSetting
-        # )
-
-        # TODO Custom commandline arguments
-
         unreal_submitter = UnrealRenderOpenJobSubmitter()
 
         for job in self.pipeline_queue.get_jobs():

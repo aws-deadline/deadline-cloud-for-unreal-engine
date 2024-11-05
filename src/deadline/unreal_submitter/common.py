@@ -117,8 +117,7 @@ class PathContext(dict):
         return key.join('{}')
 
 
-# TODO typehint
-def get_path_context_from_mrq_job(mrq_job) -> PathContext:
+def get_path_context_from_mrq_job(mrq_job: unreal.MoviePipelineExecutorJob) -> PathContext:
     """
     Get build context from the given unreal.ConductorMoviePipelineExecutorJob
 

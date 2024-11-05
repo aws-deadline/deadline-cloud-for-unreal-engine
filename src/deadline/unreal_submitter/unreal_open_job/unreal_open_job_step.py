@@ -319,7 +319,7 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         u_parameter = unreal.StepTaskParameterDefinition()
         u_parameter.name = name
         u_parameter.type = getattr(unreal.ValueType, parameter_type)
-        u_parameter.range = unreal.Array(str)  # TODO think about auto typing the range (now its only string)
+        u_parameter.range = unreal.Array(str)
         u_parameter.range.extend(parameter_range)
         return u_parameter
         

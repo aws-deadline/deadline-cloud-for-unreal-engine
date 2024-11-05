@@ -104,7 +104,6 @@ if unreal:
 
                 # Executor work with the render queue after all frames are rendered - do all
                 # support stuff, handle safe quit, etc, so we should ignore progress that more than 100.
-                # TODO refactor if possible, check shot/job finished callbacks
                 if progress <= 100:
                     unreal.log(f"Render Executor: Progress: {progress}")
 
