@@ -104,14 +104,14 @@ FDeadlineCloudStepOverride UDeadlineCloudStep::GetStepDataToOverride()
 
     StepData.Name = Name;
     StepData.DependsOn = DependsOn;
-    for (auto env : Environments) {
-        FDeadlineCloudEnvironmentOverride EnvOver = { env->Name,env->Variables };
-        Envs.Add(EnvOver);
-    }
+
+    for (int i = 0; i < Environments.Num(); i++)
+    {
+        Envs.Add({ Environments[i]->GetEnvironmentData() });
+    } 
 
     StepData.EnvironmentsToOverride = Envs;
     StepData.TaskParameterDefinitions = TaskParameterDefinitions;
-
     return StepData;
 }
 

@@ -29,6 +29,11 @@ void UDeadlineCloudEnvironment::FixEnvironmentVariablesConsistency(UDeadlineClou
 	UPythonParametersConsistencyChecker::Get()->FixEnvironmentVariablesConsistency(Env);
 }
 
+FDeadlineCloudEnvironmentOverride UDeadlineCloudEnvironment::GetEnvironmentData()
+{
+	return { this->Name, this->Variables };
+}
+
 bool UDeadlineCloudEnvironment::IsDefaultVariables()
 {
 	FEnvironmentStruct DefaultVariables = UPythonYamlLibrary::Get()->OpenEnvFile(PathToTemplate.FilePath);

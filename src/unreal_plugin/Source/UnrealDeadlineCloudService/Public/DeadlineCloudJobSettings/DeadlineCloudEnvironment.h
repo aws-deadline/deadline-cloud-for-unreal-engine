@@ -54,6 +54,8 @@ public:
 	UFUNCTION()
 	void FixEnvironmentVariablesConsistency(UDeadlineCloudEnvironment* Env);
 
+	FDeadlineCloudEnvironmentOverride GetEnvironmentData();
+
 	bool IsDefaultVariables();
 	void ResetVariables();
 
