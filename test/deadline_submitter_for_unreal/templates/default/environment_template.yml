@@ -1,0 +1,33 @@
+name: EnvironmentA
+variables:
+  VARIABLE_A: 'VALUE_A'
+  VARIABLE_B: 'VALUE_B'
+script:
+  embeddedFiles:
+    - name: Init
+      filename: init.bat
+      runnable: true
+      type: TEXT
+      data: |
+        echo {{Param.ParamA}}
+        echo {{Param.ParamB}}
+        echo {{Param.ParamC}}
+        echo {{Param.ParamD}}
+    - name: Exit
+      filename: exit.bat
+      runnable: true
+      type: TEXT
+      data: |
+        echo {{Param.ParamD}}
+        echo {{Param.ParamC}}
+        echo {{Param.ParamB}}
+        echo {{Param.ParamA}}
+  actions:
+    onEnter:
+      command: '{{Env.File.Init}}'
+      cancelation:
+        mode: NOTIFY_THEN_TERMINATE
+    onExit:
+      command: '{{Env.File.Exit}}'
+      cancelation:
+        mode: NOTIFY_THEN_TERMINATE

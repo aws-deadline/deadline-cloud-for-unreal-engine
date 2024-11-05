@@ -1,0 +1,22 @@
+specificationVersion: jobtemplate-2023-09
+name: JobA
+
+parameterDefinitions:
+- name: ParamA
+  type: PATH
+  objectType: FILE
+  dataFlow: IN
+  default: 'path/to/file'
+
+- name: ParamB
+  type: STRING
+  default: 'foo'
+
+- name: ParamC
+  type: INT
+  default: 1
+
+- name: ParamD
+  type: FLOAT
+  default: 1.0
+

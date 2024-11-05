@@ -1,9 +1,8 @@
 import os
 import sys
 import yaml
-import unreal
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, Mock, MagicMock
 from openjd.model.v2023_09 import Environment
 from deadline.unreal_submitter.unreal_open_job import UnrealOpenJobEnvironment
 
@@ -25,9 +24,11 @@ class TestUnrealOpenJobEnvironment(unittest.TestCase):
         self.assertEqual(consistency_check_result.passed, True)
         self.assertIn('Parameters are consensual', consistency_check_result.reason)
 
-    @patch('builtins.open', MagicMock())
-    @patch('yaml.safe_load', MagicMock(side_effect=[{'variables': {}}, {'variables': {}}]))
-    def test__check_parameters_consistency_failed_yaml(self):
+    @patch(
+        'deadline.unreal_submitter.unreal_open_job.UnrealOpenJobEnvironment.get_template_object',
+        return_value={'variables': {}}
+    )
+    def test__check_parameters_consistency_failed_yaml(self, mock_get_template_object: Mock):
         openjd_env = UnrealOpenJobEnvironment(file_path=TEMPLATE_FILE, variables=TEMPLATE_CONTENT['variables'])
 
         consistency_check_result = openjd_env._check_parameters_consistency()
@@ -52,6 +53,22 @@ class TestUnrealOpenJobEnvironment(unittest.TestCase):
 
         assert isinstance(openjd_template, Environment)
         assert set(TEMPLATE_CONTENT.keys()).issubset(set(openjd_template.__fields__.keys()))
+
+    def test_from_data_asset(self):
+        env_data_asset = MagicMock()
+        env_data_asset.path_to_template = ''
+        env_data_asset.name = 'StepA'
+
+        variables_mock = MagicMock()
+        variables_mock.variables = TEMPLATE_CONTENT['variables']
+
+        env_data_asset.variables = variables_mock
+
+        open_job_environment = UnrealOpenJobEnvironment.from_data_asset(env_data_asset)
+
+        assert isinstance(open_job_environment, UnrealOpenJobEnvironment)
+        assert open_job_environment.name == env_data_asset.name
+        assert env_data_asset.variables.variables == open_job_environment._variables
 
 
 if __name__ == '__main__':

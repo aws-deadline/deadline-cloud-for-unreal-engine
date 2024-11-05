@@ -240,8 +240,8 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
     """
 
     class RenderArgsType(IntEnum):
-
-        QUEUE_MANIFEST_PATH = 0
+        NOT_SET = 0
+        QUEUE_MANIFEST_PATH = 1
         RENDER_DATA = 2
         MRQ_ASSET = 3
 
@@ -371,19 +371,22 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         }.issubset(set(parameter_names)):
             return RenderUnrealOpenJobStep.RenderArgsType.RENDER_DATA
 
-        raise ValueError(
-            'RenderOpenJobStep parameters are not valid. Expect at least one of the following:\n'
-            f'- {OpenJobStepParameterNames.QUEUE_MANIFEST_PATH}\n'
-            f'- {OpenJobStepParameterNames.MOVIE_PIPELINE_QUEUE_PATH}\n'
-            f'- ({OpenJobStepParameterNames.LEVEL_SEQUENCE_PATH}, '
-            f'{OpenJobStepParameterNames.LEVEL_PATH}, '
-            f'{OpenJobStepParameterNames.MRQ_JOB_CONFIGURATION_PATH})\n'
-        )
+        return RenderUnrealOpenJobStep.RenderArgsType.NOT_SET
 
     def _build_template(self) -> StepTemplate:
         """
         Build the definition template entity
         """
+
+        if self._render_args_type == RenderUnrealOpenJobStep.RenderArgsType.NOT_SET:
+            raise ValueError(
+                'RenderOpenJobStep parameters are not valid. Expect at least one of the following:\n'
+                f'- {OpenJobStepParameterNames.QUEUE_MANIFEST_PATH}\n'
+                f'- {OpenJobStepParameterNames.MOVIE_PIPELINE_QUEUE_PATH}\n'
+                f'- ({OpenJobStepParameterNames.LEVEL_SEQUENCE_PATH}, '
+                f'{OpenJobStepParameterNames.LEVEL_PATH}, '
+                f'{OpenJobStepParameterNames.MRQ_JOB_CONFIGURATION_PATH})\n'
+            )
 
         task_chunk_id_param_definition = RenderUnrealOpenJobStep.build_u_step_task_parameter(
             OpenJobStepParameterNames.TASK_CHUNK_ID, 'INT', [str(i) for i in range(self._get_chunk_ids_count())]

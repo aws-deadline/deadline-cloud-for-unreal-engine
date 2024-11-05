@@ -1,5 +1,7 @@
 import os
 import sys
+
+import pytest
 import yaml
 import copy
 import unreal
@@ -9,6 +11,7 @@ from openjd.model.v2023_09 import StepTemplate
 
 from open_job_template_api import PythonYamlLibraryImplementation  # noga: E402
 from deadline.unreal_submitter.unreal_open_job import UnrealOpenJobStep, RenderUnrealOpenJobStep
+from deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import OpenJobStepParameterNames
 
 
 TEMPLATES_DIRECTORY = f'{os.path.dirname(__file__)}/templates/default'.replace('\\', '/')
@@ -35,17 +38,11 @@ class TestUnrealOpenJobStep(unittest.TestCase):
         self.assertEqual(consistency_check_result.passed, True)
         self.assertIn('Parameters are consensual', consistency_check_result.reason)
 
-    @patch('builtins.open', MagicMock())
     @patch(
-        'yaml.safe_load',
-        MagicMock(
-            side_effect=[
-                {'parameterSpace': {'taskParameterDefinitions': []}},
-                {'parameterSpace': {'taskParameterDefinitions': []}}
-            ]
-        )
+        'deadline.unreal_submitter.unreal_open_job.UnrealOpenJobStep.get_template_object',
+        return_value={'parameterSpace': {'taskParameterDefinitions': []}}
     )
-    def test__check_parameters_consistency_failed_yaml(self):
+    def test__check_parameters_consistency_failed_yaml(self, mock_get_template_object: Mock):
         openjd_step = UnrealOpenJobStep(
             file_path=TEMPLATE_FILE,
             extra_parameters=[
@@ -125,6 +122,31 @@ class TestUnrealOpenJobStep(unittest.TestCase):
         assert isinstance(openjd_template, StepTemplate)
         assert set(TEMPLATE_CONTENT.keys()).issubset(set(openjd_template.__fields__.keys()))
 
+    @patch('deadline.unreal_submitter.unreal_open_job.unreal_open_job.UnrealOpenJobEnvironment.from_data_asset')
+    def test_from_data_asset(self, env_from_data_asset_mock: Mock):
+        step_data_asset = MagicMock()
+        step_data_asset.path_to_template = ''
+        step_data_asset.name = 'StepA'
+        step_data_asset.depends_on = []
+
+        environment_data_asset = MagicMock()
+        step_data_asset.environments = [environment_data_asset]
+
+        get_step_parameters_mock = MagicMock()
+        get_step_parameters_mock.return_value = [
+            PythonYamlLibraryImplementation.step_parameter_to_u_step_task_parameter(step_parameter)
+            for step_parameter in TEMPLATE_CONTENT['parameterSpace']['taskParameterDefinitions']
+        ]
+        step_data_asset.get_step_parameters = get_step_parameters_mock
+
+        open_job_step = UnrealOpenJobStep.from_data_asset(step_data_asset)
+
+        assert isinstance(open_job_step, UnrealOpenJobStep)
+        assert open_job_step.name == step_data_asset.name
+        assert open_job_step._step_dependencies == step_data_asset.depends_on
+        assert open_job_step._extra_parameters == step_data_asset.get_step_parameters()
+        env_from_data_asset_mock.assert_called()
+
 
 class TestRenderUnrealOpenJobStep(unittest.TestCase):
 
@@ -162,7 +184,7 @@ class TestRenderUnrealOpenJobStep(unittest.TestCase):
             mrq_job_mock.shot_info = shot_info
 
             chunk_size_param = unreal.StepTaskParameterDefinition()
-            chunk_size_param.name = 'TaskChunkSize'
+            chunk_size_param.name = OpenJobStepParameterNames.TASK_CHUNK_SIZE
             chunk_size_param.type = getattr(unreal.ValueType, 'INT')
             chunk_size_param.range = [str(task_chunk_size)]
 
@@ -209,9 +231,46 @@ class TestRenderUnrealOpenJobStep(unittest.TestCase):
         new_param.range = ['foo']
         render_step._update_extra_parameter(new_param)
 
-        self.assertEqual(len(render_step._extra_parameters), 2)
-        self.assertEqual([p.name for p in render_step._extra_parameters], [param_to_update_name, new_param_name])
-        self.assertEqual([p.range for p in render_step._extra_parameters], [[str(1), str(2)], ['foo']])
+        self.assertEqual(len(render_step._extra_parameters), 1)
+        self.assertNotIn(new_param, render_step._extra_parameters)
+
+    def test__get_render_arguments_type(self):
+        for extra_parameters, expected_type in [
+            (
+                    [{'name': OpenJobStepParameterNames.QUEUE_MANIFEST_PATH, 'type': 'PATH', 'range': ['path/to/manifest']}],
+                    RenderUnrealOpenJobStep.RenderArgsType.QUEUE_MANIFEST_PATH
+            ),
+            (
+                    [{'name': OpenJobStepParameterNames.MOVIE_PIPELINE_QUEUE_PATH, 'type': 'PATH', 'range': ['path/to/mrq/asset']}],
+                    RenderUnrealOpenJobStep.RenderArgsType.MRQ_ASSET
+            ),
+            (
+                    [
+                        {'name': OpenJobStepParameterNames.LEVEL_SEQUENCE_PATH, 'type': 'PATH', 'range': ['path/to/sequence']},
+                        {'name': OpenJobStepParameterNames.LEVEL_PATH, 'type': 'PATH', 'range': ['path/to/level']},
+                        {'name': OpenJobStepParameterNames.MRQ_JOB_CONFIGURATION_PATH, 'type': 'PATH', 'range': ['path/to/config']},
+                    ],
+                    RenderUnrealOpenJobStep.RenderArgsType.RENDER_DATA
+            ),
+            (
+                [], RenderUnrealOpenJobStep.RenderArgsType.NOT_SET
+            )
+        ]:
+            render_open_job_step = RenderUnrealOpenJobStep(
+                file_path='',
+                extra_parameters=[
+                    PythonYamlLibraryImplementation.step_parameter_to_u_step_task_parameter(step_parameter)
+                    for step_parameter in extra_parameters
+                ]
+            )
+
+            assert render_open_job_step._get_render_arguments_type() == expected_type
+
+    def test__build_template_validation_failed(self):
+        with pytest.raises(ValueError) as expected_exc:
+            render_open_job_step = RenderUnrealOpenJobStep(file_path='', extra_parameters=[])
+            render_open_job_step._build_template()
+            assert 'RenderOpenJobStep parameters are not valid' in expected_exc.value
 
 
 if __name__ == '__main__':

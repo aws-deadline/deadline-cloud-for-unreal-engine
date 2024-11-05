@@ -3,9 +3,9 @@ import sys
 import yaml
 import copy
 import unreal
-import pytest
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, Mock, MagicMock
+from openjd.model.v2023_09 import *
 
 from open_job_template_api import PythonYamlLibraryImplementation  # noga: E402
 from deadline.unreal_submitter.unreal_open_job import UnrealOpenJob, RenderUnrealOpenJob
@@ -16,6 +16,14 @@ TEMPLATE_FILE = TEMPLATES_DIRECTORY + '/job_template.yml'
 
 with open(TEMPLATE_FILE, 'r') as f:
     TEMPLATE_CONTENT = yaml.safe_load(f)
+
+STEP_TEMPLATE_FILE = TEMPLATES_DIRECTORY + '/step_template.yml'
+with open(STEP_TEMPLATE_FILE, 'r') as f:
+    STEP_TEMPLATE_CONTENT = yaml.safe_load(f)
+
+ENVIRONMENT_TEMPLATE_FILE = TEMPLATES_DIRECTORY + '/environment_template.yml'
+with open(ENVIRONMENT_TEMPLATE_FILE, 'r') as f:
+    ENVIRONMENT_CONTENT = yaml.safe_load(f)
 
 
 class TestUnrealOpenJob(unittest.TestCase):
@@ -49,17 +57,11 @@ class TestUnrealOpenJob(unittest.TestCase):
         self.assertEqual(consistency_check_result.passed, True)
         self.assertIn('Parameters are consensual', consistency_check_result.reason)
 
-    @patch('builtins.open', MagicMock())
     @patch(
-        'yaml.safe_load',
-        MagicMock(
-            side_effect=[
-                {'parameterDefinitions': []},
-                {'parameterDefinitions': []}
-            ]
-        )
+        'deadline.unreal_submitter.unreal_open_job.UnrealOpenJob.get_template_object',
+        return_value={'parameterDefinitions': []}
     )
-    def test__check_parameters_consistency_failed_yaml(self):
+    def test__check_parameters_consistency_failed_yaml(self, mock_get_template_object: Mock):
         open_job = UnrealOpenJob(
             file_path=TEMPLATE_FILE,
             extra_parameters=[
@@ -97,6 +99,43 @@ class TestUnrealOpenJob(unittest.TestCase):
         self.assertEqual(consistency_check_result.passed, False)
         self.assertIn('YAML\'s parameters missed in Data Asset', consistency_check_result.reason)
         self.assertIn('Data Asset\'s parameters missed in YAML', consistency_check_result.reason)
+
+    @patch(
+        'deadline.unreal_submitter.unreal_open_job.UnrealOpenJob.get_template_object',
+        return_value={'parameterDefinitions': TEMPLATE_CONTENT['parameterDefinitions']}
+    )
+    def test__build_template(self, get_template_object_mock):
+        step_mock = MagicMock()
+        step_build_template_mock = MagicMock()
+        step_build_template_mock.return_value = StepTemplate(
+            name='StepA',
+            script=StepScript(actions=StepActions(onRun=Action(command='echo hello world')))
+        )
+        step_mock.build_template = step_build_template_mock
+
+        env_mock = MagicMock()
+        env_build_template_mock = MagicMock()
+        env_build_template_mock.return_value = Environment(
+            name='EnvironmentA',
+            variables={'VARIABLE_A': 'VALUE_A'}
+        )
+        env_mock.build_template = env_build_template_mock
+
+        open_job = UnrealOpenJob(
+            file_path=TEMPLATE_FILE,
+            name=TEMPLATE_CONTENT['name'],
+            steps=[step_mock],
+            environments=[env_mock],
+            extra_parameters=[
+                PythonYamlLibraryImplementation.job_parameter_to_u_parameter_definition(job_parameter)
+                for job_parameter in TEMPLATE_CONTENT['parameterDefinitions']
+            ]
+        )
+        openjd_template = open_job._build_template()
+
+        assert isinstance(openjd_template, JobTemplate)
+        step_build_template_mock.assert_called()
+        env_build_template_mock.assert_called()
 
 
 class TestRenderUnrealOpenJob(unittest.TestCase):
