@@ -30,7 +30,8 @@ classifiers = [
 dependencies = [
     "deadline == 0.48.*",
     "openjd-adaptor-runtime >= 0.7,< 0.9",
-    "openjd-model"
+    "openjd-model",
+    "p4python == 2024.1.2645203"
 ]
 
 [project.urls]
