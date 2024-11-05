@@ -69,17 +69,22 @@ class HostRequirements:
         memory = self._get_amount_requirement(
             self.source_host_requirements.memory, "amount.worker.memory", 1024
         )
-        # TODO gpu amount
-        # gpus = self._get_amount_requirement(self.source_host_requirements.gpus, "amount.worker.gpu")
-        gpu_memory = self._get_amount_requirement(
-            self.source_host_requirements.gp_us, "amount.worker.gpu.memory", 1024
+
+        gpus = self._get_amount_requirement(
+            self.source_host_requirements.gp_us, "amount.worker.gpu"
         )
+        gpu_memory = self._get_amount_requirement(
+            self.source_host_requirements.gpu_memory, "amount.worker.gpu.memory", 1024
+        )
+
         scratch_space = self._get_amount_requirement(
             self.source_host_requirements.scratch_space, "amount.worker.disk.scratch"
         )
+
         requirements: list[dict[str, Any]] = [
-            item for item in [cpus, memory, gpu_memory, scratch_space] if item is not None
+            item for item in [cpus, memory, gpus, gpu_memory, scratch_space] if item is not None
         ]
+
         return requirements
 
     @staticmethod

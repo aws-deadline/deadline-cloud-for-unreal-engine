@@ -115,8 +115,8 @@ class JobSharedSettings:
         :return: OpenJob Priority
         :rtype: int
         """
-        # TODO Add priority to the settings
-        return 1
+
+        return self.source_shared_settings.priority
 
 
 class UnrealOpenJob(UnrealOpenJobEntity):
