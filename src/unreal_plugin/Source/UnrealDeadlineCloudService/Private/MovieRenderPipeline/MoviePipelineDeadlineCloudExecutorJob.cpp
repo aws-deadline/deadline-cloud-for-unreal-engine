@@ -172,13 +172,12 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyCha
             const TArray<UDeadlineCloudStep*> SelectedJobSteps = SelectedJobPreset->Steps;
             for (auto step : SelectedJobSteps)
             {
-               // FDeadlineCloudStepOverride StepData = step->GetStepDataToOverride();
                 this->StepsOverrides.Add(step->GetStepDataToOverride());
             }          
             const TArray<UDeadlineCloudEnvironment*> SelectedJobEnvs = SelectedJobPreset->Environments;
             for (auto env : SelectedJobEnvs)
             {
-                this->EnvironmentsVariablesOverrides.Add(env->Variables);
+                this->EnvironmentsVariablesOverrides.Add(env->GetEnvironmentData());
             }
         }
         // UpdateAttachmentFields();
