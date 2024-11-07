@@ -23,13 +23,7 @@ class RenderJobMock:
 class TestShotChunks(unittest.TestCase):
 
     def test_get_enabled_shot_names(self):
-        for shots_count, enabled_shots_count in [
-            (1, 1),
-            (100, 100),
-            (10, 0),
-            (5, 4),
-            (6, 3)
-        ]:
+        for shots_count, enabled_shots_count in [(1, 1), (100, 100), (10, 0), (5, 4), (6, 3)]:
             # GIVEN
             enabled_shots = [
                 ShotInfoMock(enabled=True, outer_name=f"Enabled{i}")
@@ -57,7 +51,7 @@ class TestShotChunks(unittest.TestCase):
             (2, 15, [i for i in range(8)]),
             (5, 29, [0, 1, 2, 3, 4, 5]),
             (6, 36, [0, 1, 2, 3, 4, 5]),
-            (100000, 100, [0])
+            (100000, 100, [0]),
         ]
 
         for chunk_size, shots_count, expected_chunk_id in params_list:

@@ -29,12 +29,7 @@ class UnrealClient(WinClientInterface):
     def __init__(self, socket_path: str) -> None:
         super().__init__(socket_path)
         self.handler: BaseStepHandler
-        self.actions.update(
-            {
-                "set_handler": self.set_handler,
-                "client_loaded": self.client_loaded
-             }
-        )
+        self.actions.update({"set_handler": self.set_handler, "client_loaded": self.client_loaded})
 
     def client_loaded(self, *args, **kwargs) -> None:
         """Log the message that UnrealClient loaded"""

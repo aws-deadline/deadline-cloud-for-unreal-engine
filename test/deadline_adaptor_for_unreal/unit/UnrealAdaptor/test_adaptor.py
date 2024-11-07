@@ -216,17 +216,17 @@ class TestUnrealAdaptor_on_start:
     )
     @patch(
         "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._get_regex_callbacks",
-        return_value=[]
+        return_value=[],
     )
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.logger")
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
     def test__start_unreal_client_default(
-            self,
-            mock_subprocess: Mock,
-            mock_logger: Mock,
-            mock_get_regex_callbacks: Mock,
-            mock_unreal_client_path: Mock,
-            init_data: dict
+        self,
+        mock_subprocess: Mock,
+        mock_logger: Mock,
+        mock_get_regex_callbacks: Mock,
+        mock_unreal_client_path: Mock,
+        init_data: dict,
     ):
         """Tests that an UnrealAdaptor starts UE properly with default executable and project path from init_data"""
 
@@ -253,21 +253,21 @@ class TestUnrealAdaptor_on_start:
 
     @patch(
         "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.unreal_client_path",
-        new_callable=PropertyMock
+        new_callable=PropertyMock,
     )
     @patch(
         "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._get_regex_callbacks",
-        return_value=[]
+        return_value=[],
     )
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.logger")
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
     def test__start_unreal_client_with_extra_cmd_args(
-            self,
-            mock_subprocess: Mock,
-            mock_logger: Mock,
-            mock_get_regex_callbacks: Mock,
-            mock_unreal_client_path: Mock,
-            init_data: dict
+        self,
+        mock_subprocess: Mock,
+        mock_logger: Mock,
+        mock_get_regex_callbacks: Mock,
+        mock_unreal_client_path: Mock,
+        init_data: dict,
     ):
         """Tests that an UnrealAdaptor starts UE properly with additional cmd arguments"""
 
@@ -300,17 +300,17 @@ class TestUnrealAdaptor_on_start:
     )
     @patch(
         "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._get_regex_callbacks",
-        return_value=[]
+        return_value=[],
     )
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.logger")
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
     def test__start_unreal_client_with_extra_execcmds_arg(
-            self,
-            mock_subprocess: Mock,
-            mock_logger: Mock,
-            mock_get_regex_callbacks: Mock,
-            mock_unreal_client_path: Mock,
-            init_data: dict,
+        self,
+        mock_subprocess: Mock,
+        mock_logger: Mock,
+        mock_get_regex_callbacks: Mock,
+        mock_unreal_client_path: Mock,
+        init_data: dict,
     ):
         """Tests that an UnrealAdaptor starts UE properly with additional cmd arguments"""
 

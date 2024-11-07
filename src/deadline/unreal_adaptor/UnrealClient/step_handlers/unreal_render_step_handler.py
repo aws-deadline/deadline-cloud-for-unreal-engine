@@ -203,7 +203,7 @@ class UnrealRenderStepHandler(BaseStepHandler):
     def enable_shots_by_chunk(render_job, task_chunk_size: int, task_chunk_id: int):
         all_shots_to_render = [shot for shot in render_job.shot_info if shot.enabled]
         shots_chunk = all_shots_to_render[
-            task_chunk_id * task_chunk_size: (task_chunk_id + 1) * task_chunk_size
+            task_chunk_id * task_chunk_size : (task_chunk_id + 1) * task_chunk_size
         ]
         for shot in render_job.shot_info:
             if shot in shots_chunk:

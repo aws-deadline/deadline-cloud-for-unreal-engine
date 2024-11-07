@@ -289,14 +289,8 @@ class OpenJobDescription:
                 "name": "ProjectDirectory",
                 "value": project_directory,
             },
-            {
-                "name": "OutputPath",
-                "value": output_path
-            },
-            {
-                "name": "ExtraCmdArgs",
-                "value": " ".join(cmd_args)
-            }
+            {"name": "OutputPath", "value": output_path},
+            {"name": "ExtraCmdArgs", "value": " ".join(cmd_args)},
         ]
 
         shared_parameter_values = JobSharedSettings(
@@ -407,7 +401,7 @@ class OpenJobDescription:
                 host_requirements=preset_overrides.host_requirements,
                 queue_manifest_path=self._manifest_path,
                 shots_count=len(shots_to_render),
-                task_chunk_size=preset_overrides.job_shared_settings.task_chunk_size
+                task_chunk_size=preset_overrides.job_shared_settings.task_chunk_size,
             )
             return self._steps
 
@@ -489,16 +483,13 @@ class OpenJobDescription:
         job_device_profile_cvars: list[str] = []
         job_exec_cmds: list[str] = []
         for setting in mrq_job.get_configuration().get_all_settings():
-            (
-                job_url_params,
-                job_cmd_args,
-                job_device_profile_cvars,
-                job_exec_cmds
-            ) = setting.build_new_process_command_line_args(
-                out_unreal_url_params=job_url_params,
-                out_command_line_args=job_cmd_args,
-                out_device_profile_cvars=job_device_profile_cvars,
-                out_exec_cmds=job_exec_cmds
+            (job_url_params, job_cmd_args, job_device_profile_cvars, job_exec_cmds) = (
+                setting.build_new_process_command_line_args(
+                    out_unreal_url_params=job_url_params,
+                    out_command_line_args=job_cmd_args,
+                    out_device_profile_cvars=job_device_profile_cvars,
+                    out_exec_cmds=job_exec_cmds,
+                )
             )
 
         # Apply job cmd arguments

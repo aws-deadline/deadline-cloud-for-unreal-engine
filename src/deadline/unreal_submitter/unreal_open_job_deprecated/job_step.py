@@ -121,7 +121,7 @@ class JobStep:
         host_requirements,
         queue_manifest_path,
         shots_count,
-        task_chunk_size
+        task_chunk_size,
     ):
         """
         Build JobStep, set its name and fill dependencies list
@@ -207,7 +207,7 @@ class CustomScriptJobStep(JobStep):
         host_requirements,
         queue_manifest_path,
         shots_count,
-        task_chunk_size
+        task_chunk_size,
     ):
         """
         Build JobStep, set its name, fill dependencies list and set script path parameter
@@ -218,7 +218,7 @@ class CustomScriptJobStep(JobStep):
             host_requirements,
             queue_manifest_path,
             shots_count,
-            task_chunk_size
+            task_chunk_size,
         )
 
         self._set_script_path_parameter(os_abs_from_relative(step_settings.script.file_path))
@@ -273,7 +273,7 @@ class RenderJobStep(JobStep):
         host_requirements,
         queue_manifest_path,
         shots_count,
-        task_chunk_size
+        task_chunk_size,
     ):
         """
         Build JobStep, set its name, fill dependencies list and set queue manifest path parameter
@@ -284,7 +284,7 @@ class RenderJobStep(JobStep):
             host_requirements,
             queue_manifest_path,
             shots_count,
-            task_chunk_size
+            task_chunk_size,
         )
 
         self._set_queue_manifest_path_parameter(queue_manifest_path)
@@ -409,7 +409,7 @@ class JobStepFactory:
         queue_manifest_path: str,
         shots_count: int,
         task_chunk_size: int,
-        host_requirements
+        host_requirements,
     ) -> list[JobStep]:
         """
         Create the Job Steps list using the provided job settings and other parameters
@@ -447,7 +447,7 @@ class JobStepFactory:
                             host_requirements=host_requirements,
                             queue_manifest_path=queue_manifest_path,
                             shots_count=shots_count,
-                            task_chunk_size=task_chunk_size
+                            task_chunk_size=task_chunk_size,
                         )
                     )
 
@@ -459,7 +459,7 @@ class JobStepFactory:
                         host_requirements=host_requirements,
                         queue_manifest_path=queue_manifest_path,
                         shots_count=shots_count,
-                        task_chunk_size=task_chunk_size
+                        task_chunk_size=task_chunk_size,
                     )
                 )
 

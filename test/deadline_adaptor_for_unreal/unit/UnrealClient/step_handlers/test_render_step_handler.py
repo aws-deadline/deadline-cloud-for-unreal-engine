@@ -4,7 +4,7 @@ import sys
 import unittest
 
 from deadline.unreal_adaptor.UnrealClient.step_handlers.unreal_render_step_handler import (
-    UnrealRenderStepHandler
+    UnrealRenderStepHandler,
 )
 
 
@@ -43,7 +43,7 @@ class TestUnrealRenderStepHandler(unittest.TestCase):
 
             enabled_job_shots = [shot for shot in render_job_mock.shot_info if shot.enabled]
             chunked = enabled_job_shots[
-                task_chunk_id * task_chunk_size: (task_chunk_id + 1) * task_chunk_size
+                task_chunk_id * task_chunk_size : (task_chunk_id + 1) * task_chunk_size
             ]
             chunked_names = [shot.outer_name for shot in chunked]
 
