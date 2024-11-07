@@ -1,11 +1,6 @@
 import sys
 import unittest
-from unittest.mock import patch, MagicMock
-
-unreal_mock = MagicMock()
-unreal_mock.log.return_value = MagicMock()
-
-sys.modules['unreal'] = unreal_mock
+from unittest.mock import MagicMock
 
 from deadline.unreal_submitter.unreal_open_job.job_step import RenderJobStep
 from deadline.unreal_submitter.unreal_open_job.open_job_description import OpenJobDescription
@@ -37,14 +32,16 @@ class TestShotChunks(unittest.TestCase):
         ]:
             # GIVEN
             enabled_shots = [ShotInfoMock(enabled=True, outer_name=f'Enabled{i}') for i in range(enabled_shots_count)]
-            disabled_shots = [ShotInfoMock(enabled=False, outer_name=f'Disabled{i}') for i in range(shots_count - enabled_shots_count)]
+            disabled_shots = [
+                ShotInfoMock(enabled=False, outer_name=f'Disabled{i}') for i in range(shots_count - enabled_shots_count)
+            ]
             render_job_mock = RenderJobMock(job_name='MockedMrqJob', shot_info=enabled_shots + disabled_shots)
 
             # WHEN
             enabled_shot_names = OpenJobDescription.get_enabled_shot_names(render_job_mock)
 
             # THEN
-            assert len([shot for shot in enabled_shot_names]) == enabled_shots_count
+            assert len(enabled_shot_names) == enabled_shots_count
             for enabled_shot in enabled_shots:
                 assert enabled_shot.outer_name.startswith('Enabled')
 
@@ -86,4 +83,4 @@ class TestShotChunks(unittest.TestCase):
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestShotChunks)
-    result = unittest.TextTestRunner(stream=sys.stdout, buffer=True).run(suite)
+    unittest.TextTestRunner(stream=sys.stdout, buffer=True).run(suite)
