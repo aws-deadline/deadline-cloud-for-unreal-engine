@@ -40,14 +40,6 @@ public:
 	 * Returns the Deadline job info with overrides applied, if enabled.
 	 * Skips any property not 
 	 */
-	UFUNCTION(BlueprintCallable, Category = "DeadlineCloud")
-	FDeadlineCloudJobPresetStruct GetDeadlineJobPresetStructWithOverrides() const;
-
-	UFUNCTION(BlueprintCallable, Category = "DeadlineCloud")
-	FDeadlineCloudJobParametersArray GetParameterDefinitionWithOverrides() const;
-
-	//UFUNCTION(BlueprintCallable, Category = "DeadlineCloud")
-	//FDeadlineCloudStepParametersArray  GetStepParametersWithOverrides() const;
 
 #if WITH_EDITOR
 	void UpdateAttachmentFields();
@@ -79,6 +71,9 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DeadlineCloud")
 	TObjectPtr<UDeadlineCloudRenderJob> JobPreset;
+
+	UFUNCTION()
+	UDeadlineCloudRenderJob* CreateDefaultJobPresetFromTemplates(UDeadlineCloudRenderJob* Preset);
 
 	/**
 	 * Reference to Deadline Cloud job preset DataAsset. Contains overriden job settings

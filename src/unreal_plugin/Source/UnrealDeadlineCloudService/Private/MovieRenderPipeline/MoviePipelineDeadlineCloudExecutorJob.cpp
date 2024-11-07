@@ -5,21 +5,24 @@
 #include "DetailLayoutBuilder.h"
 #include "Async/Async.h"
 #include "PythonAPILibraries/DeadlineCloudJobBundleLibrary.h"
+#include "Misc/Paths.h"
+#include "Interfaces/IPluginManager.h"
 
 
 UMoviePipelineDeadlineCloudExecutorJob::UMoviePipelineDeadlineCloudExecutorJob()
 {
-    // // If a Job Preset is not already defined, assign the default preset
-    // if (!JobPreset)
-    // {
-    // 	if (const UMoviePipelineDeadlineSettings* MpdSettings = GetDefault<UMoviePipelineDeadlineSettings>())
-    // 	{
-    // 		if (const TObjectPtr<UDeadlineJobPreset> DefaultPreset = MpdSettings->DefaultJobPreset)
-    // 		{
-    // 			JobPreset = DefaultPreset;
-    // 		}
-    // 	}
-    // }
+    if (GEngine)
+    {
+        // // If a Job Preset is not already defined, assign the default preset
+        if (!JobPreset) {
+            JobPreset = CreateDefaultJobPresetFromTemplates(JobPreset);
+          //  JobPreset->OpenJobFile(JobPreset->PathToTemplate.FilePath);
+
+            ParameterDefinitionOverrides.Parameters =
+                JobPreset->ParameterDefinition.Parameters;
+
+        }
+    }
 }
 
 bool UMoviePipelineDeadlineCloudExecutorJob::IsPropertyRowEnabledInMovieRenderJob(const FName& InPropertyPath) const
@@ -79,58 +82,6 @@ void UMoviePipelineDeadlineCloudExecutorJob::GetPresetStructWithOverrides(UStruc
     }
 }
 
-FDeadlineCloudJobPresetStruct UMoviePipelineDeadlineCloudExecutorJob::GetDeadlineJobPresetStructWithOverrides() const
-{
-    // Start with preset properties
-    FDeadlineCloudJobPresetStruct ReturnValue = JobPreset->JobPresetStruct;
-
-    // const UDeadlineCloudDeveloperSettings* Settings = GetDefault<UDeadlineCloudDeveloperSettings>();
-    GetPresetStructWithOverrides(
-        FDeadlineCloudJobSharedSettingsStruct::StaticStruct(),
-        &PresetOverrides.JobSharedSettings,
-        &ReturnValue.JobSharedSettings
-    );
-
-    GetPresetStructWithOverrides(
-        FDeadlineCloudHostRequirementsStruct::StaticStruct(),
-        &PresetOverrides.HostRequirements,
-        &ReturnValue.HostRequirements
-    );
-
-    GetPresetStructWithOverrides(
-        FDeadlineCloudFileAttachmentsStruct::StaticStruct(),
-        &PresetOverrides.JobAttachments.InputFiles,
-        &ReturnValue.JobAttachments.InputFiles
-    );
-
-    GetPresetStructWithOverrides(
-        FDeadlineCloudDirectoryAttachmentsStruct::StaticStruct(),
-        &PresetOverrides.JobAttachments.InputDirectories,
-        &ReturnValue.JobAttachments.InputDirectories
-    );
-
-    GetPresetStructWithOverrides(
-        FDeadlineCloudDirectoryAttachmentsStruct::StaticStruct(),
-        &PresetOverrides.JobAttachments.OutputDirectories,
-        &ReturnValue.JobAttachments.OutputDirectories
-    );
-    return ReturnValue;
-}
-
-
-FDeadlineCloudJobParametersArray UMoviePipelineDeadlineCloudExecutorJob::GetParameterDefinitionWithOverrides() const
-{
-    // Start with preset properties
-    FDeadlineCloudJobParametersArray ReturnValue = JobPreset->ParameterDefinition;
-    GetPresetStructWithOverrides(
-        FDeadlineCloudJobParametersArray::StaticStruct(),
-        &ParameterDefinitionOverrides.Parameters,
-        &ReturnValue.Parameters
-    );
-
-    return ReturnValue;
-
-}
 
 
 void UMoviePipelineDeadlineCloudExecutorJob::UpdateAttachmentFields()
@@ -168,18 +119,22 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyCha
 
             this->ParameterDefinitionOverrides.Parameters =
                 SelectedJobPreset->ParameterDefinition.Parameters;
-
-            const TArray<UDeadlineCloudStep*> SelectedJobSteps = SelectedJobPreset->Steps;
-            for (auto step : SelectedJobSteps)
+            if (SelectedJobPreset)
             {
-                this->StepsOverrides.Add(step->GetStepDataToOverride());
-            }          
-            const TArray<UDeadlineCloudEnvironment*> SelectedJobEnvs = SelectedJobPreset->Environments;
-            for (auto env : SelectedJobEnvs)
-            {
-                this->EnvironmentsVariablesOverrides.Add(env->GetEnvironmentData());
+                const TArray<UDeadlineCloudStep*> SelectedJobSteps = SelectedJobPreset->Steps;
+                for (auto step : SelectedJobSteps)
+                {
+                    this->StepsOverrides.Add(step->GetStepDataToOverride());
+                }
+                const TArray<UDeadlineCloudEnvironment*> SelectedJobEnvs = SelectedJobPreset->Environments;
+                for (auto env : SelectedJobEnvs)
+                {
+                    this->EnvironmentsVariablesOverrides.Add(env->GetEnvironmentData());
+                }
             }
+         
         }
+
         // UpdateAttachmentFields();
     }
 
@@ -246,6 +201,33 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeChainProperty(FProper
         UpdateInputFilesProperty();
     }
     UE_LOG(LogTemp, Log, TEXT("Changed property name: %s"), *PropertyChangedEvent.GetPropertyName().ToString());
+
+
+   // static const FName SequenceName = GET_MEMBER_NAME_CHECKED(UMoviePipelineDeadlineCloudExecutorJob, Sequence);
+    static FName PropertyName(TEXT("JobPreset"));
+    if (PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetFName() == PropertyName)
+    {
+       // JobPreset = JobPreset;
+        this->ParameterDefinitionOverrides.Parameters =
+            JobPreset->ParameterDefinition.Parameters;
+
+
+
+       //////
+        FProperty* Property = FindFieldChecked<FProperty>(UMoviePipelineDeadlineCloudExecutorJob::StaticClass(), GET_MEMBER_NAME_CHECKED(UMoviePipelineDeadlineCloudExecutorJob, ParameterDefinitionOverrides));
+        FPropertyChangedEvent PropertyEvent(PropertyChangedEvent.Property);
+        PostEditChangeProperty(PropertyEvent);
+    }
+   
+    static FName PropertyName1(TEXT("JobPreset"));
+    if (PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetFName() == PropertyName1)
+    {
+        JobPreset = JobPreset;
+
+        FPropertyChangedEvent PropertyEvent(PropertyChangedEvent.Property);
+        PostEditChangeProperty(PropertyEvent);
+    }
+
 }
 
 TArray<FString> UMoviePipelineDeadlineCloudExecutorJob::GetCpuArchitectures()
@@ -263,6 +245,43 @@ TArray<FString> UMoviePipelineDeadlineCloudExecutorJob::GetJobInitialStateOption
     return UDeadlineCloudJobBundleLibrary::Get()->GetJobInitialStateOptions();
 }
 
+UDeadlineCloudRenderJob* UMoviePipelineDeadlineCloudExecutorJob::CreateDefaultJobPresetFromTemplates(UDeadlineCloudRenderJob* Preset)
+{
+    if (Preset == nullptr)
+    {
+        Preset = NewObject<UDeadlineCloudRenderJob>();
+
+        FString DefaultTemplate = "/Content/Python/openjd_templates/render_job.yml";
+        FString StepTemplate = "/Content/Python/openjd_templates/render_step.yml";
+        FString EnvTemplate = "/Content/Python/openjd_templates/launch_ue_environment.yml";
+
+        FString  PluginContentDir = IPluginManager::Get().FindPlugin(TEXT("UnrealDeadlineCloudService"))->GetBaseDir();
+       
+        FString PathToJobTemplate = FPaths::Combine(FPaths::ConvertRelativePathToFull(PluginContentDir), DefaultTemplate);
+        FPaths::NormalizeDirectoryName(PathToJobTemplate);
+        Preset->PathToTemplate.FilePath = PathToJobTemplate;
+        Preset->OpenJobFile(PathToJobTemplate);
+ 
+        UDeadlineCloudRenderStep* PresetStep;
+        PresetStep = NewObject<UDeadlineCloudRenderStep>();
+        FString PathToStepTemplate = FPaths::Combine(FPaths::ConvertRelativePathToFull(PluginContentDir), StepTemplate);
+        FPaths::NormalizeDirectoryName(PathToStepTemplate);
+        PresetStep->PathToTemplate.FilePath = PathToStepTemplate;
+        PresetStep->OpenStepFile(PathToStepTemplate);
+        Preset->Steps.Add(PresetStep);
+
+        UDeadlineCloudEnvironment* PresetEnv;
+        PresetEnv = NewObject<UDeadlineCloudEnvironment>();
+        FString PathToEnvTemplate = FPaths::Combine(FPaths::ConvertRelativePathToFull(PluginContentDir), EnvTemplate);
+        FPaths::NormalizeDirectoryName(PathToEnvTemplate);
+        PresetEnv->PathToTemplate.FilePath = PathToEnvTemplate;
+        PresetEnv->OpenEnvFile(PathToEnvTemplate);
+        Preset->Environments.Add(PresetEnv);
+
+    }
+return Preset;
+}
+
 TSharedRef<IDetailCustomization> FMoviePipelineDeadlineCloudExecutorJobCustomization::MakeInstance()
 {
     return MakeShared<FMoviePipelineDeadlineCloudExecutorJobCustomization>();
@@ -271,9 +290,14 @@ TSharedRef<IDetailCustomization> FMoviePipelineDeadlineCloudExecutorJobCustomiza
 void FMoviePipelineDeadlineCloudExecutorJobCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
     IDetailCategoryBuilder& MrpCategory = DetailBuilder.EditCategory("Movie Render Pipeline");
+    TSharedPtr<IPropertyHandle> PresetCategory = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UMoviePipelineDeadlineCloudExecutorJob, ParameterDefinitionOverrides));
+   // TSharedPtr<IPropertyHandle> PresetCategory = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UMoviePipelineDeadlineCloudExecutorJob, ParameterDefinitionOverrides));
 
     TArray<TSharedRef<IPropertyHandle>> OutMrpCategoryProperties;
     MrpCategory.GetDefaultProperties(OutMrpCategoryProperties);
+
+   // TArray<TSharedRef<IPropertyHandle>> OutPresetCategoryProperties;
+  //  PresetCategory->GetChildHandle();
 
     // We hide these properties because we want to use "Name", "UserName" and "Comment" from the Deadline preset
     const TArray<FName> PropertiesToHide = { "JobName", "Author", "Comment" };
@@ -285,4 +309,5 @@ void FMoviePipelineDeadlineCloudExecutorJobCustomization::CustomizeDetails(IDeta
             PropertyHandle->MarkHiddenByCustomization();
         }
     }
+
 }
