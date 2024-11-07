@@ -7,6 +7,7 @@
 #include "PythonAPILibraries/DeadlineCloudJobBundleLibrary.h"
 #include "Misc/Paths.h"
 #include "Interfaces/IPluginManager.h"
+#include "PropertyEditorModule.h"
 
 
 UMoviePipelineDeadlineCloudExecutorJob::UMoviePipelineDeadlineCloudExecutorJob()
@@ -16,10 +17,6 @@ UMoviePipelineDeadlineCloudExecutorJob::UMoviePipelineDeadlineCloudExecutorJob()
         // // If a Job Preset is not already defined, assign the default preset
         if (!JobPreset) {
             JobPreset = CreateDefaultJobPresetFromTemplates(JobPreset);
-          //  JobPreset->OpenJobFile(JobPreset->PathToTemplate.FilePath);
-
-            ParameterDefinitionOverrides.Parameters =
-                JobPreset->ParameterDefinition.Parameters;
 
         }
     }
@@ -98,8 +95,9 @@ void UMoviePipelineDeadlineCloudExecutorJob::UpdateAttachmentFields()
 
 void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
+    FName PropertyName = PropertyChangedEvent.GetPropertyName();
     // Check if we changed the job Preset an update the override details
-    if (const FName PropertyName = PropertyChangedEvent.GetPropertyName(); PropertyName == "JobPreset")
+   // if (const FName PropertyName = PropertyChangedEvent.GetPropertyName(); PropertyName == "JobPreset")
     {
 
         if (const UDeadlineCloudJob* SelectedJobPreset = this->JobPreset)
@@ -202,7 +200,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeChainProperty(FProper
     }
     UE_LOG(LogTemp, Log, TEXT("Changed property name: %s"), *PropertyChangedEvent.GetPropertyName().ToString());
 
-
+/*
    // static const FName SequenceName = GET_MEMBER_NAME_CHECKED(UMoviePipelineDeadlineCloudExecutorJob, Sequence);
     static FName PropertyName(TEXT("JobPreset"));
     if (PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetFName() == PropertyName)
@@ -226,7 +224,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeChainProperty(FProper
 
         FPropertyChangedEvent PropertyEvent(PropertyChangedEvent.Property);
         PostEditChangeProperty(PropertyEvent);
-    }
+    }*/
 
 }
 
@@ -290,14 +288,9 @@ TSharedRef<IDetailCustomization> FMoviePipelineDeadlineCloudExecutorJobCustomiza
 void FMoviePipelineDeadlineCloudExecutorJobCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
     IDetailCategoryBuilder& MrpCategory = DetailBuilder.EditCategory("Movie Render Pipeline");
-    TSharedPtr<IPropertyHandle> PresetCategory = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UMoviePipelineDeadlineCloudExecutorJob, ParameterDefinitionOverrides));
-   // TSharedPtr<IPropertyHandle> PresetCategory = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UMoviePipelineDeadlineCloudExecutorJob, ParameterDefinitionOverrides));
-
+  
     TArray<TSharedRef<IPropertyHandle>> OutMrpCategoryProperties;
     MrpCategory.GetDefaultProperties(OutMrpCategoryProperties);
-
-   // TArray<TSharedRef<IPropertyHandle>> OutPresetCategoryProperties;
-  //  PresetCategory->GetChildHandle();
 
     // We hide these properties because we want to use "Name", "UserName" and "Comment" from the Deadline preset
     const TArray<FName> PropertiesToHide = { "JobName", "Author", "Comment" };
@@ -308,6 +301,29 @@ void FMoviePipelineDeadlineCloudExecutorJobCustomization::CustomizeDetails(IDeta
         {
             PropertyHandle->MarkHiddenByCustomization();
         }
+    }
+  
+
+    TSharedPtr<IPropertyHandle> JobPropertyHandle = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UMoviePipelineDeadlineCloudExecutorJob, JobPreset));
+ 
+    IDetailLayoutBuilder& MyDetailBuilder = DetailBuilder;
+    if (JobPropertyHandle.IsValid() )
+    {       
+        TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized; MyDetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
+
+        if (ObjectsBeingCustomized.Num() > 0)
+        {
+            UObject* Object = ObjectsBeingCustomized[0].Get();
+            if (Object)
+            {             
+                FPropertyChangedEvent PropertyChangedEvent(JobPropertyHandle->GetProperty());
+                FString ObjectName = Object->GetName(); //
+                UE_LOG(LogTemp, Log, TEXT("Object Name: %s"), *ObjectName);
+
+                Object->PostEditChangeProperty(PropertyChangedEvent);
+            }
+        }
+
     }
 
 }
