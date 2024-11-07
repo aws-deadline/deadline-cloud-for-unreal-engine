@@ -121,10 +121,7 @@ class OpenJobDescription:
     Represents a OpenJob description object
     """
 
-    def __init__(
-            self,
-            mrq_job: unreal.MoviePipelineExecutorJob
-    ):
+    def __init__(self, mrq_job: unreal.MoviePipelineExecutorJob):
         """
         Build OpenJob with the given MovieP ipeline Executor Job and Queue Manifest path
 
@@ -186,10 +183,7 @@ class OpenJobDescription:
 
         return shots_to_render
 
-    def _create_open_job_from_mrq_job(
-            self,
-            mrq_job: unreal.MoviePipelineExecutorJob
-    ) -> None:
+    def _create_open_job_from_mrq_job(self, mrq_job: unreal.MoviePipelineExecutorJob) -> None:
         """
         Creates an OpenJob representation from the unreal.MoviePipelineExecutorJob.
 
@@ -252,9 +246,7 @@ class OpenJobDescription:
 
         return level_sequence_dependencies + level_dependencies + [level_sequence_path, level_path]
 
-    def _build_parameter_values_dict(
-            self, mrq_job: unreal.MoviePipelineExecutorJob
-    ) -> dict:
+    def _build_parameter_values_dict(self, mrq_job: unreal.MoviePipelineExecutorJob) -> dict:
         """
         Build parameter values of the OpenJob with the given MRQ Job.
         Extend the built parameter values with OpenJob SharedSettings instance
@@ -393,10 +385,7 @@ class OpenJobDescription:
 
         return self._asset_references
 
-    def _build_steps(
-            self,
-            mrq_job: unreal.MoviePipelineExecutorJob
-    ) -> list[JobStep]:
+    def _build_steps(self, mrq_job: unreal.MoviePipelineExecutorJob) -> list[JobStep]:
         """
         Build OpenJob steps with the given MRQ Job.
 
@@ -472,7 +461,9 @@ class OpenJobDescription:
     def _get_ue_cmd_args(self, mrq_job: unreal.MoviePipelineExecutorJob) -> List[str]:
         cmd_args = []
 
-        in_process_executor_settings = unreal.get_default_object(unreal.MoviePipelineInProcessExecutorSettings)
+        in_process_executor_settings = unreal.get_default_object(
+            unreal.MoviePipelineInProcessExecutorSettings
+        )
 
         # Append all of inherited command line arguments from the editor
         inherited_cmds: str = in_process_executor_settings.inherited_command_line_arguments
@@ -483,20 +474,20 @@ class OpenJobDescription:
         # We will expect all custom startup commands for rendering to go through the `Start Command` in the MRQ settings
         inherited_cmds = re.sub(pattern='(-execcmds="[^"]*")', repl="", string=inherited_cmds)
         inherited_cmds = re.sub(pattern="(-execcmds='[^']*')", repl="", string=inherited_cmds)
-        cmd_args.extend(inherited_cmds.split(' '))
+        cmd_args.extend(inherited_cmds.split(" "))
 
         # Append all of additional command line arguments from the editor
         additional_cmds: str = in_process_executor_settings.additional_command_line_arguments
-        cmd_args.extend(additional_cmds.split(' '))
+        cmd_args.extend(additional_cmds.split(" "))
 
         # Initializes a single instance of every setting
         # so that even non-user-configured settings have a chance to apply their default values
         mrq_job.get_configuration().initialize_transient_settings()
 
-        job_url_params = []
-        job_cmd_args = []
-        job_device_profile_cvars = []
-        job_exec_cmds = []
+        job_url_params: list[str] = []
+        job_cmd_args: list[str] = []
+        job_device_profile_cvars: list[str] = []
+        job_exec_cmds: list[str] = []
         for setting in mrq_job.get_configuration().get_all_settings():
             (
                 job_url_params,
@@ -507,30 +498,26 @@ class OpenJobDescription:
                 out_unreal_url_params=job_url_params,
                 out_command_line_args=job_cmd_args,
                 out_device_profile_cvars=job_device_profile_cvars,
-                out_exec_cmds=job_exec_cmds,
+                out_exec_cmds=job_exec_cmds
             )
 
         # Apply job cmd arguments
         cmd_args.extend(job_cmd_args)
 
         if job_device_profile_cvars:
-            cmd_args.append(
-                '-dpcvars="{}"'.format(",".join(job_device_profile_cvars))
-            )
+            cmd_args.append('-dpcvars="{}"'.format(",".join(job_device_profile_cvars)))
 
         if job_exec_cmds:
-            cmd_args.append(
-                '-execcmds="{}"'.format(",".join(job_exec_cmds))
-            )
+            cmd_args.append('-execcmds="{}"'.format(",".join(job_exec_cmds)))
 
         extra_cmd_args = mrq_job.preset_overrides.job_shared_settings.extra_cmd_args
         if extra_cmd_args:
-            cmd_args.extend(extra_cmd_args.split(' '))
+            cmd_args.extend(extra_cmd_args.split(" "))
 
         # remove duplicates
         cmd_args = list(set(cmd_args))
 
         # remove empty args
-        cmd_args = [a for a in cmd_args if a != '']
+        cmd_args = [a for a in cmd_args if a != ""]
 
         return cmd_args

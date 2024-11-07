@@ -214,7 +214,10 @@ class TestUnrealAdaptor_on_start:
         "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.unreal_client_path",
         new_callable=PropertyMock,
     )
-    @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._get_regex_callbacks", return_value=[])
+    @patch(
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._get_regex_callbacks",
+        return_value=[]
+    )
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.logger")
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
     def test__start_unreal_client_default(
@@ -228,7 +231,7 @@ class TestUnrealAdaptor_on_start:
         """Tests that an UnrealAdaptor starts UE properly with default executable and project path from init_data"""
 
         # GIVEN
-        unreal_client_path = 'UnrealClient.py'
+        unreal_client_path = "UnrealClient.py"
         mock_unreal_client_path.side_effect = [unreal_client_path]
         adaptor = UnrealAdaptor(init_data)
 
@@ -238,19 +241,24 @@ class TestUnrealAdaptor_on_start:
         # THEN
         log_calls = mock_logger.mock_calls
 
-        assert log_calls[0].args == ('execcmds: None',)
+        assert log_calls[0].args == ("execcmds: None",)
 
-        launch_ue_with_message: str = log_calls[1].args[0].replace('Starting Unreal Engine with args: ', '')
+        launch_ue_with_message: str = (
+            log_calls[1].args[0].replace("Starting Unreal Engine with args: ", "")
+        )
         launch_args = ast.literal_eval(launch_ue_with_message)
-        assert launch_args[0] == 'UnrealEditor-Cmd'
-        assert launch_args[1] == init_data['project_path']
+        assert launch_args[0] == "UnrealEditor-Cmd"
+        assert launch_args[1] == init_data["project_path"]
         assert unreal_client_path in launch_args[-1]
 
     @patch(
         "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.unreal_client_path",
-        new_callable=PropertyMock,
+        new_callable=PropertyMock
     )
-    @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._get_regex_callbacks", return_value=[])
+    @patch(
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._get_regex_callbacks",
+        return_value=[]
+    )
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.logger")
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
     def test__start_unreal_client_with_extra_cmd_args(
@@ -264,11 +272,11 @@ class TestUnrealAdaptor_on_start:
         """Tests that an UnrealAdaptor starts UE properly with additional cmd arguments"""
 
         # GIVEN
-        extra_cmd_flag = '-ExtraCmdFlag'
-        extra_cmd_arg = '-ExtraCmdNamedArg=ExtraCmdValue'
-        init_data['extra_cmd_args'] = extra_cmd_flag + ' ' + extra_cmd_arg
+        extra_cmd_flag = "-ExtraCmdFlag"
+        extra_cmd_arg = "-ExtraCmdNamedArg=ExtraCmdValue"
+        init_data["extra_cmd_args"] = extra_cmd_flag + " " + extra_cmd_arg
 
-        unreal_client_path = 'UnrealClient.py'
+        unreal_client_path = "UnrealClient.py"
         mock_unreal_client_path.side_effect = [unreal_client_path]
         adaptor = UnrealAdaptor(init_data)
 
@@ -278,7 +286,9 @@ class TestUnrealAdaptor_on_start:
         # THEN
         log_calls = mock_logger.mock_calls
 
-        launch_ue_with_message: str = log_calls[1].args[0].replace('Starting Unreal Engine with args: ', '')
+        launch_ue_with_message: str = (
+            log_calls[1].args[0].replace("Starting Unreal Engine with args: ", "")
+        )
         launch_args = ast.literal_eval(launch_ue_with_message)
         assert extra_cmd_flag in launch_args
         assert extra_cmd_arg in launch_args
@@ -288,7 +298,10 @@ class TestUnrealAdaptor_on_start:
         "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.unreal_client_path",
         new_callable=PropertyMock,
     )
-    @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._get_regex_callbacks", return_value=[])
+    @patch(
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._get_regex_callbacks",
+        return_value=[]
+    )
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.logger")
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
     def test__start_unreal_client_with_extra_execcmds_arg(
@@ -297,20 +310,20 @@ class TestUnrealAdaptor_on_start:
             mock_logger: Mock,
             mock_get_regex_callbacks: Mock,
             mock_unreal_client_path: Mock,
-            init_data: dict
+            init_data: dict,
     ):
         """Tests that an UnrealAdaptor starts UE properly with additional cmd arguments"""
 
         # GIVEN
-        extra_exec_cmds_value = 'r.HLOD 123456'
+        extra_exec_cmds_value = "r.HLOD 123456"
         extra_exec_cmds_arg = f'-execcmds="{extra_exec_cmds_value}"'
-        init_data['extra_cmd_args'] = extra_exec_cmds_arg
+        init_data["extra_cmd_args"] = extra_exec_cmds_arg
 
-        unreal_client_path = 'UnrealClient.py'
+        unreal_client_path = "UnrealClient.py"
         mock_unreal_client_path.side_effect = [unreal_client_path]
         adaptor = UnrealAdaptor(init_data)
 
-        expected_exec_cmds = f'-execcmds={extra_exec_cmds_value},py {unreal_client_path}'
+        expected_exec_cmds = f"-execcmds={extra_exec_cmds_value},py {unreal_client_path}"
 
         # WHEN
         adaptor._start_unreal_client()
@@ -318,9 +331,11 @@ class TestUnrealAdaptor_on_start:
         # THEN
         log_calls = mock_logger.mock_calls
 
-        assert log_calls[0].args == (f'execcmds: {extra_exec_cmds_value}',)
+        assert log_calls[0].args == (f"execcmds: {extra_exec_cmds_value}",)
 
-        launch_ue_with_message: str = log_calls[1].args[0].replace('Starting Unreal Engine with args: ', '')
+        launch_ue_with_message: str = (
+            log_calls[1].args[0].replace("Starting Unreal Engine with args: ", "")
+        )
         launch_args = ast.literal_eval(launch_ue_with_message)
         assert expected_exec_cmds in launch_args
 
@@ -401,7 +416,8 @@ class TestUnrealAdaptor_on_run:
         # THEN
         mock_sleep.assert_called_once_with(1)
         assert str(exc_info.value) == (
-            "Unreal exited early and did not render successfully, please check render logs. "
+            "Unreal exited early and did not render successfully, "
+            "please check render logs."
             "Exit code 1"
         )
 

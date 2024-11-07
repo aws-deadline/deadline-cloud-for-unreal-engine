@@ -19,9 +19,11 @@ def main(reentry_exe=None) -> int:
     if not package_name:
         raise RuntimeError(f"Must be run as a module. Do not run {__file__} directly")
 
-    timeout_in_seconds = float(os.getenv('ADAPTOR_DAEMON_TIMEOUT_IN_SECONDS', 3600.0))
+    timeout_in_seconds = float(os.getenv("ADAPTOR_DAEMON_TIMEOUT_IN_SECONDS", 3600.0))
     try:
-        EntryPoint(UnrealAdaptor).start(reentry_exe=reentry_exe, timeout_in_seconds=timeout_in_seconds)
+        EntryPoint(UnrealAdaptor).start(
+            reentry_exe=reentry_exe, timeout_in_seconds=timeout_in_seconds
+        )
     except Exception as e:
         _logger.error(f"Entrypoint failed: {e}")
         return 1

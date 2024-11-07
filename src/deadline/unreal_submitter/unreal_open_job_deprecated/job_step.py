@@ -114,7 +114,15 @@ class JobStep:
     Represents a OpenJob Step
     """
 
-    def __init__(self, step_template, step_settings, host_requirements, queue_manifest_path, shots_count, task_chunk_size):
+    def __init__(
+        self,
+        step_template,
+        step_settings,
+        host_requirements,
+        queue_manifest_path,
+        shots_count,
+        task_chunk_size
+    ):
         """
         Build JobStep, set its name and fill dependencies list
 
@@ -162,7 +170,6 @@ class JobStep:
         if parameter_definition is not None:
             parameter_definition["range"] = [path_value]
 
-
     def _fill_step_dependency_list(self, step_settings):
         """
         Fill the dependsOn list of this Step with the given step settings' "depends_on" attribute
@@ -193,12 +200,25 @@ class CustomScriptJobStep(JobStep):
     Represents a OpenJob Step for Custom Script executing
     """
 
-    def __init__(self, step_template, step_settings, host_requirements, queue_manifest_path, shots_count, task_chunk_size):
+    def __init__(
+        self,
+        step_template,
+        step_settings,
+        host_requirements,
+        queue_manifest_path,
+        shots_count,
+        task_chunk_size
+    ):
         """
         Build JobStep, set its name, fill dependencies list and set script path parameter
         """
         super().__init__(
-            step_template, step_settings, host_requirements, queue_manifest_path, shots_count, task_chunk_size
+            step_template,
+            step_settings,
+            host_requirements,
+            queue_manifest_path,
+            shots_count,
+            task_chunk_size
         )
 
         self._set_script_path_parameter(os_abs_from_relative(step_settings.script.file_path))
@@ -247,13 +267,24 @@ class RenderJobStep(JobStep):
     """
 
     def __init__(
-            self, step_template, step_settings, host_requirements, queue_manifest_path, shots_count, task_chunk_size
+        self,
+        step_template,
+        step_settings,
+        host_requirements,
+        queue_manifest_path,
+        shots_count,
+        task_chunk_size
     ):
         """
         Build JobStep, set its name, fill dependencies list and set queue manifest path parameter
         """
         super().__init__(
-            step_template, step_settings, host_requirements, queue_manifest_path, shots_count, task_chunk_size
+            step_template,
+            step_settings,
+            host_requirements,
+            queue_manifest_path,
+            shots_count,
+            task_chunk_size
         )
 
         self._set_queue_manifest_path_parameter(queue_manifest_path)
@@ -281,14 +312,14 @@ class RenderJobStep(JobStep):
     def _set_step_chunk_parameters(self, shots_count: int, task_chunk_size: int):
         task_chunk_ids_count = math.ceil(shots_count / task_chunk_size)
         task_chunk_ids = [i for i in range(task_chunk_ids_count)]
-        task_chunk_id = {'name': 'ChunkId', 'type': 'INT', 'range': task_chunk_ids}
-        task_chunk_size = {'name': 'ChunkSize', 'type': 'INT', 'range': [task_chunk_size]}
+        task_chunk_id_param = {"name": "ChunkId", "type": "INT", "range": task_chunk_ids}
+        task_chunk_size_param = {"name": "ChunkSize", "type": "INT", "range": [task_chunk_size]}
 
-        for param_definition in self._job_step["parameterSpace"]['taskParameterDefinitions']:
-            if param_definition['name'] == task_chunk_id['name']:
-                param_definition.update(task_chunk_id)
-            if param_definition['name'] == task_chunk_size['name']:
-                param_definition.update(task_chunk_size)
+        for param_definition in self._job_step["parameterSpace"]["taskParameterDefinitions"]:
+            if param_definition["name"] == task_chunk_id_param["name"]:
+                param_definition.update(task_chunk_id_param)
+            if param_definition["name"] == task_chunk_size_param["name"]:
+                param_definition.update(task_chunk_size_param)
 
 
 @dataclass
