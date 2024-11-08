@@ -75,6 +75,11 @@ public:
 	UFUNCTION()
 	UDeadlineCloudRenderJob* CreateDefaultJobPresetFromTemplates(UDeadlineCloudRenderJob* Preset);
 
+	UFUNCTION()
+	TArray<FDeadlineCloudStepOverride> GetStepsToOverride(const UDeadlineCloudJob* Preset);
+	UFUNCTION()
+	TArray<FDeadlineCloudEnvironmentOverride> GetEnvironmentsToOverride(const UDeadlineCloudJob* Preset);
+
 	/**
 	 * Reference to Deadline Cloud job preset DataAsset. Contains overriden job settings
 	 */
