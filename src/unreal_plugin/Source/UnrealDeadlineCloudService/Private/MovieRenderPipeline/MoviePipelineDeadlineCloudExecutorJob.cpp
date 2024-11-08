@@ -94,33 +94,34 @@ void UMoviePipelineDeadlineCloudExecutorJob::UpdateAttachmentFields()
 
 void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-    // FName PropertyName = PropertyChangedEvent.GetPropertyName();
-     // Check if we changed the job Preset an update the override details
+    // Check if we changed the job Preset an update the override details
     if (const FName PropertyName = PropertyChangedEvent.GetPropertyName(); PropertyName == "JobPreset")
     {
+        const UDeadlineCloudJob* SelectedJobPreset = this->JobPreset;
 
-        if (const UDeadlineCloudJob* SelectedJobPreset = this->JobPreset)
+        if (!SelectedJobPreset)
         {
-
-            this->PresetOverrides.HostRequirements = SelectedJobPreset->JobPresetStruct.HostRequirements;
-            this->PresetOverrides.JobSharedSettings = SelectedJobPreset->JobPresetStruct.JobSharedSettings;
-
-            this->PresetOverrides.JobAttachments.InputFiles.Files =
-                SelectedJobPreset->JobPresetStruct.JobAttachments.InputFiles.Files;
-
-            this->PresetOverrides.JobAttachments.InputDirectories.Directories =
-                SelectedJobPreset->JobPresetStruct.JobAttachments.InputDirectories.Directories;
-
-            this->PresetOverrides.JobAttachments.OutputDirectories.Directories =
-                SelectedJobPreset->JobPresetStruct.JobAttachments.OutputDirectories.Directories;
-
-            this->ParameterDefinitionOverrides.Parameters =
-                SelectedJobPreset->ParameterDefinition.Parameters;
-
-            this->StepsOverrides = GetStepsToOverride(SelectedJobPreset);
-            this->EnvironmentsVariablesOverrides = GetEnvironmentsToOverride(SelectedJobPreset);
-
+            this->JobPreset = CreateDefaultJobPresetFromTemplates(JobPreset);
+            SelectedJobPreset = this->JobPreset;
         }
+
+        this->PresetOverrides.HostRequirements = SelectedJobPreset->JobPresetStruct.HostRequirements;
+        this->PresetOverrides.JobSharedSettings = SelectedJobPreset->JobPresetStruct.JobSharedSettings;
+
+        this->PresetOverrides.JobAttachments.InputFiles.Files =
+            SelectedJobPreset->JobPresetStruct.JobAttachments.InputFiles.Files;
+
+        this->PresetOverrides.JobAttachments.InputDirectories.Directories =
+            SelectedJobPreset->JobPresetStruct.JobAttachments.InputDirectories.Directories;
+
+        this->PresetOverrides.JobAttachments.OutputDirectories.Directories =
+            SelectedJobPreset->JobPresetStruct.JobAttachments.OutputDirectories.Directories;
+
+        this->ParameterDefinitionOverrides.Parameters =
+            SelectedJobPreset->ParameterDefinition.Parameters;
+
+        this->StepsOverrides = GetStepsToOverride(SelectedJobPreset);
+        this->EnvironmentsVariablesOverrides = GetEnvironmentsToOverride(SelectedJobPreset);
 
         // UpdateAttachmentFields();
     }
@@ -223,7 +224,7 @@ UDeadlineCloudRenderJob* UMoviePipelineDeadlineCloudExecutorJob::CreateDefaultJo
         Preset->PathToTemplate.FilePath = PathToJobTemplate;
         Preset->OpenJobFile(PathToJobTemplate);
 
-        UDeadlineCloudRenderStep* PresetStep;
+        TObjectPtr <UDeadlineCloudRenderStep> PresetStep;
         PresetStep = NewObject<UDeadlineCloudRenderStep>();
         FString PathToStepTemplate = FPaths::Combine(FPaths::ConvertRelativePathToFull(PluginContentDir), StepTemplate);
         FPaths::NormalizeDirectoryName(PathToStepTemplate);
@@ -297,10 +298,9 @@ void FMoviePipelineDeadlineCloudExecutorJobCustomization::CustomizeDetails(IDeta
 
     TSharedPtr<IPropertyHandle> JobPropertyHandle = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UMoviePipelineDeadlineCloudExecutorJob, JobPreset));
 
-    IDetailLayoutBuilder& MyDetailBuilder = DetailBuilder;
     if (JobPropertyHandle.IsValid())
     {
-        TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized; MyDetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
+        TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized; DetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
 
         if (ObjectsBeingCustomized.Num() > 0)
         {
@@ -310,6 +310,8 @@ void FMoviePipelineDeadlineCloudExecutorJobCustomization::CustomizeDetails(IDeta
                 FPropertyChangedEvent PropertyChangedEvent(JobPropertyHandle->GetProperty());
                 FString ObjectName = Object->GetName(); //
                 // UE_LOG(LogTemp, Log, TEXT("Object Name: %s"), *ObjectName);
+
+                DetailBuilder.ForceRefreshDetails();
                 Object->PostEditChangeProperty(PropertyChangedEvent);
             }
         }
@@ -317,3 +319,5 @@ void FMoviePipelineDeadlineCloudExecutorJobCustomization::CustomizeDetails(IDeta
     }
 
 }
+
+
