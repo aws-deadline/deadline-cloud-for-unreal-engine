@@ -133,6 +133,11 @@ class UnrealRenderStepHandler(BaseStepHandler):
         unreal.log("Render Executor: Rendering is complete")
 
     @staticmethod
+    def log(message: str):
+        if unreal:
+            unreal.log(message)
+
+    @staticmethod
     def create_queue_from_manifest(movie_pipeline_queue_subsystem, queue_manifest_path: str):
         """
         Create the unreal.MoviePipelineQueue object from the given queue manifest path
@@ -210,7 +215,7 @@ class UnrealRenderStepHandler(BaseStepHandler):
                 shot.enabled = True
             else:
                 shot.enabled = False
-        unreal.log(f"Shots in task: {[shot.outer_name for shot in shots_chunk]}")
+        UnrealRenderStepHandler.log(f"Shots in task: {[shot.outer_name for shot in shots_chunk]}")
 
     def run_script(self, args: dict) -> bool:
         """
@@ -220,7 +225,9 @@ class UnrealRenderStepHandler(BaseStepHandler):
         :return: always True, because the Unreal launch render always as async process.
             (https://docs.unrealengine.com/5.2/en-US/PythonAPI/class/MoviePipelineQueueEngineSubsystem.html#unreal.MoviePipelineQueueEngineSubsystem.render_queue_with_executor_instance)
         """
-        unreal.log(f"{UnrealRenderStepHandler.run_script.__name__} executing with args: {args} ...")
+        UnrealRenderStepHandler.log(
+            f"{UnrealRenderStepHandler.run_script.__name__} executing with args: {args} ..."
+        )
 
         asset_registry = unreal.AssetRegistryHelpers.get_asset_registry()
         asset_registry.wait_for_completion()
@@ -250,17 +257,18 @@ class UnrealRenderStepHandler(BaseStepHandler):
                     task_chunk_id=chunk_id,
                 )
 
-        unreal.log(f"Render chunk: {args.get('chunk_id')}")
-        unreal.log(f"Render chunk size: {args.get('chunk_size')}")
         for job in subsystem.get_queue().get_jobs():
             for shot in job.shot_info:
                 if shot.enabled:
-                    unreal.log(f"Shot to render: {shot.outer_name}: {shot.inner_name}")
+                    UnrealRenderStepHandler.log(
+                        f"Shot to render: {shot.outer_name}: {shot.inner_name}"
+                    )
 
         # Initialize Render executor
         executor = RemoteRenderMoviePipelineEditorExecutor()
 
-        # Add callbacks on complete and error actions to handle it and provide output to the Deadline Adaptor
+        # Add callbacks on complete and error actions to handle it and
+        # provide output to the Deadline Adaptor
         executor.on_executor_errored_delegate.add_callable(
             UnrealRenderStepHandler.executor_failed_callback
         )
@@ -281,5 +289,5 @@ class UnrealRenderStepHandler(BaseStepHandler):
         It is responsible for waiting result of the
         :meth:`deadline.unreal_adaptor.UnrealClient.step_handlers.unreal_render_step_handler.UnrealRenderStepHandler.run_script()`.
         """
-        unreal.log("Render wait start")
-        unreal.log("Render wait finish")
+        UnrealRenderStepHandler.log("Render wait start")
+        UnrealRenderStepHandler.log("Render wait finish")

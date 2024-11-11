@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import ast
+import sys
 from unittest.mock import Mock, PropertyMock, patch
 
 import pytest
@@ -339,6 +340,22 @@ class TestUnrealAdaptor_on_start:
         launch_args = ast.literal_eval(launch_ue_with_message)
         assert expected_exec_cmds in launch_args
 
+    @patch.object(sys, "path", [])
+    def test__unreal_client_path_not_found(self, init_data: dict):
+        # GIVEN
+        adaptor = UnrealAdaptor(init_data)
+
+        # WHEN
+        with pytest.raises(FileNotFoundError) as exc_info:
+            _ = adaptor.unreal_client_path
+
+        # THEN
+        assert (
+            str(exc_info.value) == "Could not find unreal_client.py. "
+            "Check that the UnrealClient package is in one of the "
+            "following directories: []"
+        )
+
 
 class TestUnrealAdaptor_on_run:
     @patch("time.sleep")
@@ -417,7 +434,7 @@ class TestUnrealAdaptor_on_run:
         mock_sleep.assert_called_once_with(1)
         assert str(exc_info.value) == (
             "Unreal exited early and did not render successfully, "
-            "please check render logs."
+            "please check render logs. "
             "Exit code 1"
         )
 

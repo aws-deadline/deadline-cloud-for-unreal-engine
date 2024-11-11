@@ -1,46 +1,20 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-import os
 import unreal
 import threading
-import traceback
 from enum import Enum
-from typing import Callable
-
 from deadline.client.api import (
     create_job_from_job_bundle,
     get_deadline_cloud_library_telemetry_client,
 )
 from deadline.job_attachments.exceptions import AssetSyncCancelledError
 
-from deadline.unreal_submitter.unreal_open_job import UnrealOpenJob, RenderUnrealOpenJob
+from deadline.unreal_submitter.unreal_logger import get_logger
+from deadline.unreal_submitter.unreal_open_job.open_job_description import OpenJobDescription
 
 from ._version import version
 
 
-def error_notify(
-        notify_title: str = 'Operation failed',
-        notify_prefix: str = 'Error occurred:\n',
-        with_traceback: bool = False
-):
-    def decorator(func: Callable):
-        def wrapper(self, *args, **kwargs):
-            try:
-                return func(self, *args, **kwargs)
-            except Exception as e:
-                unreal.log(str(e))
-                unreal.log(traceback.format_exc())
-
-                message = notify_prefix + str(e)
-                if with_traceback:
-                    message += '\n' + traceback.format_exc()
-                else:
-                    message += '\nSee logs for more details.'
-                self.show_message_dialog(
-                    message=message,
-                    title=notify_title
-                )
-        return wrapper
-    return decorator
+logger = get_logger()
 
 
 class UnrealSubmitStatus(Enum):
@@ -61,11 +35,10 @@ class UnrealSubmitter:
     Execute the OpenJob submission
     """
 
-    def __init__(self, open_job_class: type[UnrealOpenJob] = UnrealOpenJob, silent_mode: bool = False):
-        self._open_job_class = open_job_class
+    def __init__(self, silent_mode: bool = False):
         self._silent_mode = silent_mode
 
-        self._jobs: list[UnrealOpenJob] = []
+        self._jobs: list[OpenJobDescription] = []
         self.submit_status: UnrealSubmitStatus = UnrealSubmitStatus.COMPLETED
         self.submit_message: str = "Start submitting..."
         self.progress_list: list[float] = []
@@ -86,11 +59,14 @@ class UnrealSubmitter:
     def submission_failed_message(self) -> str:
         return self._submission_failed_message
 
-    def add_job(self, *args, **kwargs):
+    def add_job(self, mrq_job: unreal.MoviePipelineExecutorJob):
         """
         Build and add to the submission queue :class:`deadline.unreal_submitter.unreal_open_job.open_job_description.OpenJobDescription`
+
+        :param mrq_job: unreal.MoviePipelineExecutorJob instance
+        :type mrq_job: unreal.MoviePipelineExecutorJob
         """
-        raise NotImplementedError
+        self._jobs.append(OpenJobDescription(mrq_job=mrq_job))
 
     def _display_progress(self, check_submit_status, message):
         """
@@ -136,14 +112,14 @@ class UnrealSubmitter:
                 create_job_result_callback=lambda: self._create_job_result(),
             )
             if job_id:
-                unreal.log(f"Job creation result: {job_id}")
+                logger.info(f"Job creation result: {job_id}")
                 self.submitted_job_ids.append(job_id)
 
         except AssetSyncCancelledError as e:
-            unreal.log(str(e))
+            logger.info(str(e))
 
         except Exception as e:
-            unreal.log(str(e))
+            logger.info(str(e))
             self._submission_failed_message = str(e)
 
     def _hash_progress(self, hash_metadata) -> bool:
@@ -156,7 +132,7 @@ class UnrealSubmitter:
         :rtype: bool
         """
         self.submit_status = UnrealSubmitStatus.HASHING
-        unreal.log(
+        logger.info(
             "Hash progress: {} {}".format(hash_metadata.progress, hash_metadata.progressMessage)
         )
         self.submit_message = hash_metadata.progressMessage
@@ -174,7 +150,7 @@ class UnrealSubmitter:
         """
 
         self.submit_status = UnrealSubmitStatus.UPLOADING
-        unreal.log(
+        logger.info(
             "Upload progress: {} {}".format(
                 upload_metadata.progress, upload_metadata.progressMessage
             )
@@ -190,7 +166,7 @@ class UnrealSubmitter:
         """
 
         self.submit_status = UnrealSubmitStatus.COMPLETED
-        unreal.log("Create job result...")
+        logger.info("Create job result...")
         return True
 
     def show_message_dialog(
@@ -212,22 +188,19 @@ class UnrealSubmitter:
 
         unreal.EditorDialog.show_message(title=title, message=message, message_type=message_type)
 
-    @error_notify('Submission failed')
     def submit_jobs(self):
         """
         Submit OpenJobs to the Deadline Cloud
         """
         for job in self._jobs:
-            unreal.log("Creating job from bundle...")
+            logger.info("Creating job from bundle...")
             self.submit_status = UnrealSubmitStatus.HASHING
             self.progress_list = []
             self.submit_message = "Start submitting..."
             self._submission_failed_message = ""
 
-            job_bundle_path = job.create_job_bundle()
-
             t = threading.Thread(
-                target=self._start_submit, args=(job_bundle_path,), daemon=True
+                target=self._start_submit, args=(job.job_bundle_path,), daemon=True
             )
             t.start()
 
@@ -259,29 +232,5 @@ class UnrealSubmitter:
             f"Submitted jobs ({len(self.submitted_job_ids)}):\n" + "\n".join(self.submitted_job_ids)
         )
 
-    def cleanup(self):
         del self.submitted_job_ids[:]
         del self._jobs[:]
-
-
-class UnrealOpenJobSubmitter(UnrealSubmitter):
-
-    def __init__(self, silent_mode: bool = False):
-        super().__init__(UnrealOpenJob, silent_mode)
-
-    @error_notify('Data asset converting failed')
-    def add_job(self, unreal_open_job_data_asset: unreal.DeadlineCloudJob):
-        open_job = self._open_job_class.from_data_asset(unreal_open_job_data_asset)
-        self._jobs.append(open_job)
-
-
-class UnrealRenderOpenJobSubmitter(UnrealSubmitter):
-
-    def __init__(self, silent_mode: bool = False):
-        super().__init__(RenderUnrealOpenJob, silent_mode)
-
-    @error_notify('Data asset converting failed')
-    def add_job(self, mrq_job: unreal.MoviePipelineExecutorJob):
-        render_open_job = self._open_job_class.from_data_asset(mrq_job.job_preset)
-        render_open_job.mrq_job = mrq_job
-        self._jobs.append(render_open_job)

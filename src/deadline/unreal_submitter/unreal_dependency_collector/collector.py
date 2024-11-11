@@ -5,8 +5,11 @@ from typing import Callable, Optional
 
 from .common import os_path_from_unreal_path
 from .dependency_search_options import DependencySearchOptions
+from deadline.unreal_submitter.unreal_logger import get_logger
 
 asset_registry = unreal.AssetRegistryHelpers.get_asset_registry()
+
+logger = get_logger()
 
 
 class DependencyCollector:
@@ -51,7 +54,7 @@ class DependencyCollector:
         udependency_options = unreal.AssetRegistryDependencyOptions(**dependency_options.as_dict())
 
         source_control_available = unreal.SourceControl.is_available()
-        unreal.log(
+        logger.info(
             "DependencyCollector: Source control is available: {}".format(source_control_available)
         )
 
@@ -116,7 +119,7 @@ class DependencyCollector:
             self._collected_dependencies.extend(dependencies)
 
         if on_found_dependency_callback:
-            unreal.log(
+            logger.info(
                 f"Execute callable {on_found_dependency_callback.__name__} on the dependencies"
             )
             on_found_dependency_callback(dependencies)

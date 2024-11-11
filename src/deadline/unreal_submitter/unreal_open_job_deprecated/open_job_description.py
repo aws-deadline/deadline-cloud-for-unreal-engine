@@ -19,10 +19,13 @@ from deadline.unreal_submitter.unreal_dependency_collector.common import (
     DependencyFilters,
     os_path_from_unreal_path,
 )
+from deadline.unreal_submitter.unreal_logger import get_logger
+from deadline.unreal_submitter.unreal_open_job.job_step import JobStep, JobStepFactory
 from deadline.unreal_submitter.unreal_dependency_collector.common import os_abs_from_relative
 from deadline.unreal_submitter.unreal_dependency_collector.collector import DependencyCollector
 
-from deadline.unreal_submitter.unreal_open_job.job_step import JobStep, JobStepFactory
+
+logger = get_logger()
 
 
 class JobSharedSettings:
@@ -174,7 +177,7 @@ class OpenJobDescription:
         shots_to_render = []
         for shot_index, shot in enumerate(mrq_job.shot_info):
             if not shot.enabled:
-                unreal.log(
+                logger.info(
                     f"Skipped submitting shot {shot_index} in {mrq_job.job_name} "
                     f"to server due to being already disabled!"
                 )
@@ -391,7 +394,7 @@ class OpenJobDescription:
         """
 
         preset_overrides: unreal.DeadlineCloudJobPresetStruct = mrq_job.preset_overrides
-        unreal.log(f"Preset overrides: {preset_overrides}")
+        logger.info(f"Preset overrides: {preset_overrides}")
 
         shots_to_render = OpenJobDescription.get_enabled_shot_names(mrq_job)
 
@@ -420,7 +423,7 @@ class OpenJobDescription:
         """
 
         job_bundle_path = create_job_history_bundle_dir("Unreal", self._open_job["name"])
-        unreal.log(f"Job bundle path: {job_bundle_path}")
+        logger.info(f"Job bundle path: {job_bundle_path}")
 
         with open(job_bundle_path + "/template.yaml", "w", encoding="utf8") as f:
             deadline_yaml_dump(self._open_job, f, indent=1)
