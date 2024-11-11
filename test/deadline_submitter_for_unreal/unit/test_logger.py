@@ -16,8 +16,12 @@ class TestUnrealLogHandler:
         # GIVEN
         import sys
 
-        current_mod = sys.modules["unreal"]
-        sys.modules["unreal"] = unreal_module
+        current = sys.modules.get("unreal")
+
+        if unreal_module is None:
+            del sys.modules["unreal"]
+        else:
+            sys.modules["unreal"] = unreal_module
 
         # WHEN
         handler = UnrealLogHandler()
@@ -25,7 +29,8 @@ class TestUnrealLogHandler:
         # THEN
         assert handler.initialized == expected_initialized
 
-        sys.modules["unreal"] = current_mod
+        if current:
+            sys.modules["unreal"] = current  # Remove None from sys.modules
 
     @pytest.mark.parametrize(
         "unreal_module, log_level, expected_method",

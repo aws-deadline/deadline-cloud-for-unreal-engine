@@ -59,7 +59,7 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
     Base class for Unreal Open Job entities
     """
 
-    def __init__(self, template_class: TemplateClass, file_path: Union[str, unreal.FilePath], name: str = None):
+    def __init__(self, template_class: TemplateClass, file_path: str, name: str = None):
         """
         :param template_class: The template class for the entity
         :type template_class: TemplateClass
@@ -71,7 +71,7 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
         :type name: str
         """
 
-        template_path = (file_path.file_path if isinstance(file_path, unreal.FilePath) else file_path)
+        template_path = file_path
         if not os.path.isabs(template_path):
             # Case when file under the project directory
             # and UE picker returns relative path (/Game/Developers/job_template.yml)
