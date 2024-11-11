@@ -76,11 +76,11 @@ class TestUnrealSubmitter:
         submitter.add_job(mrq_job)
 
         # WHEN
-        submitter.submit_jobs()
+        submitted_job_ids = submitter.submit_jobs()
 
         # THEN
         create_job_from_bundle_mock.assert_called_once()
-        assert len(submitter.submitted_job_ids) == 1
+        assert len(submitted_job_ids) == 1
 
     @patch("deadline.unreal_submitter.submitter.UnrealSubmitter.show_message_dialog")
     @patch("deadline.unreal_submitter.submitter.get_deadline_cloud_library_telemetry_client")

@@ -188,10 +188,13 @@ class UnrealSubmitter:
 
         unreal.EditorDialog.show_message(title=title, message=message, message_type=message_type)
 
-    def submit_jobs(self):
+    def submit_jobs(self) -> list[str]:
         """
         Submit OpenJobs to the Deadline Cloud
         """
+
+        del self.submitted_job_ids[:]
+
         for job in self._jobs:
             logger.info("Creating job from bundle...")
             self.submit_status = UnrealSubmitStatus.HASHING
@@ -232,5 +235,6 @@ class UnrealSubmitter:
             f"Submitted jobs ({len(self.submitted_job_ids)}):\n" + "\n".join(self.submitted_job_ids)
         )
 
-        del self.submitted_job_ids[:]
         del self._jobs[:]
+
+        return self.submitted_job_ids
