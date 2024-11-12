@@ -32,7 +32,7 @@ bool FDeadlineCloudStepDetails::CheckConsistency(UDeadlineCloudStep* Step)
     return result.Passed;
 }
 
-void FDeadlineCloudStepDetails::OnButtonClicked()
+void FDeadlineCloudStepDetails::OnConsistencyButtonClicked()
 {
     Settings->FixStepParametersConsistency(Settings.Get());
     UE_LOG(LogTemp, Warning, TEXT("FixStepParametersConsistency"));
@@ -112,7 +112,7 @@ void FDeadlineCloudStepDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBui
         .WholeRowContent()
         [
             SAssignNew(ConsistencyUpdateWidget, FDeadlineCloudDetailsWidgetsHelper::SConsistencyWidget)
-                .OnFixButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudStepDetails::OnButtonClicked))
+                .OnFixButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudStepDetails::OnConsistencyButtonClicked))
         ];
 
     if (Settings.IsValid() && (MyDetailLayout != nullptr))

@@ -149,7 +149,7 @@ public:
     static TSharedRef<IDetailCustomization> MakeInstance();
     virtual  void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
 
-    void OnButtonClicked();
+    void OnConsistencyButtonClicked();
     bool CheckConsistency(UDeadlineCloudStep* Step);
     bool bCheckConsistensyPassed = true;
     EVisibility GetWidgetVisibility() const { return (!bCheckConsistensyPassed) ? EVisibility::Visible : EVisibility::Collapsed; }

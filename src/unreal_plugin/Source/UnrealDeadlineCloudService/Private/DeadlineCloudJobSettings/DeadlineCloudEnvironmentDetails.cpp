@@ -62,7 +62,7 @@ void FDeadlineCloudEnvironmentDetails::CustomizeDetails(IDetailLayoutBuilder& De
 		.WholeRowContent()
 		[
 			SAssignNew(ConsistencyUpdateWidget, FDeadlineCloudDetailsWidgetsHelper::SConsistencyWidget)
-				.OnFixButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudEnvironmentDetails::OnButtonClicked))
+				.OnFixButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudEnvironmentDetails::OnConsistencyButtonClicked))
 		];
 
     //  Dispatcher handle bind
@@ -72,7 +72,7 @@ void FDeadlineCloudEnvironmentDetails::CustomizeDetails(IDetailLayoutBuilder& De
     };
 }
 
-void FDeadlineCloudEnvironmentDetails::OnButtonClicked()
+void FDeadlineCloudEnvironmentDetails::OnConsistencyButtonClicked()
 {
 	{
 		Settings->FixEnvironmentVariablesConsistency(Settings.Get());

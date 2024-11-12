@@ -81,8 +81,10 @@ public:
     IDetailLayoutBuilder* MyDetailLayout;
     TWeakObjectPtr<UDeadlineCloudEnvironment> Settings;
 
-	void OnButtonClicked();
+	void OnConsistencyButtonClicked();
 	EVisibility GetWidgetVisibility() const	{ return (!bCheckConsistensyPassed) ? EVisibility::Visible : EVisibility::Collapsed; }
+
+	EVisibility GetEyeWidgetVisibility() const { return (!bCheckConsistensyPassed) ? EVisibility::Visible : EVisibility::Collapsed; }
 
 private:
 

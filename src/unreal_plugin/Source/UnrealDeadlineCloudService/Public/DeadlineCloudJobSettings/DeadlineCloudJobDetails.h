@@ -49,10 +49,13 @@ public:
 
     void GenerateWrapperStructHeaderRowContent(FDetailWidgetRow& NodeRow, TSharedRef<SWidget> NameContent);
 
+   void OnEyeHideWidgetButtonClicked() const;
+
     FUIAction EmptyCopyPasteAction;
     FOnIsEnabled OnIsEnabled;
 
     TObjectPtr<UMoviePipelineDeadlineCloudExecutorJob> MrqJob;
+  bool bIsPropertyRowVisible = true;
 
 private:
     static UDeadlineCloudJob* GetOuterJob(TSharedRef<IPropertyHandle> Handle);
@@ -109,8 +112,13 @@ public:
 
     TWeakObjectPtr<UDeadlineCloudJob> Settings;
 
-    void OnButtonClicked();
+    void OnConsistencyButtonClicked();
+    void OnEyeButtonClicked();
+
     EVisibility GetConsistencyWidgetVisibility() const;
+    EVisibility GetEyeWidgetVisibility() const;
+
+    int32 CountHiddenWidgets = 0;
 
 private:
     void ForceRefreshDetails();

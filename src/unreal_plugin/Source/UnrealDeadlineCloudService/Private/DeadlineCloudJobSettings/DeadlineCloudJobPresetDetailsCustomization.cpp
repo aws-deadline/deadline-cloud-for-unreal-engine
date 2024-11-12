@@ -8,7 +8,8 @@
 #include "PropertyCustomizationHelpers.h"
 #include "Widgets/Input/SCheckBox.h"
 #include "Misc/EngineVersionComparison.h"
-
+#include "DeadlineCloudJobSettings/DeadlineCloudDetailsWidgetsHelper.h"
+/*
 class SEyeCheckBox : public SCompoundWidget
 {
 public:
@@ -44,18 +45,19 @@ public:
 				.UncheckedHoveredImage(FAppStyle::Get().GetBrush("Icons.Hidden"))
 				.UncheckedPressedImage(FAppStyle::Get().GetBrush("Icons.Hidden"))
 				.ToolTipText(NSLOCTEXT("FDeadlineJobPresetLibraryCustomization", "VisibleInMoveRenderQueueToolTip", "If true this property will be visible for overriding from Movie Render Queue."))
-				.IsChecked_Lambda([InPropertyPath]()
-				{
-					return FDeadlineCloudJobPresetDetailsCustomization::IsPropertyHiddenInMovieRenderQueue(InPropertyPath)
-								? ECheckBoxState::Unchecked
-								: ECheckBoxState::Checked;
-				})
+			//	.IsChecked_Lambda([InPropertyPath]()
+			//	{
+				//	return FDeadlineCloudJobPresetDetailsCustomization::IsPropertyHiddenInMovieRenderQueue(InPropertyPath)
+					//			? ECheckBoxState::Unchecked
+					//			: ECheckBoxState::Checked;
+					
+				//})
 			]
 		];
 	}
 
 	TSharedPtr<SCheckBox> CheckBoxPtr;
-};
+};*/
 
 TSharedRef<IPropertyTypeCustomization> FDeadlineCloudJobPresetDetailsCustomization::MakeInstance()
 {
@@ -171,10 +173,12 @@ void FDeadlineCloudJobPresetDetailsCustomization::CustomizeStructChildrenInAsset
 	.VAlign(VAlign_Center)
 	[
 		ValueWidget.ToSharedRef()
-	]
+]
 	.ExtensionContent()
 	[
-		SNew(SEyeCheckBox, *PropertyRow.GetPropertyHandle()->GetProperty()->GetPathName())
+		FDeadlineCloudDetailsWidgetsHelper::CreateEyeCheckBoxWidget(*PropertyRow.GetPropertyHandle()->GetProperty()->GetPathName())
+		//SNew(SEyeCheckBox, *PropertyRow.GetPropertyHandle()->GetProperty()->GetPathName())
+		
 	];
 }
 

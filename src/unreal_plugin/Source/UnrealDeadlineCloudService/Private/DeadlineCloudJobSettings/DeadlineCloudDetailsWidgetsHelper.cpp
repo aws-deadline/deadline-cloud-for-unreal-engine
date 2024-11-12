@@ -177,6 +177,8 @@ private:
 };
 
 
+
+
 	void FDeadlineCloudDetailsWidgetsHelper::SConsistencyWidget::Construct(const FArguments & InArgs) {
 
 		OnFixButtonClicked = InArgs._OnFixButtonClicked;
@@ -204,7 +206,32 @@ private:
 			];
 	};
 
+	void FDeadlineCloudDetailsWidgetsHelper::SEyeUpdateWidget::Construct(const FArguments& InArgs) {
 
+		OnEyeUpdateButtonClicked = InArgs._OnEyeUpdateButtonClicked;
+
+		ChildSlot
+			[
+				SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(5)
+					[
+						SNew(STextBlock)
+							.Text(FText::FromString("Some parameters are hidden. "))
+							.ColorAndOpacity(FLinearColor::Red) // 
+					]
+
+					//update?
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SButton)
+							.Text(FText::FromString("Show"))
+							.OnClicked(this, &SEyeUpdateWidget::HandleButtonClicked)
+					]
+			];
+	};
 
 
 TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(TSharedPtr<IPropertyHandle> ParameterHandle, EValueType Type)
@@ -257,6 +284,22 @@ TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateConsistencyWidget(
 		.CheckResult(ResultString)
 		.Visibility(EVisibility::Collapsed);
 	return  ConsistensyWidget;
+}
+
+TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateEyeCheckBoxWidget(FName ResultString)
+{
+
+	TSharedRef<SEyeCheckBox> EyeWidget = SNew(SEyeCheckBox).InPropertyPath(ResultString)
+		.Visibility(EVisibility::Visible);
+	return  EyeWidget;
+
+}
+
+TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateEyeUpdateWidget()
+{
+	TSharedRef<SEyeUpdateWidget> EyeUpdateWidget = SNew(SEyeUpdateWidget)
+		.Visibility(EVisibility::Collapsed);
+	return  EyeUpdateWidget;
 }
 
 TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreatePathWidget(TSharedPtr<IPropertyHandle> ParameterHandle)
