@@ -219,7 +219,7 @@ private:
 					[
 						SNew(STextBlock)
 							.Text(FText::FromString("Some parameters are hidden. "))
-							.ColorAndOpacity(FLinearColor::Red) // 
+							//.ColorAndOpacity(FLinearColor::Red) // 
 					]
 
 					//update?
@@ -289,7 +289,7 @@ TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateConsistencyWidget(
 TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateEyeCheckBoxWidget(FName ResultString)
 {
 
-	TSharedRef<SEyeCheckBox> EyeWidget = SNew(SEyeCheckBox).InPropertyPath(ResultString)
+	TSharedRef<SEyeCheckBox> EyeWidget = SNew(SEyeCheckBox, ResultString)
 		.Visibility(EVisibility::Visible);
 	return  EyeWidget;
 

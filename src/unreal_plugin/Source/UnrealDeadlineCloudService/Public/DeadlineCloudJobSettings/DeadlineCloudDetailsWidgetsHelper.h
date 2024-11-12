@@ -3,6 +3,9 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "PythonAPILibraries/PythonYamlLibrary.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudJobPresetDetailsCustomization.h"
+
+class DeadlineCloudJobPresetDetailsCustomization;
 
 class FDeadlineCloudDetailsWidgetsHelper
 {
@@ -41,7 +44,6 @@ public:
 	{
 	public:
 		SLATE_BEGIN_ARGS(SEyeUpdateWidget) {}
-		//	SLATE_ARGUMENT(FString, Result)
 			SLATE_EVENT(FSimpleDelegate, OnEyeUpdateButtonClicked)
 		SLATE_END_ARGS()
 
@@ -60,20 +62,22 @@ public:
 			return FReply::Handled();
 		}
 	};
+
 	class SEyeCheckBox : public SCompoundWidget
 	{
 	public:
-		SLATE_BEGIN_ARGS(SEyeCheckBox)
-			: _InPropertyPath("DefaultName") {}
-			SLATE_ARGUMENT(FName, InPropertyPath)
+
+		SLATE_BEGIN_ARGS(SEyeCheckBox){}
+			//: _InPropertyPath("DefaultName") {}
+		//	SLATE_ARGUMENT(FName, InPropertyPath)
 		//	SLATE_EVENT(FSimpleDelegate, OnCheckStateChangedDelegate)
 		SLATE_END_ARGS()
 
-		void Construct(const FArguments& InArgs)
+		void Construct(const FArguments& InArgs, const FName& InPropertyPath_)
 		{
 		//	OnCheckStateChangedDelegate = InArgs._OnCheckStateChangedDelegate;
 
-			InPropertyPath = InArgs._InPropertyPath;
+			InPropertyPath = InPropertyPath_;
 			ChildSlot
 				[
 					SNew(SBox)
@@ -99,27 +103,41 @@ public:
 										.ToolTipText(NSLOCTEXT("FDeadlineJobPresetLibraryCustomization", "VisibleInMoveRenderQueueToolTip", "If true this property will be visible for overriding from Movie Render Queue."))
 
 										.OnCheckStateChanged(this, &SEyeCheckBox::HandleCheckStateChanged)
-										.IsChecked(ECheckBoxState::Unchecked) 
+
+										//.OnCheckStateChanged(FOnCheckStateChangedDelegate::CreateStatic(&OtherClass::HandleCheckBoxStateChanged))
+
+										//.IsChecked_Lambda([this]()
+										//	{
+										//		return FDeadlineCloudJobPresetDetailsCustomization::IsPropertyHiddenInMovieRenderQueue(this->InPropertyPath)
+											//		? ECheckBoxState::Unchecked
+											//		: ECheckBoxState::Checked;
+											//})
 						]
 				];
 		}
-		void SetOnCheckStateChangedDelegate(FSimpleDelegate InDelegate)
-		{
+
+		DECLARE_DELEGATE_OneParam(FOnCheckStateChangedDelegate, FName);
+		
+
+	void SetOnCheckStateChangedDelegate(FOnCheckStateChangedDelegate InDelegate)
+	{
 			OnCheckStateChangedDelegate = InDelegate;
 	}
 		TSharedPtr<SCheckBox> CheckBoxPtr;
-		FSimpleDelegate OnCheckStateChangedDelegate;
-	private:
 
+
+	private:
+		FOnCheckStateChangedDelegate OnCheckStateChangedDelegate;
 		void HandleCheckStateChanged(ECheckBoxState NewState)
 		{
 			// call to set state
 			if (OnCheckStateChangedDelegate.IsBound())
 			{
-				OnCheckStateChangedDelegate.Execute();
+				OnCheckStateChangedDelegate.Execute(InPropertyPath);
 			}
 		}
 		FName InPropertyPath;
+		
 	};
 
 

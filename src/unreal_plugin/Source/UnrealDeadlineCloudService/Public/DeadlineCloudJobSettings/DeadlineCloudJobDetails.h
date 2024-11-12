@@ -49,16 +49,19 @@ public:
 
     void GenerateWrapperStructHeaderRowContent(FDetailWidgetRow& NodeRow, TSharedRef<SWidget> NameContent);
 
-   void OnEyeHideWidgetButtonClicked() const;
+   void OnEyeHideWidgetButtonClicked(FName NameWidget) const;
+   bool IsPropertyHidden( FName Parameter) const;
+
 
     FUIAction EmptyCopyPasteAction;
     FOnIsEnabled OnIsEnabled;
 
     TObjectPtr<UMoviePipelineDeadlineCloudExecutorJob> MrqJob;
-  bool bIsPropertyRowVisible = true;
+    TObjectPtr<UDeadlineCloudJob> Job;
 
 private:
-    static UDeadlineCloudJob* GetOuterJob(TSharedRef<IPropertyHandle> Handle);
+   //
+ static UDeadlineCloudJob* GetOuterJob(TSharedRef<IPropertyHandle> Handle);
 
     void OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const;
 	bool IsResetToDefaultVisible(TSharedPtr<IPropertyHandle> PropertyHandle, FString InParameterName) const;
@@ -96,6 +99,7 @@ public:
 private:
     /*static UDeadlineCloudStep* GetOuterJob(TSharedRef<IPropertyHandle> Handle);*/
     static UMoviePipelineDeadlineCloudExecutorJob* GetMrqJob(TSharedRef<IPropertyHandle> Handle);
+    static UDeadlineCloudJob* GetJob(TSharedRef<IPropertyHandle> Handle);
 
     TSharedPtr<FDeadlineCloudJobParametersArrayBuilder> ArrayBuilder;
 
@@ -113,14 +117,16 @@ public:
     TWeakObjectPtr<UDeadlineCloudJob> Settings;
 
     void OnConsistencyButtonClicked();
-    void OnEyeButtonClicked();
+    void OnViewAllButtonClicked();
 
     EVisibility GetConsistencyWidgetVisibility() const;
     EVisibility GetEyeWidgetVisibility() const;
 
     int32 CountHiddenWidgets = 0;
+    void BindToInitiator(TWeakObjectPtr<UDeadlineCloudJob> InInitiator);
 
 private:
+    void RespondToEvent();
     void ForceRefreshDetails();
     bool CheckConsistency(UDeadlineCloudJob* Job);
     bool bCheckConsistensyPassed = true;
