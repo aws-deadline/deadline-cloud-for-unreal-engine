@@ -116,10 +116,11 @@ class UnrealSubmitter:
                 self.submitted_job_ids.append(job_id)
 
         except AssetSyncCancelledError as e:
-            logger.info(str(e))
+            logger.warning(str(e))
 
         except Exception as e:
-            logger.info(str(e))
+            logger.error(str(e))
+            logger.error(traceback.format_exc())
             self._submission_failed_message = str(e)
 
     def _hash_progress(self, hash_metadata) -> bool:
