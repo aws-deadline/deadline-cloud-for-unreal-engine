@@ -64,6 +64,7 @@ path = "hatch_custom_hook.py"
 destinations = [
   "src/deadline/unreal_adaptor",
   "src/deadline/unreal_submitter",
+  "src/deadline/unreal_logger",
 ]
 
 [tool.hatch.build.targets.sdist]
@@ -111,6 +112,7 @@ addopts = [
     "--durations=5",
     "--cov=src/deadline/unreal_adaptor",
     "--cov=src/deadline/unreal_submitter",
+    "--cov=src/deadline/unreal_logger",
     "--color=yes",
     "--cov-report=html:build/coverage",
     "--cov-report=xml:build/coverage/coverage.xml",
@@ -129,7 +131,11 @@ filterwarnings = [
 
 
 [tool.coverage.run]
-source_pkgs = [ "src/deadline/unreal_adaptor", "src/deadline/unreal_submitter" ]
+source_pkgs = [
+    "src/deadline/unreal_adaptor",
+    "src/deadline/unreal_submitter",
+    "src/deadline/unreal_logger"
+]
 branch = true
 parallel = true
 omit = [

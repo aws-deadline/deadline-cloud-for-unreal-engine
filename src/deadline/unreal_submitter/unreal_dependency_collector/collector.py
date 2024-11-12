@@ -5,7 +5,7 @@ from typing import Callable, Optional
 
 from .common import os_path_from_unreal_path
 from .dependency_search_options import DependencySearchOptions
-from deadline.unreal_submitter.unreal_logger import get_logger
+from deadline.unreal_logger import get_logger
 
 asset_registry = unreal.AssetRegistryHelpers.get_asset_registry()
 

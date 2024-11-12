@@ -14,11 +14,15 @@ if "PYTHONPATH" in os.environ:
 for p in sys.path:
     print(p)
 
+from deadline.unreal_logger import get_logger  # noqa: E402
 from openjd.adaptor_runtime_client.win_client_interface import WinClientInterface  # noqa: E402
 from deadline.unreal_adaptor.UnrealClient.step_handlers.base_step_handler import (  # noqa: E402
     BaseStepHandler,
 )
 from deadline.unreal_adaptor.UnrealClient.step_handlers import get_step_handler_class  # noqa: E402
+
+
+logger = get_logger()
 
 
 class UnrealClient(WinClientInterface):
@@ -33,10 +37,7 @@ class UnrealClient(WinClientInterface):
 
     def client_loaded(self, *args, **kwargs) -> None:
         """Log the message that UnrealClient loaded"""
-
-        import unreal
-
-        unreal.log(f"{self.__class__.__name__} loaded")
+        logger.info(f"{self.__class__.__name__} loaded")
 
     def set_handler(self, handler_dict: dict) -> None:
         """Set the current Step Handler"""
@@ -51,14 +52,14 @@ class UnrealClient(WinClientInterface):
         """Close the Unreal Engine"""
         import unreal
 
-        unreal.log("Quit the Editor: normal shutdown")
+        logger.info("Quit the Editor: normal shutdown")
         unreal.SystemLibrary.quit_editor()
 
     def graceful_shutdown(self, *args, **kwargs) -> None:
         """Close the Unreal Engine if the UnrealAdaptor terminate the client with 0s grace time"""
         import unreal
 
-        unreal.log("Quit the Editor: graceful shutdown")
+        logger.info("Quit the Editor: graceful shutdown")
         unreal.SystemLibrary.quit_editor()
 
     def poll(self) -> None:

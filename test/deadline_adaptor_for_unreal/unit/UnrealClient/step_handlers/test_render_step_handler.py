@@ -70,8 +70,8 @@ class TestUnrealRenderStepHandler:
 
         # WHEN
         with patch(
-            "deadline.unreal_adaptor.UnrealClient.step_handlers.unreal_render_step_handler"
-            ".UnrealRenderStepHandler.log"
+            "deadline.unreal_adaptor.UnrealClient.step_handlers."
+            "unreal_render_step_handler.logger.info"
         ) as log_mock:
             unreal_render_step_handler.enable_shots_by_chunk(
                 render_job_mock, task_chunk_size, task_chunk_id
@@ -89,6 +89,7 @@ class TestUnrealRenderStepHandler:
             for shot in disabled_shots:
                 assert not shot.enabled
 
+            print(log_mock.mock_calls)
             log_mock.assert_called_once_with(
                 f"Shots in task: {[shot.outer_name for shot in enabled_shots]}"
             )

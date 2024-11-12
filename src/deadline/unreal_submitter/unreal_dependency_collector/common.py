@@ -3,7 +3,7 @@
 import os
 import unreal
 
-from deadline.unreal_submitter.unreal_logger import get_logger
+from deadline.unreal_logger import get_logger
 
 
 logger = get_logger()

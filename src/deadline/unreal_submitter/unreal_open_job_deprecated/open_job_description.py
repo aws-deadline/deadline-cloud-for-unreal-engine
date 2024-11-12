@@ -19,7 +19,7 @@ from deadline.unreal_submitter.unreal_dependency_collector.common import (
     DependencyFilters,
     os_path_from_unreal_path,
 )
-from deadline.unreal_submitter.unreal_logger import get_logger
+from deadline.unreal_logger import get_logger
 from deadline.unreal_submitter.unreal_open_job.job_step import JobStep, JobStepFactory
 from deadline.unreal_submitter.unreal_dependency_collector.common import os_abs_from_relative
 from deadline.unreal_submitter.unreal_dependency_collector.collector import DependencyCollector

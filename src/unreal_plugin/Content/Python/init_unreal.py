@@ -6,7 +6,7 @@ import sys
 
 remote_execution = os.getenv("REMOTE_EXECUTION", "False")
 if remote_execution != "True":
-    from deadline.unreal_submitter.unreal_logger import get_logger
+    from deadline.unreal_logger import get_logger
 
     logger = get_logger()
 
