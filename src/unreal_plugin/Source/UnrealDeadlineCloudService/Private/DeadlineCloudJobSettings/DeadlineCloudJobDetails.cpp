@@ -52,8 +52,7 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
 
     if (Settings.IsValid())
     {
-        //Settings->OnParameterHidden.BindUObject(this, &FDeadlineCloudJobDetails::RespondToEvent);
-        BindToInitiator(Settings);
+            Settings->OnParameterHidden.BindSP(this, &FDeadlineCloudJobDetails::RespondToEvent);
     }
 
     /* Consistency check */
@@ -195,16 +194,6 @@ EVisibility FDeadlineCloudJobDetails::GetEyeWidgetVisibility() const
 
 }
 
-void FDeadlineCloudJobDetails::BindToInitiator(TWeakObjectPtr<UDeadlineCloudJob> InInitiator)
-{
-  
-
-    if (InInitiator.IsValid())
-    {
-        InInitiator->  OnParameterHidden.BindSP(this, &FDeadlineCloudJobDetails::RespondToEvent);
-        
-    }
-}
 
 bool FDeadlineCloudJobDetails::IsStepContainsErrors() const
 {
@@ -274,12 +263,6 @@ void FDeadlineCloudJobDetails::OnViewAllButtonClicked()
 void FDeadlineCloudJobParametersArrayBuilder::OnEyeHideWidgetButtonClicked(FName Property) const//ECheckBoxState NewState
 {
 
-    /*
-            if (MrqJob)
-            {
-                    MrqJob->SetPropertyRowEnabledInMovieRenderJob(
-                        InPropertyPath, false);
-            }*/
     if (Job) 
     {
         Job->AddHiddenParameter(Property);
@@ -293,6 +276,14 @@ bool FDeadlineCloudJobParametersArrayBuilder::IsPropertyHidden( FName Parameter)
     if (Job)
     {
         Contains = Job->ContainsHiddenParameters(Parameter);
+    }
+    if (MrqJob)
+    {
+        if (MrqJob->JobPreset)
+        {
+            Contains = MrqJob->JobPreset->ContainsHiddenParameters(Parameter);
+        } 
+        
     }
     return Contains;
 }
@@ -520,7 +511,11 @@ void FDeadlineCloudJobParametersArrayBuilder::OnGenerateEntry(TSharedRef<IProper
                 }
             })
     );
-    PropertyRow.Visibility(IsPropertyHidden(FName(ParameterName)) ? EVisibility::Collapsed : EVisibility::Visible);
+
+
+        PropertyRow.Visibility(IsPropertyHidden(FName(ParameterName)) ? EVisibility::Collapsed : EVisibility::Visible);
+
+   
 
 }
 

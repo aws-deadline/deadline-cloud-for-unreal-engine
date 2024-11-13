@@ -122,9 +122,6 @@ public:
     EVisibility GetConsistencyWidgetVisibility() const;
     EVisibility GetEyeWidgetVisibility() const;
 
-    int32 CountHiddenWidgets = 0;
-    void BindToInitiator(TWeakObjectPtr<UDeadlineCloudJob> InInitiator);
-
 private:
     void RespondToEvent();
     void ForceRefreshDetails();

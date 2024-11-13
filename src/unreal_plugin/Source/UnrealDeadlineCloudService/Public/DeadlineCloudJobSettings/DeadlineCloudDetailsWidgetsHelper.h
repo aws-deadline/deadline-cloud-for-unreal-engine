@@ -89,17 +89,18 @@ public:
 						[
 							SAssignNew(CheckBoxPtr, SCheckBox)
 								.Style(&FAppStyle::Get().GetWidgetStyle<FCheckBoxStyle>("ToggleButtonCheckbox"))
+								.IsChecked(ECheckBoxState::Checked)
 								.Visibility_Lambda([this]()
 									{
-										//return CheckBoxPtr.IsValid() && !CheckBoxPtr->IsChecked() ? EVisibility::Visible : IsHovered() ? EVisibility::Visible : EVisibility::Hidden;
-										return CheckBoxPtr.IsValid() && IsHovered() ? EVisibility::Visible : EVisibility::Hidden;
+										return CheckBoxPtr.IsValid() ? EVisibility::Visible : IsHovered() ? EVisibility::Visible : EVisibility::Hidden;
+										//return CheckBoxPtr.IsValid() && IsHovered() ? EVisibility::Visible : EVisibility::Hidden;
 									})
 								.CheckedImage(FAppStyle::Get().GetBrush("Icons.Visible"))
-										.CheckedHoveredImage(FAppStyle::Get().GetBrush("Icons.Visible"))
-										.CheckedPressedImage(FAppStyle::Get().GetBrush("Icons.Visible"))
+										.CheckedHoveredImage(FAppStyle::Get().GetBrush("Icons.Hidden"))
+										.CheckedPressedImage(FAppStyle::Get().GetBrush("Icons.Hidden"))
 										.UncheckedImage(FAppStyle::Get().GetBrush("Icons.Hidden"))
-										.UncheckedHoveredImage(FAppStyle::Get().GetBrush("Icons.Hidden"))
-										.UncheckedPressedImage(FAppStyle::Get().GetBrush("Icons.Hidden"))
+										.UncheckedHoveredImage(FAppStyle::Get().GetBrush("Icons.Visible"))
+										.UncheckedPressedImage(FAppStyle::Get().GetBrush("Icons.Visible"))
 										.ToolTipText(NSLOCTEXT("FDeadlineJobPresetLibraryCustomization", "VisibleInMoveRenderQueueToolTip", "If true this property will be visible for overriding from Movie Render Queue."))
 
 										.OnCheckStateChanged(this, &SEyeCheckBox::HandleCheckStateChanged)

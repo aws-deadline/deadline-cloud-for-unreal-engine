@@ -321,9 +321,15 @@ public:
     void AddHiddenParameter(FName Parameter)
     {
         HiddenParametersList.Add(Parameter); 
+        Modify();
+        MarkPackageDirty();
         ParameterHiddenEvent();
     };
-    void ClearHiddenParameters() { HiddenParametersList.Empty(); };
+    void ClearHiddenParameters() 
+    { HiddenParametersList.Empty();
+    Modify();
+    MarkPackageDirty();
+    };
     bool AreEmptyHiddenParameters() { return HiddenParametersList.IsEmpty(); };
     bool ContainsHiddenParameters(FName Parameter) { return HiddenParametersList.Contains(Parameter); };
     FSimpleDelegate OnParameterHidden;
@@ -336,5 +342,6 @@ public:
         }
     };
 private:
+    UPROPERTY(EditAnywhere)
     TArray<FName> HiddenParametersList;
 };
