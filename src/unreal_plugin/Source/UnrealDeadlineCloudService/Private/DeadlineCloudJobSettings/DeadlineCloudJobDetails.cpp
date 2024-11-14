@@ -154,7 +154,7 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
                 .OnFixButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudJobDetails::OnConsistencyButtonClicked))
         ];
 
-    //  Dispatcher handle bind
+    /* Dispatcher to Job PostEditChangeProperty */
     if (Settings.IsValid() && (MyDetailLayout != nullptr))
     {
         Settings->OnSomethingChanged = FSimpleDelegate::CreateSP(this, &FDeadlineCloudJobDetails::ForceRefreshDetails);
@@ -294,7 +294,7 @@ bool FDeadlineCloudJobParametersArrayBuilder::IsPropertyHidden(FName Parameter) 
     {
         if (MrqJob->JobPreset)
         {
-            Contains = MrqJob->JobPreset->ContainsHiddenParameters(Parameter) && Job->GetDisplayHiddenParameters();
+            Contains = MrqJob->JobPreset->ContainsHiddenParameters(Parameter);
         }
     }
     return Contains;
@@ -416,6 +416,23 @@ void FDeadlineCloudJobParametersArrayBuilder::ResetToDefaultHandler(TSharedPtr<I
     PropertyHandle->SetValue(DefaultValue);
 }
 
+bool FDeadlineCloudJobParametersArrayBuilder::IsEyeWidgetEnabled(FName Parameter) const
+{
+    bool result = false;
+    if (Job)
+    {
+        result = Job->ContainsHiddenParameters(Parameter);
+    }
+    if (MrqJob)
+    {
+        if (MrqJob->JobPreset)
+        {
+            result = MrqJob->JobPreset->ContainsHiddenParameters(Parameter);
+        }
+    }
+    return result;
+}
+
 void FDeadlineCloudJobParametersArrayBuilder::OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const
 {
     const TSharedPtr<IPropertyHandle> TypeHandle = ElementProperty->GetChildHandle("Type", false);
@@ -475,7 +492,8 @@ void FDeadlineCloudJobParametersArrayBuilder::OnGenerateEntry(TSharedRef<IProper
     PropertyRow.GetDefaultWidgets(NameWidget, ValueWidget);
     ValueWidget = FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(ValueHandle, Type);
 
-    bool Checked = !(Job->ContainsHiddenParameters(FName(ParameterName)));
+    //TODO: EDIT
+    bool Checked = !(IsEyeWidgetEnabled(FName(ParameterName)));
     TSharedRef<FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox> EyeWidget = SNew(FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox, FName(ParameterName), Checked);
 
 
@@ -509,22 +527,13 @@ void FDeadlineCloudJobParametersArrayBuilder::OnGenerateEntry(TSharedRef<IProper
             EyeWidget
         ];
 
-    ValueWidget->SetEnabled(
-        TAttribute<bool>::CreateLambda([this, ParameterName]()
-            {
-                if (OnIsEnabled.IsBound())
-                {
-                    OnIsEnabled.Execute();
-                }
-                if (MrqJob)
-                {
-                    return ParameterName == "ExtraCmdArgs";
-                }
-                else
-                {
-                    return true;
-                }
-            })
+      ValueWidget->SetEnabled(
+          TAttribute<bool>::CreateLambda([this]()
+              {
+                  if (OnIsEnabled.IsBound())
+                      return OnIsEnabled.Execute();
+                  return true;
+              })
     );
 
     PropertyRow.Visibility(IsPropertyHidden(FName(ParameterName)) ? EVisibility::Collapsed : EVisibility::Visible);

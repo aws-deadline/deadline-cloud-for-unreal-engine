@@ -70,7 +70,7 @@ private:
     TSharedPtr<IPropertyHandleArray> ArrayProperty;
     TSharedRef<IPropertyHandle> BaseProperty;
 
-
+    bool IsEyeWidgetEnabled(FName Parameter) const; 
 };
 
 class FDeadlineCloudJobParametersArrayCustomization : public IPropertyTypeCustomization
