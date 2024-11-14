@@ -23,26 +23,8 @@ script:
       :: Go to this directory
       cd /d %WorkspaceFolderName%
       
-      :: @echo off
-      :: Sync given changes without generating project files and redirect output to the file
-      :: echo Executing ugs sync {{Param.PerforceChangelistNumber}} -nogpf ...
-      :: ugs sync {{Param.PerforceChangelistNumber}} -nogpf > output.log 2>&1
-      ugs sync {{Param.PerforceChangelistNumber}} -nogpf -binaries
-      
-      :: Search the output for the error string
-      :: findstr /i "Aborted sync due to errors" output.log >nul
-      :: findstr set errorlevel to 0 if string was found
-      :: set error_found=%errorlevel%
-      
-      :: Print output to stdout and delete file
-      :: type output.log
-      :: del output.log
-      
-      :: If string was found, exiting
-      :: if %error_found% equ 0 (
-      ::     echo Error detected while syncing the changes. Exiting...
-      ::     exit /b 1
-      :: )
+      :: Sync to given changelist, no generate proj files, overwrite clobber files, sync binaries
+      ugs sync {{Param.PerforceChangelistNumber}} -nogpf -clobber -binaries
       echo Sync completed successfuly
       
       :: Store this path to Env variable for future using while launching the Unreal Editor and Project within

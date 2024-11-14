@@ -1,5 +1,6 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
+import os
 import re
 from pathlib import Path
 
@@ -107,7 +108,6 @@ if unreal:
 
                 # Executor work with the render queue after all frames are rendered - do all
                 # support stuff, handle safe quit, etc, so we should ignore progress that more than 100.
-                # TODO refactor if possible, check shot/job finished callbacks
                 if progress <= 100:
                     logger.info(f"Render Executor: Progress: {progress}")
 
@@ -137,6 +137,15 @@ class UnrealRenderStepHandler(BaseStepHandler):
         logger.info("Render Executor: Rendering is complete")
 
     @staticmethod
+    def copy_pipeline_queue_from_manifest_file(movie_pipeline_queue_subsystem, queue_manifest_path: str):
+        manifest_queue = unreal.MoviePipelineLibrary.load_manifest_file_from_string(
+            queue_manifest_path
+        )
+        pipeline_queue = movie_pipeline_queue_subsystem.get_queue()
+        pipeline_queue.delete_all_jobs()
+        pipeline_queue.copy_from(manifest_queue)
+
+    @staticmethod
     def create_queue_from_manifest(movie_pipeline_queue_subsystem, queue_manifest_path: str):
         """
         Create the unreal.MoviePipelineQueue object from the given queue manifest path
@@ -144,14 +153,43 @@ class UnrealRenderStepHandler(BaseStepHandler):
         :param movie_pipeline_queue_subsystem: The unreal.MoviePipelineQueueSubsystem instance
         :param queue_manifest_path: Path to the manifest file
         """
-        queue_manifest_path = queue_manifest_path.replace("\\", "/")
-        manifest_queue = unreal.MoviePipelineLibrary.load_manifest_file_from_string(
-            queue_manifest_path
-        )
+        manifest_path = queue_manifest_path.replace("\\", "/")
+        project_saved_dir = unreal.SystemLibrary.get_project_saved_directory().rstrip('/')
 
-        pipeline_queue = movie_pipeline_queue_subsystem.get_queue()
-        pipeline_queue.delete_all_jobs()
-        pipeline_queue.copy_from(manifest_queue)
+        # If QueueManifestPath under the Project's Saved dir (All stuff pulled via S3, all path mappings saved)
+        if manifest_path.startswith(project_saved_dir):
+            UnrealRenderStepHandler.copy_pipeline_queue_from_manifest_file(
+                movie_pipeline_queue_subsystem, manifest_path
+            )
+        # If Project synced via P4/UGS and queue manifest pulled via S3 to the OpenJob asset root
+        else:
+            serialized_manifest = unreal.MoviePipelineEditorLibrary.convert_manifest_file_to_string(
+                manifest_path
+            )
+
+            movie_render_pipeline_dir = os.path.join(
+                unreal.SystemLibrary.get_project_saved_directory(),
+                "UnrealDeadlineCloudService",
+                "RenderJobManifests",
+            )
+            os.makedirs(movie_render_pipeline_dir, exist_ok=True)
+
+            render_job_manifest_path = unreal.Paths.create_temp_filename(
+                movie_render_pipeline_dir,
+                prefix='RenderJobManifest',
+                extension='.utxt'
+            )
+
+            with open(render_job_manifest_path, 'w') as manifest:
+                unreal.log(f"Saving Manifest file `{render_job_manifest_path}`")
+                manifest.write(serialized_manifest)
+
+            manifest_path = unreal.Paths.convert_relative_path_to_full(render_job_manifest_path)
+
+            # Go to the first case again
+            UnrealRenderStepHandler.copy_pipeline_queue_from_manifest_file(
+                movie_pipeline_queue_subsystem, manifest_path
+            )
 
     @staticmethod
     def create_queue_from_job_args(
@@ -260,6 +298,17 @@ class UnrealRenderStepHandler(BaseStepHandler):
             for shot in job.shot_info:
                 if shot.enabled:
                     logger.info(f"Shot to render: {shot.outer_name}: {shot.inner_name}")
+
+        if args.get('output_path'):
+            if not os.path.exists(args['output_path']):
+                os.makedirs(args['output_path'])
+
+            new_output_dir = unreal.DirectoryPath()
+            new_output_dir.set_editor_property('path', args['output_path'].replace('\\', '/'))
+
+            output_setting = job.get_configuration().find_setting_by_class(unreal.MoviePipelineOutputSetting)
+            output_setting.output_directory = new_output_dir
+
 
         # Initialize Render executor
         executor = RemoteRenderMoviePipelineEditorExecutor()
