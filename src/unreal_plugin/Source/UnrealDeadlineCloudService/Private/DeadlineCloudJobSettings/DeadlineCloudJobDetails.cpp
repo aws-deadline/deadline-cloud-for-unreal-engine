@@ -48,12 +48,17 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
     TSharedPtr<FDeadlineCloudDetailsWidgetsHelper::SConsistencyWidget> ConsistencyUpdateWidget;
     FParametersConsistencyCheckResult result;
 
-    TSharedPtr<FDeadlineCloudDetailsWidgetsHelper::SEyeUpdateWidget> EyeUpdateWidget;
+    TSharedPtr<FDeadlineCloudDetailsWidgetsHelper::SEyeUpdateWidget> HiddenParametersUpdateWidget;
 
+    /* Update all when one Parameters widget is checked as hidden */
     if (Settings.IsValid())
     {
         Settings->OnParameterHidden.BindSP(this, &FDeadlineCloudJobDetails::RespondToEvent);
     }
+    /* Collapse hidden parameters array  */
+    TSharedRef<IPropertyHandle> HideHandle = MyDetailLayout->GetProperty("HiddenParametersList");
+    IDetailPropertyRow* HideRow = MyDetailLayout->EditDefaultProperty(HideHandle);
+    HideRow->Visibility(EVisibility::Collapsed);
 
     /* Consistency check */
     if (Settings.IsValid() && Settings->GetJobParameters().Num() > 0)
@@ -161,8 +166,10 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
         .Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FDeadlineCloudJobDetails::GetEyeWidgetVisibility)))
         .WholeRowContent()
         [
-            SAssignNew(EyeUpdateWidget, FDeadlineCloudDetailsWidgetsHelper::SEyeUpdateWidget)
+            SAssignNew(HiddenParametersUpdateWidget, FDeadlineCloudDetailsWidgetsHelper::SEyeUpdateWidget)
+
                 .OnEyeUpdateButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudJobDetails::OnViewAllButtonClicked))
+                .bShowHidden_(Settings->GetDisplayHiddenParameters())
         ];
 
 }
@@ -191,8 +198,7 @@ EVisibility FDeadlineCloudJobDetails::GetConsistencyWidgetVisibility() const
 
 EVisibility FDeadlineCloudJobDetails::GetEyeWidgetVisibility() const
 {
-    return ((Settings->AreEmptyHiddenParameters()) && Settings->GetDisplayHiddenParameters() == false) ? EVisibility::Collapsed : EVisibility::Visible;
-
+    return ((Settings->AreEmptyHiddenParameters())) ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
 
@@ -231,7 +237,6 @@ bool FDeadlineCloudJobDetails::IsEnvironmentContainsErrors() const
         {
             return true;
         }
-
         ExistingEnvironment.Add(Environment);
     }
 
@@ -257,12 +262,12 @@ void FDeadlineCloudJobDetails::OnConsistencyButtonClicked()
 
 void FDeadlineCloudJobDetails::OnViewAllButtonClicked()
 {
-    //Settings->ClearHiddenParameters();
-    Settings->SetDisplayHiddenParameters(true);
+    bool Show = Settings->GetDisplayHiddenParameters();
+    Settings->SetDisplayHiddenParameters(!Show);
     ForceRefreshDetails();
 }
 
-void FDeadlineCloudJobParametersArrayBuilder::OnEyeHideWidgetButtonClicked(FName Property) const//ECheckBoxState NewState
+void FDeadlineCloudJobParametersArrayBuilder::OnEyeHideWidgetButtonClicked(FName Property) const
 {
 
     if (Job)
@@ -274,10 +279,8 @@ void FDeadlineCloudJobParametersArrayBuilder::OnEyeHideWidgetButtonClicked(FName
         else
         {
             Job->AddHiddenParameter(Property);
-            Job->SetDisplayHiddenParameters(false);
-        }   
+        }
     }
-
 }
 
 bool FDeadlineCloudJobParametersArrayBuilder::IsPropertyHidden(FName Parameter) const

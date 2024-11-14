@@ -43,23 +43,40 @@ public:
 	class SEyeUpdateWidget : public SCompoundWidget
 	{
 	public:
-		SLATE_BEGIN_ARGS(SEyeUpdateWidget) {}
+		SLATE_BEGIN_ARGS(SEyeUpdateWidget)
+			: _bShowHidden_() {}
+			SLATE_ARGUMENT(bool, bShowHidden_)
 			SLATE_EVENT(FSimpleDelegate, OnEyeUpdateButtonClicked)
 		SLATE_END_ARGS()
-
-		/** Construct */
+		
 		void Construct(const FArguments& InArgs);
-
+	
 	private:
+		FText ButtonText;
+		bool bShowHidden;
 		FSimpleDelegate OnEyeUpdateButtonClicked;
-		FReply HandleButtonClicked()
+
+		
+		void HandleButtonClicked(ECheckBoxState NewState)
 		{
+			bShowHidden = !(bShowHidden);
 			if (OnEyeUpdateButtonClicked.IsBound())
 			{
-				OnEyeUpdateButtonClicked.Execute();  // 
+				OnEyeUpdateButtonClicked.Execute();  
 			}
+		}
+		FText GetButtonText() const
+		{
+			return (bShowHidden) ? FText::FromString(" Hide ") : FText::FromString(" Show ");
 
-			return FReply::Handled();
+		}
+		ECheckBoxState GetState() const
+		{
+			if (bShowHidden)
+			{
+				return ECheckBoxState::Checked;
+			}
+			else return ECheckBoxState::Unchecked;
 		}
 	};
 
@@ -90,7 +107,6 @@ public:
 						[
 							SAssignNew(CheckBoxPtr, SCheckBox)
 								.Style(&FAppStyle::Get().GetWidgetStyle<FCheckBoxStyle>("ToggleButtonCheckbox"))
-								//.IsChecked(ECheckBoxState::Checked)
 								.IsChecked_Lambda([this]()
 									{
 										return bIsChecked ? ECheckBoxState::Checked  : ECheckBoxState::Unchecked;
@@ -140,9 +156,8 @@ public:
 			if (CheckBoxPtr.IsValid())
 			{
 				ECheckBoxState exp = CheckBoxPtr.Get()->GetCheckedState();
-			//	CheckBoxPtr->Invalidate(EInvalidateWidget::Layout);  // 
 			}
-			// call to set state
+
 			if (OnCheckStateChangedDelegate.IsBound())
 			{
 				OnCheckStateChangedDelegate.Execute(InPropertyPath);
