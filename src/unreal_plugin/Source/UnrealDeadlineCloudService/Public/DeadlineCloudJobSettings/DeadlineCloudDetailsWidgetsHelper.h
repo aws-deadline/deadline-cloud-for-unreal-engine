@@ -67,17 +67,18 @@ public:
 	{
 	public:
 
-		SLATE_BEGIN_ARGS(SEyeCheckBox){}
-			//: _InPropertyPath("DefaultName") {}
-		//	SLATE_ARGUMENT(FName, InPropertyPath)
-		//	SLATE_EVENT(FSimpleDelegate, OnCheckStateChangedDelegate)
+		SLATE_BEGIN_ARGS(SEyeCheckBox) {}
 		SLATE_END_ARGS()
+	public:
 
-		void Construct(const FArguments& InArgs, const FName& InPropertyPath_)
+
+		void Construct(const FArguments& InArgs, const FName& InPropertyPath_, const bool bIsChecked_)
+	
 		{
-		//	OnCheckStateChangedDelegate = InArgs._OnCheckStateChangedDelegate;
 
 			InPropertyPath = InPropertyPath_;
+			bIsChecked = bIsChecked_;
+			
 			ChildSlot
 				[
 					SNew(SBox)
@@ -89,7 +90,12 @@ public:
 						[
 							SAssignNew(CheckBoxPtr, SCheckBox)
 								.Style(&FAppStyle::Get().GetWidgetStyle<FCheckBoxStyle>("ToggleButtonCheckbox"))
-								.IsChecked(ECheckBoxState::Checked)
+								//.IsChecked(ECheckBoxState::Checked)
+								.IsChecked_Lambda([this]()
+									{
+										return bIsChecked ? ECheckBoxState::Checked  : ECheckBoxState::Unchecked;
+										
+									})
 								.Visibility_Lambda([this]()
 									{
 										return CheckBoxPtr.IsValid() ? EVisibility::Visible : IsHovered() ? EVisibility::Visible : EVisibility::Hidden;
@@ -131,6 +137,11 @@ public:
 		FOnCheckStateChangedDelegate OnCheckStateChangedDelegate;
 		void HandleCheckStateChanged(ECheckBoxState NewState)
 		{
+			if (CheckBoxPtr.IsValid())
+			{
+				ECheckBoxState exp = CheckBoxPtr.Get()->GetCheckedState();
+			//	CheckBoxPtr->Invalidate(EInvalidateWidget::Layout);  // 
+			}
 			// call to set state
 			if (OnCheckStateChangedDelegate.IsBound())
 			{
@@ -138,11 +149,12 @@ public:
 			}
 		}
 		FName InPropertyPath;
-		
+		bool bIsChecked;
+
 	};
 
 
-	static TSharedRef<SWidget> CreateEyeCheckBoxWidget(FName RsultString);
+	//static TSharedRef<SWidget> CreateEyeCheckBoxWidget(FName RsultString);
 	static TSharedRef<SWidget> CreateEyeUpdateWidget();
 	
 private:

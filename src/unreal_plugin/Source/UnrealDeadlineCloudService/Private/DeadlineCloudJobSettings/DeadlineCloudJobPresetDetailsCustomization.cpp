@@ -10,7 +10,8 @@
 #include "Misc/EngineVersionComparison.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudDetailsWidgetsHelper.h"
 /*
-class SEyeCheckBox : public SCompoundWidget
+class 
+: public SCompoundWidget
 {
 public:
 	SLATE_BEGIN_ARGS( SEyeCheckBox ){}
@@ -160,26 +161,26 @@ void FDeadlineCloudJobPresetDetailsCustomization::CustomizeStructChildrenInAsset
 	PropertyRow.GetDefaultWidgets(NameWidget, ValueWidget, Row);
 
 	PropertyRow.CustomWidget(true)
-	.NameContent()
-	.MinDesiredWidth(Row.NameWidget.MinWidth)
-	.MaxDesiredWidth(Row.NameWidget.MaxWidth)
-	.HAlign(HAlign_Fill)
-	[
-		NameWidget.ToSharedRef()
-	]
-	.ValueContent()
-	.MinDesiredWidth(Row.ValueWidget.MinWidth)
-	.MaxDesiredWidth(Row.ValueWidget.MaxWidth)
-	.VAlign(VAlign_Center)
-	[
-		ValueWidget.ToSharedRef()
-]
-	.ExtensionContent()
-	[
-		FDeadlineCloudDetailsWidgetsHelper::CreateEyeCheckBoxWidget(*PropertyRow.GetPropertyHandle()->GetProperty()->GetPathName())
+		.NameContent()
+		.MinDesiredWidth(Row.NameWidget.MinWidth)
+		.MaxDesiredWidth(Row.NameWidget.MaxWidth)
+		.HAlign(HAlign_Fill)
+		[
+			NameWidget.ToSharedRef()
+		]
+		.ValueContent()
+		.MinDesiredWidth(Row.ValueWidget.MinWidth)
+		.MaxDesiredWidth(Row.ValueWidget.MaxWidth)
+		.VAlign(VAlign_Center)
+		[
+			ValueWidget.ToSharedRef()
+		];
+//	.ExtensionContent()
+//	[
+		//FDeadlineCloudDetailsWidgetsHelper::CreateEyeCheckBoxWidget(*PropertyRow.GetPropertyHandle()->GetProperty()->GetPathName())
 		//SNew(SEyeCheckBox, *PropertyRow.GetPropertyHandle()->GetProperty()->GetPathName())
 		
-	];
+//	];
 }
 
 void FDeadlineCloudJobPresetDetailsCustomization::CustomizeStructChildrenInMovieRenderQueue(

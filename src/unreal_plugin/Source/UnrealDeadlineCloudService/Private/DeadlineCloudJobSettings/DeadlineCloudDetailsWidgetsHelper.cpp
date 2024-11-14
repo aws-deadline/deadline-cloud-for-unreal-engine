@@ -286,14 +286,14 @@ TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateConsistencyWidget(
 	return  ConsistensyWidget;
 }
 
-TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateEyeCheckBoxWidget(FName ResultString)
+/*TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateEyeCheckBoxWidget(FName ResultString)
 {
 
 	TSharedRef<SEyeCheckBox> EyeWidget = SNew(SEyeCheckBox, ResultString)
 		.Visibility(EVisibility::Visible);
 	return  EyeWidget;
 
-}
+}*/
 
 TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateEyeUpdateWidget()
 {

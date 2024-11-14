@@ -332,6 +332,12 @@ public:
     };
     bool AreEmptyHiddenParameters() { return HiddenParametersList.IsEmpty(); };
     bool ContainsHiddenParameters(FName Parameter) { return HiddenParametersList.Contains(Parameter); };
+    void RemoveHiddenParameters(FName Parameter) { 
+        HiddenParametersList.Remove(Parameter); 
+    Modify();
+    MarkPackageDirty();
+    ParameterHiddenEvent();
+    };
     FSimpleDelegate OnParameterHidden;
 
     void ParameterHiddenEvent() {
@@ -341,7 +347,10 @@ public:
             OnParameterHidden.Execute();
         }
     };
+    bool GetDisplayHiddenParameters() { return bDisplayHiddenWidgets; };
+    void SetDisplayHiddenParameters(bool ShowParameters) { bDisplayHiddenWidgets = ShowParameters; };
 private:
     UPROPERTY(EditAnywhere)
     TArray<FName> HiddenParametersList;
+    bool bDisplayHiddenWidgets = false;
 };

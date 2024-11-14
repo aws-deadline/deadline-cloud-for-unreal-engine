@@ -52,7 +52,7 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
 
     if (Settings.IsValid())
     {
-            Settings->OnParameterHidden.BindSP(this, &FDeadlineCloudJobDetails::RespondToEvent);
+        Settings->OnParameterHidden.BindSP(this, &FDeadlineCloudJobDetails::RespondToEvent);
     }
 
     /* Consistency check */
@@ -166,14 +166,15 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
         ];
 
 }
-void FDeadlineCloudJobDetails::ForceRefreshDetails()
-{
-    MyDetailLayout->ForceRefreshDetails();
-}
 void FDeadlineCloudJobDetails::RespondToEvent()
 {
     ForceRefreshDetails();
 }
+void FDeadlineCloudJobDetails::ForceRefreshDetails()
+{
+    MyDetailLayout->ForceRefreshDetails();
+}
+
 bool FDeadlineCloudJobDetails::CheckConsistency(UDeadlineCloudJob* Job)
 {
     FParametersConsistencyCheckResult result;
@@ -190,7 +191,7 @@ EVisibility FDeadlineCloudJobDetails::GetConsistencyWidgetVisibility() const
 
 EVisibility FDeadlineCloudJobDetails::GetEyeWidgetVisibility() const
 {
-    return (Settings->AreEmptyHiddenParameters()) ? EVisibility::Collapsed : EVisibility::Visible;
+    return ((Settings->AreEmptyHiddenParameters()) && Settings->GetDisplayHiddenParameters() == false) ? EVisibility::Collapsed : EVisibility::Visible;
 
 }
 
@@ -256,34 +257,42 @@ void FDeadlineCloudJobDetails::OnConsistencyButtonClicked()
 
 void FDeadlineCloudJobDetails::OnViewAllButtonClicked()
 {
-    Settings->ClearHiddenParameters();
+    //Settings->ClearHiddenParameters();
+    Settings->SetDisplayHiddenParameters(true);
     ForceRefreshDetails();
 }
 
 void FDeadlineCloudJobParametersArrayBuilder::OnEyeHideWidgetButtonClicked(FName Property) const//ECheckBoxState NewState
 {
 
-    if (Job) 
+    if (Job)
     {
-        Job->AddHiddenParameter(Property);
+        if (Job->ContainsHiddenParameters(Property))
+        {
+            Job->RemoveHiddenParameters(Property);
+        }
+        else
+        {
+            Job->AddHiddenParameter(Property);
+            Job->SetDisplayHiddenParameters(false);
+        }   
     }
 
 }
 
-bool FDeadlineCloudJobParametersArrayBuilder::IsPropertyHidden( FName Parameter) const
+bool FDeadlineCloudJobParametersArrayBuilder::IsPropertyHidden(FName Parameter) const
 {
     bool Contains = false;
     if (Job)
     {
-        Contains = Job->ContainsHiddenParameters(Parameter);
+        Contains = Job->ContainsHiddenParameters(Parameter) && (Job->GetDisplayHiddenParameters() == false);
     }
     if (MrqJob)
     {
         if (MrqJob->JobPreset)
         {
-            Contains = MrqJob->JobPreset->ContainsHiddenParameters(Parameter);
-        } 
-        
+            Contains = MrqJob->JobPreset->ContainsHiddenParameters(Parameter) && Job->GetDisplayHiddenParameters();
+        }
     }
     return Contains;
 }
@@ -463,7 +472,10 @@ void FDeadlineCloudJobParametersArrayBuilder::OnGenerateEntry(TSharedRef<IProper
     PropertyRow.GetDefaultWidgets(NameWidget, ValueWidget);
     ValueWidget = FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(ValueHandle, Type);
 
-    TSharedRef<FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox> EyeWidget = SNew(FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox, FName(ParameterName));
+    bool Checked = !(Job->ContainsHiddenParameters(FName(ParameterName)));
+    TSharedRef<FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox> EyeWidget = SNew(FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox, FName(ParameterName), Checked);
+
+
     EyeWidget->SetOnCheckStateChangedDelegate(FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox::FOnCheckStateChangedDelegate::CreateSP(this, &FDeadlineCloudJobParametersArrayBuilder::OnEyeHideWidgetButtonClicked));
 
 
@@ -512,10 +524,9 @@ void FDeadlineCloudJobParametersArrayBuilder::OnGenerateEntry(TSharedRef<IProper
             })
     );
 
+    PropertyRow.Visibility(IsPropertyHidden(FName(ParameterName)) ? EVisibility::Collapsed : EVisibility::Visible);
 
-        PropertyRow.Visibility(IsPropertyHidden(FName(ParameterName)) ? EVisibility::Collapsed : EVisibility::Visible);
 
-   
 
 }
 
