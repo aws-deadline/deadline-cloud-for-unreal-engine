@@ -301,7 +301,7 @@ class UnrealRenderStepHandler(BaseStepHandler):
 
         if args.get('output_path'):
             if not os.path.exists(args['output_path']):
-                os.makedirs(args['output_path'])
+                os.makedirs(args['output_path'], exist_ok=True)
 
             new_output_dir = unreal.DirectoryPath()
             new_output_dir.set_editor_property('path', args['output_path'].replace('\\', '/'))
