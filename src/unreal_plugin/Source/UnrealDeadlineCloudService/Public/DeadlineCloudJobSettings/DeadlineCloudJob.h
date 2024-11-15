@@ -276,6 +276,8 @@ public:
 
     FString GetDefaultParameterValue(const FString& ParameterName);
 
+    void FixConsistencyForHiddenParameters();
+
     UFUNCTION()
     FParametersConsistencyCheckResult CheckJobParametersConsistency(UDeadlineCloudJob* Self);
 

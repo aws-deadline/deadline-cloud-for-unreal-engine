@@ -255,6 +255,16 @@ EVisibility FDeadlineCloudJobDetails::GetEnvironmentDefaultWidgetVisibility() co
 
 void FDeadlineCloudJobDetails::OnConsistencyButtonClicked()
 {
+    /* Compare hidden parameters after consistency check */
+    if (bCheckConsistensyPassed == false)
+    {
+        /* Remove hidden parameters in TArray missing in .yaml */
+        if (Settings->AreEmptyHiddenParameters() == false)
+        {
+            Settings->FixConsistencyForHiddenParameters();
+        }
+
+    }
     Settings->FixJobParametersConsistency(Settings.Get());
     UE_LOG(LogTemp, Warning, TEXT("FixJobParametersConsistency"));
     ForceRefreshDetails();

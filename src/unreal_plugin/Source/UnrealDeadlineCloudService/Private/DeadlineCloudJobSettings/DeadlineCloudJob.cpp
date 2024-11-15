@@ -34,6 +34,32 @@ FString UDeadlineCloudJob::GetDefaultParameterValue(const FString& ParameterName
     return "";
 }
 
+
+void UDeadlineCloudJob::FixConsistencyForHiddenParameters()
+{
+    TArray<FName>Names;
+    TArray<FName>NamesToRemove;
+    TArray<FParameterDefinition> DefaultParameters = UPythonYamlLibrary::Get()->OpenJobFile(PathToTemplate.FilePath);
+    for (FParameterDefinition& Parameter : DefaultParameters)
+    {
+        Names.Add(FName(Parameter.Name));
+    }
+
+    for (auto HiddenName : HiddenParametersList)
+    {
+        bool Contains = Names.Contains(HiddenName);
+        if (!Contains)
+        {
+            NamesToRemove.Add(HiddenName);
+        }
+    }
+    for (auto HiddenName : NamesToRemove)
+    {
+        HiddenParametersList.Remove(HiddenName);
+    }
+   
+}
+
 TArray<FParameterDefinition> UDeadlineCloudJob::GetJobParameters()
 {
     return ParameterDefinition.Parameters;
