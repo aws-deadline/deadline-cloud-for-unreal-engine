@@ -492,13 +492,11 @@ void FDeadlineCloudJobParametersArrayBuilder::OnGenerateEntry(TSharedRef<IProper
     PropertyRow.GetDefaultWidgets(NameWidget, ValueWidget);
     ValueWidget = FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(ValueHandle, Type);
 
-    //TODO: EDIT
     bool Checked = !(IsEyeWidgetEnabled(FName(ParameterName)));
     TSharedRef<FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox> EyeWidget = SNew(FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox, FName(ParameterName), Checked);
 
-
     EyeWidget->SetOnCheckStateChangedDelegate(FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox::FOnCheckStateChangedDelegate::CreateSP(this, &FDeadlineCloudJobParametersArrayBuilder::OnEyeHideWidgetButtonClicked));
-
+    EyeWidget->SetVisibility((MrqJob) ? EVisibility::Hidden : EVisibility::Visible);
 
     PropertyRow.CustomWidget(true)
         .CopyAction(EmptyCopyPasteAction)
