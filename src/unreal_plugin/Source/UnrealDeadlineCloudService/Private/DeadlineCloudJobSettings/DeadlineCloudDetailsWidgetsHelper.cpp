@@ -217,25 +217,15 @@ void FDeadlineCloudDetailsWidgetsHelper::SEyeUpdateWidget::Construct(const FArgu
                     SNew(STextBlock)
                         .Text(FText::FromString("Some parameters will be hidden in MRQ. "))
                 ]
+
                 + SHorizontalBox::Slot()
                 .AutoWidth()
                 .Padding(5)
                 [
-                    SNew(STextBlock)
+                    SNew(SButton)
+                        .OnClicked(this, &SEyeUpdateWidget::HandleButtonClicked) 
                         .Text(this, &SEyeUpdateWidget::GetButtonText)
                 ]
-                + SHorizontalBox::Slot()
-                .AutoWidth()
-                .Padding(5)
-                [
-                    SNew(SCheckBox)
-                        .OnCheckStateChanged(this, &SEyeUpdateWidget::HandleButtonClicked)
-                        .IsChecked_Lambda([this]()
-                            {
-                                return bShowHidden ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-                            })
-                ]
-
         ];
 };
 

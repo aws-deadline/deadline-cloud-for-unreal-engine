@@ -57,27 +57,24 @@ public:
 		FSimpleDelegate OnEyeUpdateButtonClicked;
 
 		
-		void HandleButtonClicked(ECheckBoxState NewState)
+		FReply HandleButtonClicked()
 		{
 			bShowHidden = !(bShowHidden);
+
 			if (OnEyeUpdateButtonClicked.IsBound())
 			{
-				OnEyeUpdateButtonClicked.Execute();  
+				OnEyeUpdateButtonClicked.Execute();
 			}
+
+			return FReply::Handled();
 		}
 		FText GetButtonText() const
 		{
-			return (bShowHidden) ? FText::FromString(" Hide ") : FText::FromString(" Show ");
+			return (bShowHidden) ? FText::FromString("Hide") : FText::FromString("Show");
 
 		}
-		ECheckBoxState GetState() const
-		{
-			if (bShowHidden)
-			{
-				return ECheckBoxState::Checked;
-			}
-			else return ECheckBoxState::Unchecked;
-		}
+
+	
 	};
 
 	class SEyeCheckBox : public SCompoundWidget
