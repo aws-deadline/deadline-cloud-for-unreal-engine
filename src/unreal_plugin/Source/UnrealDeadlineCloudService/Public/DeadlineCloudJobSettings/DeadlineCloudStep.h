@@ -53,7 +53,7 @@ public:
 	FFilePath PathToTemplate;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 5))
-	TArray<UDeadlineCloudEnvironment*> Environments;
+	TArray<TObjectPtr<UDeadlineCloudEnvironment>> Environments;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 4))
 	FDeadlineCloudStepParametersArray TaskParameterDefinitions;

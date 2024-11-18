@@ -258,10 +258,10 @@ public:
     FDeadlineCloudJobPresetStruct JobPresetStruct;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 6))
-    TArray<UDeadlineCloudStep*> Steps;
+    TArray<TObjectPtr<UDeadlineCloudStep>> Steps;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 5))
-    TArray<UDeadlineCloudEnvironment*> Environments;
+    TArray<TObjectPtr<UDeadlineCloudEnvironment>> Environments;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 4))
     FDeadlineCloudJobParametersArray ParameterDefinition;
