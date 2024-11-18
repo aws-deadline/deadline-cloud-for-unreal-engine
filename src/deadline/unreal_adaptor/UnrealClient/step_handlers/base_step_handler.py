@@ -18,7 +18,7 @@ class BaseStepHandler(ABC):
         This method is an abstract method that needs to be implemented by the extending class.
         It is responsible for executing a script using the provided arguments.
         """
-        raise NotImplementedError("Abstract method, need to be implemented")
+        raise NotImplementedError("Abstract method, need to be implemented")  # pragma: no cover
 
     @abstractmethod
     def wait_result(self, args: Optional[dict] = None) -> None:
@@ -30,22 +30,22 @@ class BaseStepHandler(ABC):
         It is responsible for waiting result of the
         :meth:`deadline.unreal_adaptor.UnrealClient.step_handlers.base_step_handler.BaseStepHandler.run_script()`.
         """
-        raise NotImplementedError("Abstract method, need to be implemented")
+        raise NotImplementedError("Abstract method, need to be implemented")  # pragma: no cover
 
     @staticmethod
     @abstractmethod
     def regex_pattern_progress() -> list[re.Pattern]:
         """Returns a list of regex Patterns that match the progress messages"""
-        raise NotImplementedError("Abstract method, need to be implemented")
+        raise NotImplementedError("Abstract method, need to be implemented")  # pragma: no cover
 
     @staticmethod
     @abstractmethod
     def regex_pattern_complete() -> list[re.Pattern]:
         """Returns a list of regex Patterns that match the complete messages"""
-        raise NotImplementedError("Abstract method, need to be implemented")
+        raise NotImplementedError("Abstract method, need to be implemented")  # pragma: no cover
 
     @staticmethod
     @abstractmethod
     def regex_pattern_error() -> list[re.Pattern]:
         """Returns a list of regex Patterns that match the errors messages"""
-        raise NotImplementedError("Abstract method, need to be implemented")
+        raise NotImplementedError("Abstract method, need to be implemented")  # pragma: no cover

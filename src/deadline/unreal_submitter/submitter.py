@@ -8,9 +8,13 @@ from deadline.client.api import (
 )
 from deadline.job_attachments.exceptions import AssetSyncCancelledError
 
+from deadline.unreal_logger import get_logger
 from deadline.unreal_submitter.unreal_open_job.open_job_description import OpenJobDescription
 
 from ._version import version
+
+
+logger = get_logger()
 
 
 class UnrealSubmitStatus(Enum):
@@ -108,14 +112,14 @@ class UnrealSubmitter:
                 create_job_result_callback=lambda: self._create_job_result(),
             )
             if job_id:
-                unreal.log(f"Job creation result: {job_id}")
+                logger.info(f"Job creation result: {job_id}")
                 self.submitted_job_ids.append(job_id)
 
         except AssetSyncCancelledError as e:
-            unreal.log(str(e))
+            logger.info(str(e))
 
         except Exception as e:
-            unreal.log(str(e))
+            logger.info(str(e))
             self._submission_failed_message = str(e)
 
     def _hash_progress(self, hash_metadata) -> bool:
@@ -128,7 +132,7 @@ class UnrealSubmitter:
         :rtype: bool
         """
         self.submit_status = UnrealSubmitStatus.HASHING
-        unreal.log(
+        logger.info(
             "Hash progress: {} {}".format(hash_metadata.progress, hash_metadata.progressMessage)
         )
         self.submit_message = hash_metadata.progressMessage
@@ -146,7 +150,7 @@ class UnrealSubmitter:
         """
 
         self.submit_status = UnrealSubmitStatus.UPLOADING
-        unreal.log(
+        logger.info(
             "Upload progress: {} {}".format(
                 upload_metadata.progress, upload_metadata.progressMessage
             )
@@ -162,7 +166,7 @@ class UnrealSubmitter:
         """
 
         self.submit_status = UnrealSubmitStatus.COMPLETED
-        unreal.log("Create job result...")
+        logger.info("Create job result...")
         return True
 
     def show_message_dialog(
@@ -184,12 +188,15 @@ class UnrealSubmitter:
 
         unreal.EditorDialog.show_message(title=title, message=message, message_type=message_type)
 
-    def submit_jobs(self):
+    def submit_jobs(self) -> list[str]:
         """
         Submit OpenJobs to the Deadline Cloud
         """
+
+        del self.submitted_job_ids[:]
+
         for job in self._jobs:
-            unreal.log("Creating job from bundle...")
+            logger.info("Creating job from bundle...")
             self.submit_status = UnrealSubmitStatus.HASHING
             self.progress_list = []
             self.submit_message = "Start submitting..."
@@ -228,5 +235,6 @@ class UnrealSubmitter:
             f"Submitted jobs ({len(self.submitted_job_ids)}):\n" + "\n".join(self.submitted_job_ids)
         )
 
-        del self.submitted_job_ids[:]
         del self._jobs[:]
+
+        return self.submitted_job_ids

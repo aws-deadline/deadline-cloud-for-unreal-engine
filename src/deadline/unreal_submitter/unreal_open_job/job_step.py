@@ -1,3 +1,5 @@
+#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+import math
 import os
 import yaml
 import unreal
@@ -112,7 +114,15 @@ class JobStep:
     Represents a OpenJob Step
     """
 
-    def __init__(self, step_template, step_settings, host_requirements, queue_manifest_path):
+    def __init__(
+        self,
+        step_template,
+        step_settings,
+        host_requirements,
+        queue_manifest_path,
+        shots_count,
+        task_chunk_size,
+    ):
         """
         Build JobStep, set its name and fill dependencies list
 
@@ -190,11 +200,26 @@ class CustomScriptJobStep(JobStep):
     Represents a OpenJob Step for Custom Script executing
     """
 
-    def __init__(self, step_template, step_settings, host_requirements, queue_manifest_path):
+    def __init__(
+        self,
+        step_template,
+        step_settings,
+        host_requirements,
+        queue_manifest_path,
+        shots_count,
+        task_chunk_size,
+    ):
         """
         Build JobStep, set its name, fill dependencies list and set script path parameter
         """
-        super().__init__(step_template, step_settings, host_requirements, queue_manifest_path)
+        super().__init__(
+            step_template,
+            step_settings,
+            host_requirements,
+            queue_manifest_path,
+            shots_count,
+            task_chunk_size,
+        )
 
         self._set_script_path_parameter(os_abs_from_relative(step_settings.script.file_path))
 
@@ -241,13 +266,29 @@ class RenderJobStep(JobStep):
     Represents a OpenJob Step for Render executing
     """
 
-    def __init__(self, step_template, step_settings, host_requirements, queue_manifest_path):
+    def __init__(
+        self,
+        step_template,
+        step_settings,
+        host_requirements,
+        queue_manifest_path,
+        shots_count,
+        task_chunk_size,
+    ):
         """
         Build JobStep, set its name, fill dependencies list and set queue manifest path parameter
         """
-        super().__init__(step_template, step_settings, host_requirements, queue_manifest_path)
+        super().__init__(
+            step_template,
+            step_settings,
+            host_requirements,
+            queue_manifest_path,
+            shots_count,
+            task_chunk_size,
+        )
 
         self._set_queue_manifest_path_parameter(queue_manifest_path)
+        self._set_step_chunk_parameters(shots_count, task_chunk_size)
 
     def _set_name(self, step_settings):
         """
@@ -267,6 +308,18 @@ class RenderJobStep(JobStep):
         self._set_step_path_parameter(
             parameter_name="QueueManifestPath", path_value=queue_manifest_path
         )
+
+    def _set_step_chunk_parameters(self, shots_count: int, task_chunk_size: int):
+        task_chunk_ids_count = math.ceil(shots_count / task_chunk_size)
+        task_chunk_ids = [i for i in range(task_chunk_ids_count)]
+        task_chunk_id_param = {"name": "ChunkId", "type": "INT", "range": task_chunk_ids}
+        task_chunk_size_param = {"name": "ChunkSize", "type": "INT", "range": [task_chunk_size]}
+
+        for param_definition in self._job_step["parameterSpace"]["taskParameterDefinitions"]:
+            if param_definition["name"] == task_chunk_id_param["name"]:
+                param_definition.update(task_chunk_id_param)
+            if param_definition["name"] == task_chunk_size_param["name"]:
+                param_definition.update(task_chunk_size_param)
 
 
 @dataclass
@@ -354,6 +407,8 @@ class JobStepFactory:
         cls,
         job_settings: list[unreal.MoviePipelineSetting],
         queue_manifest_path: str,
+        shots_count: int,
+        task_chunk_size: int,
         host_requirements,
     ) -> list[JobStep]:
         """
@@ -364,6 +419,11 @@ class JobStepFactory:
         :param queue_manifest_path: OS path for the queue manifest file
         :type queue_manifest_path: str
         :param host_requirements: AWS Host requirements settings
+        :type host_requirements: unreal.DeadlineCloudHostRequirementsSetting
+        :param extra_cmd_args: Extra command line arguments
+        :type extra_cmd_args: str
+        :param task_chunk_size: Task chunk size
+        :type task_chunk_size: int
 
         :return: list of the :class:`deadline.unreal_submitter.unreal_open_job.job_step.JobStep` instances
         :rtype: :class:`deadline.unreal_submitter.unreal_open_job.job_step.JobStep`
@@ -386,6 +446,8 @@ class JobStepFactory:
                             step_settings=script_step_setting,
                             host_requirements=host_requirements,
                             queue_manifest_path=queue_manifest_path,
+                            shots_count=shots_count,
+                            task_chunk_size=task_chunk_size,
                         )
                     )
 
@@ -396,6 +458,8 @@ class JobStepFactory:
                         step_settings=setting,
                         host_requirements=host_requirements,
                         queue_manifest_path=queue_manifest_path,
+                        shots_count=shots_count,
+                        task_chunk_size=task_chunk_size,
                     )
                 )
 

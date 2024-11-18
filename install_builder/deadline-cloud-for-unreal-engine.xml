@@ -18,16 +18,27 @@
             </distributionFileList>
         </folder>
         <folder>
-             <description>Dependency Files</description>
-             <destination>${unreal_plugin_dir}/tmp/unreal_deps</destination>
-             <name>unreal_deps</name>
-             <platforms>all</platforms>
-             <distributionFileList>
-                 <distributionDirectory allowWildcards="1">
-                     <origin>components/deadline-cloud-for-unreal-engine/dependency_bundle</origin>
-                 </distributionDirectory>
-             </distributionFileList>
-         </folder>
+            <description>Dependency Files</description>
+            <destination>${unreal_plugin_dir}/tmp/unreal_deps</destination>
+            <name>unreal_deps</name>
+            <platforms>all</platforms>
+            <distributionFileList>
+                <distributionDirectory allowWildcards="1">
+                    <origin>components/deadline-cloud-for-unreal-engine/dependency_bundle</origin>
+                </distributionDirectory>
+            </distributionFileList>
+        </folder>
+        <folder>
+            <description>Prebuild Outputs</description>
+            <destination>${unreal_plugin_dir}</destination>
+            <name>unreal_prebuilds</name>
+            <platforms>all</platforms>
+            <distributionFileList>
+                <distributionDirectory allowWildcards="1">
+                    <origin>components/deadline-cloud-for-unreal-engine/UnrealDeadlineCloudService/*</origin>
+                </distributionDirectory>
+            </distributionFileList>
+        </folder>
     </folderList>
     <initializationActionList>
     <if>

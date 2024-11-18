@@ -2,7 +2,8 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
-        "project_path": { "type": "string" }
+        "project_path": { "type": "string" },
+        "extra_cmd_args": { "type": "string" }
     },
     "required": [
         "project_path"

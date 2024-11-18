@@ -1,4 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 
 #include "MovieRenderPipeline/MoviePipelineDeadlineCloudExecutorJob.h"

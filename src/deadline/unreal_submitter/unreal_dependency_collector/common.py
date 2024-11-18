@@ -3,6 +3,10 @@
 import os
 import unreal
 
+from deadline.unreal_logger import get_logger
+
+
+logger = get_logger()
 
 content_dir = unreal.Paths.project_content_dir()
 content_dir = unreal.Paths.convert_relative_path_to_full(content_dir)
@@ -88,19 +92,19 @@ def sync_assets_with_ue_source_control(asset_paths: list[str], sync_description=
     synced = True
 
     if not unreal.SourceControl.is_available():
-        unreal.log("SourceControl is not available")
+        logger.info("SourceControl is not available")
         return
 
-    unreal.log("Sync assets: {}".format(asset_paths))
+    logger.info("Sync assets: {}".format(asset_paths))
     if "IS_RENDER_MODE" not in os.environ:
         with unreal.ScopedSlowTask(len(asset_paths), sync_description) as slow_task:
             slow_task.make_dialog(True)
             for i in range(len(asset_paths)):
-                unreal.log("Sync asset: {}".format(asset_paths[i]))
+                logger.info("Sync asset: {}".format(asset_paths[i]))
                 synced = unreal.SourceControl.sync_files([asset_paths[i]])
                 slow_task.enter_progress_frame(1, asset_paths[i])
     else:
         synced = unreal.SourceControl.sync_files(asset_paths)
 
-    unreal.log(f"Assets synced: {synced}")
+    logger.info(f"Assets synced: {synced}")
     return synced

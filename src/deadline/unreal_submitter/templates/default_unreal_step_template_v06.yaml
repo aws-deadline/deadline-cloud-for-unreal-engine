@@ -15,7 +15,6 @@ steps:
     - name: ChunkSize
       type: INT
       range: []
-
   script:
     embeddedFiles:
     - name: runData
@@ -26,21 +25,16 @@ steps:
         queue_manifest_path: {{Task.Param.QueueManifestPath}}
         chunk_id: {{Task.Param.ChunkId}}
         chunk_size: {{Task.Param.ChunkSize}}
-    - name: initData
-      filename: init-data.yaml
-      type: TEXT
-      data: |
-        project_path: {{Param.ProjectFilePath}}
-        extra_cmd_args: {{Param.ExtraCmdArgs}}
     actions:
       onRun:
-        command: UnrealAdaptor
+        command: unreal-engine-openjd
         args:
-        - run
-        - --init-data
-        - file://{{Task.File.initData}}
-        - --run-data
-        - file://{{ Task.File.runData }}
+          - daemon
+          - run
+          - --connection-file
+          - '{{Session.WorkingDirectory}}/connection.json'
+          - --run-data
+          - file://{{ Task.File.runData }}
         cancelation:
           mode: NOTIFY_THEN_TERMINATE
 
@@ -61,18 +55,14 @@ steps:
       data: |
         handler: {{Task.Param.Handler}}
         script_path: {{Task.Param.ScriptPath}}
-    - name: initData
-      filename: init-data.yaml
-      type: TEXT
-      data: |
-        project_path: {{Param.ProjectFilePath}}
     actions:
       onRun:
-        command: UnrealAdaptor
+        command: unreal-engine-openjd
         args:
+        - daemon
         - run
-        - --init-data
-        - file://{{Task.File.initData}}
+        - --connection-file
+        - '{{Session.WorkingDirectory}}/connection.json'
         - --run-data
         - file://{{ Task.File.runData }}
         cancelation:
