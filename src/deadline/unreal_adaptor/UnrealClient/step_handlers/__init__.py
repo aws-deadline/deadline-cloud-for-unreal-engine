@@ -9,14 +9,8 @@ __all__ = ["BaseStepHandler", "get_step_handler_class"]
 
 
 def get_step_handler_class(
-        handler: str = "base"
-) -> Type[
-    Union[
-        BaseStepHandler,
-        UnrealCustomStepHandler,
-        UnrealRenderStepHandler
-    ]
-]:
+    handler: str = "base",
+) -> Type[Union[BaseStepHandler, UnrealCustomStepHandler, UnrealRenderStepHandler]]:
     """
     Returns the step handler instance for the given handler name.
 

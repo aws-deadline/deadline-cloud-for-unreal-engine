@@ -137,7 +137,9 @@ class UnrealRenderStepHandler(BaseStepHandler):
         logger.info("Render Executor: Rendering is complete")
 
     @staticmethod
-    def copy_pipeline_queue_from_manifest_file(movie_pipeline_queue_subsystem, queue_manifest_path: str):
+    def copy_pipeline_queue_from_manifest_file(
+        movie_pipeline_queue_subsystem, queue_manifest_path: str
+    ):
         manifest_queue = unreal.MoviePipelineLibrary.load_manifest_file_from_string(
             queue_manifest_path
         )
@@ -154,7 +156,7 @@ class UnrealRenderStepHandler(BaseStepHandler):
         :param queue_manifest_path: Path to the manifest file
         """
         manifest_path = queue_manifest_path.replace("\\", "/")
-        project_saved_dir = unreal.SystemLibrary.get_project_saved_directory().rstrip('/')
+        project_saved_dir = unreal.SystemLibrary.get_project_saved_directory().rstrip("/")
 
         # If QueueManifestPath under the Project's Saved dir (All stuff pulled via S3, all path mappings saved)
         if manifest_path.startswith(project_saved_dir):
@@ -175,12 +177,10 @@ class UnrealRenderStepHandler(BaseStepHandler):
             os.makedirs(movie_render_pipeline_dir, exist_ok=True)
 
             render_job_manifest_path = unreal.Paths.create_temp_filename(
-                movie_render_pipeline_dir,
-                prefix='RenderJobManifest',
-                extension='.utxt'
+                movie_render_pipeline_dir, prefix="RenderJobManifest", extension=".utxt"
             )
 
-            with open(render_job_manifest_path, 'w') as manifest:
+            with open(render_job_manifest_path, "w") as manifest:
                 unreal.log(f"Saving Manifest file `{render_job_manifest_path}`")
                 manifest.write(serialized_manifest)
 
@@ -245,8 +245,8 @@ class UnrealRenderStepHandler(BaseStepHandler):
     def enable_shots_by_chunk(render_job, task_chunk_size: int, task_chunk_id: int):
         all_shots_to_render = [shot for shot in render_job.shot_info if shot.enabled]
         shots_chunk = all_shots_to_render[
-                      task_chunk_id * task_chunk_size: (task_chunk_id + 1) * task_chunk_size
-                      ]
+            task_chunk_id * task_chunk_size : (task_chunk_id + 1) * task_chunk_size
+        ]
         for shot in render_job.shot_info:
             if shot in shots_chunk:
                 shot.enabled = True
@@ -299,16 +299,17 @@ class UnrealRenderStepHandler(BaseStepHandler):
                 if shot.enabled:
                     logger.info(f"Shot to render: {shot.outer_name}: {shot.inner_name}")
 
-        if args.get('output_path'):
-            if not os.path.exists(args['output_path']):
-                os.makedirs(args['output_path'], exist_ok=True)
+        if args.get("output_path"):
+            if not os.path.exists(args["output_path"]):
+                os.makedirs(args["output_path"], exist_ok=True)
 
             new_output_dir = unreal.DirectoryPath()
-            new_output_dir.set_editor_property('path', args['output_path'].replace('\\', '/'))
+            new_output_dir.set_editor_property("path", args["output_path"].replace("\\", "/"))
 
-            output_setting = job.get_configuration().find_setting_by_class(unreal.MoviePipelineOutputSetting)
+            output_setting = job.get_configuration().find_setting_by_class(
+                unreal.MoviePipelineOutputSetting
+            )
             output_setting.output_directory = new_output_dir
-
 
         # Initialize Render executor
         executor = RemoteRenderMoviePipelineEditorExecutor()

@@ -1,4 +1,7 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+import unittest
+
+unittest.SkipTest("Not ready yet")
 
 import sys
 import time

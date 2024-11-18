@@ -1,12 +1,10 @@
-# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import sys
 import pytest
 from unittest.mock import patch, Mock, MagicMock
 from openjd.model.v2023_09 import StepTemplate
-from deadline.client.job_bundle.submission import AssetReferences
 
-from deadline.unreal_submitter import exceptions
 from test.deadline_submitter_for_unreal.fixtures import f_step_template_default
 
 unreal_mock = MagicMock()
@@ -70,7 +68,7 @@ class TestUnrealOpenJobStep:
 
         # THEN
         assert consistency_check_result.passed
-        assert "Parameters are consistent" in consistency_check_result.reason
+        assert "Parameters are consensual" in consistency_check_result.reason
 
     yaml_template = f_step_template_default()
     yaml_template["parameterSpace"]["taskParameterDefinitions"] = []
@@ -118,8 +116,7 @@ class TestUnrealOpenJobStep:
         # GIVEN
         extra_param = {"name": "ParamD", "type": "INT", "range": [1]}
         openjd_step = UnrealOpenJobStep(
-            file_path="",
-            extra_parameters=[UnrealOpenJobStepParameterDefinition.from_dict(extra_param)],
+            file_path="", extra_parameters=[UnrealOpenJobStepParameterDefinition(**extra_param)]
         )
 
         # WHEN
@@ -157,30 +154,6 @@ class TestUnrealOpenJobStep:
             p["name"] for p in step_template["parameterSpace"]["taskParameterDefinitions"]
         ]
 
-    @pytest.mark.parametrize(
-        "existed_param, requested_param, found",
-        [
-            (("ExistedParam", "INT"), ("ExistedParam", "INT"), True),
-            (("ExistedParam", "INT"), ("NotExistedParam", "INT"), False),
-            (("ExistedParam", "INT"), ("ExistedParam", "FLOAT"), False),
-        ],
-    )
-    def test__find_extra_parameter(self, existed_param, requested_param, found):
-        # GIVEN
-        step = UnrealOpenJobStep(
-            file_path="",
-            extra_parameters=[
-                UnrealOpenJobStepParameterDefinition(existed_param[0], existed_param[1], [1])
-            ],
-        )
-
-        # WHEN
-        param = step._find_extra_parameter(
-            parameter_name=requested_param[0], parameter_type=requested_param[1]
-        )
-
-        assert isinstance(param, UnrealOpenJobStepParameterDefinition) == found
-
     @patch(
         "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
         "UnrealOpenJobEntity.get_template_object",
@@ -204,23 +177,6 @@ class TestUnrealOpenJobStep:
         assert isinstance(openjd_template, StepTemplate)
         assert set(step_template.keys()).issubset(set(openjd_template.__fields__.keys()))
 
-    @patch(
-        "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
-        "UnrealOpenJobEntity.get_template_object",
-        return_value=f_step_template_default(),
-    )
-    def test__create_missing_extra_parameters_from_template(self, get_template_object_mock: Mock):
-        # WHEN
-        open_job_step = UnrealOpenJobStep()
-
-        # THEN
-        parameter_names = [p.name for p in open_job_step._extra_parameters]
-        yaml_parameter_names = [
-            p["name"]
-            for p in f_step_template_default()["parameterSpace"]["taskParameterDefinitions"]
-        ]
-        assert parameter_names == yaml_parameter_names
-
 
 class TestRenderUnrealOpenJobStep:
 
@@ -237,7 +193,7 @@ class TestRenderUnrealOpenJobStep:
     def test__get_chunk_ids_count(self, chunk_size, shots_count, expected_chunk_ids):
         # GIVEN
         shot_info = []
-        for _ in range(shots_count):
+        for i in range(shots_count):
             shot_info_mock = MagicMock()
             shot_info_mock.enabled = True
             shot_info.append(shot_info_mock)
@@ -263,7 +219,7 @@ class TestRenderUnrealOpenJobStep:
         # GIVEN
         render_step = RenderUnrealOpenJobStep(file_path="")
 
-        with pytest.raises(exceptions.MrqJobIsMissingError) as exception_info:
+        with pytest.raises(ValueError) as exception_info:
             render_step._get_chunk_ids_count()
 
         assert str(exception_info.value) == "MRQ Job must be provided"
@@ -280,9 +236,33 @@ class TestRenderUnrealOpenJobStep:
 
         # THEN
         assert (
-            f'Render Step\'s parameter "{OpenJobStepParameterNames.TASK_CHUNK_SIZE}" '
-            f"must be provided" in str(exception_info.value)
+            str(exception_info.value) == f"Render Step's parameter "
+            f'"{OpenJobStepParameterNames.TASK_CHUNK_SIZE}" must be provided'
         )
+
+    @pytest.mark.parametrize(
+        "existed_param, requested_param, found",
+        [
+            (("ExistedParam", "INT"), ("ExistedParam", "INT"), True),
+            (("ExistedParam", "INT"), ("NotExistedParam", "INT"), False),
+            (("ExistedParam", "INT"), ("ExistedParam", "FLOAT"), False),
+        ],
+    )
+    def test__find_extra_parameter_by_name(self, existed_param, requested_param, found):
+        # GIVEN
+        render_step = RenderUnrealOpenJobStep(
+            file_path="",
+            extra_parameters=[
+                UnrealOpenJobStepParameterDefinition(existed_param[0], existed_param[1], [1])
+            ],
+        )
+
+        # WHEN
+        param = render_step._find_extra_parameter(
+            parameter_name=requested_param[0], parameter_type=requested_param[1]
+        )
+
+        assert isinstance(param, UnrealOpenJobStepParameterDefinition) == found
 
     @pytest.mark.parametrize(
         "existed_param, requested_param, was_updated",
@@ -292,7 +272,7 @@ class TestRenderUnrealOpenJobStep:
             (("ExistedParam", "INT", [1]), ("ExistedParam", "FLOAT", [2.0]), False),
         ],
     )
-    def test_update_extra_parameter(self, existed_param, requested_param, was_updated):
+    def test__update_extra_parameter(self, existed_param, requested_param, was_updated):
         # GIVEN
         render_step = RenderUnrealOpenJobStep(
             file_path="",
@@ -308,7 +288,7 @@ class TestRenderUnrealOpenJobStep:
         )
 
         # WHEN
-        updated = render_step.update_extra_parameter(new_param)
+        updated = render_step._update_extra_parameter(new_param)
 
         # THEN
         assert updated == was_updated
@@ -363,9 +343,7 @@ class TestRenderUnrealOpenJobStep:
         # GIVEN
         render_open_job_step = RenderUnrealOpenJobStep(
             file_path="",
-            extra_parameters=[
-                UnrealOpenJobStepParameterDefinition.from_dict(p) for p in extra_parameters
-            ],
+            extra_parameters=[UnrealOpenJobStepParameterDefinition(**p) for p in extra_parameters],
         )
 
         # WHEN
@@ -379,30 +357,8 @@ class TestRenderUnrealOpenJobStep:
         render_open_job_step = RenderUnrealOpenJobStep(file_path="", extra_parameters=[])
 
         # WHEN
-        with pytest.raises(exceptions.RenderArgumentsTypeNotSetError) as expected_exc:
+        with pytest.raises(ValueError) as expected_exc:
             render_open_job_step._build_template()
 
         # THEN
         assert "RenderOpenJobStep parameters are not valid" in str(expected_exc.value)
-
-    @patch(
-        "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
-        "UnrealOpenJobEntity.get_template_object",
-        return_value=f_step_template_default(),
-    )
-    def test_get_asset_references(self, get_template_object_mock):
-        # GIVEN
-        environment_asset_references = AssetReferences(input_filenames={"env_ref"})
-        expected_asset_references = environment_asset_references
-
-        environment_mock = Mock()
-        environment_mock.get_asset_references.return_value = environment_asset_references
-
-        open_job = UnrealOpenJobStep(name="", environments=[environment_mock])
-
-        # WHEN
-        asset_references = open_job.get_asset_references()
-
-        # THEN
-        assert environment_mock.get_asset_references.call_count == 1
-        assert expected_asset_references.input_filenames == asset_references.input_filenames

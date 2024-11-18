@@ -3,7 +3,10 @@ from typing import Callable
 from dataclasses import dataclass, asdict
 
 from deadline.unreal_submitter import common
+from deadline.unreal_logger import get_logger
 
+
+logger = get_logger()
 
 asset_registry = unreal.AssetRegistryHelpers.get_asset_registry()
 
@@ -21,7 +24,7 @@ class DependencyFilters:
         :return: True if dependency path in `/Game/`, False otherwise
         :rtype: bool
         """
-        return '/Game/' in str(dependency_path)
+        return "/Game/" in str(dependency_path)
 
 
 @dataclass
@@ -55,13 +58,12 @@ class DependencyCollector:
         self._already_synced = list()
 
     def collect(
-            self,
-            asset_path: str,
-            dependency_options=DependencyOptions(),
-            filter_method: Callable = None,
-            sync_missing: bool = True
+        self,
+        asset_path: str,
+        dependency_options=DependencyOptions(),
+        filter_method: Callable = None,
+        sync_missing: bool = True,
     ) -> list[str]:
-
         """The method starts the algorithm for obtaining dependencies on the passed asset
 
         :param asset_path: Path to the dependency asset to be obtained
@@ -75,14 +77,14 @@ class DependencyCollector:
 
         self._all_dependencies.clear()
 
-        udependency_options = unreal.AssetRegistryDependencyOptions(
-            **dependency_options.as_dict()
-        )
+        udependency_options = unreal.AssetRegistryDependencyOptions(**dependency_options.as_dict())
 
         if not unreal.EditorAssetLibrary.does_asset_exist(asset_path):
             self._sync_assets([asset_path])
 
-        all_dependencies, missing_dependencies = self._get_dependencies(asset_path, udependency_options, filter_method)
+        all_dependencies, missing_dependencies = self._get_dependencies(
+            asset_path, udependency_options, filter_method
+        )
         while missing_dependencies:
             if sync_missing:
                 self._sync_assets(missing_dependencies)
@@ -91,17 +93,21 @@ class DependencyCollector:
             self._already_synced.extend(missing_dependencies)
             self._missing_dependencies.clear()
             self._all_dependencies.clear()
-            all_dependencies, missing_dependencies = self._get_dependencies(asset_path, udependency_options, filter_method)
+            all_dependencies, missing_dependencies = self._get_dependencies(
+                asset_path, udependency_options, filter_method
+            )
 
-        self._sync_assets(list(set([d for d in self._all_dependencies if d not in self._already_synced])))
+        self._sync_assets(
+            list(set([d for d in self._all_dependencies if d not in self._already_synced]))
+        )
 
         return list(set(self._all_dependencies))
 
     def _get_dependencies(
-            self,
-            asset_path: str,
-            udependency_options: unreal.AssetRegistryDependencyOptions,
-            filter_method: Callable = None
+        self,
+        asset_path: str,
+        udependency_options: unreal.AssetRegistryDependencyOptions,
+        filter_method: Callable = None,
     ) -> tuple[list, list]:
         """
         The method recursively all dependencies on the passed asset
@@ -115,8 +121,7 @@ class DependencyCollector:
         """
 
         dependencies_raw = asset_registry.get_dependencies(
-            package_name=asset_path,
-            dependency_options=udependency_options
+            package_name=asset_path, dependency_options=udependency_options
         )
 
         missing_dependencies = list()
@@ -130,8 +135,15 @@ class DependencyCollector:
                 if does_confirm_filter and is_not_collected:
                     # If Source Control off, last missed deps (synced or not) will be already in already synced list.
                     # So we don't fall in infinite recursion
-                    is_missing = not unreal.EditorAssetLibrary.does_asset_exist(dependency_path) and dependency_path not in self._already_synced
-                    missing_dependencies.append(dependency_path) if is_missing else all_dependencies.append(dependency_path)
+                    is_missing = (
+                        not unreal.EditorAssetLibrary.does_asset_exist(dependency_path)
+                        and dependency_path not in self._already_synced
+                    )
+                    (
+                        missing_dependencies.append(dependency_path)
+                        if is_missing
+                        else all_dependencies.append(dependency_path)
+                    )
 
         if all_dependencies:
             self._all_dependencies.extend(all_dependencies)
@@ -159,11 +171,13 @@ class DependencyCollector:
         )
 
         if not synced:
-            unreal.log(
-                'Failed to complete the synchronization process. Reason: {}'.format(
+            logger.info(
+                "Failed to complete the synchronization process. Reason: {}".format(
                     unreal.SourceControl.last_error_msg()
                 )
             )
 
         unreal.AssetRegistryHelpers().get_asset_registry().scan_modified_asset_files(asset_paths)
-        unreal.AssetRegistryHelpers().get_asset_registry().scan_paths_synchronous(asset_paths, True, True)
+        unreal.AssetRegistryHelpers().get_asset_registry().scan_paths_synchronous(
+            asset_paths, True, True
+        )
