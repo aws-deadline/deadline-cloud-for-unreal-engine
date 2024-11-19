@@ -170,9 +170,9 @@ class ParametersConsistencyCheckerImplementation(unreal.PythonParametersConsiste
 
         unreal.log("Fixing OpenJobStep parameters consistency ...")
 
-        fixed_parameters = ParametersConsistencyChecker.fix_job_parameters_consistency(
-            job_template_path=open_job_step.path_to_template.file_path,
-            job_parameters=[
+        fixed_parameters = ParametersConsistencyChecker.fix_step_parameters_consistency(
+            step_template_path=open_job_step.path_to_template.file_path,
+            step_parameters=[
                 UnrealOpenJobStepParameterDefinition.from_unreal_param_definition(param).to_dict()
                 for param in open_job_step.get_step_parameters()
             ],

@@ -299,17 +299,18 @@ class UnrealRenderStepHandler(BaseStepHandler):
                 if shot.enabled:
                     logger.info(f"Shot to render: {shot.outer_name}: {shot.inner_name}")
 
-        if args.get("output_path"):
+        if "output_path" in args:
             if not os.path.exists(args["output_path"]):
                 os.makedirs(args["output_path"], exist_ok=True)
 
             new_output_dir = unreal.DirectoryPath()
             new_output_dir.set_editor_property("path", args["output_path"].replace("\\", "/"))
 
-            output_setting = job.get_configuration().find_setting_by_class(
-                unreal.MoviePipelineOutputSetting
-            )
-            output_setting.output_directory = new_output_dir
+            for job in subsystem.get_queue().get_jobs():
+                output_setting = job.get_configuration().find_setting_by_class(
+                    unreal.MoviePipelineOutputSetting
+                )
+                output_setting.output_directory = new_output_dir
 
         # Initialize Render executor
         executor = RemoteRenderMoviePipelineEditorExecutor()
