@@ -4,7 +4,7 @@ import sys
 import json
 import unreal
 from collections import OrderedDict
-from typing import Any, Union, Optional
+from typing import Any, Optional
 from dataclasses import dataclass, asdict
 
 from openjd.model.v2023_09 import JobTemplate
@@ -20,6 +20,7 @@ from deadline.unreal_submitter.unreal_dependency_collector import (
     DependencyFilters,
 )
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import (
+    Template,
     UnrealOpenJobEntity,
     OpenJobParameterNames,
     PARAMETER_DEFINITION_MAPPING,
@@ -53,14 +54,22 @@ perforce_api = PerforceApi()
 class UnrealOpenJobParameterDefinition:
     name: str
     type: str
-    value: Union[int, float, str, None] = None
+    value: Any = None
 
     @classmethod
     def from_unreal_param_definition(cls, u_param: unreal.ParameterDefinition):
         build_kwargs = dict(name=u_param.name, type=u_param.type.name)
         if u_param.value:
-            python_class = PARAMETER_DEFINITION_MAPPING.get(u_param.type.name).python_class
+            python_class = PARAMETER_DEFINITION_MAPPING[u_param.type.name].python_class
             build_kwargs["value"] = python_class(u_param.value)
+        return cls(**build_kwargs)
+
+    @classmethod
+    def from_dict(cls, param_dict: dict):
+        build_kwargs = dict(name=param_dict["name"], type=param_dict["type"])
+        if "default" in param_dict:
+            build_kwargs["value"] = param_dict["default"]
+
         return cls(**build_kwargs)
 
     def to_dict(self):
@@ -108,8 +117,8 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             self._name = self.get_template_object().get("name")
 
         self._extra_parameters: list[UnrealOpenJobParameterDefinition] = extra_parameters or []
-        self._steps: list[UnrealOpenJobStep] = steps
-        self._environments: list[UnrealOpenJobEnvironment] = environments
+        self._steps: list[UnrealOpenJobStep] = steps or []
+        self._environments: list[UnrealOpenJobEnvironment] = environments or []
         self._job_shared_settings = job_shared_settings
         self._asset_references = asset_references
 
@@ -144,7 +153,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         )
 
     @staticmethod
-    def serialize_template(template: JobTemplate):
+    def serialize_template(template: Template):
         def delete_none(_dict):
             for key, value in list(_dict.items()):
                 if isinstance(value, dict):
@@ -170,10 +179,28 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         ordered_data = delete_none(ordered_data)
         return ordered_data
 
-    def _find_extra_parameter_by_name(
-        self, name: str
+    @staticmethod
+    def update_job_parameter_values(
+        job_parameter_values: list[dict[str, Any]],
+        job_parameter_name: str,
+        job_parameter_value: Any,
+    ) -> list[dict[str, Any]]:
+        param = next((p for p in job_parameter_values if p["name"] == job_parameter_name), None)
+        if param:
+            param["value"] = job_parameter_value
+        return job_parameter_values
+
+    def _find_extra_parameter(
+        self, parameter_name: str, parameter_type: str
     ) -> Optional[UnrealOpenJobParameterDefinition]:
-        return next((p for p in self._extra_parameters if p.name == name), None)
+        return next(
+            (
+                p
+                for p in self._extra_parameters
+                if p.name == parameter_name and p.type == parameter_type
+            ),
+            None,
+        )
 
     def _build_parameter_values(self) -> list:
         """
@@ -186,7 +213,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         job_template_object = self.get_template_object()
         parameter_values = []
         for yaml_p in job_template_object["parameterDefinitions"]:
-            extra_p = next((p for p in self._extra_parameters if p.name == yaml_p["name"]), None)
+            extra_p = self._find_extra_parameter(yaml_p["name"], yaml_p["type"])
             value = extra_p.value if extra_p else yaml_p.get("default")
             parameter_values.append(dict(name=yaml_p["name"], value=value))
 
@@ -210,7 +237,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             specificationVersion=settings.JOB_TEMPLATE_VERSION,
             name=self.name,
             parameterDefinitions=[
-                PARAMETER_DEFINITION_MAPPING.get(param["type"]).job_parameter_openjd_class(**param)
+                PARAMETER_DEFINITION_MAPPING[param["type"]].job_parameter_openjd_class(**param)
                 for param in self.get_template_object()["parameterDefinitions"]
             ],
             steps=[s.build_template() for s in self._steps],
@@ -387,21 +414,6 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         """Count Render Step in the given Render Job data asset"""
         return sum(isinstance(s, unreal.DeadlineCloudRenderStep) for s in data_asset.steps)
 
-    @staticmethod
-    def update_job_parameter_values(
-        job_parameter_values: list[dict[str, Any]],
-        job_parameter_name: str,
-        job_parameter_value: Any,
-        create_if_not_exists: bool = False,
-    ) -> list[dict[str, Any]]:
-        param = next((p for p in job_parameter_values if p["name"] == job_parameter_name), None)
-        if param:
-            param["value"] = job_parameter_value
-        elif create_if_not_exists:
-            job_parameter_values.append(dict(name=job_parameter_name, value=job_parameter_value))
-
-        return job_parameter_values
-
     def _have_ugs_environment(self) -> bool:
         return (
             next(
@@ -493,27 +505,31 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
             if p["name"] == OpenJobParameterNames.UNREAL_PROJECT_RELATIVE_PATH:
                 client_root = perforce_api.get_client_root()
-                unreal_project_path = common.get_project_file_path().replace("\\", "/")
-                unreal_project_relative_path = unreal_project_path.replace(client_root, "")
-                unreal_project_relative_path = unreal_project_relative_path.lstrip("/")
+                if isinstance(client_root, str):
+                    unreal_project_path = common.get_project_file_path().replace("\\", "/")
+                    unreal_project_relative_path = unreal_project_path.replace(client_root, "")
+                    unreal_project_relative_path = unreal_project_relative_path.lstrip("/")
 
-                parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
-                    job_parameter_values=parameter_values,
-                    job_parameter_name=OpenJobParameterNames.UNREAL_PROJECT_RELATIVE_PATH,
-                    job_parameter_value=unreal_project_relative_path,
-                )
+                    parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+                        job_parameter_values=parameter_values,
+                        job_parameter_name=OpenJobParameterNames.UNREAL_PROJECT_RELATIVE_PATH,
+                        job_parameter_value=unreal_project_relative_path,
+                    )
 
             if p["name"] == OpenJobParameterNames.UNREAL_EXECUTABLE_RELATIVE_PATH:
                 client_root = perforce_api.get_client_root()
-                unreal_executable_path = sys.executable.replace("\\", "/")
-                unreal_executable_relative_path = unreal_executable_path.replace(client_root, "")
-                unreal_executable_relative_path = unreal_executable_relative_path.lstrip("/")
+                if isinstance(client_root, str):
+                    unreal_executable_path = sys.executable.replace("\\", "/")
+                    unreal_executable_relative_path = unreal_executable_path.replace(
+                        client_root, ""
+                    )
+                    unreal_executable_relative_path = unreal_executable_relative_path.lstrip("/")
 
-                parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
-                    job_parameter_values=parameter_values,
-                    job_parameter_name=OpenJobParameterNames.UNREAL_EXECUTABLE_RELATIVE_PATH,
-                    job_parameter_value=unreal_executable_relative_path,
-                )
+                    parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+                        job_parameter_values=parameter_values,
+                        job_parameter_name=OpenJobParameterNames.UNREAL_EXECUTABLE_RELATIVE_PATH,
+                        job_parameter_value=unreal_executable_relative_path,
+                    )
 
         return parameter_values
 
@@ -541,12 +557,13 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         # Initializes a single instance of every setting
         # so that even non-user-configured settings have a chance to apply their default values
-        self._mrq_job.get_configuration().initialize_transient_settings()
+        if self._mrq_job:
+            self._mrq_job.get_configuration().initialize_transient_settings()
 
-        job_url_params = []
-        job_cmd_args = []
-        job_device_profile_cvars = []
-        job_exec_cmds = []
+        job_url_params: list[str] = []
+        job_cmd_args: list[str] = []
+        job_device_profile_cvars: list[str] = []
+        job_exec_cmds: list[str] = []
         for setting in self._mrq_job.get_configuration().get_all_settings():
             (job_url_params, job_cmd_args, job_device_profile_cvars, job_exec_cmds) = (
                 setting.build_new_process_command_line_args(
@@ -566,15 +583,13 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         if job_exec_cmds:
             cmd_args.append('-execcmds="{}"'.format(",".join(job_exec_cmds)))
 
-        extra_cmd_args = next(
-            (
-                p.value
-                for p in self._extra_parameters
-                if p.name == OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS
-            ),
-            None,
+        extra_cmd_args_param = self._find_extra_parameter(
+            parameter_name=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS,
+            parameter_type="STRING",
         )
-        if extra_cmd_args:
+
+        if extra_cmd_args_param:
+            extra_cmd_args = str(extra_cmd_args_param.value)
             cleared_extra_cmds_args = re.sub(
                 pattern='(-execcmds="[^"]*")', repl="", string=extra_cmd_args
             )
@@ -601,6 +616,9 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         :return: List of the dependencies
         :rtype: list[str]
         """
+        if not self._mrq_job:
+            raise ValueError("MRQ Job must be provided")
+
         level_sequence_path = common.soft_obj_path_to_str(self._mrq_job.sequence)
         level_sequence_path = os.path.splitext(level_sequence_path)[0]
 
@@ -651,40 +669,42 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         if os.path.exists(self._extra_cmd_args_file_path):
             asset_references.input_filenames.add(self._extra_cmd_args_file_path)
 
-        # add other input files to attachments
-        job_input_files = [
-            common.os_abs_from_relative(input_file.file_path)
-            for input_file in self._mrq_job.preset_overrides.job_attachments.input_files.files.paths
-        ]
-        for input_file in job_input_files:
-            if os.path.exists(input_file):
-                asset_references.input_filenames.add(input_file)
+        # add attachments from preset overrides
+        if self._mrq_job:
+            # add other input files to attachments
+            input_files = self._mrq_job.preset_overrides.job_attachments.input_files.files.paths
+            job_input_files = [
+                common.os_abs_from_relative(input_file.file_path) for input_file in input_files
+            ]
+            for input_file in job_input_files:
+                if os.path.exists(input_file):
+                    asset_references.input_filenames.add(input_file)
 
-        # input directories
-        job_input_directories = [
-            common.os_abs_from_relative(input_directory.path)
-            for input_directory in self._mrq_job.preset_overrides.job_attachments.input_directories.directories.paths
-        ]
-        for input_dir in job_input_directories:
-            if os.path.exists(input_dir):
-                asset_references.input_directories.add(input_dir)
+            # input directories
+            job_input_directories = [
+                common.os_abs_from_relative(input_directory.path)
+                for input_directory in self._mrq_job.preset_overrides.job_attachments.input_directories.directories.paths
+            ]
+            for input_dir in job_input_directories:
+                if os.path.exists(input_dir):
+                    asset_references.input_directories.add(input_dir)
 
-        # output directories
-        job_output_directories = [
-            common.os_abs_from_relative(output_directory.path)
-            for output_directory in self._mrq_job.preset_overrides.job_attachments.output_directories.directories.paths
-        ]
-        for output_dir in job_output_directories:
-            asset_references.input_directories.add(output_dir)
+            # output directories
+            job_output_directories = [
+                common.os_abs_from_relative(output_directory.path)
+                for output_directory in self._mrq_job.preset_overrides.job_attachments.output_directories.directories.paths
+            ]
+            for output_dir in job_output_directories:
+                asset_references.input_directories.add(output_dir)
 
-        output_setting = self._mrq_job.get_configuration().find_setting_by_class(
-            unreal.MoviePipelineOutputSetting
-        )
-        output_path = output_setting.output_directory.path
+            output_setting = self._mrq_job.get_configuration().find_setting_by_class(
+                unreal.MoviePipelineOutputSetting
+            )
+            output_path = output_setting.output_directory.path
 
-        path_context = common.get_path_context_from_mrq_job(self._mrq_job)
-        output_path = output_path.format_map(path_context).rstrip("/")
+            path_context = common.get_path_context_from_mrq_job(self._mrq_job)
+            output_path = output_path.format_map(path_context).rstrip("/")
 
-        asset_references.output_directories.update([output_path])
+            asset_references.output_directories.update([output_path])
 
         return asset_references

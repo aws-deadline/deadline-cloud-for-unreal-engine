@@ -2,7 +2,7 @@ import os
 import math
 import unreal
 from enum import IntEnum
-from typing import Optional, Union
+from typing import Optional, Any
 from dataclasses import dataclass, field, asdict
 
 from openjd.model.v2023_09 import (
@@ -10,7 +10,7 @@ from openjd.model.v2023_09 import (
     StepTemplate,
     TaskParameterType,
     HostRequirementsTemplate,
-    JobParameterDefinitionList,
+    TaskParameterList,
     StepParameterSpaceDefinition,
 )
 
@@ -21,6 +21,7 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import (
     UnrealOpenJobEntity,
     OpenJobStepParameterNames,
     PARAMETER_DEFINITION_MAPPING,
+    ParameterDefinitionDescriptor,
 )
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment import (
     UnrealOpenJobEnvironment,
@@ -41,23 +42,22 @@ logger = get_logger()
 class UnrealOpenJobStepParameterDefinition:
 
     name: str
-    type: Union[
-        TaskParameterType.INT.value,
-        TaskParameterType.FLOAT.value,
-        TaskParameterType.STRING.value,
-        TaskParameterType.PATH.value,
-    ]
-    range: list[Union[int, float, str, None]] = field(default_factory=list)
+    type: str
+    range: list[Any] = field(default_factory=list)
 
     @classmethod
     def from_unreal_param_definition(cls, u_param: unreal.StepTaskParameterDefinition):
-        python_class = PARAMETER_DEFINITION_MAPPING.get(u_param.type.name).python_class
+        python_class = PARAMETER_DEFINITION_MAPPING[u_param.type.name].python_class
         build_kwargs = dict(
             name=u_param.name,
             type=u_param.type.name,
             range=[python_class(p) for p in list(u_param.range)],
         )
         return cls(**build_kwargs)
+
+    @classmethod
+    def from_dict(cls, param_dict: dict):
+        return cls(**param_dict)
 
     def to_dict(self):
         return asdict(self)
@@ -93,7 +93,7 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
 
         self._step_dependencies = step_dependencies or []
 
-        self._environments = environments
+        self._environments = environments or []
 
         self._extra_parameters = extra_parameters or []
 
@@ -159,7 +159,7 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
 
         step_template_object = self.get_template_object()
 
-        step_parameter_definition_list = JobParameterDefinitionList()
+        step_parameter_definition_list = TaskParameterList()
 
         yaml_params = step_template_object["parameterSpace"]["taskParameterDefinitions"]
         for yaml_p in yaml_params:
@@ -169,7 +169,9 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
             if override_param:
                 yaml_p["range"] = override_param.range
 
-            param_descriptor = PARAMETER_DEFINITION_MAPPING.get(yaml_p["type"])
+            param_descriptor: ParameterDefinitionDescriptor = PARAMETER_DEFINITION_MAPPING[
+                yaml_p["type"]
+            ]
             param_definition_cls = param_descriptor.task_parameter_openjd_class
 
             step_parameter_definition_list.append(param_definition_cls(**yaml_p))
@@ -302,7 +304,7 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         if len(task_chunk_size_param.range) == 0 or int(task_chunk_size_param.range[0]) <= 0:
             task_chunk_size = 1  # by default 1 chunk consist of 1 shot
         else:
-            task_chunk_size = int(task_chunk_size_param.range[0])
+            task_chunk_size = task_chunk_size_param.range[0]
 
         task_chunk_ids_count = math.ceil(len(enabled_shots) / task_chunk_size)
 
@@ -361,24 +363,25 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         )
         self._update_extra_parameter(handler_param_definition)
 
-        output_setting = self._mrq_job.get_configuration().find_setting_by_class(
-            unreal.MoviePipelineOutputSetting
-        )
-        output_path = output_setting.output_directory.path
-        path_context = common.get_path_context_from_mrq_job(self._mrq_job)
-        output_path = output_path.format_map(path_context).rstrip("/")
-        output_param_definition = UnrealOpenJobStepParameterDefinition(
-            OpenJobStepParameterNames.OUTPUT_PATH, TaskParameterType.PATH.value, [output_path]
-        )
-        self._update_extra_parameter(output_param_definition)
-
-        if self._render_args_type == RenderUnrealOpenJobStep.RenderArgsType.QUEUE_MANIFEST_PATH:
-            manifest_param_definition = UnrealOpenJobStepParameterDefinition(
-                OpenJobStepParameterNames.QUEUE_MANIFEST_PATH,
-                TaskParameterType.PATH.value,
-                [self._save_manifest_file()],
+        if self.mrq_job:
+            output_setting = self.mrq_job.get_configuration().find_setting_by_class(
+                unreal.MoviePipelineOutputSetting
             )
-            self._update_extra_parameter(manifest_param_definition)
+            output_path = output_setting.output_directory.path
+            path_context = common.get_path_context_from_mrq_job(self.mrq_job)
+            output_path = output_path.format_map(path_context).rstrip("/")
+            output_param_definition = UnrealOpenJobStepParameterDefinition(
+                OpenJobStepParameterNames.OUTPUT_PATH, TaskParameterType.PATH.value, [output_path]
+            )
+            self._update_extra_parameter(output_param_definition)
+
+            if self._render_args_type == RenderUnrealOpenJobStep.RenderArgsType.QUEUE_MANIFEST_PATH:
+                manifest_param_definition = UnrealOpenJobStepParameterDefinition(
+                    OpenJobStepParameterNames.QUEUE_MANIFEST_PATH,
+                    TaskParameterType.PATH.value,
+                    [self._save_manifest_file()],
+                )
+                self._update_extra_parameter(manifest_param_definition)
 
         step_entity = super()._build_template()
 

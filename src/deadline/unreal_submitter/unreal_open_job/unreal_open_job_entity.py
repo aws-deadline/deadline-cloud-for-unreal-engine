@@ -1,7 +1,5 @@
 import os
 import yaml
-import json
-from pathlib import Path
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from typing import Type, Union, Literal
@@ -19,7 +17,6 @@ from openjd.model.v2023_09 import (
     StringTaskParameterDefinition,
     PathTaskParameterDefinition,
 )
-from openjd.model import DocumentType
 
 from deadline.client.job_bundle.submission import AssetReferences
 
@@ -97,7 +94,7 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
         return self._template_class
 
     @property
-    def name(self) -> str:
+    def name(self):
         return self._name
 
     @property
@@ -117,20 +114,6 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
     def _check_parameters_consistency(self) -> ParametersConsistencyCheckResult:
         return ParametersConsistencyCheckResult(True, "Parameters are consensual")
 
-    def _get_template_loader(self):
-        file_type = Path(self.file_path).suffix
-
-        if file_type == ".json":
-            loader = json.load
-        elif file_type in [".yml", ".yaml"]:
-            loader = yaml.safe_load
-        else:
-            raise ValueError(
-                f"Invalid template file type: {file_type}. "
-                f"Allowed types are: " + ", ".join([t for t in DocumentType])
-            )
-        return loader
-
     def build_template(self) -> Template:
         self._validate_parameters()
         return self._build_template()
@@ -139,9 +122,8 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
         if not os.path.exists(self.file_path):
             raise FileNotFoundError(f'Descriptor file "{self.file_path}" not found')
 
-        loader = self._get_template_loader()
         with open(self.file_path, "r") as f:
-            template = loader(f)
+            template = yaml.safe_load(f)
 
         return template
 

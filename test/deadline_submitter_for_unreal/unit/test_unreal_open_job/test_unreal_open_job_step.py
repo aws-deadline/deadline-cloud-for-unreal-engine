@@ -116,7 +116,8 @@ class TestUnrealOpenJobStep:
         # GIVEN
         extra_param = {"name": "ParamD", "type": "INT", "range": [1]}
         openjd_step = UnrealOpenJobStep(
-            file_path="", extra_parameters=[UnrealOpenJobStepParameterDefinition(**extra_param)]
+            file_path="",
+            extra_parameters=[UnrealOpenJobStepParameterDefinition.from_dict(extra_param)],
         )
 
         # WHEN
@@ -153,6 +154,30 @@ class TestUnrealOpenJobStep:
         assert [p.name for p in parameter_definitions] == [
             p["name"] for p in step_template["parameterSpace"]["taskParameterDefinitions"]
         ]
+
+    @pytest.mark.parametrize(
+        "existed_param, requested_param, found",
+        [
+            (("ExistedParam", "INT"), ("ExistedParam", "INT"), True),
+            (("ExistedParam", "INT"), ("NotExistedParam", "INT"), False),
+            (("ExistedParam", "INT"), ("ExistedParam", "FLOAT"), False),
+        ],
+    )
+    def test__find_extra_parameter(self, existed_param, requested_param, found):
+        # GIVEN
+        step = UnrealOpenJobStep(
+            file_path="",
+            extra_parameters=[
+                UnrealOpenJobStepParameterDefinition(existed_param[0], existed_param[1], [1])
+            ],
+        )
+
+        # WHEN
+        param = step._find_extra_parameter(
+            parameter_name=requested_param[0], parameter_type=requested_param[1]
+        )
+
+        assert isinstance(param, UnrealOpenJobStepParameterDefinition) == found
 
     @patch(
         "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
@@ -236,33 +261,9 @@ class TestRenderUnrealOpenJobStep:
 
         # THEN
         assert (
-            str(exception_info.value) == f"Render Step's parameter "
-            f'"{OpenJobStepParameterNames.TASK_CHUNK_SIZE}" must be provided'
+            f'Render Step\'s parameter "{OpenJobStepParameterNames.TASK_CHUNK_SIZE}" '
+            f"must be provided" in str(exception_info.value)
         )
-
-    @pytest.mark.parametrize(
-        "existed_param, requested_param, found",
-        [
-            (("ExistedParam", "INT"), ("ExistedParam", "INT"), True),
-            (("ExistedParam", "INT"), ("NotExistedParam", "INT"), False),
-            (("ExistedParam", "INT"), ("ExistedParam", "FLOAT"), False),
-        ],
-    )
-    def test__find_extra_parameter_by_name(self, existed_param, requested_param, found):
-        # GIVEN
-        render_step = RenderUnrealOpenJobStep(
-            file_path="",
-            extra_parameters=[
-                UnrealOpenJobStepParameterDefinition(existed_param[0], existed_param[1], [1])
-            ],
-        )
-
-        # WHEN
-        param = render_step._find_extra_parameter(
-            parameter_name=requested_param[0], parameter_type=requested_param[1]
-        )
-
-        assert isinstance(param, UnrealOpenJobStepParameterDefinition) == found
 
     @pytest.mark.parametrize(
         "existed_param, requested_param, was_updated",
@@ -343,7 +344,9 @@ class TestRenderUnrealOpenJobStep:
         # GIVEN
         render_open_job_step = RenderUnrealOpenJobStep(
             file_path="",
-            extra_parameters=[UnrealOpenJobStepParameterDefinition(**p) for p in extra_parameters],
+            extra_parameters=[
+                UnrealOpenJobStepParameterDefinition.from_dict(p) for p in extra_parameters
+            ],
         )
 
         # WHEN

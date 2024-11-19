@@ -10,7 +10,7 @@ class PerforceApi:
         user: str = None,
         password: str = None,
         client: str = None,
-        charset="none",
+        charset: str = "none",
     ):
 
         p4 = P4()
@@ -54,6 +54,7 @@ class PerforceApi:
         changes = self.p4.run("changes", "-c", self.p4.client, "-m", 1, "#have")
         if changes:
             return int(changes[0]["change"])
+        return None
 
     def get_workspace_specification(self) -> Optional[dict]:
         return self.p4.fetch_client(self.p4.client)

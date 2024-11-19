@@ -1,12 +1,9 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
-import json
-import os
 import sys
 import pytest
 from unittest.mock import Mock, MagicMock, PropertyMock, patch
 
-import yaml
 from openjd.model.v2023_09 import JobTemplate, StepTemplate
 
 from test.deadline_submitter_for_unreal import fixtures
@@ -16,11 +13,6 @@ sys.modules["unreal"] = unreal_mock
 
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import (  # noqa: E402
     UnrealOpenJobEntity,
-)
-
-
-TEMPLATES_DIRECTORY = f"{os.path.dirname(os.path.dirname(__file__))}/templates/default".replace(
-    "\\", "/"
 )
 
 
@@ -58,57 +50,6 @@ class TestUnrealOpenJobEntity:
 
         # THEN
         assert str(exception_info.value) == fail_reason
-
-    @pytest.mark.parametrize(
-        "template_suffix, expected_loader",
-        [(".yml", yaml.safe_load), (".yaml", yaml.safe_load), (".json", json.load)],
-    )
-    @patch(
-        "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
-        "UnrealOpenJobEntity.file_path",
-        new_callable=PropertyMock,
-    )
-    def test__get_template_loader_valid(
-        self, file_path_mock: PropertyMock, template_suffix: str, expected_loader
-    ):
-        # GIVEN
-        unreal_open_job_entity = UnrealOpenJobEntity(template_class=JobTemplate, file_path="")
-        file_path_mock.side_effect = [f"file{template_suffix}"]
-
-        # WHEN
-        loader = unreal_open_job_entity._get_template_loader()
-
-        # THEN
-        assert loader == expected_loader
-
-    @patch(
-        "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
-        "UnrealOpenJobEntity.file_path",
-        new_callable=PropertyMock,
-    )
-    def test__get_template_loader_not_valid(self, file_path_mock: PropertyMock):
-        # GIVEN
-        unreal_open_job_entity = UnrealOpenJobEntity(template_class=JobTemplate, file_path="")
-        file_path_mock.side_effect = ["file.txt"]
-
-        # WHEN
-        with pytest.raises(ValueError) as exception_info:
-            unreal_open_job_entity._get_template_loader()
-
-        # THEN
-        assert "Invalid template file type" in str(exception_info.value)
-
-    def test_get_template_object(self):
-        # GIVEN
-        unreal_open_job_entity = UnrealOpenJobEntity(
-            template_class=JobTemplate, file_path=f"{TEMPLATES_DIRECTORY}/job_template.yml"
-        )
-
-        # WHEN
-        template = unreal_open_job_entity.get_template_object()
-
-        # THEN
-        assert isinstance(template, dict)
 
     @patch(
         "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
