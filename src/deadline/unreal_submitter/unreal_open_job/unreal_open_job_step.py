@@ -64,6 +64,7 @@ class UnrealOpenJobStepParameterDefinition:
         return asdict(self)
 
 
+# Base Step implementation
 class UnrealOpenJobStep(UnrealOpenJobEntity):
     """
     Unreal Open Job Step entity
@@ -71,7 +72,7 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
 
     def __init__(
         self,
-        file_path: str,
+        file_path: str = None,
         name: str = None,
         step_dependencies: list[str] = None,
         environments: list[UnrealOpenJobEnvironment] = None,
@@ -97,6 +98,7 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         self._environments = environments or []
 
         self._extra_parameters = extra_parameters or []
+        self._create_missing_extra_parameters_from_template()
 
         self._host_requirements = host_requirements
 
@@ -141,7 +143,7 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         extra_param_names = [p.name for p in self._extra_parameters]
         for p in self.get_template_object()["parameterSpace"]["taskParameterDefinitions"]:
             if p["name"] not in extra_param_names:
-                self._extra_parameters.append(UnrealOpenJobStepParameterDefinition(**p))
+                self._extra_parameters.append(UnrealOpenJobStepParameterDefinition.from_dict(p))
 
     def _check_parameters_consistency(self):
         result = ParametersConsistencyChecker.check_step_parameters_consistency(
@@ -223,10 +225,13 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         return asset_references
 
 
+# Render Step
 class RenderUnrealOpenJobStep(UnrealOpenJobStep):
     """
     Unreal Open Job Render Step entity
     """
+
+    default_template_path = "render_step.yml"
 
     class RenderArgsType(IntEnum):
         NOT_SET = 0
@@ -236,7 +241,7 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
 
     def __init__(
         self,
-        file_path: str,
+        file_path: str = None,
         name: str = None,
         step_dependencies: list[str] = None,
         environments: list = None,
@@ -434,3 +439,9 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
 
     def update_extra_parameter(self, extra_parameter: UnrealOpenJobStepParameterDefinition):
         self._update_extra_parameter(extra_parameter)
+
+
+# UGS Steps
+class UgsRenderUnrealOpenJobStep(RenderUnrealOpenJobStep):
+
+    default_template_path = "ugs/ugs_render_step.yml"

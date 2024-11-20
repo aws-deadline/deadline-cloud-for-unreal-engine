@@ -273,11 +273,28 @@ class UnrealSubmitter:
         return self.submitted_job_ids
 
 
-class UnrealOpenJobSubmitter(UnrealSubmitter):
+class UnrealOpenJobDataAssetSubmitter(UnrealSubmitter):
 
     @error_notify("Data asset converting failed")
     def add_job(self, unreal_open_job_data_asset: unreal.DeadlineCloudJob):
         open_job = self.open_job_class.from_data_asset(unreal_open_job_data_asset)
+        self._jobs.append(open_job)
+
+
+class UnrealMrqJobSubmitter(UnrealSubmitter):
+
+    open_job_class = RenderUnrealOpenJob
+
+    @error_notify("Data asset converting failed")
+    def add_job(self, mrq_job: unreal.MoviePipelineExecutorJob):
+        render_open_job = self.open_job_class.from_mrq_job(mrq_job)
+        self._jobs.append(render_open_job)
+
+
+class UnrealOpenJobSubmitter(UnrealSubmitter):
+
+    @error_notify("Data asset converting failed")
+    def add_job(self, open_job: UnrealOpenJob):
         self._jobs.append(open_job)
 
 
@@ -286,6 +303,5 @@ class UnrealRenderOpenJobSubmitter(UnrealSubmitter):
     open_job_class = RenderUnrealOpenJob
 
     @error_notify("Data asset converting failed")
-    def add_job(self, mrq_job: unreal.MoviePipelineExecutorJob):
-        render_open_job = self.open_job_class.from_mrq_job(mrq_job)
+    def add_job(self, render_open_job: RenderUnrealOpenJob):
         self._jobs.append(render_open_job)

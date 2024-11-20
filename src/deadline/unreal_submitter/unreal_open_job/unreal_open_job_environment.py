@@ -7,12 +7,13 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_parameters_consis
 )
 
 
+# Base Environment implementation
 class UnrealOpenJobEnvironment(UnrealOpenJobEntity):
     """
     Unreal Open Job Environment entity
     """
 
-    def __init__(self, file_path: str, name: str = None, variables: dict = None):
+    def __init__(self, file_path: str = None, name: str = None, variables: dict = None):
         """
         :param file_path: The file path of the environment descriptor
         :type file_path: str
@@ -33,8 +34,11 @@ class UnrealOpenJobEnvironment(UnrealOpenJobEntity):
             variables=data_asset.variables.variables,
         )
 
-    def _check_parameters_consistency(self):
+    def _create_missing_variables_from_template(self):
+        template_variables = self.get_template_object().get("variables", {})
+        self._variables.update()
 
+    def _check_parameters_consistency(self):
         result = ParametersConsistencyChecker.check_environment_variables_consistency(
             environment_template_path=self.file_path, environment_variables=self._variables
         )
@@ -52,5 +56,19 @@ class UnrealOpenJobEnvironment(UnrealOpenJobEntity):
         )
 
 
-class UnrealOpenJobUgsEnvironment(UnrealOpenJobEnvironment):
-    pass
+# Launch Unreal Editor Environment
+class LaunchEditorUnrealOpenJobEnvironment(UnrealOpenJobEnvironment):
+    default_template_path = "launch_ue_environment.yml"
+
+
+# UGS Environments
+class UgsLaunchEditorUnrealOpenJobEnvironment(UnrealOpenJobEnvironment):
+    default_template_path = "ugs/ugs_launch_ue_environment.yml"
+
+
+class UgsSyncCmfUnrealOpenJobEnvironment(UnrealOpenJobEnvironment):
+    default_template_path = "ugs/ugs_sync_cmf_environment.yml"
+
+
+class UgsSyncSmfUnrealOpenJobEnvironment(UnrealOpenJobEnvironment):
+    default_template_path = "ugs/ugs_sync_smf_environment.yml"

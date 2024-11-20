@@ -74,7 +74,9 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
     Base class for Unreal Open Job entities
     """
 
-    def __init__(self, template_class: TemplateClass, file_path: str, name: str = None):
+    default_template_path: str = None
+
+    def __init__(self, template_class: TemplateClass, file_path: str = None, name: str = None):
         """
         :param template_class: The template class for the entity
         :type template_class: TemplateClass
@@ -87,8 +89,26 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
         """
 
         self._template_class = template_class
-        self._file_path = file_path.replace("\\", "/")
-        self._name = name
+
+        if file_path is not None:
+            template_path = file_path
+        else:
+            template_path = "{templates_dir}/{template_path}".format(
+                templates_dir=os.getenv("OPENJD_TEMPLATES_DIRECTORY"),
+                template_path=self.default_template_path
+            )
+
+        if os.path.exists(template_path):
+            self._file_path = template_path.replace("\\", "/")
+        else:
+            self._file_path = file_path
+
+        if name is not None:
+            self._name = name
+        else:
+            self._name = self.get_template_object().get(
+                "name", f"Undefined-{self.template_class.__name__}"
+            )
 
     @property
     def template_class(self):
