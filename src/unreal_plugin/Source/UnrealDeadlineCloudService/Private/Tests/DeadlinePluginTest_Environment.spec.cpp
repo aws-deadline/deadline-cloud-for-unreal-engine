@@ -23,7 +23,7 @@ BEGIN_DEFINE_SPEC(FDeadlinePluginEnvironmentSpec, "Deadline",
     EAutomationTestFlags::ProductFilter | EAutomationTestFlags::EditorContext);
 
 
-UDeadlineCloudEnvironment* CreatedEnvironmentDataAsset;
+TObjectPtr<UDeadlineCloudEnvironment> CreatedEnvironmentDataAsset;
 FParametersConsistencyCheckResult result;
 
 

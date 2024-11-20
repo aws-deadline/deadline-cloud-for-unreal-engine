@@ -22,7 +22,7 @@
 BEGIN_DEFINE_SPEC(FDeadlinePluginJobSpec, "Deadline",
     EAutomationTestFlags::ProductFilter | EAutomationTestFlags::EditorContext);
 
-UDeadlineCloudJob* CreatedJobDataAsset;
+TObjectPtr<UDeadlineCloudJob> CreatedJobDataAsset;
 FParametersConsistencyCheckResult result;
 
 

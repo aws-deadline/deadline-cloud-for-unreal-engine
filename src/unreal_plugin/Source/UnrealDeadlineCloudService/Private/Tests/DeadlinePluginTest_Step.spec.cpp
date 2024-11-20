@@ -23,7 +23,7 @@ BEGIN_DEFINE_SPEC(FDeadlinePluginStepSpec, "Deadline",
     EAutomationTestFlags::ProductFilter | EAutomationTestFlags::EditorContext);
 
 
-UDeadlineCloudStep* CreatedStepDataAsset;
+TObjectPtr<UDeadlineCloudStep> CreatedStepDataAsset;
 FParametersConsistencyCheckResult result;
 
 FString PathToStepTemplate;

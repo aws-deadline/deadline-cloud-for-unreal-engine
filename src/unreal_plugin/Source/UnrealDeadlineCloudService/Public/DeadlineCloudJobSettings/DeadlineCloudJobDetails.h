@@ -97,7 +97,6 @@ public:
     /** End IPropertyTypeCustomization interface */
 
 private:
-    /*static UDeadlineCloudStep* GetOuterJob(TSharedRef<IPropertyHandle> Handle);*/
     static UMoviePipelineDeadlineCloudExecutorJob* GetMrqJob(TSharedRef<IPropertyHandle> Handle);
     static UDeadlineCloudJob* GetJob(TSharedRef<IPropertyHandle> Handle);
 

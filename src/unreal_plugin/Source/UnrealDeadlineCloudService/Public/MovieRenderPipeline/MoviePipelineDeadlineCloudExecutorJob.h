@@ -40,6 +40,11 @@ public:
 	 * Returns the Deadline job info with overrides applied, if enabled.
 	 * Skips any property not 
 	 */
+	UFUNCTION(BlueprintCallable, Category = "DeadlineCloud")
+	FDeadlineCloudJobPresetStruct GetDeadlineJobPresetStructWithOverrides() const;
+
+	UFUNCTION(BlueprintCallable, Category = "DeadlineCloud")
+	FDeadlineCloudJobParametersArray GetParameterDefinitionWithOverrides() const;
 
 #if WITH_EDITOR
 	void UpdateAttachmentFields();
@@ -72,14 +77,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DeadlineCloud")
 	TObjectPtr<UDeadlineCloudRenderJob> JobPreset;
 
-	UFUNCTION()
-	UDeadlineCloudRenderJob* CreateDefaultJobPresetFromTemplates(UDeadlineCloudRenderJob* Preset);
-
-	UFUNCTION()
-	TArray<FDeadlineCloudStepOverride> GetStepsToOverride(const UDeadlineCloudJob* Preset);
-	UFUNCTION()
-	TArray<FDeadlineCloudEnvironmentOverride> GetEnvironmentsToOverride(const UDeadlineCloudJob* Preset);
-
 	/**
 	 * Reference to Deadline Cloud job preset DataAsset. Contains overriden job settings
 	 */
@@ -93,11 +90,7 @@ public:
 	FDeadlineCloudJobParametersArray ParameterDefinitionOverrides = FDeadlineCloudJobParametersArray();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
-	TArray<FDeadlineCloudStepOverride> StepsOverrides = TArray<FDeadlineCloudStepOverride>();
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
-	TArray<FDeadlineCloudEnvironmentOverride> EnvironmentsVariablesOverrides = TArray<FDeadlineCloudEnvironmentOverride>();
-
+	FDeadlineCloudStepParametersArray StepParameterOverrides = FDeadlineCloudStepParametersArray();
 	
 protected:
 

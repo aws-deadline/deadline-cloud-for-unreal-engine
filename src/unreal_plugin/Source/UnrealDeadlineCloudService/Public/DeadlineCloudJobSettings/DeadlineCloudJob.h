@@ -55,7 +55,7 @@ public:
  * Goes as part of FDeadlineCloudJobPresetStruct,
  * Exposes host requirement settings to Unreal MRQ through Deadline DataAsset
  */
- // TODO Get min/max values from deadline-cloud core
+
 USTRUCT(BlueprintType)
 struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudHostRequirementsStruct
 {
