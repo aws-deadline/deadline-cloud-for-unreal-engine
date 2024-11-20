@@ -47,7 +47,7 @@ public:
 		return MakeShared<FDeadlineCloudEnvironmentParametersMapCustomization>();
 	}
 
-	FDeadlineCloudEnvironmentParametersMapCustomization() {}
+	FDeadlineCloudEnvironmentParametersMapCustomization() = default;
 	
 	bool IsResetToDefaultVisible(TSharedPtr<IPropertyHandle> PropertyHandle) const;
 
