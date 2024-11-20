@@ -243,9 +243,6 @@ FDeadlineCloudJobParametersArrayBuilder::FDeadlineCloudJobParametersArrayBuilder
 {
 }
 
-void FDeadlineCloudJobParametersArrayBuilder::GenerateHeaderRowContent(FDetailWidgetRow& NodeRow)
-{
-}
 
 void FDeadlineCloudJobParametersArrayBuilder::GenerateWrapperStructHeaderRowContent(FDetailWidgetRow& NodeRow, TSharedRef<SWidget> NameContent)
 {

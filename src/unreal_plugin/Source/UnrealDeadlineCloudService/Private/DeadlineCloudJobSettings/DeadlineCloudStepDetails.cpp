@@ -205,10 +205,6 @@ FDeadlineCloudStepParametersArrayBuilder::FDeadlineCloudStepParametersArrayBuild
 
 }
 
-void FDeadlineCloudStepParametersArrayBuilder::GenerateHeaderRowContent(FDetailWidgetRow& NodeRow)
-{
-}
-
 void FDeadlineCloudStepParametersArrayBuilder::GenerateWrapperStructHeaderRowContent(FDetailWidgetRow& NodeRow, TSharedRef<SWidget> NameContent)
 {
 	FDetailArrayBuilder::GenerateHeaderRowContent(NodeRow);
@@ -359,10 +355,6 @@ TSharedRef<FDeadlineCloudStepParameterListBuilder> FDeadlineCloudStepParameterLi
 FDeadlineCloudStepParameterListBuilder::FDeadlineCloudStepParameterListBuilder(TSharedRef<IPropertyHandle> InPropertyHandle)
     : FDetailArrayBuilder(InPropertyHandle, true, false, true),
 		ArrayProperty(InPropertyHandle->AsArray())
-{
-}
-
-void FDeadlineCloudStepParameterListBuilder::GenerateHeaderRowContent(FDetailWidgetRow& NodeRow)
 {
 }
 

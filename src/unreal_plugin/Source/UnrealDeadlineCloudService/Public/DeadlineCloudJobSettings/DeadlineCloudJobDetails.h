@@ -45,8 +45,6 @@ public:
     FDeadlineCloudJobParametersArrayBuilder(
         TSharedRef<IPropertyHandle> InPropertyHandle);
 
-    virtual void GenerateHeaderRowContent(FDetailWidgetRow& NodeRow) override;
-
     void GenerateWrapperStructHeaderRowContent(FDetailWidgetRow& NodeRow, TSharedRef<SWidget> NameContent);
 
    void OnEyeHideWidgetButtonClicked(FName NameWidget) const;
