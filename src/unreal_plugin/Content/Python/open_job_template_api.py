@@ -25,7 +25,10 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
         u_parameter_definition.name = job_parameter["name"]
         u_parameter_definition.type = getattr(unreal.ValueType, job_parameter["type"])
 
-        if job_parameter.get("default") is not None:
+        if job_parameter.get("value") is not None:
+            u_parameter_definition.value = str(job_parameter["value"])
+
+        elif job_parameter.get("default") is not None:
             u_parameter_definition.value = str(job_parameter["default"])
 
         return u_parameter_definition

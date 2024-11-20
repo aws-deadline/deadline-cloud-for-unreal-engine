@@ -229,7 +229,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             job_parameters=[p.to_dict() for p in self._extra_parameters],
         )
 
-        result.reason = "OpenJob: " + result.reason
+        result.reason = f"OpenJob {self.name}: " + result.reason
 
         return result
 
@@ -718,7 +718,6 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         """
 
         asset_references = super().get_asset_references()
-        logger.info(f"RENDER JOB ASSET REFERENCES: {asset_references.to_dict()}")
 
         if not self._have_ugs_environment():
             # add dependencies to attachments
