@@ -33,6 +33,7 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_parameters_consis
     ParametersConsistencyChecker,
 )
 from deadline.unreal_logger import get_logger
+from deadline.unreal_submitter import exceptions
 
 
 logger = get_logger()
@@ -288,7 +289,7 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         """
 
         if not self.mrq_job:
-            raise ValueError("MRQ Job must be provided")
+            raise exceptions.MrqJobIsMissingError("MRQ Job must be provided")
 
         enabled_shots = [shot for shot in self.mrq_job.shot_info if shot.enabled]
 
@@ -342,7 +343,7 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         """
 
         if self._render_args_type == RenderUnrealOpenJobStep.RenderArgsType.NOT_SET:
-            raise ValueError(
+            raise exceptions.RenderArgumentsTypeNotSetError(
                 "RenderOpenJobStep parameters are not valid. Expect one of the following:\n"
                 f"- {OpenJobStepParameterNames.QUEUE_MANIFEST_PATH}\n"
                 f"- {OpenJobStepParameterNames.MOVIE_PIPELINE_QUEUE_PATH}\n"
@@ -397,9 +398,7 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
             unreal.DeadlineCloudFileAttachmentsArray()
         )
 
-        duplicated_queue, manifest_path = (
-            unreal.MoviePipelineEditorLibrary.save_queue_to_manifest_file(new_queue)
-        )
+        _, manifest_path = unreal.MoviePipelineEditorLibrary.save_queue_to_manifest_file(new_queue)
         serialized_manifest = unreal.MoviePipelineEditorLibrary.convert_manifest_file_to_string(
             manifest_path
         )

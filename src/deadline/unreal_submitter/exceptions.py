@@ -1,4 +1,4 @@
-# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 
 class DeadlineCloudSubmitterException(Exception):
@@ -33,11 +33,5 @@ class MrqJobIsMissingError(DeadlineCloudSubmitterException):
 
 class RenderArgumentsTypeNotSetError(DeadlineCloudSubmitterException):
     """Raised when the render arguments type is not set"""
-
-    pass
-
-
-class PathContainsNonValidCharacters(DeadlineCloudSubmitterException):
-    """Raised when the path contains not allowed characters"""
 
     pass

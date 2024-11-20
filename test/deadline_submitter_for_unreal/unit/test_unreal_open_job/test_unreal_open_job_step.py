@@ -5,6 +5,7 @@ import pytest
 from unittest.mock import patch, Mock, MagicMock
 from openjd.model.v2023_09 import StepTemplate
 
+from deadline.unreal_submitter import exceptions
 from test.deadline_submitter_for_unreal.fixtures import f_step_template_default
 
 unreal_mock = MagicMock()
@@ -218,7 +219,7 @@ class TestRenderUnrealOpenJobStep:
     def test__get_chunk_ids_count(self, chunk_size, shots_count, expected_chunk_ids):
         # GIVEN
         shot_info = []
-        for i in range(shots_count):
+        for _ in range(shots_count):
             shot_info_mock = MagicMock()
             shot_info_mock.enabled = True
             shot_info.append(shot_info_mock)
@@ -244,7 +245,7 @@ class TestRenderUnrealOpenJobStep:
         # GIVEN
         render_step = RenderUnrealOpenJobStep(file_path="")
 
-        with pytest.raises(ValueError) as exception_info:
+        with pytest.raises(exceptions.MrqJobIsMissingError) as exception_info:
             render_step._get_chunk_ids_count()
 
         assert str(exception_info.value) == "MRQ Job must be provided"
@@ -360,7 +361,7 @@ class TestRenderUnrealOpenJobStep:
         render_open_job_step = RenderUnrealOpenJobStep(file_path="", extra_parameters=[])
 
         # WHEN
-        with pytest.raises(ValueError) as expected_exc:
+        with pytest.raises(exceptions.RenderArgumentsTypeNotSetError) as expected_exc:
             render_open_job_step._build_template()
 
         # THEN

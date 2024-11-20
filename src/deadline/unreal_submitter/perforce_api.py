@@ -1,6 +1,8 @@
 from P4 import P4, P4Exception
 from typing import Optional, Any
 
+from deadline.unreal_submitter import exceptions
+
 
 class PerforceApi:
 
@@ -28,7 +30,7 @@ class PerforceApi:
         try:
             p4.connect()
         except P4Exception as e:
-            raise Exception(
+            raise exceptions.PerforceConnectionError(
                 f"Could not connect Perforce server {p4.port} as user {p4.user}\n{str(e)}"
             )
 

@@ -83,21 +83,23 @@ class ParametersConsistencyChecker:
         logger.info(f"Fixing missed parameters in YAML: {missed_in_yaml}")
         logger.info(f"Fixing missed parameters in Data Asset: {missed_in_data_asset}")
 
-        fixed_parameters = []
-        if missed_in_yaml or missed_in_data_asset:
-            for p in data_asset_parameters:
-                if (p["name"], p["type"]) not in missed_in_yaml:
-                    fixed_parameters.append(p)
-            for p in yaml_parameters:
-                if (p["name"], p["type"]) in missed_in_data_asset:
-                    fixed_param = {"name": p["name"], "type": p["type"]}
-                    if "default" in p:
-                        fixed_param["default"] = p["default"]
-                    fixed_parameters.append(p)
+        if not (missed_in_yaml or missed_in_data_asset):
+            logger.info("No parameters to fix")
+            return yaml_parameters
 
-            fixed_parameters.sort(key=lambda x: x["name"])
-        else:
-            fixed_parameters = yaml_parameters
+        fixed_parameters = []
+
+        for p in data_asset_parameters:
+            if (p["name"], p["type"]) not in missed_in_yaml:
+                fixed_parameters.append(p)
+        for p in yaml_parameters:
+            if (p["name"], p["type"]) in missed_in_data_asset:
+                fixed_param = {"name": p["name"], "type": p["type"]}
+                if "default" in p:
+                    fixed_param["default"] = p["default"]
+                fixed_parameters.append(p)
+
+        fixed_parameters.sort(key=lambda x: x["name"])
 
         logger.info(f"Fixed parameters: {fixed_parameters}")
 
@@ -114,18 +116,19 @@ class ParametersConsistencyChecker:
         logger.info(f"Fixing missed variables in YAML: {missed_in_yaml}")
         logger.info(f"Fixing missed variables in Data Asset: {missed_in_data_asset}")
 
+        if not (missed_in_yaml or missed_in_data_asset):
+            logger.info("No variables to fix")
+            return yaml_variables
+
         fixed_variables = {}
 
-        if missed_in_yaml or missed_in_data_asset:
-            for key, value in data_asset_variables.items():
-                if (key, "VARIABLE") not in missed_in_yaml:
-                    fixed_variables[key] = value
+        for key, value in data_asset_variables.items():
+            if (key, "VARIABLE") not in missed_in_yaml:
+                fixed_variables[key] = value
 
-            for key, value in yaml_variables.items():
-                if (key, "VARIABLE") in missed_in_data_asset:
-                    fixed_variables[key] = value
-        else:
-            fixed_variables = yaml_variables
+        for key, value in yaml_variables.items():
+            if (key, "VARIABLE") in missed_in_data_asset:
+                fixed_variables[key] = value
 
         logger.info(f"Fixed variables: {fixed_variables}")
 

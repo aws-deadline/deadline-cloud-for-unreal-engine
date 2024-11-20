@@ -23,6 +23,7 @@ from deadline.client.job_bundle.submission import AssetReferences
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_parameters_consistency import (
     ParametersConsistencyCheckResult,
 )
+from deadline.unreal_submitter import exceptions
 
 
 Template = Union[JobTemplate, StepTemplate, Environment]
@@ -108,7 +109,7 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
     def _validate_parameters(self) -> bool:
         result = self._check_parameters_consistency()
         if not result.passed:
-            raise Exception(result.reason)
+            raise exceptions.ParametersAreNotConsistentError(result.reason)
         return True
 
     def _check_parameters_consistency(self) -> ParametersConsistencyCheckResult:

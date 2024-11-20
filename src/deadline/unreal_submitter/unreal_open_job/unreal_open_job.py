@@ -43,11 +43,10 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_parameters_consis
 )
 
 from deadline.unreal_logger import get_logger
+from deadline.unreal_submitter import exceptions
 
 
 logger = get_logger()
-
-perforce_api = PerforceApi()
 
 
 @dataclass
@@ -154,20 +153,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
 
     @staticmethod
     def serialize_template(template: Template):
-        def delete_none(_dict):
-            for key, value in list(_dict.items()):
-                if isinstance(value, dict):
-                    delete_none(value)
-                elif value is None:
-                    del _dict[key]
-                elif isinstance(value, list):
-                    for v_i in value:
-                        if isinstance(v_i, dict):
-                            delete_none(v_i)
-
-            return _dict
-
-        template_json = json.loads(template.json())
+        template_json = json.loads(template.json(exclude_none=True))
         ordered_keys = [
             "specificationVersion",
             "name",
@@ -176,7 +162,6 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             "steps",
         ]
         ordered_data = dict(OrderedDict((key, template_json[key]) for key in ordered_keys))
-        ordered_data = delete_none(ordered_data)
         return ordered_data
 
     @staticmethod
@@ -189,6 +174,22 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         if param:
             param["value"] = job_parameter_value
         return job_parameter_values
+
+    @staticmethod
+    def get_required_project_directories() -> list[str]:
+        """
+        Returns a list of required project directories such as Config and Binaries
+
+        :return: list of required project directories
+        :rtype: list
+        """
+
+        required_project_directories = []
+        for sub_dir in ["Config", "Binaries"]:
+            directory = common.os_abs_from_relative(sub_dir)
+            if os.path.exists(directory):
+                required_project_directories.append(directory)
+        return required_project_directories
 
     def _find_extra_parameter(
         self, parameter_name: str, parameter_type: str
@@ -366,8 +367,8 @@ class RenderUnrealOpenJob(UnrealOpenJob):
     @classmethod
     def from_data_asset(cls, data_asset: unreal.DeadlineCloudRenderJob) -> "RenderUnrealOpenJob":
         render_steps_count = RenderUnrealOpenJob.render_steps_count(data_asset)
-        if not render_steps_count == 1:
-            raise Exception(
+        if render_steps_count != 1:
+            raise exceptions.RenderStepCountConstraintError(
                 f"RenderJob data asset should have exactly 1 Render Step. "
                 f"Currently it has {render_steps_count} Render Steps"
             )
@@ -443,95 +444,86 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         self._extra_cmd_args_file_path = unreal.Paths.convert_relative_path_to_full(cmd_args_file)
         return self._extra_cmd_args_file_path
 
-    def _build_parameter_values(self):
+    def _build_parameter_values(self) -> list:
 
         parameter_values = super()._build_parameter_values()
 
+        # skip params predefined in YAML or by given extra parameters
+        # if it is not ExtraCmdArgs since we want to update them with mrq job args
+        unfilled_parameter_values = [
+            p
+            for p in parameter_values
+            if p["value"] is None or p["name"] == OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS
+        ]
+        filled_parameter_values = [
+            p for p in parameter_values if p not in unfilled_parameter_values
+        ]
+
         cmd_args_str = " ".join(self._get_ue_cmd_args())
 
-        for p in parameter_values:
-            # skip params predefined in YAML or by given extra parameters
-            # if it not ExtraCmdArgs since we want to update them with mrq job args
-            if p["value"] is not None and p["name"] != OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS:
-                continue
+        if len(cmd_args_str) <= 1024:
+            unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+                job_parameter_values=unfilled_parameter_values,
+                job_parameter_name=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS,
+                job_parameter_value=cmd_args_str,
+            )
 
-            if (
-                p["name"] == OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS
-                and len(cmd_args_str) <= 1024
-            ):
-                parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
-                    job_parameter_values=parameter_values,
-                    job_parameter_name=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS,
-                    job_parameter_value=cmd_args_str,
+        unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+            job_parameter_values=unfilled_parameter_values,
+            job_parameter_name=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS_FILE,
+            job_parameter_value=self._write_cmd_args_to_file(cmd_args_str).replace("\\", "/"),
+        )
+
+        unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+            job_parameter_values=unfilled_parameter_values,
+            job_parameter_name=OpenJobParameterNames.UNREAL_PROJECT_PATH,
+            job_parameter_value=common.get_project_file_path(),
+        )
+
+        if self._have_ugs_environment():
+            perforce_api = PerforceApi()
+
+            unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+                job_parameter_values=unfilled_parameter_values,
+                job_parameter_name=OpenJobParameterNames.PERFORCE_STREAM_PATH,
+                job_parameter_value=perforce_api.get_stream_path(),
+            )
+
+            unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+                job_parameter_values=unfilled_parameter_values,
+                job_parameter_name=OpenJobParameterNames.PERFORCE_CHANGELIST_NUMBER,
+                job_parameter_value=str(perforce_api.get_latest_changelist_number()) or "latest",
+            )
+
+            unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+                job_parameter_values=unfilled_parameter_values,
+                job_parameter_name=OpenJobParameterNames.UNREAL_PROJECT_NAME,
+                job_parameter_value=common.get_project_name(),
+            )
+
+            client_root = perforce_api.get_client_root()
+            if isinstance(client_root, str):
+                unreal_project_path = common.get_project_file_path().replace("\\", "/")
+                unreal_project_relative_path = unreal_project_path.replace(client_root, "")
+                unreal_project_relative_path = unreal_project_relative_path.lstrip("/")
+
+                unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+                    job_parameter_values=unfilled_parameter_values,
+                    job_parameter_name=OpenJobParameterNames.UNREAL_PROJECT_RELATIVE_PATH,
+                    job_parameter_value=unreal_project_relative_path,
                 )
 
-            if p["name"] == OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS_FILE:
-                cmd_args_file_path = self._write_cmd_args_to_file(cmd_args_str).replace("\\", "/")
+                unreal_executable_path = sys.executable.replace("\\", "/")
+                unreal_executable_relative_path = unreal_executable_path.replace(client_root, "")
+                unreal_executable_relative_path = unreal_executable_relative_path.lstrip("/")
 
-                parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
-                    job_parameter_values=parameter_values,
-                    job_parameter_name=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS_FILE,
-                    job_parameter_value=cmd_args_file_path,
+                unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+                    job_parameter_values=unfilled_parameter_values,
+                    job_parameter_name=OpenJobParameterNames.UNREAL_EXECUTABLE_RELATIVE_PATH,
+                    job_parameter_value=unreal_executable_relative_path,
                 )
 
-            if p["name"] == OpenJobParameterNames.UNREAL_PROJECT_PATH:
-                parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
-                    job_parameter_values=parameter_values,
-                    job_parameter_name=OpenJobParameterNames.UNREAL_PROJECT_PATH,
-                    job_parameter_value=common.get_project_file_path(),
-                )
-
-            if p["name"] == OpenJobParameterNames.PERFORCE_STREAM_PATH:
-                parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
-                    job_parameter_values=parameter_values,
-                    job_parameter_name=OpenJobParameterNames.PERFORCE_STREAM_PATH,
-                    job_parameter_value=perforce_api.get_stream_path(),
-                )
-
-            if p["name"] == OpenJobParameterNames.PERFORCE_CHANGELIST_NUMBER:
-                parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
-                    job_parameter_values=parameter_values,
-                    job_parameter_name=OpenJobParameterNames.PERFORCE_CHANGELIST_NUMBER,
-                    job_parameter_value=str(perforce_api.get_latest_changelist_number())
-                    or "latest",
-                )
-
-            if p["name"] == OpenJobParameterNames.UNREAL_PROJECT_NAME:
-                parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
-                    job_parameter_values=parameter_values,
-                    job_parameter_name=OpenJobParameterNames.UNREAL_PROJECT_NAME,
-                    job_parameter_value=common.get_project_name(),
-                )
-
-            if p["name"] == OpenJobParameterNames.UNREAL_PROJECT_RELATIVE_PATH:
-                client_root = perforce_api.get_client_root()
-                if isinstance(client_root, str):
-                    unreal_project_path = common.get_project_file_path().replace("\\", "/")
-                    unreal_project_relative_path = unreal_project_path.replace(client_root, "")
-                    unreal_project_relative_path = unreal_project_relative_path.lstrip("/")
-
-                    parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
-                        job_parameter_values=parameter_values,
-                        job_parameter_name=OpenJobParameterNames.UNREAL_PROJECT_RELATIVE_PATH,
-                        job_parameter_value=unreal_project_relative_path,
-                    )
-
-            if p["name"] == OpenJobParameterNames.UNREAL_EXECUTABLE_RELATIVE_PATH:
-                client_root = perforce_api.get_client_root()
-                if isinstance(client_root, str):
-                    unreal_executable_path = sys.executable.replace("\\", "/")
-                    unreal_executable_relative_path = unreal_executable_path.replace(
-                        client_root, ""
-                    )
-                    unreal_executable_relative_path = unreal_executable_relative_path.lstrip("/")
-
-                    parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
-                        job_parameter_values=parameter_values,
-                        job_parameter_name=OpenJobParameterNames.UNREAL_EXECUTABLE_RELATIVE_PATH,
-                        job_parameter_value=unreal_executable_relative_path,
-                    )
-
-        return parameter_values
+        return filled_parameter_values + unfilled_parameter_values
 
     def _get_ue_cmd_args(self) -> list[str]:
         cmd_args = []
@@ -617,7 +609,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         :rtype: list[str]
         """
         if not self._mrq_job:
-            raise ValueError("MRQ Job must be provided")
+            raise exceptions.MrqJobIsMissingError("MRQ Job must be provided")
 
         level_sequence_path = common.soft_obj_path_to_str(self._mrq_job.sequence)
         level_sequence_path = os.path.splitext(level_sequence_path)[0]
@@ -635,6 +627,86 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         return level_sequence_dependencies + level_dependencies + [level_sequence_path, level_path]
 
+    def _get_mrq_job_dependency_paths(self):
+        """
+        Collects the dependencies of the Level and LevelSequence that used in MRQ Job and
+        returns paths converted from UE relative (i.e. /Game/...) to OS absolute (D:/...)
+
+        :return: List of the dependencies
+        :rtype: list[str]
+        """
+
+        os_dependencies = []
+
+        job_dependencies = self._collect_mrq_job_dependencies()
+        for dependency in job_dependencies:
+            os_dependency = common.os_path_from_unreal_path(dependency, with_ext=True)
+            if os.path.exists(os_dependency):
+                os_dependencies.append(os_dependency)
+
+        return os_dependencies
+
+    def _get_mrq_job_attachments_input_files(self) -> list[str]:
+        """
+        Returns MRQ Job Attachments Input Files
+        """
+        input_files = []
+
+        job_input_files = self.mrq_job.preset_overrides.job_attachments.input_files.files.paths
+        for job_input_file in job_input_files:
+            input_file = common.os_abs_from_relative(job_input_file.file_path)
+            if os.path.exists(input_file):
+                input_files.append(input_file)
+
+        return input_files
+
+    def _get_mrq_job_attachments_input_directories(self) -> list[str]:
+        """
+        Returns MRQ Job Attachments Input Directories
+        """
+        input_directories = []
+
+        job_input_directories = (
+            self.mrq_job.preset_overrides.job_attachments.input_directories.directories.paths
+        )
+        for job_input_dir in job_input_directories:
+            input_dir = common.os_abs_from_relative(job_input_dir.path)
+            if os.path.exists(input_dir):
+                input_directories.append(input_dir)
+
+        return input_directories
+
+    def _get_mrq_job_attachments_output_directories(self) -> list[str]:
+        """
+        Returns MRQ Job Attachments Output Directories
+        """
+        output_directories = []
+
+        job_output_directories = (
+            self.mrq_job.preset_overrides.job_attachments.output_directories.directories.paths
+        )
+        for job_output_dir in job_output_directories:
+            output_dir = common.os_abs_from_relative(job_output_dir.path)
+            if os.path.exists(output_dir):
+                output_directories.append(output_dir)
+
+        return output_directories
+
+    def _get_mrq_job_output_directory(self) -> str:
+        """
+        Returns MRQ Job Configuration's resolved Output Directory
+        """
+
+        output_setting = self.mrq_job.get_configuration().find_setting_by_class(
+            unreal.MoviePipelineOutputSetting
+        )
+        output_path = output_setting.output_directory.path
+
+        path_context = common.get_path_context_from_mrq_job(self.mrq_job)
+        output_path = output_path.format_map(path_context).rstrip("/")
+
+        return output_path
+
     def get_asset_references(self) -> AssetReferences:
         """
         Build asset references of the OpenJob with the given MRQ Job.
@@ -650,61 +722,33 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         if not self._have_ugs_environment():
             # add dependencies to attachments
-            os_dependencies = []
-            job_dependencies = self._collect_mrq_job_dependencies()
-            for dependency in job_dependencies:
-                os_dependency = common.os_path_from_unreal_path(dependency, with_ext=True)
-                if os.path.exists(os_dependency):
-                    os_dependencies.append(os_dependency)
-
-            asset_references.input_filenames.update(os_dependencies)
+            asset_references.input_filenames.update(self._get_mrq_job_dependency_paths())
 
             # required input directories
-            for sub_dir in ["Config", "Binaries"]:
-                input_directory = common.os_abs_from_relative(sub_dir)
-                if os.path.exists(input_directory):
-                    asset_references.input_directories.add(input_directory)
+            asset_references.input_directories.update(
+                RenderUnrealOpenJob.get_required_project_directories()
+            )
 
         # add ue cmd args file
         if os.path.exists(self._extra_cmd_args_file_path):
             asset_references.input_filenames.add(self._extra_cmd_args_file_path)
 
         # add attachments from preset overrides
-        if self._mrq_job:
-            # add other input files to attachments
-            input_files = self._mrq_job.preset_overrides.job_attachments.input_files.files.paths
-            job_input_files = [
-                common.os_abs_from_relative(input_file.file_path) for input_file in input_files
-            ]
-            for input_file in job_input_files:
-                if os.path.exists(input_file):
-                    asset_references.input_filenames.add(input_file)
+        if self.mrq_job:
+            # input files
+            asset_references.input_filenames.update(self._get_mrq_job_attachments_input_files())
 
             # input directories
-            job_input_directories = [
-                common.os_abs_from_relative(input_directory.path)
-                for input_directory in self._mrq_job.preset_overrides.job_attachments.input_directories.directories.paths
-            ]
-            for input_dir in job_input_directories:
-                if os.path.exists(input_dir):
-                    asset_references.input_directories.add(input_dir)
+            asset_references.input_directories.update(
+                self._get_mrq_job_attachments_input_directories()
+            )
 
             # output directories
-            job_output_directories = [
-                common.os_abs_from_relative(output_directory.path)
-                for output_directory in self._mrq_job.preset_overrides.job_attachments.output_directories.directories.paths
-            ]
-            for output_dir in job_output_directories:
-                asset_references.input_directories.add(output_dir)
-
-            output_setting = self._mrq_job.get_configuration().find_setting_by_class(
-                unreal.MoviePipelineOutputSetting
+            asset_references.output_directories.update(
+                self._get_mrq_job_attachments_output_directories()
             )
-            output_path = output_setting.output_directory.path
 
-            path_context = common.get_path_context_from_mrq_job(self._mrq_job)
-            output_path = output_path.format_map(path_context).rstrip("/")
-
-            asset_references.output_directories.update([output_path])
+            # Render output path
+            asset_references.output_directories.add(self._get_mrq_job_output_directory())
 
         return asset_references

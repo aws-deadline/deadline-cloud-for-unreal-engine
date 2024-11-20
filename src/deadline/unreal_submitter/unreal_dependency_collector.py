@@ -82,7 +82,7 @@ class DependencyCollector:
         if not unreal.EditorAssetLibrary.does_asset_exist(asset_path):
             self._sync_assets([asset_path])
 
-        all_dependencies, missing_dependencies = self._get_dependencies(
+        _, missing_dependencies = self._get_dependencies(
             asset_path, udependency_options, filter_method
         )
         while missing_dependencies:
@@ -93,7 +93,7 @@ class DependencyCollector:
             self._already_synced.extend(missing_dependencies)
             self._missing_dependencies.clear()
             self._all_dependencies.clear()
-            all_dependencies, missing_dependencies = self._get_dependencies(
+            _, missing_dependencies = self._get_dependencies(
                 asset_path, udependency_options, filter_method
             )
 
@@ -120,36 +120,35 @@ class DependencyCollector:
         :rtype: list[str]
         """
 
-        dependencies_raw = asset_registry.get_dependencies(
-            package_name=asset_path, dependency_options=udependency_options
+        dependencies_raw = (
+            asset_registry.get_dependencies(
+                package_name=asset_path, dependency_options=udependency_options
+            )
+            or []
         )
 
         missing_dependencies = list()
         all_dependencies = list()
-        if dependencies_raw:
-            for dependency_raw in dependencies_raw:
-                dependency_path = str(dependency_raw)
-                does_confirm_filter = filter_method(dependency_path) if filter_method else True
-                is_not_collected = dependency_raw not in self._all_dependencies
+        for dependency_raw in dependencies_raw:
+            dependency_path = str(dependency_raw)
+            does_confirm_filter = filter_method(dependency_path) if filter_method else True
+            is_not_collected = dependency_raw not in self._all_dependencies
 
-                if does_confirm_filter and is_not_collected:
-                    # If Source Control off, last missed deps (synced or not) will be already in already synced list.
-                    # So we don't fall in infinite recursion
-                    is_missing = (
-                        not unreal.EditorAssetLibrary.does_asset_exist(dependency_path)
-                        and dependency_path not in self._already_synced
-                    )
-                    (
-                        missing_dependencies.append(dependency_path)
-                        if is_missing
-                        else all_dependencies.append(dependency_path)
-                    )
+            if does_confirm_filter and is_not_collected:
+                # If Source Control off,
+                # last missed deps (synced or not) will be already in synced list.
+                # So we don't fall in infinite recursion
+                if (
+                    not unreal.EditorAssetLibrary.does_asset_exist(dependency_path)
+                    and dependency_path not in self._already_synced
+                ):
+                    missing_dependencies.append(dependency_path)
+                else:
+                    all_dependencies.append(dependency_path)
 
-        if all_dependencies:
-            self._all_dependencies.extend(all_dependencies)
+        self._all_dependencies.extend(all_dependencies)
 
-        if missing_dependencies:
-            self._missing_dependencies.extend(missing_dependencies)
+        self._missing_dependencies.extend(missing_dependencies)
 
         for dependency in all_dependencies:
             self._get_dependencies(dependency, udependency_options, filter_method)

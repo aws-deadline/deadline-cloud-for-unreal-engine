@@ -22,7 +22,7 @@ def get_project_file_path() -> str:
         )
         return project_file_path
     else:
-        raise RuntimeError("Failed to get a project name. Please set a project!")
+        raise ValueError("Failed to get a project name. Please set a project!")
 
 
 def get_project_directory() -> str:
