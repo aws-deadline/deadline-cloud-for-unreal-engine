@@ -13,7 +13,7 @@ class UnrealOpenJobEnvironment(UnrealOpenJobEntity):
     Unreal Open Job Environment entity
     """
 
-    def __init__(self, file_path: str = None, name: str = None, variables: dict = None):
+    def __init__(self, file_path: str = None, name: str = None, variables: dict[str, str] = None):
         """
         :param file_path: The file path of the environment descriptor
         :type file_path: str
@@ -25,6 +25,7 @@ class UnrealOpenJobEnvironment(UnrealOpenJobEntity):
         super().__init__(Environment, file_path, name)
 
         self._variables = variables or {}
+        self._create_missing_variables_from_template()
 
     @classmethod
     def from_data_asset(cls, data_asset: unreal.DeadlineCloudEnvironment):
@@ -35,8 +36,13 @@ class UnrealOpenJobEnvironment(UnrealOpenJobEntity):
         )
 
     def _create_missing_variables_from_template(self):
-        template_variables = self.get_template_object().get("variables", {})
-        self._variables.update()
+        try:
+            template_variables = self.get_template_object().get("variables", {})
+            for key, value in template_variables.items():
+                if key not in self._variables:
+                    self._variables[key] = value
+        except FileNotFoundError:
+            pass
 
     def _check_parameters_consistency(self):
         result = ParametersConsistencyChecker.check_environment_variables_consistency(
@@ -62,13 +68,17 @@ class LaunchEditorUnrealOpenJobEnvironment(UnrealOpenJobEnvironment):
 
 
 # UGS Environments
-class UgsLaunchEditorUnrealOpenJobEnvironment(UnrealOpenJobEnvironment):
+class UnrealOpenJobUgsEnvironment(UnrealOpenJobEnvironment):
+    pass
+
+
+class UgsLaunchEditorUnrealOpenJobEnvironment(UnrealOpenJobUgsEnvironment):
     default_template_path = "ugs/ugs_launch_ue_environment.yml"
 
 
-class UgsSyncCmfUnrealOpenJobEnvironment(UnrealOpenJobEnvironment):
+class UgsSyncCmfUnrealOpenJobEnvironment(UnrealOpenJobUgsEnvironment):
     default_template_path = "ugs/ugs_sync_cmf_environment.yml"
 
 
-class UgsSyncSmfUnrealOpenJobEnvironment(UnrealOpenJobEnvironment):
+class UgsSyncSmfUnrealOpenJobEnvironment(UnrealOpenJobUgsEnvironment):
     default_template_path = "ugs/ugs_sync_smf_environment.yml"

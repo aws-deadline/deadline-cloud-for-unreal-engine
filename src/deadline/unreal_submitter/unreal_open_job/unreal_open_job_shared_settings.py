@@ -8,8 +8,18 @@ class JobSharedSettings:
     Contains SharedSettings model as dictionary built from template and allows to fill its values
     """
 
-    def __init__(self, job_shared_settings: unreal.DeadlineCloudJobSharedSettingsStruct):
-        self.source_shared_settings = job_shared_settings
+    def __init__(
+        self,
+        initial_state: str = "READY",
+        max_failed_tasks_count: int = 1,
+        max_retries_per_task: int = 50,
+        priority: int = 50,
+    ):
+        self._initial_state = initial_state
+        self._max_failed_tasks_count = max_failed_tasks_count
+        self._max_retries_per_task = max_retries_per_task
+        self._priority = priority
+
         self.parameter_values: list[dict[str, Any]] = [
             {
                 "name": "deadline:targetTaskRunStatus",
@@ -48,12 +58,23 @@ class JobSharedSettings:
             {"name": "deadline:priority", "type": "INT", "value": self.get_priority()},
         ]
 
-    def to_dict(self) -> list[dict]:
+    @classmethod
+    def from_u_deadline_cloud_job_shared_settings(
+        cls, job_shared_settings: unreal.DeadlineCloudJobSharedSettingsStruct
+    ):
+        return cls(
+            initial_state=job_shared_settings.initial_state,
+            max_failed_tasks_count=job_shared_settings.maximum_failed_tasks_count,
+            max_retries_per_task=job_shared_settings.maximum_retries_per_task,
+            priority=job_shared_settings.priority,
+        )
+
+    def serialize(self) -> list[dict[str, Any]]:
         """
         Returns the OpenJob SharedSettings object as list of dictionaries
 
         :return: OpenJob SharedSettings as list of dictionaries
-        :rtype: dict
+        :rtype: list
         """
         return self.parameter_values
 
@@ -64,7 +85,7 @@ class JobSharedSettings:
         :return: OpenJob Initial State
         :rtype: str
         """
-        return self.source_shared_settings.initial_state
+        return self._initial_state
 
     def get_max_failed_tasks_count(self) -> int:
         """
@@ -73,7 +94,7 @@ class JobSharedSettings:
         :return: OpenJob Max Failed Task Count
         :rtype: int
         """
-        return self.source_shared_settings.maximum_failed_tasks_count
+        return self._max_failed_tasks_count
 
     def get_max_retries_per_task(self) -> int:
         """
@@ -82,7 +103,7 @@ class JobSharedSettings:
         :return: OpenJob Max Retries Per Task
         :rtype: int
         """
-        return self.source_shared_settings.maximum_retries_per_task
+        return self._max_retries_per_task
 
     def get_priority(self) -> int:
         """
@@ -92,4 +113,4 @@ class JobSharedSettings:
         :rtype: int
         """
 
-        return self.source_shared_settings.priority
+        return self._priority

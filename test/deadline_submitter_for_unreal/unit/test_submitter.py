@@ -19,7 +19,7 @@ def create_job_from_bundle_mock(
     upload_progress_callback=None,
     create_job_result_callback=None,
 ):
-    time.sleep(1)
+    time.sleep(0.1)
 
     hashing_progress_callback(
         ProgressReportMetadata(

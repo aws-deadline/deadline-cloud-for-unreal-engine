@@ -2,7 +2,7 @@ import os
 import yaml
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
-from typing import Type, Union, Literal
+from typing import Type, Union, Literal, Optional
 
 from openjd.model.v2023_09 import (
     JobTemplate,
@@ -28,6 +28,9 @@ from deadline.unreal_submitter import exceptions
 
 Template = Union[JobTemplate, StepTemplate, Environment]
 TemplateClass = Union[Type[JobTemplate], Type[StepTemplate], Type[Environment]]
+
+
+OPENJD_TEMPLATES_DIRECTORY = os.getenv("OPENJD_TEMPLATES_DIRECTORY")
 
 
 class UnrealOpenJobEntityBase(ABC):
@@ -74,7 +77,7 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
     Base class for Unreal Open Job entities
     """
 
-    default_template_path: str = None
+    default_template_path: Optional[str] = None
 
     def __init__(self, template_class: TemplateClass, file_path: str = None, name: str = None):
         """
@@ -89,13 +92,14 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
         """
 
         self._template_class = template_class
+        self._file_path: Optional[str] = None
 
         if file_path is not None:
             template_path = file_path
         else:
             template_path = "{templates_dir}/{template_path}".format(
-                templates_dir=os.getenv("OPENJD_TEMPLATES_DIRECTORY"),
-                template_path=self.default_template_path
+                templates_dir=OPENJD_TEMPLATES_DIRECTORY,
+                template_path=self.default_template_path,
             )
 
         if os.path.exists(template_path):
@@ -106,9 +110,11 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
         if name is not None:
             self._name = name
         else:
-            self._name = self.get_template_object().get(
-                "name", f"Undefined-{self.template_class.__name__}"
-            )
+            default_name = f"Untitled-{self.template_class.__name__}"
+            try:
+                self._name = self.get_template_object().get("name", default_name)
+            except (FileNotFoundError, AttributeError):
+                self._name = default_name
 
     @property
     def template_class(self):
@@ -119,7 +125,7 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
         return self._name
 
     @property
-    def file_path(self) -> str:
+    def file_path(self):
         return self._file_path
 
     def _build_template(self) -> Template:

@@ -77,7 +77,7 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         step_dependencies: list[str] = None,
         environments: list[UnrealOpenJobEnvironment] = None,
         extra_parameters: list[UnrealOpenJobStepParameterDefinition] = None,
-        host_requirements: unreal.DeadlineCloudHostRequirementsStruct = None,
+        host_requirements: HostRequirements = HostRequirements(),
     ):
         """
         :param file_path: The file path of the step descriptor
@@ -98,11 +98,12 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         self._environments = environments or []
 
         self._extra_parameters = extra_parameters or []
-        self._create_missing_extra_parameters_from_template()
 
         self._host_requirements = host_requirements
 
         super().__init__(StepTemplate, file_path, name)
+
+        self._create_missing_extra_parameters_from_template()
 
     @property
     def host_requirements(self):
@@ -140,10 +141,13 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         )
 
     def _create_missing_extra_parameters_from_template(self):
-        extra_param_names = [p.name for p in self._extra_parameters]
-        for p in self.get_template_object()["parameterSpace"]["taskParameterDefinitions"]:
-            if p["name"] not in extra_param_names:
-                self._extra_parameters.append(UnrealOpenJobStepParameterDefinition.from_dict(p))
+        try:
+            extra_param_names = [p.name for p in self._extra_parameters]
+            for p in self.get_template_object()["parameterSpace"]["taskParameterDefinitions"]:
+                if p["name"] not in extra_param_names:
+                    self._extra_parameters.append(UnrealOpenJobStepParameterDefinition.from_dict(p))
+        except FileNotFoundError:
+            pass
 
     def _check_parameters_consistency(self):
         result = ParametersConsistencyChecker.check_step_parameters_consistency(
@@ -187,8 +191,9 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         step_parameters = self._build_step_parameter_definition_list()
 
         if self._host_requirements and not self._host_requirements.run_on_all_worker_nodes:
-            host_requirements = HostRequirements(host_requirements=self._host_requirements)
-            host_requirements_template = HostRequirementsTemplate(**(host_requirements.as_dict()))
+            host_requirements_template = HostRequirementsTemplate(
+                **self._host_requirements.as_dict()
+            )
         else:
             host_requirements_template = None
 

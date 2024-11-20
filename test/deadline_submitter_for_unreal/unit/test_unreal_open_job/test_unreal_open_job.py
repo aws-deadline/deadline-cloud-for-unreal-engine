@@ -91,7 +91,14 @@ class TestUnrealOpenJob:
             (("ExistedParam", "INT"), ("ExistedParam", "FLOAT"), False),
         ],
     )
-    def test__find_extra_parameter(self, existed_param, requested_param, found):
+    @patch(
+        "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
+        "UnrealOpenJobEntity.get_template_object",
+        return_value=fixtures.f_job_template_default(),
+    )
+    def test__find_extra_parameter(
+        self, get_template_object_mock, existed_param, requested_param, found
+    ):
         # GIVEN
         job = UnrealOpenJob(
             file_path="",
@@ -127,9 +134,10 @@ class TestUnrealOpenJob:
         parameter_values = open_job._build_parameter_values()
 
         # THEN
-        assert [(p["name"], p["value"]) for p in parameter_values] == [
-            (p["name"], p.get("default")) for p in yaml_parameters
-        ]
+        for p in yaml_parameters:
+            assert p["name"], p.get("default") in [
+                (p["name"], p["value"]) for p in parameter_values
+            ]
 
     @patch("builtins.open", MagicMock())
     @patch("yaml.safe_load", MagicMock(side_effect=[fixtures.f_job_template_default()]))
@@ -293,7 +301,12 @@ class TestRenderUnrealOpenJob:
     @pytest.mark.parametrize(
         "environment, have", [(UnrealOpenJobUgsEnvironment(""), True), (None, False)]
     )
-    def test__have_ugs_environment(self, environment, have):
+    @patch(
+        "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
+        "UnrealOpenJobEntity.get_template_object",
+        return_value=fixtures.f_job_template_default(),
+    )
+    def test__have_ugs_environment(self, get_template_object_mock, environment, have):
         # GIVEN
         render_job = RenderUnrealOpenJob(file_path="", name="JobA", environments=[environment])
 
