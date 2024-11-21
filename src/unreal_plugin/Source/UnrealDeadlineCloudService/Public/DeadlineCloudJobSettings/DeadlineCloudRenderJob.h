@@ -14,3 +14,13 @@ public:
     UDeadlineCloudRenderJob() {};
 
 };
+UCLASS(Blueprintable)
+class  ULevelSelector : public UObject
+{
+	GENERATED_BODY()
+
+public:
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Level Selection", meta = (AllowedClasses = "/Script/Engine.World"))
+	TSoftObjectPtr<UWorld> Map;
+};
