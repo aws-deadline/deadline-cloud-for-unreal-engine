@@ -5,8 +5,11 @@ from typing import Callable, Optional
 
 from .common import os_path_from_unreal_path
 from .dependency_search_options import DependencySearchOptions
+from deadline.unreal_logger import get_logger
 
 asset_registry = unreal.AssetRegistryHelpers.get_asset_registry()
+
+logger = get_logger()
 
 
 class DependencyCollector:
@@ -38,9 +41,9 @@ class DependencyCollector:
         :type asset_path: str
         :param dependency_options: Dataclass containing options for search dependency
         :type dependency_options: DependencySearchOptions
-        :param filter_method: Method used to filter the found dependencies, for example, dependencies only in Game(Content) folder
+        :param filter_method: Method used to filter the found dependencies, e.g. dependencies only in Game/ folder
         :type filter_method: typing.Callable, optional
-        :param on_found_dependency_callback: Method used to invoke some operations on found dependencies list, for example sync them from VCS
+        :param on_found_dependency_callback: Method used to invoke some operations on found dependencies list
         :type on_found_dependency_callback: typing.Callable, optional
 
         :return: List of the collected dependencies
@@ -51,7 +54,7 @@ class DependencyCollector:
         udependency_options = unreal.AssetRegistryDependencyOptions(**dependency_options.as_dict())
 
         source_control_available = unreal.SourceControl.is_available()
-        unreal.log(
+        logger.info(
             "DependencyCollector: Source control is available: {}".format(source_control_available)
         )
 
@@ -87,11 +90,12 @@ class DependencyCollector:
 
         :param asset_path: Unreal path of the asset to find dependencies, e.g. /Game/Sequences/MyLevelSequence
         :type asset_path: str
-        :param udependency_options: Asset Registry Dependency Options (https://docs.unrealengine.com/5.2/en-US/PythonAPI/class/AssetRegistryDependencyOptions.html)
+        :param udependency_options: Asset Registry Dependency Options
+               (https://docs.unrealengine.com/5.2/en-US/PythonAPI/class/AssetRegistryDependencyOptions.html)
         :type udependency_options: unreal.AssetRegistryDependencyOptions
-        :param filter_method: Method used to filter the found dependencies, for example, dependencies only in Game(Content) folder
+        :param filter_method: Method used to filter the found dependencies, e.g. dependencies only in Game/ folder
         :type filter_method: typing.Callable, optional
-        :param on_found_dependency_callback: Method used to invoke some operations on found dependencies list, for example sync them from VCS
+        :param on_found_dependency_callback: Method used to invoke some operations on found dependencies list
         :type on_found_dependency_callback: typing.Callable, optional
 
         :return: List of dependencies
@@ -115,7 +119,7 @@ class DependencyCollector:
             self._collected_dependencies.extend(dependencies)
 
         if on_found_dependency_callback:
-            unreal.log(
+            logger.info(
                 f"Execute callable {on_found_dependency_callback.__name__} on the dependencies"
             )
             on_found_dependency_callback(dependencies)

@@ -1,4 +1,5 @@
-﻿#include "DeadlineCloudJobSettings/DeadlineCloudSettingsDetails.h"
+﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#include "DeadlineCloudJobSettings/DeadlineCloudSettingsDetails.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudDeveloperSettings.h"
 #include "DetailLayoutBuilder.h"
 #include "DetailWidgetRow.h"

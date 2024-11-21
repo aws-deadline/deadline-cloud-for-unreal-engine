@@ -67,7 +67,7 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
 
     @property
     def integration_data_interface_version(self) -> SemanticVersion:
-        return SemanticVersion(major=0, minor=1)
+        return SemanticVersion(major=0, minor=1)  # pragma: no cover
 
     @staticmethod
     def get_timer(timeout: int | float) -> Callable[[], bool]:
@@ -168,7 +168,7 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
             and not self._has_exception
             and len(self._action_queue)
             > 0  # for now the initializing actions in the action queue, defined by
-            # _populate_action_queue() method.
+            # _populate_client_loaded_action() method.
             # So we wait for them to be done or for time is out.
             and is_not_timed_out()
         ):
@@ -280,6 +280,20 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
 
         unreal_exe = "UnrealEditor-Cmd"
         unreal_project_path = self.init_data.get("project_path", "")
+        extra_cmd_str = self.init_data.get("extra_cmd_args", "")
+
+        # Everythiing between -execcmds=" and " is the value we want to keep
+        match = re.search(r'-execcmds=["\']([^"\']*)["\']', extra_cmd_str)
+        if match:
+            execcmds_value = match.group(1)
+        else:
+            execcmds_value = None
+
+        logger.info(f"execcmds: {execcmds_value}")
+
+        # Remove the -execcmds argument from the extra_cmd_args
+        extra_cmd_str = re.sub(r'(-execcmds=["\'][^"\']*["\'])', "", extra_cmd_str)
+
         client_path = self.unreal_client_path.replace("\\", "/")
         log_args = [
             "-log",
@@ -291,9 +305,23 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
             "-allowstdoutlogverbosity",
         ]
 
+        extra_cmd_args = extra_cmd_str.split(" ")
+
         args = [unreal_exe, unreal_project_path]
         args.extend(log_args)
-        args.append(f"-execcmds=r.HLOD 0,py {client_path}")
+        args.extend(extra_cmd_args)
+        args = [arg for arg in args if arg]  # Remove empty strings
+        args = list(dict.fromkeys(args))  # Remove duplicates
+
+        # Add the execcmds argument back to the args
+        if execcmds_value is not None:
+            execcmds_value = f"-execcmds={execcmds_value},py {client_path}"
+        else:
+            execcmds_value = f"-execcmds=r.HLOD 0,py {client_path}"
+
+        args.append(execcmds_value)
+
+        logger.info(f"Starting Unreal Engine with args: {args}")
 
         regexhandler = RegexHandler(self._get_regex_callbacks())
         self._unreal_client = UnrealSubprocessWithLogs(
@@ -302,23 +330,12 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
             stderr_handler=regexhandler,
         )
 
-    def _populate_action_queue(self) -> None:
+    def _populate_client_loaded_action(self) -> None:
         """
-        Populates the adaptor server's action queue with actions from the init_data that the Unreal
-        Client will request and perform.
+        Populates the adaptor server's action queue with the specific action to check if UE initialized or not yet
         """
-        pass
-        # Set up all pathmapping rules
-        # self._action_queue.enqueue_action(
-        #     Action(
-        #         "path_mapping",
-        #         {
-        #             "path_mapping_rules": {
-        #                 rule.source_path: rule.destination_path for rule in self.path_mapping_rules
-        #             }
-        #         },
-        #     )
-        # )
+
+        self._action_queue.enqueue_action(Action(name="client_loaded"))
 
     def _get_deadline_telemetry_client(self):
         """
@@ -355,7 +372,7 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         # Starts the unreal adaptor server
         self._start_unreal_server_thread()
 
-        self._populate_action_queue()
+        self._populate_client_loaded_action()
 
         # Add the openjd and adaptor namespace directory to PYTHONPATH, so that adaptor_runtime_client
         # will be available directly to the adaptor client.

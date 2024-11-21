@@ -12,6 +12,11 @@ from deadline.client.api import AwsCredentialsSource, AwsAuthenticationStatus
 from deadline.client.config import config_file
 from deadline.job_attachments.models import FileConflictResolution
 
+from deadline.unreal_logger import get_logger
+
+
+logger = get_logger()
+
 
 @unreal.ustruct()
 class UnrealAwsEntity(unreal.StructBase):
@@ -221,7 +226,7 @@ class DeadlineCloudDeveloperSettingsImplementation(unreal.DeadlineCloudDeveloper
         2. When we change "default farm" we need to pull default queue,
            default storage profile, and job attachment fs options
         """
-        unreal.log(f"Changed property: {property_name}")
+        logger.info(f"Changed property: {property_name}")
 
         # This means we need to change default profile
         # If the default profile is changed then we update it in the config first
@@ -299,19 +304,19 @@ class DeadlineCloudDeveloperSettingsImplementation(unreal.DeadlineCloudDeveloper
 
         farm = self.find_farm_by_name(self.work_station_configuration.profile.default_farm)
         if farm is not None:
-            unreal.log(f"Update default farm: {farm.id} -- {farm.name}")
+            logger.info(f"Update default farm: {farm.id} -- {farm.name}")
             config.set_setting("defaults.farm_id", farm.id, config=config_parser)
 
         queue = self.find_queue_by_name(self.work_station_configuration.farm.default_queue)
         if queue is not None:
-            unreal.log(f"Update default queue: {queue.id} -- {queue.name}")
+            logger.info(f"Update default queue: {queue.id} -- {queue.name}")
             config.set_setting("defaults.queue_id", queue.id, config=config_parser)
 
         storage_profile = self.find_storage_by_name(
             self.work_station_configuration.farm.default_storage_profile
         )
         if storage_profile is not None:
-            unreal.log(
+            logger.info(
                 f"Update default storage profile: {storage_profile.id} "
                 f"-- {storage_profile.name}"
             )
@@ -349,7 +354,7 @@ class DeadlineCloudDeveloperSettingsImplementation(unreal.DeadlineCloudDeveloper
 
     @unreal.ufunction(override=True)
     def login(self):
-        unreal.log("login")
+        logger.info("login")
 
         def on_pending_authorization(**kwargs):
             if kwargs["credentials_source"] == AwsCredentialsSource.DEADLINE_CLOUD_MONITOR_LOGIN:
@@ -377,7 +382,7 @@ class DeadlineCloudDeveloperSettingsImplementation(unreal.DeadlineCloudDeveloper
 
     @unreal.ufunction(override=True)
     def logout(self):
-        unreal.log("Deadline Cloud logout")
+        logger.info("Deadline Cloud logout")
         api.logout()
         self.refresh_from_default_profile()
         self.refresh_state()

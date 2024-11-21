@@ -35,7 +35,14 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudJobSharedSettingsStruct
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Shared Settings", meta=(DisplayPriority=4))
 	int32 MaximumRetriesPerTask = 50;
 
-	// TODO Some property is missing here
+	/** Shots Chunk size */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Shared Settings", meta=(DisplayPriority=5, ClampMin="1"))
+	int32 TaskChunkSize = 1;
+
+	/** Extra cmd args */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Shared Settings", meta=(DisplayPriority=5))
+	FString ExtraCmdArgs = "";
+
 };
 
 /**

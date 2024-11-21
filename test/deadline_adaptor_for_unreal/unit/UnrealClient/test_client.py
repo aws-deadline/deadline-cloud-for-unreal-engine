@@ -14,6 +14,7 @@ except ModuleNotFoundError:
 
 
 class UnrealPackageMock(Mock):
+
     def log(self, message: str) -> None:
         print(message)
 

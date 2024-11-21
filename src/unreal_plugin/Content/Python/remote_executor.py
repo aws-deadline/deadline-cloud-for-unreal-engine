@@ -1,6 +1,11 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 import unreal
+
+from deadline.unreal_logger import get_logger
 from deadline.unreal_submitter.submitter import UnrealSubmitter
+
+
+logger = get_logger()
 
 
 @unreal.uclass()
@@ -11,8 +16,8 @@ class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelineExecutorBase)
 
     @unreal.ufunction(override=True)
     def execute(self, pipeline_queue):
-        unreal.log(f"Asked to execute Queue: {pipeline_queue}")
-        unreal.log(f"Queue has {len(pipeline_queue.get_jobs())} jobs")
+        logger.info(f"Asked to execute Queue: {pipeline_queue}")
+        logger.info(f"Queue has {len(pipeline_queue.get_jobs())} jobs")
 
         if not pipeline_queue or (not pipeline_queue.get_jobs()):
             self.on_executor_finished_impl()
@@ -36,7 +41,7 @@ class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelineExecutorBase)
         unreal_submitter = UnrealSubmitter()
 
         for job in self.pipeline_queue.get_jobs():
-            unreal.log(f"Submitting Job `{job.job_name}` to Deadline Cloud...")
+            logger.info(f"Submitting Job `{job.job_name}` to Deadline Cloud...")
             unreal_submitter.add_job(job)
 
         unreal_submitter.submit_jobs()
@@ -66,7 +71,7 @@ class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelineExecutorBase)
                     )
                 )
 
-                unreal.log_error(message)
+                logger.error(message)
                 unreal.EditorDialog.show_message(
                     "Unsaved Maps/Content", message, unreal.AppMsgType.OK
                 )
@@ -85,7 +90,7 @@ class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelineExecutorBase)
                 "These unsaved maps cannot be loaded by an external process, "
                 "and the render has been aborted."
             )
-            unreal.log_error(message)
+            logger.error(message)
             unreal.EditorDialog.show_message("Unsaved Maps", message, unreal.AppMsgType.OK)
             self.on_executor_finished_impl()
             return False

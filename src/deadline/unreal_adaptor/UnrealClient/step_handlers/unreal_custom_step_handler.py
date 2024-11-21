@@ -10,6 +10,10 @@ from typing import Optional
 from types import ModuleType
 
 from .base_step_handler import BaseStepHandler
+from deadline.unreal_logger import get_logger
+
+
+logger = get_logger()
 
 
 class UnrealCustomStepHandler(BaseStepHandler):
@@ -62,23 +66,21 @@ class UnrealCustomStepHandler(BaseStepHandler):
         :return: boolean indicating the script run successfully or not.
         """
 
-        import unreal
-
         try:
             script_module = UnrealCustomStepHandler.validate_script(script_path=args["script_path"])
             script_args = args.get("script_args", {})
             result = script_module.main(**script_args)
-            unreal.log(f"Custom Step Executor: Complete: {result}")
+            logger.info(f"Custom Step Executor: Complete: {result}")
             return True
         except Exception as e:
-            unreal.log(
+            logger.info(
                 f"Custom Step Executor: Error: "
                 f'Error occured while executing the given script {args.get("script_path")}: {str(e)}\n'
             )
-            unreal.log(traceback.format_exc())
+            logger.info(traceback.format_exc())
             return False
 
-    def wait_result(self, args: Optional[dict] = None) -> None:
+    def wait_result(self, args: Optional[dict] = None) -> None:  # pragma: no cover
         """
         :param args: A dictionary that contains the arguments for waiting.
         :return: None
@@ -86,7 +88,6 @@ class UnrealCustomStepHandler(BaseStepHandler):
         It is responsible for waiting result of the
         :meth:`deadline.unreal_adaptor.UnrealClient.step_handlers.unreal_custom_step_handler.UnrealCustomStepHandler.run_script()`.
         """
-        import unreal
 
-        unreal.log("Render wait start")
-        unreal.log("Render wait finish")
+        logger.info("Render wait start")
+        logger.info("Render wait finish")
