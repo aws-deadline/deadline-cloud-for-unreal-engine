@@ -48,6 +48,19 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
     TSharedPtr<FDeadlineCloudDetailsWidgetsHelper::SConsistencyWidget> ConsistencyUpdateWidget;
     FParametersConsistencyCheckResult result;
 
+    TSharedPtr<FDeadlineCloudDetailsWidgetsHelper::SEyeUpdateWidget> HiddenParametersUpdateWidget;
+
+    /* Update all when one Parameters widget is checked as hidden */
+    if (Settings.IsValid())
+    {
+        Settings->OnParameterHidden.BindSP(this, &FDeadlineCloudJobDetails::RespondToEvent);
+    }
+    /* Collapse hidden parameters array  */
+    TSharedRef<IPropertyHandle> HideHandle = MyDetailLayout->GetProperty("HiddenParametersList");
+    IDetailPropertyRow* HideRow = MyDetailLayout->EditDefaultProperty(HideHandle);
+    HideRow->Visibility(EVisibility::Collapsed);
+
+
     /* Consistency check */
     if (Settings.IsValid() && Settings->GetJobParameters().Num() > 0)
     {
@@ -139,14 +152,31 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
         .WholeRowContent()
         [
             SAssignNew(ConsistencyUpdateWidget, FDeadlineCloudDetailsWidgetsHelper::SConsistencyWidget)
-                .OnFixButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudJobDetails::OnButtonClicked))
+                .OnFixButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudJobDetails::OnConsistencyButtonClicked))
         ];
 
-    //  Dispatcher handle bind
+    /* Dispatcher to Job PostEditChangeProperty */
     if (Settings.IsValid() && (MyDetailLayout != nullptr))
     {
         Settings->OnSomethingChanged = FSimpleDelegate::CreateSP(this, &FDeadlineCloudJobDetails::ForceRefreshDetails);
     };
+
+
+
+    PropertiesCategory.AddCustomRow(FText::FromString("Visibility"))
+        .Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FDeadlineCloudJobDetails::GetEyeWidgetVisibility)))
+        .WholeRowContent()
+        [
+            SAssignNew(HiddenParametersUpdateWidget, FDeadlineCloudDetailsWidgetsHelper::SEyeUpdateWidget)
+
+                .OnEyeUpdateButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudJobDetails::OnViewAllButtonClicked))
+                .bShowHidden_(Settings->GetDisplayHiddenParameters())
+        ];
+
+}
+void FDeadlineCloudJobDetails::RespondToEvent()
+{
+    ForceRefreshDetails();
 }
 void FDeadlineCloudJobDetails::ForceRefreshDetails()
 {
@@ -166,6 +196,12 @@ EVisibility FDeadlineCloudJobDetails::GetConsistencyWidgetVisibility() const
 {
     return (!bCheckConsistensyPassed) ? EVisibility::Visible : EVisibility::Collapsed;
 }
+
+EVisibility FDeadlineCloudJobDetails::GetEyeWidgetVisibility() const
+{
+    return ((Settings->AreEmptyHiddenParameters())) ? EVisibility::Collapsed : EVisibility::Visible;
+}
+
 
 bool FDeadlineCloudJobDetails::IsStepContainsErrors() const
 {
@@ -219,12 +255,63 @@ EVisibility FDeadlineCloudJobDetails::GetEnvironmentDefaultWidgetVisibility() co
     return IsEnvironmentContainsErrors() ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
-void FDeadlineCloudJobDetails::OnButtonClicked()
+void FDeadlineCloudJobDetails::OnConsistencyButtonClicked()
 {
+    /* Compare hidden parameters after consistency check */
+    if (bCheckConsistensyPassed == false)
+    {
+        /* Remove hidden parameters in TArray missing in .yaml */
+        if (Settings->AreEmptyHiddenParameters() == false)
+        {
+            Settings->FixConsistencyForHiddenParameters();
+        }
+
+    }
     Settings->FixJobParametersConsistency(Settings.Get());
     UE_LOG(LogTemp, Warning, TEXT("FixJobParametersConsistency"));
     ForceRefreshDetails();
 }
+
+void FDeadlineCloudJobDetails::OnViewAllButtonClicked()
+{
+    bool Show = Settings->GetDisplayHiddenParameters();
+    Settings->SetDisplayHiddenParameters(!Show);
+    ForceRefreshDetails();
+}
+
+void FDeadlineCloudJobParametersArrayBuilder::OnEyeHideWidgetButtonClicked(FName Property) const
+{
+
+    if (Job)
+    {
+        if (Job->ContainsHiddenParameters(Property))
+        {
+            Job->RemoveHiddenParameters(Property);
+        }
+        else
+        {
+            Job->AddHiddenParameter(Property);
+        }
+    }
+}
+
+bool FDeadlineCloudJobParametersArrayBuilder::IsPropertyHidden(FName Parameter) const
+{
+    bool Contains = false;
+    if (Job)
+    {
+        Contains = Job->ContainsHiddenParameters(Parameter) && (Job->GetDisplayHiddenParameters() == false);
+    }
+    if (MrqJob)
+    {
+        if (MrqJob->JobPreset)
+        {
+            Contains = MrqJob->JobPreset->ContainsHiddenParameters(Parameter);
+        }
+    }
+    return Contains;
+}
+
 
 TSharedRef<FDeadlineCloudJobParametersArrayBuilder> FDeadlineCloudJobParametersArrayBuilder::MakeInstance(TSharedRef<IPropertyHandle> InPropertyHandle)
 {

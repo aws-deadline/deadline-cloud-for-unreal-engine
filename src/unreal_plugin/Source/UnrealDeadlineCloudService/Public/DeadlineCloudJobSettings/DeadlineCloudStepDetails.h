@@ -10,6 +10,7 @@
 #include "IPropertyTypeCustomization.h"
 
 class UDeadlineCloudStep;
+class UMoviePipelineDeadlineCloudExecutorJob;
 
 class FDeadlineCloudStepParametersArrayBuilder
 	: public FDetailArrayBuilder
@@ -34,10 +35,19 @@ public:
 	FUIAction EmptyCopyPasteAction;
 	FOnIsEnabled OnIsEnabled;
 
+	TObjectPtr<UMoviePipelineDeadlineCloudExecutorJob> MrqJob;
+
+	static UMoviePipelineDeadlineCloudExecutorJob* GetMrqJob(TSharedRef<IPropertyHandle> Handle);
+	bool IsPropertyEditable(FName PropertyName)
+	{
+		return PropertiesToShow.Contains(PropertyName);
+	}
+
+
 private:
 	void OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const;
 
-
+	TArray<FName> PropertiesToShow = { "ChunkSize" };
 	TSharedPtr<IPropertyHandleArray> ArrayProperty;
 };
 
@@ -134,10 +144,10 @@ public:
     static TSharedRef<IDetailCustomization> MakeInstance();
     virtual  void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
 
-	void OnButtonClicked();
+	void OnConsistencyButtonClicked();
 	bool CheckConsistency(UDeadlineCloudStep* Step);
 	bool bCheckConsistensyPassed = true;
-	EVisibility GetWidgetVisibility() const	{ return (!bCheckConsistensyPassed) ? EVisibility::Visible : EVisibility::Collapsed;	}
+	EVisibility GetWidgetVisibility() const { return (!bCheckConsistensyPassed) ? EVisibility::Visible : EVisibility::Collapsed; }
 
 	bool IsEnvironmentContainsErrors() const;
 	EVisibility GetEnvironmentErrorWidgetVisibility() const;

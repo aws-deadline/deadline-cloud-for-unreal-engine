@@ -276,6 +276,8 @@ public:
 
 	FString GetDefaultParameterValue(const FString& ParameterName);
 
+	void FixConsistencyForHiddenParameters();
+
 	UFUNCTION()
 	FParametersConsistencyCheckResult CheckJobParametersConsistency(UDeadlineCloudJob* Self);
 
@@ -299,7 +301,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Parameters")
 	void FixJobParametersConsistency(UDeadlineCloudJob* Job);
 
-	TArray<FStepTaskParameterDefinition> GetTaskChunkSizeFromRenderStep() const;
+	//TArray<FStepTaskParameterDefinition> GetTaskChunkSizeFromRenderStep() const;
+	TArray<FStepTaskParameterDefinition> GetAllStepParameters() const;
+
 
 public:
 
@@ -310,12 +314,47 @@ public:
 
 			FName PropertyName = PropertyChangedEvent.Property->GetFName();
 			if (PropertyName == "FilePath")
-			{		
+			{
 				OpenJobFile(PathToTemplate.FilePath);
 				TriggerChange();
 			}
 		}
 	}
+	void AddHiddenParameter(FName Parameter)
+	{
+		HiddenParametersList.Add(Parameter);
+		Modify();
+		MarkPackageDirty();
+		ParameterHiddenEvent();
+	};
+	void ClearHiddenParameters()
+	{
+		HiddenParametersList.Empty();
+		Modify();
+		MarkPackageDirty();
+	};
+	bool AreEmptyHiddenParameters() { return HiddenParametersList.IsEmpty(); };
+	bool ContainsHiddenParameters(FName Parameter) { return HiddenParametersList.Contains(Parameter); };
+	void RemoveHiddenParameters(FName Parameter) {
+		HiddenParametersList.Remove(Parameter);
+		Modify();
+		MarkPackageDirty();
+		ParameterHiddenEvent();
+	};
+	FSimpleDelegate OnParameterHidden;
 
+	void ParameterHiddenEvent() {
+		if (OnParameterHidden.IsBound())
+
+		{
+			OnParameterHidden.Execute();
+		}
+	};
+	bool GetDisplayHiddenParameters() { return bDisplayHiddenWidgets; };
+	void SetDisplayHiddenParameters(bool ShowParameters) { bDisplayHiddenWidgets = ShowParameters; };
+private:
+	UPROPERTY(EditAnywhere, meta = (HideInDetailPanel))
+	TArray<FName> HiddenParametersList;
+	bool bDisplayHiddenWidgets = false;
 
 };

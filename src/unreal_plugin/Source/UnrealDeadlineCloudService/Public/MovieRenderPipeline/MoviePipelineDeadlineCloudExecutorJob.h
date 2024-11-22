@@ -70,6 +70,13 @@ public:
 	UFUNCTION()
 	TArray<FString> GetJobInitialStateOptions();
 	// End Job list options methods
+	UFUNCTION()
+	UDeadlineCloudRenderJob* CreateDefaultJobPresetFromTemplates(UDeadlineCloudRenderJob* Preset);
+
+	UFUNCTION()
+	TArray<FDeadlineCloudStepOverride> GetStepsToOverride(const UDeadlineCloudJob* Preset);
+	UFUNCTION()
+	TArray<FDeadlineCloudEnvironmentOverride> GetEnvironmentsToOverride(const UDeadlineCloudJob* Preset);
 
 	/**
 	 * Reference to Deadline Cloud job preset DataAsset. Source for default job settings
@@ -89,8 +96,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
 	FDeadlineCloudJobParametersArray ParameterDefinitionOverrides = FDeadlineCloudJobParametersArray();
 
+	//UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
+	//FDeadlineCloudStepParametersArray StepParameterOverrides = FDeadlineCloudStepParametersArray();
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
-	FDeadlineCloudStepParametersArray StepParameterOverrides = FDeadlineCloudStepParametersArray();
+	TArray<FDeadlineCloudStepOverride> StepsOverrides = TArray<FDeadlineCloudStepOverride>();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
+	TArray<FDeadlineCloudEnvironmentOverride> EnvironmentsVariablesOverrides = TArray<FDeadlineCloudEnvironmentOverride>();
+
 	
 protected:
 
