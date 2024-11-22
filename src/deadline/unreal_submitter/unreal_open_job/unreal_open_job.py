@@ -335,6 +335,10 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         self._mrq_job = mrq_job
 
+        for step in self._steps:
+            if isinstance(step, RenderUnrealOpenJobStep) and step.mrq_job is None:
+                step.mrq_job = self._mrq_job
+
         self._dependency_collector = DependencyCollector()
 
         self._manifest_path = ""

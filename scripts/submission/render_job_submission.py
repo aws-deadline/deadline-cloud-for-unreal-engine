@@ -1,16 +1,17 @@
 import os
 import unreal
+
 from deadline.unreal_submitter.submitter import (
     UnrealRenderOpenJobSubmitter,
 )
 
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job import (
     RenderUnrealOpenJob,
-    UnrealOpenJobParameterDefinition
 )
 
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step import (
     RenderUnrealOpenJobStep,
+    UnrealOpenJobStepParameterDefinition
 )
 
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment import (
@@ -28,20 +29,28 @@ if "OPENJD_TEMPLATES_DIRECTORY" not in os.environ:
         f"/src/unreal_plugin/Content/Python/openjd_templates"
     )
 
-queue = unreal.get_editor_subsystem()
-default_render_job = RenderUnrealOpenJob(
-    steps=[RenderUnrealOpenJobStep()],
-    environments=[LaunchEditorUnrealOpenJobEnvironment()],
-    extra_parameters=[
-        UnrealOpenJobParameterDefinition("Executable", "FLOAT", 1.0)
-    ],
-    mrq_job=None
-)
+
+def main():
+    queue = unreal.get_editor_subsystem(unreal.MoviePipelineQueueSubsystem).get_queue()
+    render_job_submitter = UnrealRenderOpenJobSubmitter(silent_mode=True)
+
+    for job in queue.get_jobs():
+        default_render_job = RenderUnrealOpenJob(
+            steps=[
+                RenderUnrealOpenJobStep(
+                    extra_parameters=[UnrealOpenJobStepParameterDefinition("ChunkSize", "INT", [1])]
+                )
+            ],
+            environments=[LaunchEditorUnrealOpenJobEnvironment()],
+            mrq_job=job
+        )
+
+        render_job_submitter.add_job(default_render_job)
+
+    submitted_job_ids = render_job_submitter.submit_jobs()
+    for job_id in submitted_job_ids:
+        logger.info(f"Job submitted: {job_id}")
 
 
-render_job_submitter = UnrealRenderOpenJobSubmitter(silent_mode=True)
-render_job_submitter.add_job(default_render_job)
-from pprint import pprint
-for job in render_job_submitter._jobs:
-    pprint(job.build_template())
-
+if __name__ == '__main__':
+    main()
