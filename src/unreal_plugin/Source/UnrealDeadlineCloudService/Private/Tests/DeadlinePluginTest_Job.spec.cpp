@@ -156,17 +156,25 @@ void FDeadlinePluginJobSpec::Define()
                     CreatedJobDataAsset->PathToTemplate.FilePath = PathToJobTemplate;
                     CreatedJobDataAsset->OpenJobFile(CreatedJobDataAsset->PathToTemplate.FilePath);
                     TArray <FParameterDefinition> Parameters = CreatedJobDataAsset->GetJobParameters();
-                    Parameters.RemoveAt(0);
-                    CreatedJobDataAsset->SetJobParameters(Parameters);
+                    if (Parameters.Num() > 0)
+                    {
+                        Parameters.RemoveAt(0);
+                        CreatedJobDataAsset->SetJobParameters(Parameters);
 
-                    result = CreatedJobDataAsset->CheckJobParametersConsistency(CreatedJobDataAsset);
-                    if (result.Passed == false) {
-                        TestTrue("Parameters are non-consistent as expected", true);
+                        result = CreatedJobDataAsset->CheckJobParametersConsistency(CreatedJobDataAsset);
+                        if (result.Passed == false) {
+                            TestTrue("Parameters are non-consistent as expected", true);
+                        }
+                        else
+                        {
+                            TestFalse(result.Reason, (result.Passed == false));
+                        }
                     }
                     else
                     {
-                        TestFalse(result.Reason, (result.Passed == false));
+                        TestFalse("Error loading parameters", true);
                     }
+
                 });
 
             It("Fix DeadlineCloudJob consistency", [this]()

@@ -157,38 +157,45 @@ void FDeadlinePluginStepSpec::Define()
                 {
                     CreatedStepDataAsset->OpenStepFile(CreatedStepDataAsset->PathToTemplate.FilePath);
                     TArray <FStepTaskParameterDefinition> Parameters = CreatedStepDataAsset->GetStepParameters();
-                    Parameters.RemoveAt(0);
-                    CreatedStepDataAsset->SetStepParameters(Parameters);
+                    if (Parameters.Num() > 0)
+                    {
+                        Parameters.RemoveAt(0);
+                        CreatedStepDataAsset->SetStepParameters(Parameters);
 
-                    result = CreatedStepDataAsset->CheckStepParametersConsistency(CreatedStepDataAsset);
-                    if (result.Passed == false) {
-                        TestTrue("Parameters are non-consistent as expected", true);
+                        result = CreatedStepDataAsset->CheckStepParametersConsistency(CreatedStepDataAsset);
+                        if (result.Passed == false) {
+                            TestTrue("Parameters are non-consistent as expected", true);
+                        }
+                        else
+                        {
+                            TestFalse(result.Reason, (result.Passed == false));
+                        }
                     }
                     else
                     {
-                        TestFalse(result.Reason, (result.Passed == false));
+                        TestFalse("Error loading parameters", true);
                     }
                 });
 
             It("Fix DeadlineCloudStep consistency", [this]()
                 {
-                    if (CreatedStepDataAsset){
-                    TArray<FStepTaskParameterDefinition> EmptyArray;
-                    CreatedStepDataAsset->SetStepParameters(EmptyArray);
-                    result = CreatedStepDataAsset->CheckStepParametersConsistency(CreatedStepDataAsset);
-                    if (result.Passed == false) {
-
-                        CreatedStepDataAsset->FixStepParametersConsistency(CreatedStepDataAsset);
+                    if (CreatedStepDataAsset) {
+                        TArray<FStepTaskParameterDefinition> EmptyArray;
+                        CreatedStepDataAsset->SetStepParameters(EmptyArray);
                         result = CreatedStepDataAsset->CheckStepParametersConsistency(CreatedStepDataAsset);
-                        if (result.Passed == true)
-                        {
-                            TestTrue("Parameters consistency fixed", true);
+                        if (result.Passed == false) {
+
+                            CreatedStepDataAsset->FixStepParametersConsistency(CreatedStepDataAsset);
+                            result = CreatedStepDataAsset->CheckStepParametersConsistency(CreatedStepDataAsset);
+                            if (result.Passed == true)
+                            {
+                                TestTrue("Parameters consistency fixed", true);
+                            }
                         }
-                    }
-                    else
-                    {
-                        TestFalse(result.Reason, (result.Passed == false));
-                    }
+                        else
+                        {
+                            TestFalse(result.Reason, (result.Passed == false));
+                        }
 
                     }
                     else

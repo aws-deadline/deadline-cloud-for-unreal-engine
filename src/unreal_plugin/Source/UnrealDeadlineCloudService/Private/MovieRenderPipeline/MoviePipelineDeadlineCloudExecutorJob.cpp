@@ -191,7 +191,15 @@ void UMoviePipelineDeadlineCloudExecutorJob::CollectDependencies()
 	AsyncTask(ENamedThreads::GameThread, [this]()
 	{
 		auto& DependencyFiles = PresetOverrides.JobAttachments.InputFiles.AutoDetected.Paths;
-		TArray<FString> FilePaths = UDeadlineCloudJobBundleLibrary::Get()->GetJobDependencies(this);
+		TArray<FString> FilePaths;
+		if (auto Library = UDeadlineCloudJobBundleLibrary::Get())
+		{
+			FilePaths = Library->GetJobDependencies(this);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("Error get DeadlineCloudJobBundleLibrary"));
+		}
 		for (auto FilePath : FilePaths)
 		{
 			FFilePath Item;
@@ -242,17 +250,41 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeChainProperty(FProper
 
 TArray<FString> UMoviePipelineDeadlineCloudExecutorJob::GetCpuArchitectures()
 {
-	return UDeadlineCloudJobBundleLibrary::Get()->GetCpuArchitectures();
+	if (auto Library = UDeadlineCloudJobBundleLibrary::Get())
+	{
+		return Library->GetCpuArchitectures();
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("Error get DeadlineCloudJobBundleLibrary"));
+	}
+	return {};
 }
 
 TArray<FString> UMoviePipelineDeadlineCloudExecutorJob::GetOperatingSystems()
 {
-	return UDeadlineCloudJobBundleLibrary::Get()->GetOperatingSystems();
+	if (auto Library = UDeadlineCloudJobBundleLibrary::Get())
+	{
+		return Library->GetOperatingSystems();
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("Error get DeadlineCloudJobBundleLibrary"));
+	}
+	return {};
 }
 
 TArray<FString> UMoviePipelineDeadlineCloudExecutorJob::GetJobInitialStateOptions()
 {
-	return UDeadlineCloudJobBundleLibrary::Get()->GetJobInitialStateOptions();
+	if (auto Library = UDeadlineCloudJobBundleLibrary::Get())
+	{
+		return Library->GetJobInitialStateOptions();
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("Error get DeadlineCloudJobBundleLibrary"));
+	}
+	return {};
 }
 
 TSharedRef<IDetailCustomization> FMoviePipelineDeadlineCloudExecutorJobCustomization::MakeInstance()
