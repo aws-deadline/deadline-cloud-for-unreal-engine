@@ -25,7 +25,7 @@ script:
       
       :: Sync to given changelist, no generate proj files, overwrite clobber files, sync binaries
       ugs sync {{Param.PerforceChangelistNumber}} -nogpf -clobber -binaries
-      echo Sync completed successfuly
+      echo Sync completed successfully
       
       :: Store this path to Env variable for future using while launching the Unreal Editor and Project within
       setx P4_CLIENT_DIRECTORY %CD%

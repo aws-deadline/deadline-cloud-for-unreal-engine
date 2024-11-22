@@ -288,6 +288,8 @@ class UnrealMrqJobSubmitter(UnrealSubmitter):
     @error_notify("Data asset converting failed")
     def add_job(self, mrq_job: unreal.MoviePipelineExecutorJob):
         render_open_job = self.open_job_class.from_mrq_job(mrq_job)
+        for parameter in render_open_job._extra_parameters:
+            logger.info(f"Extra parameter: {parameter.to_dict()}")
         self._jobs.append(render_open_job)
 
 

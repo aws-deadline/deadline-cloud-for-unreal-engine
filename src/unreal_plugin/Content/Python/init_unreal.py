@@ -2,6 +2,7 @@
 
 import os
 import sys
+from pathlib import Path
 
 
 remote_execution = os.getenv("REMOTE_EXECUTION", "False")
@@ -12,13 +13,10 @@ if remote_execution != "True":
 
     logger.info("INIT DEADLINE CLOUD")
 
-    libraries_path = f"{os.path.dirname(__file__)}/libraries".replace("\\", "/")
-    if not os.getenv("DEADLINE_CLOUD") and os.path.exists(libraries_path):
-        os.environ["DEADLINE_CLOUD"] = libraries_path
-
-    logger.info(f'DEADLINE CLOUD PATH: {os.getenv("DEADLINE_CLOUD")}')
-    if os.getenv("DEADLINE_CLOUD") and os.environ["DEADLINE_CLOUD"] not in sys.path:
-        sys.path.append(os.environ["DEADLINE_CLOUD"])
+    if "OPENJD_TEMPLATES_DIRECTORY" not in os.environ:
+        os.environ["OPENJD_TEMPLATES_DIRECTORY"] = (
+            f"{Path(__file__).parent.as_posix()}/openjd_templates"
+        )
 
     # These unused imports are REQUIRED!!!
     # Unreal Engine loads any init_unreal.py it finds in its search paths.
