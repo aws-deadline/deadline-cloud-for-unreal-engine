@@ -47,8 +47,8 @@ public:
 
     void GenerateWrapperStructHeaderRowContent(FDetailWidgetRow& NodeRow, TSharedRef<SWidget> NameContent);
 
-   void OnEyeHideWidgetButtonClicked(FName NameWidget) const;
-   bool IsPropertyHidden( FName Parameter) const;
+    void OnEyeHideWidgetButtonClicked(FName NameWidget) const;
+    bool IsPropertyHidden(FName Parameter) const;
 
 
     FUIAction EmptyCopyPasteAction;
@@ -58,17 +58,17 @@ public:
     TObjectPtr<UDeadlineCloudJob> Job;
 
 private:
-   //
- static UDeadlineCloudJob* GetOuterJob(TSharedRef<IPropertyHandle> Handle);
+    //
+    static UDeadlineCloudJob* GetOuterJob(TSharedRef<IPropertyHandle> Handle);
 
     void OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const;
-	bool IsResetToDefaultVisible(TSharedPtr<IPropertyHandle> PropertyHandle, FString InParameterName) const;
+    bool IsResetToDefaultVisible(TSharedPtr<IPropertyHandle> PropertyHandle, FString InParameterName) const;
 
-	void ResetToDefaultHandler(TSharedPtr<IPropertyHandle> PropertyHandle, FString InParameterName) const;
+    void ResetToDefaultHandler(TSharedPtr<IPropertyHandle> PropertyHandle, FString InParameterName) const;
     TSharedPtr<IPropertyHandleArray> ArrayProperty;
     TSharedRef<IPropertyHandle> BaseProperty;
 
-    bool IsEyeWidgetEnabled(FName Parameter) const; 
+    bool IsEyeWidgetEnabled(FName Parameter) const;
 };
 
 class FDeadlineCloudJobParametersArrayCustomization : public IPropertyTypeCustomization

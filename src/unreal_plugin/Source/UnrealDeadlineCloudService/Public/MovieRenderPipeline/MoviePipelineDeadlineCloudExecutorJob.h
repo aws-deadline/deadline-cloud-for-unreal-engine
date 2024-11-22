@@ -16,10 +16,10 @@
 USTRUCT()
 struct FPropertyRowEnabledInfo
 {
-	GENERATED_BODY()
-	
-	FName PropertyPath;
-	bool bIsEnabled = false;
+    GENERATED_BODY()
+
+    FName PropertyPath;
+    bool bIsEnabled = false;
 };
 
 /**
@@ -28,117 +28,117 @@ struct FPropertyRowEnabledInfo
 UCLASS(BlueprintType, config = EditorPerProjectUserSettings)
 class UNREALDEADLINECLOUDSERVICE_API UMoviePipelineDeadlineCloudExecutorJob : public UMoviePipelineExecutorJob
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 public:
-	UMoviePipelineDeadlineCloudExecutorJob();
+    UMoviePipelineDeadlineCloudExecutorJob();
 
-	bool IsPropertyRowEnabledInMovieRenderJob(const FName& InPropertyPath) const;
+    bool IsPropertyRowEnabledInMovieRenderJob(const FName& InPropertyPath) const;
 
-	void SetPropertyRowEnabledInMovieRenderJob(const FName& InPropertyPath, bool bInEnabled);
+    void SetPropertyRowEnabledInMovieRenderJob(const FName& InPropertyPath, bool bInEnabled);
 
-	/**
-	 * Returns the Deadline job info with overrides applied, if enabled.
-	 * Skips any property not 
-	 */
-	UFUNCTION(BlueprintCallable, Category = "DeadlineCloud")
-	FDeadlineCloudJobPresetStruct GetDeadlineJobPresetStructWithOverrides() const;
+    /**
+     * Returns the Deadline job info with overrides applied, if enabled.
+     * Skips any property not
+     */
+    UFUNCTION(BlueprintCallable, Category = "DeadlineCloud")
+    FDeadlineCloudJobPresetStruct GetDeadlineJobPresetStructWithOverrides() const;
 
-	UFUNCTION(BlueprintCallable, Category = "DeadlineCloud")
-	FDeadlineCloudJobParametersArray GetParameterDefinitionWithOverrides() const;
+    UFUNCTION(BlueprintCallable, Category = "DeadlineCloud")
+    FDeadlineCloudJobParametersArray GetParameterDefinitionWithOverrides() const;
 
 #if WITH_EDITOR
-	void UpdateAttachmentFields();
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-	virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
+    void UpdateAttachmentFields();
+    virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+    virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
 #endif
 
-	// Begin Job list options methods
-	/**
-	 * Delegates call to Content/Python/job_library.py DeadlineCloudJobBundleLibraryImplementation
-	 * @return list of CPU architectures
-	 */
-	UFUNCTION()
-	TArray<FString> GetCpuArchitectures();
+    // Begin Job list options methods
+    /**
+     * Delegates call to Content/Python/job_library.py DeadlineCloudJobBundleLibraryImplementation
+     * @return list of CPU architectures
+     */
+    UFUNCTION()
+    TArray<FString> GetCpuArchitectures();
 
-	/**
-	 * Delegates call to Content/Python/job_library.py DeadlineCloudJobBundleLibraryImplementation
-	 * @return list of Operating Systems
-	 */
-	UFUNCTION()
-	TArray<FString> GetOperatingSystems();
+    /**
+     * Delegates call to Content/Python/job_library.py DeadlineCloudJobBundleLibraryImplementation
+     * @return list of Operating Systems
+     */
+    UFUNCTION()
+    TArray<FString> GetOperatingSystems();
 
-	UFUNCTION()
-	TArray<FString> GetJobInitialStateOptions();
-	// End Job list options methods
-	UFUNCTION()
-	UDeadlineCloudRenderJob* CreateDefaultJobPresetFromTemplates(UDeadlineCloudRenderJob* Preset);
+    UFUNCTION()
+    TArray<FString> GetJobInitialStateOptions();
+    // End Job list options methods
+    UFUNCTION()
+    UDeadlineCloudRenderJob* CreateDefaultJobPresetFromTemplates(UDeadlineCloudRenderJob* Preset);
 
-	UFUNCTION()
-	TArray<FDeadlineCloudStepOverride> GetStepsToOverride(const UDeadlineCloudJob* Preset);
-	UFUNCTION()
-	TArray<FDeadlineCloudEnvironmentOverride> GetEnvironmentsToOverride(const UDeadlineCloudJob* Preset);
+    UFUNCTION()
+    TArray<FDeadlineCloudStepOverride> GetStepsToOverride(const UDeadlineCloudJob* Preset);
+    UFUNCTION()
+    TArray<FDeadlineCloudEnvironmentOverride> GetEnvironmentsToOverride(const UDeadlineCloudJob* Preset);
 
-	/**
-	 * Reference to Deadline Cloud job preset DataAsset. Source for default job settings
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DeadlineCloud")
-	TObjectPtr<UDeadlineCloudRenderJob> JobPreset;
+    /**
+     * Reference to Deadline Cloud job preset DataAsset. Source for default job settings
+     */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DeadlineCloud")
+    TObjectPtr<UDeadlineCloudRenderJob> JobPreset;
 
-	/**
-	 * Reference to Deadline Cloud job preset DataAsset. Contains overriden job settings
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
-	FDeadlineCloudJobPresetStruct PresetOverrides = FDeadlineCloudJobPresetStruct();
+    /**
+     * Reference to Deadline Cloud job preset DataAsset. Contains overriden job settings
+     */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
+    FDeadlineCloudJobPresetStruct PresetOverrides = FDeadlineCloudJobPresetStruct();
 
-	/**
+    /**
  * Reference to Deadline Cloud job parameters. Contains overriden job settings
  */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
-	FDeadlineCloudJobParametersArray ParameterDefinitionOverrides = FDeadlineCloudJobParametersArray();
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
+    FDeadlineCloudJobParametersArray ParameterDefinitionOverrides = FDeadlineCloudJobParametersArray();
 
-	//UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
-	//FDeadlineCloudStepParametersArray StepParameterOverrides = FDeadlineCloudStepParametersArray();
+    //UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
+    //FDeadlineCloudStepParametersArray StepParameterOverrides = FDeadlineCloudStepParametersArray();
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
-	TArray<FDeadlineCloudStepOverride> StepsOverrides = TArray<FDeadlineCloudStepOverride>();
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
+    TArray<FDeadlineCloudStepOverride> StepsOverrides = TArray<FDeadlineCloudStepOverride>();
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
-	TArray<FDeadlineCloudEnvironmentOverride> EnvironmentsVariablesOverrides = TArray<FDeadlineCloudEnvironmentOverride>();
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
+    TArray<FDeadlineCloudEnvironmentOverride> EnvironmentsVariablesOverrides = TArray<FDeadlineCloudEnvironmentOverride>();
 
-	
+
 protected:
 
 #if WITH_EDITOR
-	void CollectDependencies();
-	void UpdateInputFilesProperty();
+    void CollectDependencies();
+    void UpdateInputFilesProperty();
 #endif
 
-	/**
-	 * Copy overriden property values
-	 * @param InStruct structure type
-	 * @param InContainer Pointer to source structure
-	 * @param OutContainer Pointer to target structure
-	 */
-	void GetPresetStructWithOverrides(UStruct* InStruct, const void* InContainer, void* OutContainer) const;
+    /**
+     * Copy overriden property values
+     * @param InStruct structure type
+     * @param InContainer Pointer to source structure
+     * @param OutContainer Pointer to target structure
+     */
+    void GetPresetStructWithOverrides(UStruct* InStruct, const void* InContainer, void* OutContainer) const;
 
-	/**
-	 * List of property "enabled" states in UI
-	 */
-	UPROPERTY(config)
-	TArray<FPropertyRowEnabledInfo> EnabledPropertyOverrides;
+    /**
+     * List of property "enabled" states in UI
+     */
+    UPROPERTY(config)
+    TArray<FPropertyRowEnabledInfo> EnabledPropertyOverrides;
 
 };
 
 /**
- * Deadline MRQ job details view customization. Hides base MRQ job properties which are not used by Deadline Cloud Job 
+ * Deadline MRQ job details view customization. Hides base MRQ job properties which are not used by Deadline Cloud Job
  */
 class FMoviePipelineDeadlineCloudExecutorJobCustomization : public IDetailCustomization
 {
 public:
 
-	static TSharedRef<IDetailCustomization> MakeInstance();
+    static TSharedRef<IDetailCustomization> MakeInstance();
 
-	/** Begin IDetailCustomization interface */
-	virtual void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
-	/** End IDetailCustomization interface */
+    /** Begin IDetailCustomization interface */
+    virtual void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
+    /** End IDetailCustomization interface */
 };
