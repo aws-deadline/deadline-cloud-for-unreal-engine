@@ -22,7 +22,7 @@ def main(reentry_exe=None) -> int:
     timeout_in_seconds = float(os.getenv("ADAPTOR_DAEMON_TIMEOUT_IN_SECONDS", 3600.0))
     try:
         EntryPoint(UnrealAdaptor).start(
-            reentry_exe=reentry_exe, timeout_in_seconds=timeout_in_seconds  # type: ignore
+            reentry_exe=reentry_exe, timeout_in_seconds=timeout_in_seconds
         )
     except Exception as e:
         _logger.error(f"Entrypoint failed: {e}")
