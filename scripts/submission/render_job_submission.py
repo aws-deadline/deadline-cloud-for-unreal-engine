@@ -35,7 +35,7 @@ default_render_job = RenderUnrealOpenJob(
     extra_parameters=[
         UnrealOpenJobParameterDefinition("Executable", "FLOAT", 1.0)
     ],
-    mrq_job=
+    mrq_job=None
 )
 
 
