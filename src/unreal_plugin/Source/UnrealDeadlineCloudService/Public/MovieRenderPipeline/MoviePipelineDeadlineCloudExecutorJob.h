@@ -2,7 +2,9 @@
 
 #pragma once
 
-#include "DeadlineCloudJobSettings/DeadlineCloudJobDataAsset.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudJob.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudRenderJob.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudRenderStep.h"
 #include "IDetailCustomization.h"
 #include "MoviePipelineQueue.h"
 
@@ -41,6 +43,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "DeadlineCloud")
 	FDeadlineCloudJobPresetStruct GetDeadlineJobPresetStructWithOverrides() const;
 
+	UFUNCTION(BlueprintCallable, Category = "DeadlineCloud")
+	FDeadlineCloudJobParametersArray GetParameterDefinitionWithOverrides() const;
+
 #if WITH_EDITOR
 	void UpdateAttachmentFields();
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
@@ -70,13 +75,22 @@ public:
 	 * Reference to Deadline Cloud job preset DataAsset. Source for default job settings
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DeadlineCloud")
-	TObjectPtr<UDeadlineCloudJobPreset> JobPreset;
+	TObjectPtr<UDeadlineCloudRenderJob> JobPreset;
 
 	/**
 	 * Reference to Deadline Cloud job preset DataAsset. Contains overriden job settings
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
 	FDeadlineCloudJobPresetStruct PresetOverrides = FDeadlineCloudJobPresetStruct();
+
+	/**
+ * Reference to Deadline Cloud job parameters. Contains overriden job settings
+ */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
+	FDeadlineCloudJobParametersArray ParameterDefinitionOverrides = FDeadlineCloudJobParametersArray();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
+	FDeadlineCloudStepParametersArray StepParameterOverrides = FDeadlineCloudStepParametersArray();
 	
 protected:
 

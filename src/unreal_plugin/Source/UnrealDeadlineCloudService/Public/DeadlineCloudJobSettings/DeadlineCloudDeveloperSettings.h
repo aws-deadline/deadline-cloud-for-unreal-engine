@@ -1,7 +1,6 @@
 ﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 #pragma once
-
 #include "CoreMinimal.h"
 #include "Engine/DeveloperSettings.h"
 #include "PythonAPILibraries/PythonAPILibrary.h"

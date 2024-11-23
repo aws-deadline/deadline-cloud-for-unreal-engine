@@ -1,0 +1,28 @@
+sonar.projectKey=unreal-plugin
+sonar.projectName=UnrealPlugin
+sonar.sources=.
+sonar.cplusplus.file.suffixes=.cpp,.h,.hpp
+sonar.cpp.file.suffixes=.cpp,.h,.hpp
+
+# Ignore Unreal-specific conventions
+sonar.issue.ignore.multicriteria=e1,e2,e3,e4,e5
+
+# Allow keyword virtual on overrides
+sonar.issue.ignore.multicriteria.e1.ruleKey=cpp:S3471
+sonar.issue.ignore.multicriteria.e1.resourceKey=**/*.h
+
+# Allow LOCTEXT_NAMESPACE macro
+sonar.issue.ignore.multicriteria.e2.ruleKey=cpp:S5028
+sonar.issue.ignore.multicriteria.e2.resourceKey=**/*
+
+# Allow Unreal's memory management patterns
+sonar.issue.ignore.multicriteria.e3.ruleKey=cpp:S5025
+sonar.issue.ignore.multicriteria.e3.resourceKey=**/*
+
+# Allow keyword virtual on overrides
+sonar.issue.ignore.multicriteria.e4.ruleKey=cpp:S3471
+sonar.issue.ignore.multicriteria.e4.resourceKey=**/*.h
+
+# Allow enum "Collisions" for enum BlueprintType declarations
+sonar.issue.ignore.multicriteria.e5.ruleKey=cpp:S841
+sonar.issue.ignore.multicriteria.e5.resourceKey=**/*.h

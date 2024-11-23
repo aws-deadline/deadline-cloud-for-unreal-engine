@@ -3,6 +3,7 @@
 import os
 import sys
 
+
 remote_execution = os.getenv("REMOTE_EXECUTION", "False")
 if remote_execution != "True":
     from deadline.unreal_logger import get_logger
@@ -24,4 +25,10 @@ if remote_execution != "True":
     # These imports finish the setup for the plugin.
     from settings import DeadlineCloudDeveloperSettingsImplementation  # noqa: F401
     from job_library import DeadlineCloudJobBundleLibraryImplementation  # noqa: F401
+    from open_job_template_api import (  # noqa: F401
+        PythonYamlLibraryImplementation,
+        ParametersConsistencyCheckerImplementation,
+    )
     import remote_executor  # noqa: F401
+
+    logger.info("DEADLINE CLOUD INITIALIZED")

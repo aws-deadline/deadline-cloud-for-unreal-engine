@@ -1,0 +1,17 @@
+specificationVersion: jobtemplate-2023-09
+name: RenderJob
+parameterDefinitions:
+- name: ProjectFilePath
+  type: PATH
+  objectType: FILE
+  dataFlow: IN
+- name: ExtraCmdArgs
+  type: STRING
+  default: '-log'
+- name: ExtraCmdArgsFile
+  type: PATH
+  objectType: FILE
+  dataFlow: IN
+- name: Executable
+  type: STRING
+  default: 'UnrealEditor-Cmd'

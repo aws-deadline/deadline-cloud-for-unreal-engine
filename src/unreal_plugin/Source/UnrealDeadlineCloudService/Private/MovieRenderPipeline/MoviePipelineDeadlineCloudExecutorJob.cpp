@@ -1,11 +1,11 @@
 ﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
-
 #include "MovieRenderPipeline/MoviePipelineDeadlineCloudExecutorJob.h"
 #include "DetailCategoryBuilder.h"
 #include "DetailLayoutBuilder.h"
 #include "Async/Async.h"
 #include "PythonAPILibraries/DeadlineCloudJobBundleLibrary.h"
+
 
 UMoviePipelineDeadlineCloudExecutorJob::UMoviePipelineDeadlineCloudExecutorJob()
 {
@@ -117,6 +117,22 @@ FDeadlineCloudJobPresetStruct UMoviePipelineDeadlineCloudExecutorJob::GetDeadlin
 	return ReturnValue;
 }
 
+
+FDeadlineCloudJobParametersArray UMoviePipelineDeadlineCloudExecutorJob::GetParameterDefinitionWithOverrides() const
+{
+	// Start with preset properties
+	FDeadlineCloudJobParametersArray ReturnValue = JobPreset->ParameterDefinition;
+	GetPresetStructWithOverrides(
+		FDeadlineCloudJobParametersArray::StaticStruct(),
+		&ParameterDefinitionOverrides.Parameters,
+		&ReturnValue.Parameters
+	);
+
+	return ReturnValue;
+
+}
+
+
 void UMoviePipelineDeadlineCloudExecutorJob::UpdateAttachmentFields()
 {
 	if (PresetOverrides.JobAttachments.InputFiles.bShowAutoDetected)
@@ -134,9 +150,10 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyCha
 	// Check if we changed the job Preset an update the override details
 	if (const FName PropertyName = PropertyChangedEvent.GetPropertyName(); PropertyName == "JobPreset")
 	{
-		if (const UDeadlineCloudJobPreset* SelectedJobPreset = this->JobPreset)
+
+		if (const UDeadlineCloudJob* SelectedJobPreset = this->JobPreset)
 		{
-			// this->PresetOverrides = SelectedJobPreset->JobPresetStruct;
+
 			this->PresetOverrides.HostRequirements = SelectedJobPreset->JobPresetStruct.HostRequirements;
 			this->PresetOverrides.JobSharedSettings = SelectedJobPreset->JobPresetStruct.JobSharedSettings;
 
@@ -149,6 +166,11 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyCha
 			this->PresetOverrides.JobAttachments.OutputDirectories.Directories =
 				SelectedJobPreset->JobPresetStruct.JobAttachments.OutputDirectories.Directories;
 
+			this->ParameterDefinitionOverrides.Parameters =
+				SelectedJobPreset->ParameterDefinition.Parameters;
+
+			this->StepParameterOverrides.Parameters =
+				SelectedJobPreset->GetTaskChunkSizeFromRenderStep();
 		}
 		// UpdateAttachmentFields();
 	}
@@ -169,7 +191,15 @@ void UMoviePipelineDeadlineCloudExecutorJob::CollectDependencies()
 	AsyncTask(ENamedThreads::GameThread, [this]()
 	{
 		auto& DependencyFiles = PresetOverrides.JobAttachments.InputFiles.AutoDetected.Paths;
-		TArray<FString> FilePaths = UDeadlineCloudJobBundleLibrary::Get()->GetJobDependencies(this);
+		TArray<FString> FilePaths;
+		if (auto Library = UDeadlineCloudJobBundleLibrary::Get())
+		{
+			FilePaths = Library->GetJobDependencies(this);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("Error get DeadlineCloudJobBundleLibrary"));
+		}
 		for (auto FilePath : FilePaths)
 		{
 			FFilePath Item;
@@ -220,17 +250,41 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeChainProperty(FProper
 
 TArray<FString> UMoviePipelineDeadlineCloudExecutorJob::GetCpuArchitectures()
 {
-	return UDeadlineCloudJobBundleLibrary::Get()->GetCpuArchitectures();
+	if (auto Library = UDeadlineCloudJobBundleLibrary::Get())
+	{
+		return Library->GetCpuArchitectures();
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("Error get DeadlineCloudJobBundleLibrary"));
+	}
+	return {};
 }
 
 TArray<FString> UMoviePipelineDeadlineCloudExecutorJob::GetOperatingSystems()
 {
-	return UDeadlineCloudJobBundleLibrary::Get()->GetOperatingSystems();
+	if (auto Library = UDeadlineCloudJobBundleLibrary::Get())
+	{
+		return Library->GetOperatingSystems();
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("Error get DeadlineCloudJobBundleLibrary"));
+	}
+	return {};
 }
 
 TArray<FString> UMoviePipelineDeadlineCloudExecutorJob::GetJobInitialStateOptions()
 {
-	return UDeadlineCloudJobBundleLibrary::Get()->GetJobInitialStateOptions();
+	if (auto Library = UDeadlineCloudJobBundleLibrary::Get())
+	{
+		return Library->GetJobInitialStateOptions();
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("Error get DeadlineCloudJobBundleLibrary"));
+	}
+	return {};
 }
 
 TSharedRef<IDetailCustomization> FMoviePipelineDeadlineCloudExecutorJobCustomization::MakeInstance()

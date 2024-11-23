@@ -10,7 +10,8 @@
         "script_path": { "type": "string" },
         "script_args": { "type": "object" },
         "chunk_size": { "type": "integer" },
-        "chunk_id": { "type": "integer" }
+        "chunk_id": { "type": "integer" },
+        "output_path": { "type":  "string" }
     },
     "required": [
         "handler"

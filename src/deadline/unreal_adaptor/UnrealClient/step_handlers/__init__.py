@@ -1,5 +1,5 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-from typing import Type
+from typing import Type, Union
 
 from .base_step_handler import BaseStepHandler
 from .unreal_render_step_handler import UnrealRenderStepHandler
@@ -8,7 +8,9 @@ from .unreal_custom_step_handler import UnrealCustomStepHandler
 __all__ = ["BaseStepHandler", "get_step_handler_class"]
 
 
-def get_step_handler_class(handler: str = "base") -> Type[BaseStepHandler]:
+def get_step_handler_class(
+    handler: str = "base",
+) -> Type[Union[BaseStepHandler, UnrealCustomStepHandler, UnrealRenderStepHandler]]:
     """
     Returns the step handler instance for the given handler name.
 

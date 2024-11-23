@@ -1,6 +1,6 @@
 ﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-#include "MovieRenderPipeline/DeadlineCloudStepBaseSetting.h"
 
+#include "MovieRenderPipeline/DeadlineCloudStepBaseSetting.h"
 #include "MoviePipelineUtils.h"
 
 #if UE_VERSION_NEWER_THAN(5, 2, -1)
