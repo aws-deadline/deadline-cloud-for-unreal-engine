@@ -84,7 +84,6 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
             )
         return self._telemetry_client
 
-
     @staticmethod
     def get_timer(timeout: int | float) -> Callable[[], bool]:
         """Given a timeout length, returns a lambda which returns True until the timeout occurs"""
@@ -180,13 +179,13 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         """
         is_not_timed_out = self.get_timer(self._UNREAL_START_TIMEOUT_SECONDS)
         while (
-            self._unreal_is_running
-            and not self._has_exception
-            and len(self._action_queue)
-            > 0  # for now the initializing actions in the action queue, defined by
-            # _populate_client_loaded_action() method.
-            # So we wait for them to be done or for time is out.
-            and is_not_timed_out()
+                self._unreal_is_running
+                and not self._has_exception
+                and len(self._action_queue)
+                > 0  # for now the initializing actions in the action queue, defined by
+                # _populate_client_loaded_action() method.
+                # So we wait for them to be done or for time is out.
+                and is_not_timed_out()
         ):
             time.sleep(0.1)
 
@@ -233,15 +232,13 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         :rtype: list[RegexCallback]
         """
 
-        callbacks = []
-
         # We should get UE version to write the telemetry in the most proper way
-        callbacks.append(
+        callbacks: list[RegexCallback] = [
             RegexCallback(
                 [re.compile('.*Engine Version: (.*)'), re.compile('.*engineversion=\"(.*)\"')],
                 self._handle_unreal_engine_version
             )
-        )
+        ]
 
         from deadline.unreal_adaptor.UnrealClient.step_handlers import get_step_handler_class
 
@@ -302,7 +299,9 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         """
 
         if match and len(match.groups()) > 0:
-            self._telemetry_client.update_common_details({'unreal-engine-version': match.groups()[0]})
+            self._telemetry_client.update_common_details(
+                {'unreal-engine-version': match.groups()[0]}
+            )
 
     def _start_unreal_client(self) -> None:
         """
@@ -385,7 +384,8 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
 
         self._action_queue.enqueue_action(Action(name="client_loaded"))
 
-    def _record_error_and_raise(self, exc: Exception, exception_scope: str, exit_code: int = None) -> None:
+    def _record_error_and_raise(self, exc: Exception, exception_scope: str,
+                                exit_code: int = None) -> None:
         """
         Record telemetry error event and raise given exception
         """
@@ -485,7 +485,7 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
                 self._action_queue.enqueue_action(Action("wait_result", {}))
 
         if (
-            not self._unreal_is_running and self._unreal_client
+                not self._unreal_is_running and self._unreal_client
         ):  # Unreal Client will always exist here.
             #  This is always an error case because the Unreal Client should still be running and
             #  waiting for the next command. If the thread finished, then we cannot continue

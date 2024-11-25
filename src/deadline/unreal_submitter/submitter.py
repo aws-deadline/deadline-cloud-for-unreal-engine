@@ -16,11 +16,13 @@ from ._version import version
 from deadline.unreal_submitter.unreal_open_job import UnrealOpenJob, RenderUnrealOpenJob
 
 
-telemetry_client = get_deadline_cloud_library_telemetry_client()  # Initialize telemetry client, opt-out is respected
+# Initialize telemetry client, opt-out is respected
+telemetry_client = get_deadline_cloud_library_telemetry_client()
 telemetry_client.update_common_details(
     {
         'deadline-cloud-for-unreal-engine-submitter-version': version,
-        'unreal-engine-version': unreal.SystemLibrary.get_engine_version()  # 5.4.3-34507850+++UE5+Release-5.4
+        # 5.4.3-34507850+++UE5+Release-5.4
+        'unreal-engine-version': unreal.SystemLibrary.get_engine_version()
     }
 )
 
