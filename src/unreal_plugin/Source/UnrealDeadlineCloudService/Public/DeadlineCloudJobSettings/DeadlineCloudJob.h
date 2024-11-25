@@ -257,11 +257,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", DisplayName = "Job Preset", meta = (DisplayPriority = 3))
 	FDeadlineCloudJobPresetStruct JobPresetStruct;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 6))
-	TArray<TObjectPtr<UDeadlineCloudStep>> Steps;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 6))
+    TArray<TObjectPtr<UDeadlineCloudStep>> Steps;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 5))
-	TArray<TObjectPtr<UDeadlineCloudEnvironment>> Environments;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 5))
+    TArray<TObjectPtr<UDeadlineCloudEnvironment>> Environments;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 4))
 	FDeadlineCloudJobParametersArray ParameterDefinition;
@@ -297,7 +297,7 @@ public:
 	/** Returns list of Job initial states */
 	UFUNCTION()
 	TArray<FString> GetJobInitialStateOptions();
-	
+
 	UFUNCTION(BlueprintCallable, Category = "Parameters")
 	void FixJobParametersConsistency(UDeadlineCloudJob* Job);
 
@@ -342,6 +342,35 @@ public:
 		ParameterHiddenEvent();
 	};
 	FSimpleDelegate OnParameterHidden;
+            FName PropertyName = PropertyChangedEvent.Property->GetFName();
+            if (PropertyName == "FilePath")
+            {
+                OpenJobFile(PathToTemplate.FilePath);
+                TriggerChange();
+            }
+        }
+	};
+    void AddHiddenParameter(FName Parameter)
+    {
+        HiddenParametersList.Add(Parameter);
+        Modify();
+        MarkPackageDirty();
+        ParameterHiddenEvent();
+    };
+    void ClearHiddenParameters()
+    { HiddenParametersList.Empty();
+    Modify();
+    MarkPackageDirty();
+    };
+    bool AreEmptyHiddenParameters() { return HiddenParametersList.IsEmpty(); };
+    bool ContainsHiddenParameters(FName Parameter) { return HiddenParametersList.Contains(Parameter); };
+    void RemoveHiddenParameters(FName Parameter) {
+        HiddenParametersList.Remove(Parameter);
+    Modify();
+    MarkPackageDirty();
+    ParameterHiddenEvent();
+    };
+    FSimpleDelegate OnParameterHidden;
 
 	void ParameterHiddenEvent() {
 		if (OnParameterHidden.IsBound())

@@ -38,10 +38,10 @@ public:
     TObjectPtr<UMoviePipelineDeadlineCloudExecutorJob> MrqJob;
 
     static UMoviePipelineDeadlineCloudExecutorJob* GetMrqJob(TSharedRef<IPropertyHandle> Handle);
-    bool IsPropertyEditable(FName PropertyName)
-    {
-        return PropertiesToShow.Contains(PropertyName);
-    }
+//    bool IsPropertyEditable(FName PropertyName)
+//    {
+//        return PropertiesToShow.Contains(PropertyName);
+//    }
 
 
 private:
@@ -154,8 +154,8 @@ public:
     EVisibility GetEnvironmentDefaultWidgetVisibility() const;
 
 private:
-    TSharedRef<SWidget> GenerateStringsArrayContent(const TArray<FString>& StringArray);
-    TSharedRef<SWidget> GenerateTasksContent(const TArray<FStepTaskParameterDefinition> tasks);
+    // TSharedRef<SWidget> GenerateStringsArrayContent(const TArray<FString>& StringArray);
+    // TSharedRef<SWidget> GenerateTasksContent(const TArray<FStepTaskParameterDefinition> tasks);
 
     void ForceRefreshDetails();
 };
