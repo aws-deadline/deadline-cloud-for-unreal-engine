@@ -103,7 +103,7 @@ public:
     TArray<FDeadlineCloudStepOverride> StepsOverrides = TArray<FDeadlineCloudStepOverride>();
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
-    TArray<FDeadlineCloudEnvironmentOverride> EnvironmentsVariablesOverrides = TArray<FDeadlineCloudEnvironmentOverride>();
+    TArray<FDeadlineCloudEnvironmentOverride> EnvironmentsOverrides = TArray<FDeadlineCloudEnvironmentOverride>();
 
 
 protected:

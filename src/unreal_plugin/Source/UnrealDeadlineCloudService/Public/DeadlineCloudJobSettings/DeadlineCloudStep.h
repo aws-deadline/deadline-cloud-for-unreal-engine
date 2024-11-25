@@ -27,7 +27,7 @@ struct  FDeadlineCloudStepOverride
 	TSet<FString> DependsOn;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 4))
-	TArray<FDeadlineCloudEnvironmentOverride> EnvironmentsToOverride;
+	TArray<FDeadlineCloudEnvironmentOverride> EnvironmentsOverrides;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 4))
 	FDeadlineCloudStepParametersArray TaskParameterDefinitions;

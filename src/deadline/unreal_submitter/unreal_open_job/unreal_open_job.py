@@ -41,6 +41,9 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_shared_settings i
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_parameters_consistency import (
     ParametersConsistencyChecker,
 )
+from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step_host_requirements import (
+    HostRequirements,
+)
 
 from deadline.unreal_logger import get_logger
 from deadline.unreal_submitter import exceptions
@@ -61,7 +64,6 @@ class UnrealOpenJobParameterDefinition:
         if u_param.value:
             python_class = PARAMETER_DEFINITION_MAPPING[u_param.type.name].python_class
             build_kwargs["value"] = python_class(u_param.value)
-        logger.info(build_kwargs)
         return cls(**build_kwargs)
 
     @classmethod
@@ -76,6 +78,7 @@ class UnrealOpenJobParameterDefinition:
         return asdict(self)
 
 
+# Base Open Job implementation
 class UnrealOpenJob(UnrealOpenJobEntity):
     """
     Open Job for Unreal Engine
@@ -83,12 +86,12 @@ class UnrealOpenJob(UnrealOpenJobEntity):
 
     def __init__(
         self,
-        file_path: str,
+        file_path: str = None,
         name: str = None,
         steps: list[UnrealOpenJobStep] = None,
         environments: list[UnrealOpenJobEnvironment] = None,
         extra_parameters: list[UnrealOpenJobParameterDefinition] = None,
-        job_shared_settings: unreal.DeadlineCloudJobSharedSettingsStruct = None,
+        job_shared_settings: JobSharedSettings = JobSharedSettings(),
         asset_references: AssetReferences = AssetReferences(),
     ):
         """
@@ -117,17 +120,19 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             self._name = self.get_template_object().get("name")
 
         self._extra_parameters: list[UnrealOpenJobParameterDefinition] = extra_parameters or []
+        self._create_missing_extra_parameters_from_template()
+
         self._steps: list[UnrealOpenJobStep] = steps or []
         self._environments: list[UnrealOpenJobEnvironment] = environments or []
         self._job_shared_settings = job_shared_settings
         self._asset_references = asset_references
 
     @property
-    def job_shared_settings(self):
+    def job_shared_settings(self) -> JobSharedSettings:
         return self._job_shared_settings
 
     @job_shared_settings.setter
-    def job_shared_settings(self, value):
+    def job_shared_settings(self, value: JobSharedSettings):
         self._job_shared_settings = value
 
     @classmethod
@@ -149,7 +154,9 @@ class UnrealOpenJob(UnrealOpenJobEntity):
                 UnrealOpenJobParameterDefinition.from_unreal_param_definition(param)
                 for param in data_asset.get_job_parameters()
             ],
-            job_shared_settings=shared_settings,
+            job_shared_settings=JobSharedSettings.from_u_deadline_cloud_job_shared_settings(
+                shared_settings
+            ),
         )
 
     @staticmethod
@@ -192,6 +199,15 @@ class UnrealOpenJob(UnrealOpenJobEntity):
                 required_project_directories.append(directory)
         return required_project_directories
 
+    def _create_missing_extra_parameters_from_template(self):
+        try:
+            extra_param_names = [p.name for p in self._extra_parameters]
+            for p in self.get_template_object()["parameterDefinitions"]:
+                if p["name"] not in extra_param_names:
+                    self._extra_parameters.append(UnrealOpenJobParameterDefinition.from_dict(p))
+        except FileNotFoundError:
+            pass
+
     def _find_extra_parameter(
         self, parameter_name: str, parameter_type: str
     ) -> Optional[UnrealOpenJobParameterDefinition]:
@@ -220,7 +236,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             parameter_values.append(dict(name=yaml_p["name"], value=value))
 
         if self._job_shared_settings:
-            parameter_values += JobSharedSettings(self._job_shared_settings).to_dict()
+            parameter_values += self._job_shared_settings.serialize()
 
         return parameter_values
 
@@ -284,10 +300,13 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         return job_bundle_path
 
 
+# Render Open Job
 class RenderUnrealOpenJob(UnrealOpenJob):
     """
     Unreal Open Job for rendering Unreal Engine projects
     """
+
+    default_template_path = "render_job.yml"
 
     job_environment_map = {unreal.DeadlineCloudUgsEnvironment: UnrealOpenJobUgsEnvironment}
 
@@ -295,12 +314,12 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
     def __init__(
         self,
-        file_path: str,
+        file_path: str = None,
         name: str = None,
-        steps: list = None,
-        environments: list = None,
-        extra_parameters: list = None,
-        job_shared_settings: unreal.DeadlineCloudJobSharedSettingsStruct = None,
+        steps: list[UnrealOpenJobStep] = None,
+        environments: list[UnrealOpenJobEnvironment] = None,
+        extra_parameters: list[UnrealOpenJobParameterDefinition] = None,
+        job_shared_settings: JobSharedSettings = JobSharedSettings(),
         asset_references: AssetReferences = AssetReferences(),
         mrq_job: unreal.MoviePipelineExecutorJob = None,
     ):
@@ -314,15 +333,17 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             asset_references,
         )
 
-        self._mrq_job = mrq_job
+        self._mrq_job = None
+        if mrq_job:
+            self.mrq_job = mrq_job
 
         self._dependency_collector = DependencyCollector()
 
         self._manifest_path = ""
         self._extra_cmd_args_file_path = ""
 
-        if self._name is None and isinstance(self._mrq_job, unreal.MoviePipelineExecutorJob):
-            self._name = self._mrq_job.job_name
+        if self._name is None and isinstance(self.mrq_job, unreal.MoviePipelineExecutorJob):
+            self._name = self.mrq_job.job_name
 
     @property
     def mrq_job(self):
@@ -331,31 +352,27 @@ class RenderUnrealOpenJob(UnrealOpenJob):
     @mrq_job.setter
     def mrq_job(self, value):
         self._mrq_job = value
+        self._update_steps_settings_from_mrq_job(self._mrq_job)
+        self._update_environments_settings_from_mrq_job(self._mrq_job)
 
-        for step in self._steps:
-            step.host_requirements = self._mrq_job.preset_overrides.host_requirements
-
-            if isinstance(step, RenderUnrealOpenJobStep):
-                step.mrq_job = self._mrq_job
-
-                for parameter in self._mrq_job.step_parameter_overrides.parameters:
-                    step.update_extra_parameter(
-                        UnrealOpenJobStepParameterDefinition.from_unreal_param_definition(parameter)
-                    )
         if self._mrq_job.parameter_definition_overrides.parameters:
             self._extra_parameters = [
                 UnrealOpenJobParameterDefinition.from_unreal_param_definition(p)
                 for p in self._mrq_job.parameter_definition_overrides.parameters
             ]
-        self.job_shared_settings = self._mrq_job.preset_overrides.job_shared_settings
+
+        self.job_shared_settings = JobSharedSettings.from_u_deadline_cloud_job_shared_settings(
+            self._mrq_job.preset_overrides.job_shared_settings
+        )
 
         # Job name set order:
         #   0. Job preset override (high priority)
         #   1. Get from data asset job preset struct
         #   2. Get from YAML template
         #   4. Get from mrq job name (shot name)
-        if self.job_shared_settings.name not in ["", "Untitled"]:
-            self._name = self.job_shared_settings.name
+        preset_override_name = self._mrq_job.preset_overrides.job_shared_settings.name
+        if preset_override_name not in ["", "Untitled"]:
+            self._name = preset_override_name
 
         if self._name is None:
             self._name = self._mrq_job.job_name
@@ -399,7 +416,9 @@ class RenderUnrealOpenJob(UnrealOpenJob):
                 UnrealOpenJobParameterDefinition.from_unreal_param_definition(param)
                 for param in data_asset.get_job_parameters()
             ],
-            job_shared_settings=shared_settings,
+            job_shared_settings=JobSharedSettings.from_u_deadline_cloud_job_shared_settings(
+                shared_settings
+            ),
         )
 
     @classmethod
@@ -414,6 +433,67 @@ class RenderUnrealOpenJob(UnrealOpenJob):
     def render_steps_count(data_asset: unreal.DeadlineCloudRenderJob) -> int:
         """Count Render Step in the given Render Job data asset"""
         return sum(isinstance(s, unreal.DeadlineCloudRenderStep) for s in data_asset.steps)
+
+    def _update_steps_settings_from_mrq_job(
+            self, mrq_job: unreal.MoviePipelineDeadlineCloudExecutorJob
+    ):
+        for step in self._steps:
+            # update host requirements
+            step.host_requirements = HostRequirements.from_u_deadline_cloud_host_requirements(
+                mrq_job.preset_overrides.host_requirements
+            )
+
+            # set mrq job to render step
+            if isinstance(step, RenderUnrealOpenJobStep):
+                step.mrq_job = mrq_job
+
+            # find appropriate step override
+            step_override = next(
+                (
+                    override for override in mrq_job.steps_overrides
+                    if override.name == step.name
+                ),
+                None
+            )
+            if not step_override:
+                continue
+
+            # update depends on
+            step.step_dependencies = list(step_override.depends_on)
+
+            # update step environments
+            for env in step.environments:
+                step_environment_override = next(
+                    (
+                        env_override for env_override in step_override.environments_overrides
+                        if env_override.name == env.name
+                    ),
+                    None
+                )
+                if step_environment_override:
+                    env.variables = step_environment_override.variables.variables
+
+            # update step parameters
+            for override_param in step_override.task_parameter_definitions.parameters:
+                step.update_extra_parameter(
+                    UnrealOpenJobStepParameterDefinition.from_unreal_param_definition(
+                        override_param
+                    )
+                )
+
+    def _update_environments_settings_from_mrq_job(
+            self, mrq_job: unreal.MoviePipelineDeadlineCloudExecutorJob
+    ):
+        for env in self._environments:
+            override_environment = next(
+                (
+                    env_override for env_override in mrq_job.environments_overrides
+                    if env_override.name == env.name
+                ),
+                None
+            )
+            if override_environment:
+                env.variables = override_environment.variables.variables
 
     def _have_ugs_environment(self) -> bool:
         return (
@@ -552,28 +632,28 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         if self._mrq_job:
             self._mrq_job.get_configuration().initialize_transient_settings()
 
-        job_url_params: list[str] = []
-        job_cmd_args: list[str] = []
-        job_device_profile_cvars: list[str] = []
-        job_exec_cmds: list[str] = []
-        for setting in self._mrq_job.get_configuration().get_all_settings():
-            (job_url_params, job_cmd_args, job_device_profile_cvars, job_exec_cmds) = (
-                setting.build_new_process_command_line_args(
-                    out_unreal_url_params=job_url_params,
-                    out_command_line_args=job_cmd_args,
-                    out_device_profile_cvars=job_device_profile_cvars,
-                    out_exec_cmds=job_exec_cmds,
+            job_url_params: list[str] = []
+            job_cmd_args: list[str] = []
+            job_device_profile_cvars: list[str] = []
+            job_exec_cmds: list[str] = []
+            for setting in self._mrq_job.get_configuration().get_all_settings():
+                (job_url_params, job_cmd_args, job_device_profile_cvars, job_exec_cmds) = (
+                    setting.build_new_process_command_line_args(
+                        out_unreal_url_params=job_url_params,
+                        out_command_line_args=job_cmd_args,
+                        out_device_profile_cvars=job_device_profile_cvars,
+                        out_exec_cmds=job_exec_cmds,
+                    )
                 )
-            )
 
-        # Apply job cmd arguments
-        cmd_args.extend(job_cmd_args)
+            # Apply job cmd arguments
+            cmd_args.extend(job_cmd_args)
 
-        if job_device_profile_cvars:
-            cmd_args.append('-dpcvars="{}"'.format(",".join(job_device_profile_cvars)))
+            if job_device_profile_cvars:
+                cmd_args.append('-dpcvars="{}"'.format(",".join(job_device_profile_cvars)))
 
-        if job_exec_cmds:
-            cmd_args.append('-execcmds="{}"'.format(",".join(job_exec_cmds)))
+            if job_exec_cmds:
+                cmd_args.append('-execcmds="{}"'.format(",".join(job_exec_cmds)))
 
         extra_cmd_args_param = self._find_extra_parameter(
             parameter_name=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS,
@@ -751,3 +831,9 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             asset_references.output_directories.add(self._get_mrq_job_output_directory())
 
         return asset_references
+
+
+# UGS Jobs
+class UgsRenderUnrealJob(RenderUnrealOpenJob):
+
+    default_template_path = "ugs/ugs_render_job.yml"

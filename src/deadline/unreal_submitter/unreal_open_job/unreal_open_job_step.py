@@ -113,6 +113,22 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
     def host_requirements(self, value):
         self._host_requirements = value
 
+    @property
+    def step_dependencies(self) -> list[str]:
+        return self._step_dependencies
+
+    @step_dependencies.setter
+    def step_dependencies(self, value: list[str]):
+        self._step_dependencies = value
+
+    @property
+    def environments(self) -> list[UnrealOpenJobEnvironment]:
+        return self._environments
+
+    @environments.setter
+    def environments(self, value: list[UnrealOpenJobEnvironment]):
+        self._environments = value
+
     @classmethod
     def from_data_asset(cls, data_asset: unreal.DeadlineCloudStep) -> "UnrealOpenJobStep":
         return cls(
@@ -148,6 +164,16 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
                     self._extra_parameters.append(UnrealOpenJobStepParameterDefinition.from_dict(p))
         except FileNotFoundError:
             pass
+
+    def _update_extra_parameter(
+        self, extra_parameter: UnrealOpenJobStepParameterDefinition
+    ) -> bool:
+        existed_parameter = self._find_extra_parameter(extra_parameter.name, extra_parameter.type)
+        if existed_parameter:
+            self._extra_parameters.remove(existed_parameter)
+            self._extra_parameters.append(extra_parameter)
+            return True
+        return False
 
     def _check_parameters_consistency(self):
         result = ParametersConsistencyChecker.check_step_parameters_consistency(
@@ -228,6 +254,9 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
             asset_references = asset_references.union(environment.get_asset_references())
 
         return asset_references
+
+    def update_extra_parameter(self, extra_parameter: UnrealOpenJobStepParameterDefinition):
+        self._update_extra_parameter(extra_parameter)
 
 
 # Render Step
@@ -320,16 +349,6 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         task_chunk_ids_count = math.ceil(len(enabled_shots) / task_chunk_size)
 
         return task_chunk_ids_count
-
-    def _update_extra_parameter(
-        self, extra_parameter: UnrealOpenJobStepParameterDefinition
-    ) -> bool:
-        existed_parameter = self._find_extra_parameter(extra_parameter.name, extra_parameter.type)
-        if existed_parameter:
-            self._extra_parameters.remove(existed_parameter)
-            self._extra_parameters.append(extra_parameter)
-            return True
-        return False
 
     def _get_render_arguments_type(self) -> Optional["RenderUnrealOpenJobStep.RenderArgsType"]:
         parameter_names = [p.name for p in self._extra_parameters]
@@ -441,9 +460,6 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
             asset_references.input_filenames.add(self._queue_manifest_path)
 
         return asset_references
-
-    def update_extra_parameter(self, extra_parameter: UnrealOpenJobStepParameterDefinition):
-        self._update_extra_parameter(extra_parameter)
 
 
 # UGS Steps

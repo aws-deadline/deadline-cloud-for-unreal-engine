@@ -117,6 +117,24 @@ TArray<FString> UDeadlineCloudStep::GetDependsList()
     return DependsList;
 }
 
+FDeadlineCloudStepOverride UDeadlineCloudStep::GetStepDataToOverride()
+{
+    FDeadlineCloudStepOverride StepData;
+    TArray<FDeadlineCloudEnvironmentOverride> Envs;
+
+    StepData.Name = Name;
+    StepData.DependsOn = DependsOn;
+
+    for (int i = 0; i < Environments.Num(); i++)
+    {
+        Envs.Add({ Environments[i]->GetEnvironmentData() });
+    }
+
+    StepData.EnvironmentsOverrides = Envs;
+    StepData.TaskParameterDefinitions = TaskParameterDefinitions;
+    return StepData;
+}
+
 bool UDeadlineCloudStep::IsParameterArrayDefault(FString ParameterName)
 {
     TArray<FStepTaskParameterDefinition> DefaultParameters;

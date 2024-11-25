@@ -27,6 +27,14 @@ class UnrealOpenJobEnvironment(UnrealOpenJobEntity):
         self._variables = variables or {}
         self._create_missing_variables_from_template()
 
+    @property
+    def variables(self) -> dict[str, str]:
+        return self._variables
+
+    @variables.setter
+    def variables(self, value: dict[str, str]):
+        self._variables = value
+
     @classmethod
     def from_data_asset(cls, data_asset: unreal.DeadlineCloudEnvironment):
         return cls(
