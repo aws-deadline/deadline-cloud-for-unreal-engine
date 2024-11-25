@@ -21,7 +21,7 @@ script:
       echo Sync completed successfuly
       
       :: Store this path to Env variable for future using while launching the Unreal Editor and Project within
-      setx P4_CLIENT_DIRECTORY %CD%
+      echo openjd_env: P4_CLIENT_DIRECTORY=%CD%
   - name: RemovePerforceWorkspace
     filename: RemovePerforceWorkspace.bat
     type: TEXT
@@ -33,7 +33,7 @@ script:
       p4 client -d -f %USERNAME%_%COMPUTERNAME%_{{Param.ProjectName}}
       
       :: Remove env variable
-      setx P4_CLIENT_DIRECTORY ""
+      echo openjd_unset_env: P4_CLIENT_DIRECTORY
   actions:
     onEnter:
       command: '{{Env.File.UgsSync}}'
