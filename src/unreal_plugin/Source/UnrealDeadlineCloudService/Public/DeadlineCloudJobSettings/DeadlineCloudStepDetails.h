@@ -21,8 +21,8 @@ public:
     static TSharedRef<FDeadlineCloudStepParametersArrayBuilder> MakeInstance(
         TSharedRef<IPropertyHandle> InPropertyHandle);
 
-    FDeadlineCloudStepParametersArrayBuilder(
-        TSharedRef<IPropertyHandle> InPropertyHandle);
+	FDeadlineCloudStepParametersArrayBuilder(
+		TSharedRef<IPropertyHandle> InPropertyHandle);
 
     void GenerateWrapperStructHeaderRowContent(FDetailWidgetRow& NodeRow, TSharedRef<SWidget> NameContent);
 
@@ -48,7 +48,7 @@ private:
     void OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const;
 
     TArray<FName> PropertiesToShow = { "ChunkSize" };
-    TSharedPtr<IPropertyHandleArray> ArrayProperty;
+	TSharedPtr<IPropertyHandleArray> ArrayProperty;
 };
 
 class FDeadlineCloudStepParametersArrayCustomization : public IPropertyTypeCustomization
@@ -63,13 +63,13 @@ public:
 
     bool IsEnabled(TSharedRef<IPropertyHandle> InPropertyHandle) const;
 
-    FDeadlineCloudStepParametersArrayCustomization() = default;
+	FDeadlineCloudStepParametersArrayCustomization() = default;
 
-    /** Begin IPropertyTypeCustomization interface */
-    virtual void CustomizeHeader(
-        TSharedRef<IPropertyHandle> InPropertyHandle,
-        FDetailWidgetRow& InHeaderRow,
-        IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
+	/** Begin IPropertyTypeCustomization interface */
+	virtual void CustomizeHeader(
+		TSharedRef<IPropertyHandle> InPropertyHandle,
+		FDetailWidgetRow& InHeaderRow,
+		IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
 
     virtual void CustomizeChildren(
         TSharedRef<IPropertyHandle> InPropertyHandle,
@@ -92,8 +92,8 @@ public:
         TSharedRef<IPropertyHandle> InPropertyHandle, EValueType Type
     );
 
-    FDeadlineCloudStepParameterListBuilder(
-        TSharedRef<IPropertyHandle> InPropertyHandle);
+	FDeadlineCloudStepParameterListBuilder(
+		TSharedRef<IPropertyHandle> InPropertyHandle);
 
     void GenerateWrapperStructHeaderRowContent(FDetailWidgetRow& NodeRow, TSharedRef<SWidget> NameContent);
 
@@ -116,13 +116,13 @@ public:
         return MakeShared<FDeadlineCloudStepParameterListCustomization>();
     }
 
-    FDeadlineCloudStepParameterListCustomization() = default;
+	FDeadlineCloudStepParameterListCustomization() = default;
 
-    /** Begin IPropertyTypeCustomization interface */
-    virtual void CustomizeHeader(
-        TSharedRef<IPropertyHandle> InPropertyHandle,
-        FDetailWidgetRow& InHeaderRow,
-        IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
+	/** Begin IPropertyTypeCustomization interface */
+	virtual void CustomizeHeader(
+		TSharedRef<IPropertyHandle> InPropertyHandle,
+		FDetailWidgetRow& InHeaderRow,
+		IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
 
     virtual void CustomizeChildren(
         TSharedRef<IPropertyHandle> InPropertyHandle,

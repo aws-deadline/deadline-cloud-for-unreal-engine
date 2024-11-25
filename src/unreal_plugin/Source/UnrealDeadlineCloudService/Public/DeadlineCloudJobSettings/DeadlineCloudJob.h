@@ -341,35 +341,6 @@ public:
 		MarkPackageDirty();
 		ParameterHiddenEvent();
 	};
-	FSimpleDelegate OnParameterHidden;
-            FName PropertyName = PropertyChangedEvent.Property->GetFName();
-            if (PropertyName == "FilePath")
-            {
-                OpenJobFile(PathToTemplate.FilePath);
-                TriggerChange();
-            }
-        }
-	};
-    void AddHiddenParameter(FName Parameter)
-    {
-        HiddenParametersList.Add(Parameter);
-        Modify();
-        MarkPackageDirty();
-        ParameterHiddenEvent();
-    };
-    void ClearHiddenParameters()
-    { HiddenParametersList.Empty();
-    Modify();
-    MarkPackageDirty();
-    };
-    bool AreEmptyHiddenParameters() { return HiddenParametersList.IsEmpty(); };
-    bool ContainsHiddenParameters(FName Parameter) { return HiddenParametersList.Contains(Parameter); };
-    void RemoveHiddenParameters(FName Parameter) {
-        HiddenParametersList.Remove(Parameter);
-    Modify();
-    MarkPackageDirty();
-    ParameterHiddenEvent();
-    };
     FSimpleDelegate OnParameterHidden;
 
 	void ParameterHiddenEvent() {
