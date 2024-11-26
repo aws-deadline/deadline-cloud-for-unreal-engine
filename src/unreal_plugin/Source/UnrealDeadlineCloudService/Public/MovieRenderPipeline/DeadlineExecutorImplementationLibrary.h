@@ -17,9 +17,6 @@
 #include "Subsystems/ImportSubsystem.h"
 #include "Subsystems/AssetEditorSubsystem.h" 
 
-#include "Misc/Paths.h"
-#include "UObject/NoExportTypes.h"
-
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "UObject/Object.h"
 #include "DeadlineExecutorImplementationLibrary.generated.h"
@@ -28,32 +25,21 @@
 UCLASS()
 class UNREALDEADLINECLOUDSERVICE_API UDeadlineExecutorImplementationLibrary : public UObject
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
 
 public:
-    UFUNCTION(BlueprintCallable, Category = "Deadline Executor")
-    static TSubclassOf<UMoviePipelineExecutorBase> GetDefaultDeadlineExecutor();
-
+	UFUNCTION(BlueprintCallable)
+	static TSubclassOf<UMoviePipelineExecutorBase> GetDefaultDeadlineExecutor();
+	
 };
 
 UCLASS(Blueprintable)
 class  ULevelSelector : public UObject
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
 
 public:
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Level Selection", meta = (AllowedClasses = "/Script/Engine.World"))
-    TSoftObjectPtr<UWorld> Map;
-};
-
-UCLASS(Blueprintable)
-class  UPathSelector : public UObject
-{
-    GENERATED_BODY()
-
-public:
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Path Selection")
-	FFilePath FilePath;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Level Selection", meta = (AllowedClasses = "/Script/Engine.World"))
+	TSoftObjectPtr<UWorld> Map;
 };
