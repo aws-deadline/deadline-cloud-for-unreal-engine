@@ -49,7 +49,8 @@ def run_data() -> dict:
 
 class TestUnrealAdaptor_on_start:
     @patch(
-        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._get_deadline_telemetry_client"
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.telemetry_client",
+        new_callable=PropertyMock
     )
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.ActionsQueue.__len__", return_value=0)
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
@@ -69,7 +70,8 @@ class TestUnrealAdaptor_on_start:
 
     @patch("time.sleep")
     @patch(
-        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._get_deadline_telemetry_client"
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.telemetry_client",
+        new_callable=PropertyMock
     )
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.ActionsQueue.__len__", return_value=0)
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
@@ -118,7 +120,8 @@ class TestUnrealAdaptor_on_start:
         )
 
     @patch(
-        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._get_deadline_telemetry_client"
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.telemetry_client",
+        new_callable=PropertyMock
     )
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.ActionsQueue.__len__", return_value=1)
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
@@ -156,7 +159,8 @@ class TestUnrealAdaptor_on_start:
 
     @patch.object(UnrealAdaptor, "_unreal_is_running", False)
     @patch(
-        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._get_deadline_telemetry_client"
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.telemetry_client",
+        new_callable=PropertyMock
     )
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.ActionsQueue.__len__", return_value=1)
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
@@ -360,7 +364,8 @@ class TestUnrealAdaptor_on_start:
 class TestUnrealAdaptor_on_run:
     @patch("time.sleep")
     @patch(
-        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._get_deadline_telemetry_client"
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.telemetry_client",
+        new_callable=PropertyMock
     )
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.ActionsQueue.__len__", return_value=0)
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
@@ -400,7 +405,8 @@ class TestUnrealAdaptor_on_run:
         new_callable=PropertyMock,
     )
     @patch(
-        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._get_deadline_telemetry_client"
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.telemetry_client",
+        new_callable=PropertyMock
     )
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.ActionsQueue.__len__", return_value=0)
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
@@ -440,7 +446,8 @@ class TestUnrealAdaptor_on_run:
 
     @patch("time.sleep")
     @patch(
-        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._get_deadline_telemetry_client"
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.telemetry_client",
+        new_callable=PropertyMock
     )
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.ActionsQueue.__len__", return_value=0)
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
@@ -476,7 +483,8 @@ class TestUnrealAdaptor_on_run:
 class TestUnrealAdaptor_on_stop:
     @patch("time.sleep")
     @patch(
-        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._get_deadline_telemetry_client"
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.telemetry_client",
+        new_callable=PropertyMock
     )
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.ActionsQueue.__len__", return_value=0)
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
@@ -558,7 +566,8 @@ class TestUnrealAdaptor_on_cleanup:
 
     @patch("time.sleep")
     @patch(
-        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._get_deadline_telemetry_client"
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.telemetry_client",
+        new_callable=PropertyMock
     )
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.ActionsQueue.__len__", return_value=0)
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
@@ -597,7 +606,7 @@ class TestUnrealAdaptor_on_cleanup:
         # GIVEN
         adaptor = UnrealAdaptor(init_data)
         regex_callbacks = adaptor._get_regex_callbacks()
-        complete_regex = regex_callbacks[1].regex_list[0]
+        complete_regex = regex_callbacks[2].regex_list[0]
 
         # WHEN
         match = complete_regex.search("Render Executor: Rendering is complete")
@@ -624,7 +633,7 @@ class TestUnrealAdaptor_on_cleanup:
         # GIVEN
         adaptor = UnrealAdaptor(init_data)
         regex_callbacks = adaptor._get_regex_callbacks()
-        progress_regex = regex_callbacks[0].regex_list[regex_index]
+        progress_regex = regex_callbacks[1].regex_list[regex_index]
 
         # WHEN
         match = progress_regex.search(stdout)
@@ -693,9 +702,8 @@ class TestUnrealAdaptor_on_cleanup:
         with pytest.raises(UnrealNotRunningError) as raised_err:
             adaptor.on_run(run_data)
 
-        print(raised_err)
         # THEN
-        assert raised_err.match("Cannot render because Unreal is not running.")
+        assert raised_err.match("Cannot render because Unreal is not running")
 
 
 class TestUnrealAdaptor_on_cancel:

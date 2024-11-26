@@ -78,8 +78,8 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
             self._telemetry_client = get_deadline_cloud_library_telemetry_client()
             self._telemetry_client.update_common_details(
                 {
-                    'deadline-cloud-for-unreal-engine-adaptor-version': adaptor_version,
-                    'open-jd-adaptor-runtime-version': openjd_adaptor_version
+                    "deadline-cloud-for-unreal-engine-adaptor-version": adaptor_version,
+                    "open-jd-adaptor-runtime-version": openjd_adaptor_version,
                 }
             )
         return self._telemetry_client
@@ -179,13 +179,13 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         """
         is_not_timed_out = self.get_timer(self._UNREAL_START_TIMEOUT_SECONDS)
         while (
-                self._unreal_is_running
-                and not self._has_exception
-                and len(self._action_queue)
-                > 0  # for now the initializing actions in the action queue, defined by
-                # _populate_client_loaded_action() method.
-                # So we wait for them to be done or for time is out.
-                and is_not_timed_out()
+            self._unreal_is_running
+            and not self._has_exception
+            and len(self._action_queue)
+            > 0  # for now the initializing actions in the action queue, defined by
+            # _populate_client_loaded_action() method.
+            # So we wait for them to be done or for time is out.
+            and is_not_timed_out()
         ):
             time.sleep(0.1)
 
@@ -235,8 +235,8 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         # We should get UE version to write the telemetry in the most proper way
         callbacks: list[RegexCallback] = [
             RegexCallback(
-                [re.compile('.*Engine Version: (.*)'), re.compile('.*engineversion=\"(.*)\"')],
-                self._handle_unreal_engine_version
+                [re.compile(".*Engine Version: (.*)"), re.compile('.*engineversion="(.*)"')],
+                self._handle_unreal_engine_version,
             )
         ]
 
@@ -299,8 +299,8 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         """
 
         if match and len(match.groups()) > 0:
-            self._telemetry_client.update_common_details(
-                {'unreal-engine-version': match.groups()[0]}
+            self.telemetry_client.update_common_details(
+                {"unreal-engine-version": match.groups()[0]}
             )
 
     def _start_unreal_client(self) -> None:
@@ -384,15 +384,16 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
 
         self._action_queue.enqueue_action(Action(name="client_loaded"))
 
-    def _record_error_and_raise(self, exc: Exception, exception_scope: str,
-                                exit_code: int = None) -> None:
+    def _record_error_and_raise(
+        self, exc: Exception, exception_scope: str, exit_code: int = None
+    ) -> None:
         """
         Record telemetry error event and raise given exception
         """
-        self._telemetry_client.record_error(
+        self.telemetry_client.record_error(
             event_details={"exit_code": exit_code, "exception_scope": exception_scope},
             exception_type=str(type(exc)),
-            from_gui=False
+            from_gui=False,
         )
         raise exc
 
@@ -411,7 +412,7 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         try:
             self.data_validation.validate_init_data(self.init_data)
         except Exception as e:
-            self._record_error_and_raise(exc=e, exception_scope='on_start')
+            self._record_error_and_raise(exc=e, exception_scope="on_start")
 
         # Notify worker agent about starting Unreal
         self.update_status(progress=0, status_message="Initializing Unreal Engine")
@@ -420,7 +421,7 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         try:
             self._start_unreal_server_thread()
         except Exception as e:
-            self._record_error_and_raise(exc=e, exception_scope='on_start')
+            self._record_error_and_raise(exc=e, exception_scope="on_start")
 
         self._populate_client_loaded_action()
 
@@ -446,7 +447,7 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
             self._start_unreal_client()
             self._wait_for_unreal_started()
         except Exception as e:
-            self._record_error_and_raise(exc=e, exception_scope='on_start')
+            self._record_error_and_raise(exc=e, exception_scope="on_start")
 
     def on_run(self, run_data: dict) -> None:
         """
@@ -458,13 +459,13 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         if not self._unreal_is_running:
             self._record_error_and_raise(
                 exc=UnrealNotRunningError("Cannot render because Unreal is not running"),
-                exception_scope='on_run'
+                exception_scope="on_run",
             )
 
         try:
             self.data_validation.validate_run_data(run_data)
         except Exception as e:
-            self._record_error_and_raise(exc=e, exception_scope='on_run')
+            self._record_error_and_raise(exc=e, exception_scope="on_run")
 
         # Set up the step handler
         self._action_queue.enqueue_action(
@@ -485,7 +486,7 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
                 self._action_queue.enqueue_action(Action("wait_result", {}))
 
         if (
-                not self._unreal_is_running and self._unreal_client
+            not self._unreal_is_running and self._unreal_client
         ):  # Unreal Client will always exist here.
             #  This is always an error case because the Unreal Client should still be running and
             #  waiting for the next command. If the thread finished, then we cannot continue
@@ -495,8 +496,8 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
                     "Unreal exited early and did not render successfully, please check render logs. "
                     f"Exit code {exit_code}"
                 ),
-                exception_scope='on_run',
-                exit_code=exit_code
+                exception_scope="on_run",
+                exit_code=exit_code,
             )
 
     def on_stop(self) -> None:

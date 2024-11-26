@@ -11,7 +11,7 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job import (
 
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step import (
     RenderUnrealOpenJobStep,
-    UnrealOpenJobStepParameterDefinition
+    UnrealOpenJobStepParameterDefinition,
 )
 
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment import (
@@ -42,7 +42,7 @@ def main():
                 )
             ],
             environments=[LaunchEditorUnrealOpenJobEnvironment()],
-            mrq_job=job
+            mrq_job=job,
         )
 
         render_job_submitter.add_job(default_render_job)
@@ -52,5 +52,5 @@ def main():
         logger.info(f"Job submitted: {job_id}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

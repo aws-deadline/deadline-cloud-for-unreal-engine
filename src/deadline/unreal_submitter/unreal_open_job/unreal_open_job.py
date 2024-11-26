@@ -435,7 +435,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         return sum(isinstance(s, unreal.DeadlineCloudRenderStep) for s in data_asset.steps)
 
     def _update_steps_settings_from_mrq_job(
-            self, mrq_job: unreal.MoviePipelineDeadlineCloudExecutorJob
+        self, mrq_job: unreal.MoviePipelineDeadlineCloudExecutorJob
     ):
         for step in self._steps:
             # update host requirements
@@ -449,11 +449,8 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
             # find appropriate step override
             step_override = next(
-                (
-                    override for override in mrq_job.steps_overrides
-                    if override.name == step.name
-                ),
-                None
+                (override for override in mrq_job.steps_overrides if override.name == step.name),
+                None,
             )
             if not step_override:
                 continue
@@ -465,10 +462,11 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             for env in step.environments:
                 step_environment_override = next(
                     (
-                        env_override for env_override in step_override.environments_overrides
+                        env_override
+                        for env_override in step_override.environments_overrides
                         if env_override.name == env.name
                     ),
-                    None
+                    None,
                 )
                 if step_environment_override:
                     env.variables = step_environment_override.variables.variables
@@ -482,15 +480,16 @@ class RenderUnrealOpenJob(UnrealOpenJob):
                 )
 
     def _update_environments_settings_from_mrq_job(
-            self, mrq_job: unreal.MoviePipelineDeadlineCloudExecutorJob
+        self, mrq_job: unreal.MoviePipelineDeadlineCloudExecutorJob
     ):
         for env in self._environments:
             override_environment = next(
                 (
-                    env_override for env_override in mrq_job.environments_overrides
+                    env_override
+                    for env_override in mrq_job.environments_overrides
                     if env_override.name == env.name
                 ),
-                None
+                None,
             )
             if override_environment:
                 env.variables = override_environment.variables.variables

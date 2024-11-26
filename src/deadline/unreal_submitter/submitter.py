@@ -20,9 +20,9 @@ from deadline.unreal_submitter.unreal_open_job import UnrealOpenJob, RenderUnrea
 telemetry_client = get_deadline_cloud_library_telemetry_client()
 telemetry_client.update_common_details(
     {
-        'deadline-cloud-for-unreal-engine-submitter-version': version,
+        "deadline-cloud-for-unreal-engine-submitter-version": version,
         # 5.4.3-34507850+++UE5+Release-5.4
-        'unreal-engine-version': unreal.SystemLibrary.get_engine_version()
+        "unreal-engine-version": unreal.SystemLibrary.get_engine_version(),
     }
 )
 
@@ -43,7 +43,7 @@ def error_notify(
                 telemetry_client.record_error(
                     event_details={"exception_scope": "on_submit"},
                     exception_type=str(e),
-                    from_gui=True
+                    from_gui=True,
                 )
 
                 message = notify_prefix + str(e)
