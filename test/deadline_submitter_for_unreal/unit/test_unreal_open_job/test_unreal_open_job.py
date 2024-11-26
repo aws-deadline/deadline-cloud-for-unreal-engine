@@ -26,6 +26,7 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job import (  # noqa:
     RenderUnrealOpenJob,
     UnrealOpenJobUgsEnvironment,
     UnrealOpenJobParameterDefinition,
+    TransferProjectFilesStrategy,
 )
 
 
@@ -299,19 +300,23 @@ class TestUnrealOpenJob:
 class TestRenderUnrealOpenJob:
 
     @pytest.mark.parametrize(
-        "environment, have", [(UnrealOpenJobUgsEnvironment(""), True), (None, False)]
+        "environment, strategy",
+        [
+            (UnrealOpenJobUgsEnvironment(""), TransferProjectFilesStrategy.UGS),
+            (None, TransferProjectFilesStrategy.S3),
+        ],
     )
     @patch(
         "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
         "UnrealOpenJobEntity.get_template_object",
         return_value=fixtures.f_job_template_default(),
     )
-    def test__have_ugs_environment(self, get_template_object_mock, environment, have):
+    def test__transfer_files_strategy(self, get_template_object_mock, environment, strategy):
         # GIVEN
         render_job = RenderUnrealOpenJob(file_path="", name="JobA", environments=[environment])
 
         # WHEN
-        have_ugs_environment = render_job._have_ugs_environment()
+        transfer_strategy = render_job._transfer_files_strategy
 
         # THEN
-        assert have_ugs_environment == have
+        assert transfer_strategy == strategy

@@ -3,8 +3,9 @@ import re
 import sys
 import json
 import unreal
-from collections import OrderedDict
+from enum import IntEnum
 from typing import Any, Optional
+from collections import OrderedDict
 from dataclasses import dataclass, asdict
 
 from openjd.model.v2023_09 import JobTemplate
@@ -50,6 +51,13 @@ from deadline.unreal_submitter import exceptions
 
 
 logger = get_logger()
+
+
+class TransferProjectFilesStrategy(IntEnum):
+
+    S3 = 0
+    P4 = 1
+    UGS = 2
 
 
 @dataclass
@@ -126,6 +134,8 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         self._environments: list[UnrealOpenJobEnvironment] = environments or []
         self._job_shared_settings = job_shared_settings
         self._asset_references = asset_references
+
+        self._transfer_files_strategy = TransferProjectFilesStrategy.S3
 
     @property
     def job_shared_settings(self) -> JobSharedSettings:
@@ -345,6 +355,12 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         if self._name is None and isinstance(self.mrq_job, unreal.MoviePipelineExecutorJob):
             self._name = self.mrq_job.job_name
 
+        ugs_envs = [
+            env for env in self._environments if isinstance(env, UnrealOpenJobUgsEnvironment)
+        ]
+        if ugs_envs:
+            self._transfer_files_strategy = TransferProjectFilesStrategy.UGS
+
     @property
     def mrq_job(self):
         return self._mrq_job
@@ -494,15 +510,6 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             if override_environment:
                 env.variables = override_environment.variables.variables
 
-    def _have_ugs_environment(self) -> bool:
-        return (
-            next(
-                (env for env in self._environments if isinstance(env, UnrealOpenJobUgsEnvironment)),
-                None,
-            )
-            is not None
-        )
-
     def _write_cmd_args_to_file(self, cmd_args_str: str) -> str:
 
         destination_dir = os.path.join(
@@ -559,7 +566,10 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             job_parameter_value=common.get_project_file_path(),
         )
 
-        if self._have_ugs_environment():
+        if self._transfer_files_strategy in [
+            TransferProjectFilesStrategy.P4,
+            TransferProjectFilesStrategy.S3,
+        ]:
             perforce_api = PerforceApi()
 
             unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
@@ -798,7 +808,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         asset_references = super().get_asset_references()
 
-        if not self._have_ugs_environment():
+        if self._transfer_files_strategy == TransferProjectFilesStrategy.S3:
             # add dependencies to attachments
             asset_references.input_filenames.update(self._get_mrq_job_dependency_paths())
 

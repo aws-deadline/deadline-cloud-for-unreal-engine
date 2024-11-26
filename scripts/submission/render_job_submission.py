@@ -31,14 +31,17 @@ if "OPENJD_TEMPLATES_DIRECTORY" not in os.environ:
 
 
 def main():
-    queue = unreal.get_editor_subsystem(unreal.MoviePipelineQueueSubsystem).get_queue()
     render_job_submitter = UnrealRenderOpenJobSubmitter(silent_mode=True)
 
+    # Get jobs from Render Queue or you can create your own
+    queue = unreal.get_editor_subsystem(unreal.MoviePipelineQueueSubsystem).get_queue()
     for job in queue.get_jobs():
         default_render_job = RenderUnrealOpenJob(
             steps=[
                 RenderUnrealOpenJobStep(
-                    extra_parameters=[UnrealOpenJobStepParameterDefinition("ChunkSize", "INT", [1])]
+                    extra_parameters=[
+                        UnrealOpenJobStepParameterDefinition("ChunkSize", "INT", [10])
+                    ]
                 )
             ],
             environments=[LaunchEditorUnrealOpenJobEnvironment()],
