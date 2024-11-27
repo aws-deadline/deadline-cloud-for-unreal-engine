@@ -18,6 +18,8 @@
 #include "MovieRenderPipeline/MoviePipelineDeadlineCloudExecutorJob.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudJobPresetDetailsCustomization.h"
 
+#include "MovieRenderPipeline/MoviePipelineDeadlineCloudExecutorJob.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudJobPresetDetailsCustomization.h"
 
 #define LOCTEXT_NAMESPACE "StepDetails"
 
@@ -32,10 +34,22 @@ bool FDeadlineCloudStepDetails::CheckConsistency(UDeadlineCloudStep* Step)
 	return result.Passed;
 }
 
+void FDeadlineCloudStepDetails::OnViewAllButtonClicked()
+{
+		bool Show = Settings->GetDisplayHiddenParameters();
+		Settings->SetDisplayHiddenParameters(!Show);
+		ForceRefreshDetails();
+}
+
 void FDeadlineCloudStepDetails::OnConsistencyButtonClicked()
 {
 	Settings->FixStepParametersConsistency(Settings.Get());
 	UE_LOG(LogTemp, Warning, TEXT("FixStepParametersConsistency"));
+	ForceRefreshDetails();
+}
+
+void FDeadlineCloudStepDetails::RespondToEvent()
+{
 	ForceRefreshDetails();
 }
 
@@ -98,6 +112,18 @@ void FDeadlineCloudStepDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBui
 	TSharedPtr<FDeadlineCloudDetailsWidgetsHelper::SConsistencyWidget> ConsistencyUpdateWidget;
 	FParametersConsistencyCheckResult result;
 
+	TSharedPtr<FDeadlineCloudDetailsWidgetsHelper::SEyeUpdateWidget> HiddenParametersUpdateWidget;
+
+	/* Update all when one Parameters widget is checked as hidden */
+	if (Settings.IsValid())
+	{
+		Settings->OnParameterHidden.BindSP(this, &FDeadlineCloudStepDetails::RespondToEvent);
+	}
+	/* Collapse hidden parameters array  */
+	TSharedRef<IPropertyHandle> HideHandle = MyDetailLayout->GetProperty("HiddenParametersList");
+	IDetailPropertyRow* HideRow = MyDetailLayout->EditDefaultProperty(HideHandle);
+	HideRow->Visibility(EVisibility::Collapsed);
+
 	/* Consistency check */
 	if (Settings.IsValid() && Settings->GetStepParameters().Num() > 0)
 	{
@@ -119,6 +145,16 @@ void FDeadlineCloudStepDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBui
     {
         Settings->OnSomethingChanged = FSimpleDelegate::CreateSP(this, &FDeadlineCloudStepDetails::ForceRefreshDetails);
     };
+
+	PropertiesCategory.AddCustomRow(FText::FromString("Visibility"))
+		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FDeadlineCloudStepDetails::GetEyeWidgetVisibility)))
+		.WholeRowContent()
+		[
+			SAssignNew(HiddenParametersUpdateWidget, FDeadlineCloudDetailsWidgetsHelper::SEyeUpdateWidget)
+
+				.OnEyeUpdateButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudStepDetails::OnViewAllButtonClicked))
+				.bShowHidden_(Settings->GetDisplayHiddenParameters())
+		];
 }
 
 bool FDeadlineCloudStepDetails::IsEnvironmentContainsErrors() const
@@ -135,6 +171,11 @@ bool FDeadlineCloudStepDetails::IsEnvironmentContainsErrors() const
 	}
 
 	return false;
+}
+
+EVisibility FDeadlineCloudStepDetails::GetEyeWidgetVisibility() const
+{
+	return ((Settings->AreEmptyHiddenParameters())) ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
 EVisibility FDeadlineCloudStepDetails::GetEnvironmentErrorWidgetVisibility() const
@@ -170,7 +211,47 @@ void FDeadlineCloudStepParametersArrayCustomization::CustomizeHeader(TSharedRef<
 
 void FDeadlineCloudStepParametersArrayCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> InPropertyHandle, IDetailChildrenBuilder& InChildBuilder, IPropertyTypeCustomizationUtils& InCustomizationUtils)
 {
-    InChildBuilder.AddCustomBuilder(ArrayBuilder.ToSharedRef());
+	ArrayBuilder->MrqJob = GetMrqJob(InPropertyHandle);
+	ArrayBuilder->Step = GetStep(InPropertyHandle);
+	InChildBuilder.AddCustomBuilder(ArrayBuilder.ToSharedRef());
+}
+
+UMoviePipelineDeadlineCloudExecutorJob* FDeadlineCloudStepParametersArrayCustomization::GetMrqJob(TSharedRef<IPropertyHandle> Handle)
+{
+	TArray<UObject*> OuterObjects;
+	Handle->GetOuterObjects(OuterObjects);
+
+	if (OuterObjects.Num() == 0)
+	{
+		return nullptr;
+	}
+
+	const TWeakObjectPtr<UObject> OuterObject = OuterObjects[0];
+	if (!OuterObject.IsValid())
+	{
+		return nullptr;
+	}
+	UMoviePipelineDeadlineCloudExecutorJob* MrqJob = Cast<UMoviePipelineDeadlineCloudExecutorJob>(OuterObject);
+	return MrqJob;
+}
+
+UDeadlineCloudStep* FDeadlineCloudStepParametersArrayCustomization::GetStep(TSharedRef<IPropertyHandle> Handle)
+{
+	TArray<UObject*> OuterObjects;
+	Handle->GetOuterObjects(OuterObjects);
+
+	if (OuterObjects.Num() == 0)
+	{
+		return nullptr;
+	}
+
+	const TWeakObjectPtr<UObject> OuterObject = OuterObjects[0];
+	if (!OuterObject.IsValid())
+	{
+		return nullptr;
+	}
+	UDeadlineCloudStep* Step = Cast<UDeadlineCloudStep>(OuterObject);
+	return Step;
 }
 
 UDeadlineCloudStep* FDeadlineCloudStepParametersArrayBuilder::GetOuterStep(TSharedRef<IPropertyHandle> Handle)
@@ -275,6 +356,39 @@ void FDeadlineCloudStepParametersArrayBuilder::ResetToDefaultHandler(TSharedPtr<
 	OuterStep->ResetParameterArray(InParameterName);
 }
 
+void FDeadlineCloudStepParametersArrayBuilder::OnEyeHideWidgetButtonClicked(FName Property) const
+{
+	if (Step)
+	{
+		if (Step->ContainsHiddenParameters(Property))
+		{
+			Step->RemoveHiddenParameters(Property);
+		}
+		else
+		{
+			Step->AddHiddenParameter(Property);
+		}
+	}
+}
+
+bool FDeadlineCloudStepParametersArrayBuilder::IsPropertyHidden(FName Parameter) const
+{
+	bool Contains = false;
+	if (Step)
+	{
+		Contains = Step->ContainsHiddenParameters(Parameter) && (Step->GetDisplayHiddenParameters() == false);
+	}
+	if (MrqJob)
+	{
+		if (MrqJob->JobPreset)
+		{
+			//Contains = MrqJob->JobPreset->ContainsHiddenParameters(Parameter);
+			//TODO:get Step from Job from MrqJob, return contains
+		}
+	}
+	return Contains;
+}
+
 UMoviePipelineDeadlineCloudExecutorJob* FDeadlineCloudStepParametersArrayBuilder::GetMrqJob(TSharedRef<IPropertyHandle> Handle)
 {
 	TArray<UObject*> OuterObjects;
@@ -330,6 +444,11 @@ void FDeadlineCloudStepParametersArrayBuilder::OnGenerateEntry(TSharedRef<IPrope
 	TSharedPtr<SWidget> ValueWidget;
 
 	PropertyRow.GetDefaultWidgets(NameWidget, ValueWidget);
+	bool Checked = !(IsEyeWidgetEnabled(FName(ParameterName)));
+	TSharedRef<FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox> EyeWidget = SNew(FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox, FName(ParameterName), Checked);
+
+	EyeWidget->SetOnCheckStateChangedDelegate(FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox::FOnCheckStateChangedDelegate::CreateSP(this, &FDeadlineCloudStepParametersArrayBuilder::OnEyeHideWidgetButtonClicked));
+	EyeWidget->SetVisibility((MrqJob) ? EVisibility::Hidden : EVisibility::Visible);
 
 	PropertyRow.CustomWidget(true)
 		.CopyAction(EmptyCopyPasteAction)
@@ -352,6 +471,10 @@ void FDeadlineCloudStepParametersArrayBuilder::OnGenerateEntry(TSharedRef<IPrope
 		.HAlign(HAlign_Fill)
 		[
 			ValueWidget.ToSharedRef()
+		]
+		.ExtensionContent()
+		[
+			EyeWidget
 		];
 	ValueWidget.ToSharedRef()->SetEnabled(
 		TAttribute<bool>::CreateLambda([this, ParameterName]()
@@ -362,6 +485,7 @@ void FDeadlineCloudStepParametersArrayBuilder::OnGenerateEntry(TSharedRef<IPrope
 			})
 	);
 
+	PropertyRow.Visibility(IsPropertyHidden(FName(ParameterName)) ? EVisibility::Collapsed : EVisibility::Visible);/*
 	PropertyRow.IsEnabled(TAttribute<bool>::CreateLambda([this, ParameterName]() -> bool
 		{
 			//hide|show properties only if MRQ
@@ -376,7 +500,25 @@ void FDeadlineCloudStepParametersArrayBuilder::OnGenerateEntry(TSharedRef<IPrope
 			{
 				return true;
 			}
-		}));
+		}));*/
+}
+
+bool FDeadlineCloudStepParametersArrayBuilder::IsEyeWidgetEnabled(FName Parameter) const
+{
+	bool result = false;
+	if (Step)
+	{
+		result = Step->ContainsHiddenParameters(Parameter);
+	}
+	if (MrqJob)
+	{
+		if (MrqJob->JobPreset)
+		{
+			//result = MrqJob->JobPreset->ContainsHiddenParameters(Parameter);
+			//TODO
+		}
+	}
+	return result;
 }
 
 TSharedRef<FDeadlineCloudStepParameterListBuilder> FDeadlineCloudStepParameterListBuilder::MakeInstance(TSharedRef<IPropertyHandle> InPropertyHandle, EValueType Type)
