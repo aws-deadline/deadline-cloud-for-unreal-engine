@@ -28,7 +28,7 @@ class UNREALDEADLINECLOUDSERVICE_API UDeadlineExecutorImplementationLibrary : pu
 	GENERATED_BODY()
 
 public:
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Deadline Executor")
 	static TSubclassOf<UMoviePipelineExecutorBase> GetDefaultDeadlineExecutor();
 	
 };
