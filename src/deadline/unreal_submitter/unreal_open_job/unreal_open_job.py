@@ -13,8 +13,7 @@ from openjd.model.v2023_09 import JobTemplate
 from deadline.client.job_bundle.submission import AssetReferences
 from deadline.client.job_bundle import deadline_yaml_dump, create_job_history_bundle_dir
 
-from deadline.unreal_submitter import common
-from deadline.unreal_submitter import settings
+from deadline.unreal_submitter import common, exceptions, settings
 from deadline.unreal_submitter.perforce_api import PerforceApi
 from deadline.unreal_submitter.unreal_dependency_collector import (
     DependencyCollector,
@@ -47,7 +46,6 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step_host_require
 )
 
 from deadline.unreal_logger import get_logger
-from deadline.unreal_submitter import exceptions
 
 
 logger = get_logger()
@@ -124,9 +122,6 @@ class UnrealOpenJob(UnrealOpenJobEntity):
 
         super().__init__(JobTemplate, file_path, name)
 
-        if self._name is None:
-            self._name = self.get_template_object().get("name")
-
         self._extra_parameters: list[UnrealOpenJobParameterDefinition] = extra_parameters or []
         self._create_missing_extra_parameters_from_template()
 
@@ -179,7 +174,9 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             "jobEnvironments",
             "steps",
         ]
-        ordered_data = dict(OrderedDict((key, template_json[key]) for key in ordered_keys))
+        ordered_data = dict(
+            OrderedDict((key, template_json[key]) for key in ordered_keys if key in template_json)
+        )
         return ordered_data
 
     @staticmethod
@@ -192,22 +189,6 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         if param:
             param["value"] = job_parameter_value
         return job_parameter_values
-
-    @staticmethod
-    def get_required_project_directories() -> list[str]:
-        """
-        Returns a list of required project directories such as Config and Binaries
-
-        :return: list of required project directories
-        :rtype: list
-        """
-
-        required_project_directories = []
-        for sub_dir in ["Config", "Binaries"]:
-            directory = common.os_abs_from_relative(sub_dir)
-            if os.path.exists(directory):
-                required_project_directories.append(directory)
-        return required_project_directories
 
     def _create_missing_extra_parameters_from_template(self):
         try:
@@ -316,7 +297,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
     Unreal Open Job for rendering Unreal Engine projects
     """
 
-    default_template_path = "render_job.yml"
+    default_template_path = settings.RENDER_JOB_TEMPLATE_DEFAULT_PATH
 
     job_environment_map = {unreal.DeadlineCloudUgsEnvironment: UnrealOpenJobUgsEnvironment}
 
@@ -449,6 +430,22 @@ class RenderUnrealOpenJob(UnrealOpenJob):
     def render_steps_count(data_asset: unreal.DeadlineCloudRenderJob) -> int:
         """Count Render Step in the given Render Job data asset"""
         return sum(isinstance(s, unreal.DeadlineCloudRenderStep) for s in data_asset.steps)
+
+    @staticmethod
+    def get_required_project_directories() -> list[str]:
+        """
+        Returns a list of required project directories such as Config and Binaries
+
+        :return: list of required project directories
+        :rtype: list
+        """
+
+        required_project_directories = []
+        for sub_dir in ["Config", "Binaries"]:
+            directory = common.os_abs_from_relative(sub_dir)
+            if os.path.exists(directory):
+                required_project_directories.append(directory)
+        return required_project_directories
 
     def _update_steps_settings_from_mrq_job(
         self, mrq_job: unreal.MoviePipelineDeadlineCloudExecutorJob
@@ -845,4 +842,4 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 # UGS Jobs
 class UgsRenderUnrealJob(RenderUnrealOpenJob):
 
-    default_template_path = "ugs/ugs_render_job.yml"
+    default_template_path = settings.UGS_RENDER_JOB_TEMPLATE_DEFAULT_PATH

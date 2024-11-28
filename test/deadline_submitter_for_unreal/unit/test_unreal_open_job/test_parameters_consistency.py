@@ -1,12 +1,14 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import pytest
-
+from unittest.mock import patch, MagicMock
 
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_parameters_consistency import (
     ParametersConsistencyChecker,
     ParametersConsistencyCheckResult,
 )
+
+from test.deadline_submitter_for_unreal import fixtures
 
 
 class TestParametersConsistencyChecker:
@@ -161,6 +163,19 @@ class TestParametersConsistencyChecker:
                 [{"name": "paramA", "type": "INT"}, {"name": "paramB", "type": "FLOAT"}],
                 [{"name": "paramA", "type": "INT"}, {"name": "paramB", "type": "STRING"}],
             ),
+            (
+                [],
+                [("paramB", "STRING")],
+                [
+                    {"name": "paramA", "type": "INT"},
+                    {"name": "paramB", "type": "STRING", "default": "foo"},
+                ],
+                [{"name": "paramA", "type": "INT"}],
+                [
+                    {"name": "paramA", "type": "INT"},
+                    {"name": "paramB", "type": "STRING", "default": "foo"},
+                ],
+            ),
         ],
     )
     def test_fix_parameters_consistency(
@@ -226,3 +241,44 @@ class TestParametersConsistencyChecker:
 
         # THEN
         assert fixed == output_fixed
+
+    def test_fix_job_parameters_consistency(self):
+        # GIVEN
+        checker = ParametersConsistencyChecker()
+
+        # WHEN
+        with patch("yaml.safe_load", MagicMock(side_effect=[fixtures.f_job_template_default()])):
+            with patch("builtins.open", MagicMock()):
+                fixed = checker.fix_job_parameters_consistency("", [])
+
+        # THEN
+        assert fixed == fixtures.f_job_template_default()["parameterDefinitions"]
+
+    def test_fix_step_parameters_consistency(self):
+        # GIVEN
+        checker = ParametersConsistencyChecker()
+
+        # WHEN
+        with patch("yaml.safe_load", MagicMock(side_effect=[fixtures.f_step_template_default()])):
+            with patch("builtins.open", MagicMock()):
+                fixed = checker.fix_step_parameters_consistency("", [])
+
+        # THEN
+        assert (
+            fixed
+            == fixtures.f_step_template_default()["parameterSpace"]["taskParameterDefinitions"]
+        )
+
+    def test_fix_environment_variables_consistency(self):
+        # GIVEN
+        checker = ParametersConsistencyChecker()
+
+        # WHEN
+        with patch(
+            "yaml.safe_load", MagicMock(side_effect=[fixtures.f_environment_template_default()])
+        ):
+            with patch("builtins.open", MagicMock()):
+                fixed = checker.fix_environment_variables_consistency("", {})
+
+        # THEN
+        assert fixed == fixtures.f_environment_template_default()["variables"]

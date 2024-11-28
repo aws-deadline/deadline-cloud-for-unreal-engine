@@ -4,6 +4,7 @@ import sys
 import pytest
 from unittest.mock import patch, Mock, MagicMock
 from openjd.model.v2023_09 import StepTemplate
+from deadline.client.job_bundle.submission import AssetReferences
 
 from deadline.unreal_submitter import exceptions
 from test.deadline_submitter_for_unreal.fixtures import f_step_template_default
@@ -203,6 +204,23 @@ class TestUnrealOpenJobStep:
         assert isinstance(openjd_template, StepTemplate)
         assert set(step_template.keys()).issubset(set(openjd_template.__fields__.keys()))
 
+    @patch(
+        "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
+        "UnrealOpenJobEntity.get_template_object",
+        return_value=f_step_template_default(),
+    )
+    def test__create_missing_extra_parameters_from_template(self, get_template_object_mock: Mock):
+        # WHEN
+        open_job_step = UnrealOpenJobStep()
+
+        # THEN
+        parameter_names = [p.name for p in open_job_step._extra_parameters]
+        yaml_parameter_names = [
+            p["name"]
+            for p in f_step_template_default()["parameterSpace"]["taskParameterDefinitions"]
+        ]
+        assert parameter_names == yaml_parameter_names
+
 
 class TestRenderUnrealOpenJobStep:
 
@@ -274,7 +292,7 @@ class TestRenderUnrealOpenJobStep:
             (("ExistedParam", "INT", [1]), ("ExistedParam", "FLOAT", [2.0]), False),
         ],
     )
-    def test__update_extra_parameter(self, existed_param, requested_param, was_updated):
+    def test_update_extra_parameter(self, existed_param, requested_param, was_updated):
         # GIVEN
         render_step = RenderUnrealOpenJobStep(
             file_path="",
@@ -290,7 +308,7 @@ class TestRenderUnrealOpenJobStep:
         )
 
         # WHEN
-        updated = render_step._update_extra_parameter(new_param)
+        updated = render_step.update_extra_parameter(new_param)
 
         # THEN
         assert updated == was_updated
@@ -366,3 +384,25 @@ class TestRenderUnrealOpenJobStep:
 
         # THEN
         assert "RenderOpenJobStep parameters are not valid" in str(expected_exc.value)
+
+    @patch(
+        "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
+        "UnrealOpenJobEntity.get_template_object",
+        return_value=f_step_template_default(),
+    )
+    def test_get_asset_references(self, get_template_object_mock):
+        # GIVEN
+        environment_asset_references = AssetReferences(input_filenames={"env_ref"})
+        expected_asset_references = environment_asset_references
+
+        environment_mock = Mock()
+        environment_mock.get_asset_references.return_value = environment_asset_references
+
+        open_job = UnrealOpenJobStep(name="", environments=[environment_mock])
+
+        # WHEN
+        asset_references = open_job.get_asset_references()
+
+        # THEN
+        assert environment_mock.get_asset_references.call_count == 1
+        assert expected_asset_references.input_filenames == asset_references.input_filenames

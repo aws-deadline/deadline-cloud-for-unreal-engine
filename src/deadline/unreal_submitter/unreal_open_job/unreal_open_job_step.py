@@ -33,7 +33,7 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_parameters_consis
     ParametersConsistencyChecker,
 )
 from deadline.unreal_logger import get_logger
-from deadline.unreal_submitter import exceptions
+from deadline.unreal_submitter import exceptions, settings
 
 
 logger = get_logger()
@@ -256,7 +256,7 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         return asset_references
 
     def update_extra_parameter(self, extra_parameter: UnrealOpenJobStepParameterDefinition):
-        self._update_extra_parameter(extra_parameter)
+        return self._update_extra_parameter(extra_parameter)
 
 
 # Render Step
@@ -265,7 +265,7 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
     Unreal Open Job Render Step entity
     """
 
-    default_template_path = "render_step.yml"
+    default_template_path = settings.RENDER_STEP_TEMPLATE_DEFAULT_PATH
 
     class RenderArgsType(IntEnum):
         NOT_SET = 0
@@ -465,4 +465,4 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
 # UGS Steps
 class UgsRenderUnrealOpenJobStep(RenderUnrealOpenJobStep):
 
-    default_template_path = "ugs/ugs_render_step.yml"
+    default_template_path = settings.UGS_RENDER_STEP_TEMPLATE_DEFAULT_PATH

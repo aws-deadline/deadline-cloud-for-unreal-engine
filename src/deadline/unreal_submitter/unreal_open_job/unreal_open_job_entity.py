@@ -23,7 +23,7 @@ from deadline.client.job_bundle.submission import AssetReferences
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_parameters_consistency import (
     ParametersConsistencyCheckResult,
 )
-from deadline.unreal_submitter import exceptions
+from deadline.unreal_submitter import exceptions, settings
 from deadline.unreal_logger import get_logger
 
 
@@ -32,9 +32,6 @@ logger = get_logger()
 
 Template = Union[JobTemplate, StepTemplate, Environment]
 TemplateClass = Union[Type[JobTemplate], Type[StepTemplate], Type[Environment]]
-
-
-OPENJD_TEMPLATES_DIRECTORY = "OPENJD_TEMPLATES_DIRECTORY"
 
 
 class UnrealOpenJobEntityBase(ABC):
@@ -102,7 +99,7 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
             template_path = file_path
         else:
             template_path = "{templates_dir}/{template_path}".format(
-                templates_dir=os.getenv(OPENJD_TEMPLATES_DIRECTORY),
+                templates_dir=settings.OPENJD_TEMPLATES_DIRECTORY,
                 template_path=self.default_template_path,
             )
 

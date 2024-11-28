@@ -13,6 +13,7 @@ from openjd.model.v2023_09 import (
     CancelationMethodNotifyThenTerminate,
     CancelationMode,
 )
+from deadline.client.job_bundle.submission import AssetReferences
 
 from test.deadline_submitter_for_unreal import fixtures
 
@@ -295,6 +296,99 @@ class TestUnrealOpenJob:
 
         # THEN
         assert (values_after_update != values_before_update) == updated
+
+    @pytest.mark.parametrize(
+        "steps, environments, expected_keys",
+        [
+            (
+                [fixtures.f_step_template_default()],
+                [(fixtures.f_environment_template_default())],
+                [
+                    "specificationVersion",
+                    "name",
+                    "parameterDefinitions",
+                    "jobEnvironments",
+                    "steps",
+                ],
+            ),
+            (
+                [fixtures.f_step_template_default()],
+                [],
+                [
+                    "specificationVersion",
+                    "name",
+                    "parameterDefinitions",
+                    "steps",
+                ],
+            ),
+        ],
+    )
+    def test_serialize_template(self, steps, environments, expected_keys):
+        # GIVEN
+        job_template_dict = fixtures.f_job_template_default()
+        if steps:
+            job_template_dict["steps"] = steps
+        if environments:
+            job_template_dict["jobEnvironments"] = environments
+        job_template = JobTemplate(**job_template_dict)
+
+        # WHEN
+        serialized = UnrealOpenJob.serialize_template(job_template)
+
+        # THEN
+        assert isinstance(serialized, dict)
+        assert list(serialized.keys()) == expected_keys
+
+    @patch(
+        "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
+        "UnrealOpenJobEntity.get_template_object",
+        return_value=fixtures.f_job_template_default(),
+    )
+    def test_get_asset_references(self, get_template_object_mock):
+        # GIVEN
+        job_asset_references = AssetReferences(input_filenames={"job_ref"})
+        step_asset_references = AssetReferences(input_filenames={"step_ref"})
+        environment_asset_references = AssetReferences(input_filenames={"env_ref"})
+        expected_asset_references = job_asset_references.union(
+            step_asset_references.union(environment_asset_references)
+        )
+
+        step_mock = Mock()
+        step_mock.get_asset_references.return_value = step_asset_references
+
+        environment_mock = Mock()
+        environment_mock.get_asset_references.return_value = environment_asset_references
+
+        open_job = UnrealOpenJob(
+            name="",
+            steps=[step_mock],
+            environments=[environment_mock],
+            asset_references=job_asset_references,
+        )
+
+        # WHEN
+        asset_references = open_job.get_asset_references()
+
+        # THEN
+        assert step_mock.get_asset_references.call_count == 1
+        assert environment_mock.get_asset_references.call_count == 1
+        assert expected_asset_references.input_filenames == asset_references.input_filenames
+
+    @patch(
+        "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
+        "UnrealOpenJobEntity.get_template_object",
+        return_value=fixtures.f_job_template_default(),
+    )
+    def test__create_missing_extra_parameters_from_template(self, get_template_object_mock: Mock):
+        # WHEN
+        open_job = UnrealOpenJob()
+
+        # THEN
+        parameter_names = [p.name for p in open_job._extra_parameters]
+        yaml_parameter_names = [
+            p["name"] for p in fixtures.f_job_template_default()["parameterDefinitions"]
+        ]
+        assert parameter_names == yaml_parameter_names
 
 
 class TestRenderUnrealOpenJob:

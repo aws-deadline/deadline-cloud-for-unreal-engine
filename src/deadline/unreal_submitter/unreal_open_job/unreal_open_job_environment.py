@@ -1,6 +1,7 @@
 import unreal
 from openjd.model.v2023_09 import Environment, EnvironmentScript
 
+from deadline.unreal_submitter import settings
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import UnrealOpenJobEntity
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_parameters_consistency import (
     ParametersConsistencyChecker,
@@ -72,7 +73,7 @@ class UnrealOpenJobEnvironment(UnrealOpenJobEntity):
 
 # Launch Unreal Editor Environment
 class LaunchEditorUnrealOpenJobEnvironment(UnrealOpenJobEnvironment):
-    default_template_path = "launch_ue_environment.yml"
+    default_template_path = settings.LAUNCH_ENVIRONMENT_TEMPLATE_DEFAULT_PATH
 
 
 # UGS Environments
@@ -81,12 +82,12 @@ class UnrealOpenJobUgsEnvironment(UnrealOpenJobEnvironment):
 
 
 class UgsLaunchEditorUnrealOpenJobEnvironment(UnrealOpenJobUgsEnvironment):
-    default_template_path = "ugs/ugs_launch_ue_environment.yml"
+    default_template_path = settings.UGS_LAUNCH_ENVIRONMENT_TEMPLATE_DEFAULT_PATH
 
 
 class UgsSyncCmfUnrealOpenJobEnvironment(UnrealOpenJobUgsEnvironment):
-    default_template_path = "ugs/ugs_sync_cmf_environment.yml"
+    default_template_path = settings.UGS_SYNC_CMF_ENVIRONMENT_TEMPLATE_DEFAULT_PATH
 
 
 class UgsSyncSmfUnrealOpenJobEnvironment(UnrealOpenJobUgsEnvironment):
-    default_template_path = "ugs/ugs_sync_smf_environment.yml"
+    default_template_path = settings.UGS_SYNC_SMF_ENVIRONMENT_TEMPLATE_DEFAULT_PATH
