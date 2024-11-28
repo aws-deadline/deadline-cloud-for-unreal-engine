@@ -197,8 +197,8 @@ bool FDeadlineCloudStepParametersArrayCustomization::IsEnabled(TSharedRef<IPrope
 void FDeadlineCloudStepParametersArrayCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> InPropertyHandle, FDetailWidgetRow& InHeaderRow, IPropertyTypeCustomizationUtils& InCustomizationUtils)
 {
 	const TSharedPtr<IPropertyHandle> ArrayHandle = InPropertyHandle->GetChildHandle("Parameters", false);
+
 	ArrayBuilder = FDeadlineCloudStepParametersArrayBuilder::MakeInstance(ArrayHandle.ToSharedRef());
-	ArrayBuilder->MrqJob = ArrayBuilder->GetMrqJob(InPropertyHandle);
 
 	auto OuterStep = FDeadlineCloudStepParametersArrayBuilder::GetOuterStep(InPropertyHandle);
 	if (IsValid(OuterStep))
@@ -206,6 +206,14 @@ void FDeadlineCloudStepParametersArrayCustomization::CustomizeHeader(TSharedRef<
 		ArrayBuilder->OnIsEnabled.BindSP(this, &FDeadlineCloudStepParametersArrayCustomization::IsEnabled, InPropertyHandle);
 	}
 
+	//Get StepsOverride handle from TaskParametersDefinition handle and get name of RenderStep
+	TSharedPtr<IPropertyHandle> ParentHandle = InPropertyHandle->GetParentHandle();
+	TSharedPtr<IPropertyHandle> NameHandle = ParentHandle->GetChildHandle("Name");
+
+	FString StepNameValue;
+	NameHandle->GetValue(StepNameValue);
+
+	ArrayBuilder->StepName = FName(StepNameValue);
     ArrayBuilder->GenerateWrapperStructHeaderRowContent(InHeaderRow, InPropertyHandle->CreatePropertyNameWidget());
 }
 
@@ -380,11 +388,16 @@ bool FDeadlineCloudStepParametersArrayBuilder::IsPropertyHidden(FName Parameter)
 	}
 	if (MrqJob)
 	{
-		if (MrqJob->JobPreset)
-		{
-			//Contains = MrqJob->JobPreset->ContainsHiddenParameters(Parameter);
-			//TODO:get Step from Job from MrqJob, return contains
-		}
+			for (auto StepOverride : MrqJob->JobPreset->Steps)
+			{
+				if (StepOverride)
+				{
+					if (FName(StepOverride->Name) == StepName)
+					{
+						Contains = StepOverride->ContainsHiddenParameters(Parameter);
+					}
+				}				
+			}	
 	}
 	return Contains;
 }
@@ -485,22 +498,8 @@ void FDeadlineCloudStepParametersArrayBuilder::OnGenerateEntry(TSharedRef<IPrope
 			})
 	);
 
-	PropertyRow.Visibility(IsPropertyHidden(FName(ParameterName)) ? EVisibility::Collapsed : EVisibility::Visible);/*
-	PropertyRow.IsEnabled(TAttribute<bool>::CreateLambda([this, ParameterName]() -> bool
-		{
-			//hide|show properties only if MRQ
+	PropertyRow.Visibility(IsPropertyHidden(FName(ParameterName)) ? EVisibility::Collapsed : EVisibility::Visible);
 
-			if (OnIsEnabled.IsBound())
-				return OnIsEnabled.Execute();
-			if (MrqJob && !(PropertiesToShow.Contains(FName(*ParameterName))))
-			{
-				return false;
-			}
-			else
-			{
-				return true;
-			}
-		}));*/
 }
 
 bool FDeadlineCloudStepParametersArrayBuilder::IsEyeWidgetEnabled(FName Parameter) const
@@ -510,13 +509,24 @@ bool FDeadlineCloudStepParametersArrayBuilder::IsEyeWidgetEnabled(FName Paramete
 	{
 		result = Step->ContainsHiddenParameters(Parameter);
 	}
+
 	if (MrqJob)
 	{
 		if (MrqJob->JobPreset)
 		{
-			//result = MrqJob->JobPreset->ContainsHiddenParameters(Parameter);
-			//TODO
+			for (auto StepOverride : MrqJob->JobPreset->Steps)
+			{
+				if (StepOverride)
+				{
+					if (FName(StepOverride->Name) == StepName)
+					{
+						result = StepOverride->ContainsHiddenParameters(Parameter);
+						
+					}
+				}
+			}
 		}
+	
 	}
 	return result;
 }

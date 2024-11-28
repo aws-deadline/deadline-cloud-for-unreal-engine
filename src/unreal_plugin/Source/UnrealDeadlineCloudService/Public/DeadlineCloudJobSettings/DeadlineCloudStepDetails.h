@@ -40,12 +40,10 @@ public:
     bool IsPropertyHidden(FName Parameter) const;
     TObjectPtr<UMoviePipelineDeadlineCloudExecutorJob> MrqJob;
     TObjectPtr<UDeadlineCloudStep> Step;
+    FName StepName;
 
     static UMoviePipelineDeadlineCloudExecutorJob* GetMrqJob(TSharedRef<IPropertyHandle> Handle);
-//    bool IsPropertyEditable(FName PropertyName)
-//    {
-//        return PropertiesToShow.Contains(PropertyName);
-//    }
+
 
 
 private:
