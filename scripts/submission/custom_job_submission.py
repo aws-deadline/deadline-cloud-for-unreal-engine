@@ -43,7 +43,7 @@ def main(script_path: str):
                 ],
             ),
         ],
-        environments=[LaunchEditorUnrealOpenJobEnvironment()]
+        environments=[LaunchEditorUnrealOpenJobEnvironment()],
     )
 
     submitter = UnrealOpenJobSubmitter()
