@@ -353,7 +353,7 @@ public:
 	bool GetDisplayHiddenParameters() { return bDisplayHiddenWidgets; };
 	void SetDisplayHiddenParameters(bool ShowParameters) { bDisplayHiddenWidgets = ShowParameters; };
 private:
-	UPROPERTY(EditAnywhere, meta = (HideInDetailPanel))
+	UPROPERTY(EditAnywhere, meta = (HideInDetailPanel, Category = "Parameters"))
 	TArray<FName> HiddenParametersList;
 	bool bDisplayHiddenWidgets = false;
 
