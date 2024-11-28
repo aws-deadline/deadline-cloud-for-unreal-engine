@@ -235,7 +235,7 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         # We should get UE version to write the telemetry in the most proper way
         callbacks: list[RegexCallback] = [
             RegexCallback(
-                [re.compile(".*Engine Version: (.*)"), re.compile('.*engineversion="(.*)"')],
+                [re.compile(".*Engine Version: (.*)"), re.compile('.*engineversion="([^"]*)"')],
                 self._handle_unreal_engine_version,
             )
         ]
