@@ -81,7 +81,6 @@ FDeadlineCloudJobPresetStruct UMoviePipelineDeadlineCloudExecutorJob::GetDeadlin
 	// Start with preset properties
 	FDeadlineCloudJobPresetStruct ReturnValue = JobPreset->JobPresetStruct;
 
-	// const UDeadlineCloudDeveloperSettings* Settings = GetDefault<UDeadlineCloudDeveloperSettings>();
 	GetPresetStructWithOverrides(
 		FDeadlineCloudJobSharedSettingsStruct::StaticStruct(),
 		&PresetOverrides.JobSharedSettings,
@@ -181,11 +180,6 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyCha
 
 	UE_LOG(LogTemp, Log, TEXT("Deadline Cloud job changed: %s"),
 		*PropertyChangedEvent.Property->GetPathName());
-
-	// auto Result = GetDeadlineJobPresetStructWithOverrides();
-	// FString JsonString;
-	// FJsonObjectConverter::UStructToJsonObjectString(Result, JsonString);
-	// UE_LOG(LogTemp, Log, TEXT("Make Deadline Cloud job: %s"), *JsonString);
 }
 
 void UMoviePipelineDeadlineCloudExecutorJob::CollectDependencies()

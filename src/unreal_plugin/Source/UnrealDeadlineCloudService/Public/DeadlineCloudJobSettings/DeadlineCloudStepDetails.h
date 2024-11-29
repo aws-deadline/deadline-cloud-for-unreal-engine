@@ -149,7 +149,6 @@ public:
     static TSharedRef<IDetailCustomization> MakeInstance();
     virtual  void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
 
-   // TWeakObjectPtr<UDeadlineCloudJob> Settings;
     void OnViewAllButtonClicked();
     void OnConsistencyButtonClicked();
     bool CheckConsistency(UDeadlineCloudStep* Step);
