@@ -240,11 +240,11 @@ public:
 
 	UDeadlineCloudJob();
 
-	FSimpleDelegate OnSomethingChanged;
+	FSimpleDelegate OnPathChanged;
 
 	void TriggerChange()
 	{
-		OnSomethingChanged.Execute();
+		OnPathChanged.Execute();
 	}
 
 	UPROPERTY(Config, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 1))
@@ -301,7 +301,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Parameters")
 	void FixJobParametersConsistency(UDeadlineCloudJob* Job);
 
-	//TArray<FStepTaskParameterDefinition> GetTaskChunkSizeFromRenderStep() const;
 	TArray<FStepTaskParameterDefinition> GetAllStepParameters() const;
 
 

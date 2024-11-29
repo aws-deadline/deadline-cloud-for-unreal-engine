@@ -33,7 +33,7 @@ public:
 
 	UDeadlineCloudEnvironment();
 
-	FSimpleDelegate OnSomethingChanged;
+	FSimpleDelegate OnPathChanged;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Parameters")
 	FString Name; 

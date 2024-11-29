@@ -107,7 +107,7 @@ void UDeadlineCloudEnvironment::ResetVariables()
         Variables.Variables.Add(Variable.Name, Variable.Value);
     }
 
-    OnSomethingChanged.ExecuteIfBound();
+    OnPathChanged.ExecuteIfBound();
 }
 
 void UDeadlineCloudEnvironment::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
@@ -119,7 +119,7 @@ void UDeadlineCloudEnvironment::PostEditChangeProperty(FPropertyChangedEvent& Pr
         if (PropertyName == "FilePath")
         {
             OpenEnvFile(PathToTemplate.FilePath);
-            OnSomethingChanged.ExecuteIfBound();
+            OnPathChanged.ExecuteIfBound();
         }
     }
 }

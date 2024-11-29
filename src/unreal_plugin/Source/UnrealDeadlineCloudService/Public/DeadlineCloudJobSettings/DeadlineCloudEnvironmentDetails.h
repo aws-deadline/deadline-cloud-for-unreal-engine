@@ -78,7 +78,7 @@ public:
 
     static TSharedRef<IDetailCustomization> MakeInstance();
     virtual  void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
-    IDetailLayoutBuilder* MyDetailLayout;
+    IDetailLayoutBuilder* MainDetailLayout;
     TWeakObjectPtr<UDeadlineCloudEnvironment> Settings;
 
     void OnConsistencyButtonClicked();

@@ -70,7 +70,7 @@ void UDeadlineCloudStep::PostEditChangeProperty(FPropertyChangedEvent& PropertyC
         if (PropertyName == "FilePath" && MemberName == "PathToTemplate")
         {
             OpenStepFile(PathToTemplate.FilePath);
-            OnSomethingChanged.ExecuteIfBound();
+            OnPathChanged.ExecuteIfBound();
         }
     }
 }
@@ -198,7 +198,7 @@ void UDeadlineCloudStep::ResetParameterArray(FString ParameterName)
                 {
                     bFound = true;
                     Parameter.Range = DefaultParameter.Range;
-                    OnSomethingChanged.ExecuteIfBound();
+                    OnPathChanged.ExecuteIfBound();
                     return;
                 }
             }

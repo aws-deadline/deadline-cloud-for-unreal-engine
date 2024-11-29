@@ -9,56 +9,6 @@
 #include "Widgets/Input/SCheckBox.h"
 #include "Misc/EngineVersionComparison.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudDetailsWidgetsHelper.h"
-/*
-class
-: public SCompoundWidget
-{
-public:
-    SLATE_BEGIN_ARGS( SEyeCheckBox ){}
-
-    SLATE_END_ARGS()
-
-    void Construct(const FArguments& InArgs, const FName& InPropertyPath)
-    {
-        ChildSlot
-        [
-            SNew(SBox)
-            .Visibility(EVisibility::Visible)
-            .HAlign(HAlign_Right)
-            .WidthOverride(28)
-            .HeightOverride(20)
-#if UE_VERSION_NEWER_THAN(5, 1, -1)
-            .Padding(4, 0)
-#else
-            .Padding(4)
-#endif
-            [
-                SAssignNew(CheckBoxPtr, SCheckBox)
-                .Style(&FAppStyle::Get().GetWidgetStyle<FCheckBoxStyle>("ToggleButtonCheckbox"))
-                .Visibility_Lambda([this]()
-                {
-                    return CheckBoxPtr.IsValid() && !CheckBoxPtr->IsChecked() ? EVisibility::Visible : IsHovered() ? EVisibility::Visible : EVisibility::Hidden;
-                })
-                .CheckedImage(FAppStyle::Get().GetBrush("Icons.Visible"))
-                .CheckedHoveredImage(FAppStyle::Get().GetBrush("Icons.Visible"))
-                .CheckedPressedImage(FAppStyle::Get().GetBrush("Icons.Visible"))
-                .UncheckedImage(FAppStyle::Get().GetBrush("Icons.Hidden"))
-                .UncheckedHoveredImage(FAppStyle::Get().GetBrush("Icons.Hidden"))
-                .UncheckedPressedImage(FAppStyle::Get().GetBrush("Icons.Hidden"))
-                .ToolTipText(NSLOCTEXT("FDeadlineJobPresetLibraryCustomization", "VisibleInMoveRenderQueueToolTip", "If true this property will be visible for overriding from Movie Render Queue."))
-            //	.IsChecked_Lambda([InPropertyPath]()
-            //	{
-                //	return FDeadlineCloudJobPresetDetailsCustomization::IsPropertyHiddenInMovieRenderQueue(InPropertyPath)
-                    //			? ECheckBoxState::Unchecked
-                    //			: ECheckBoxState::Checked;
-
-                //})
-            ]
-        ];
-    }
-
-    TSharedPtr<SCheckBox> CheckBoxPtr;
-};*/
 
 TSharedRef<IPropertyTypeCustomization> FDeadlineCloudJobPresetDetailsCustomization::MakeInstance()
 {

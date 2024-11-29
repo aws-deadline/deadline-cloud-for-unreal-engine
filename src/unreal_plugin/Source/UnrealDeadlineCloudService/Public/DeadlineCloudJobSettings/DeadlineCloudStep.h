@@ -41,7 +41,7 @@ public:
 
 	UDeadlineCloudStep();
 
-	FSimpleDelegate OnSomethingChanged;
+	FSimpleDelegate OnPathChanged;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 1))
 	FString Name;

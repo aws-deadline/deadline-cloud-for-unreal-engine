@@ -144,7 +144,7 @@ class FDeadlineCloudStepDetails : public IDetailCustomization
 {
 private:
     TWeakObjectPtr<UDeadlineCloudStep> Settings;
-    IDetailLayoutBuilder* MyDetailLayout;
+    IDetailLayoutBuilder* MainDetailLayout;
 public:
     static TSharedRef<IDetailCustomization> MakeInstance();
     virtual  void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;

@@ -39,10 +39,10 @@ TSharedRef<IDetailCustomization> FDeadlineCloudJobDetails::MakeInstance()
 void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
     // The detail layout builder that is using us
-    MyDetailLayout = &DetailBuilder;
+    MainDetailLayout = &DetailBuilder;
 
     TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
-    MyDetailLayout->GetObjectsBeingCustomized(ObjectsBeingCustomized);
+    MainDetailLayout->GetObjectsBeingCustomized(ObjectsBeingCustomized);
     Settings = Cast<UDeadlineCloudJob>(ObjectsBeingCustomized[0].Get());
 
     TSharedPtr<FDeadlineCloudDetailsWidgetsHelper::SConsistencyWidget> ConsistencyUpdateWidget;
@@ -56,8 +56,8 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
         Settings->OnParameterHidden.BindSP(this, &FDeadlineCloudJobDetails::RespondToEvent);
     }
     /* Collapse hidden parameters array  */
-    TSharedRef<IPropertyHandle> HideHandle = MyDetailLayout->GetProperty("HiddenParametersList");
-    IDetailPropertyRow* HideRow = MyDetailLayout->EditDefaultProperty(HideHandle);
+    TSharedRef<IPropertyHandle> HideHandle = MainDetailLayout->GetProperty("HiddenParametersList");
+    IDetailPropertyRow* HideRow = MainDetailLayout->EditDefaultProperty(HideHandle);
     HideRow->Visibility(EVisibility::Collapsed);
 
 
@@ -68,8 +68,8 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
         bCheckConsistensyPassed = CheckConsistency(MyObject);
     }
 
-    TSharedRef<IPropertyHandle> StepsHandle = MyDetailLayout->GetProperty("Steps");
-    IDetailPropertyRow* StepsRow = MyDetailLayout->EditDefaultProperty(StepsHandle);
+    TSharedRef<IPropertyHandle> StepsHandle = MainDetailLayout->GetProperty("Steps");
+    IDetailPropertyRow* StepsRow = MainDetailLayout->EditDefaultProperty(StepsHandle);
     TSharedPtr<SWidget> OutNameWidget;
     TSharedPtr<SWidget> OutValueWidget;
     StepsRow->GetDefaultWidgets(OutNameWidget, OutValueWidget);
@@ -107,8 +107,8 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
 
         ];
 
-    TSharedRef<IPropertyHandle> EnvironmentsHandle = MyDetailLayout->GetProperty("Environments");
-    IDetailPropertyRow* EnvironmentsRow = MyDetailLayout->EditDefaultProperty(EnvironmentsHandle);
+    TSharedRef<IPropertyHandle> EnvironmentsHandle = MainDetailLayout->GetProperty("Environments");
+    IDetailPropertyRow* EnvironmentsRow = MainDetailLayout->EditDefaultProperty(EnvironmentsHandle);
     TSharedPtr<SWidget> OutNameWidgetEnv;
     TSharedPtr<SWidget> OutValueWidgetEnv;
     EnvironmentsRow->GetDefaultWidgets(OutNameWidgetEnv, OutValueWidgetEnv);
@@ -145,7 +145,7 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
                 ]
         ];
 
-    IDetailCategoryBuilder& PropertiesCategory = MyDetailLayout->EditCategory("Parameters");
+    IDetailCategoryBuilder& PropertiesCategory = MainDetailLayout->EditCategory("Parameters");
 
     PropertiesCategory.AddCustomRow(FText::FromString("Consistency"))
         .Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FDeadlineCloudJobDetails::GetConsistencyWidgetVisibility)))
@@ -155,10 +155,10 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
                 .OnFixButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudJobDetails::OnConsistencyButtonClicked))
         ];
 
-    /* Dispatcher to Job PostEditChangeProperty */
-    if (Settings.IsValid() && (MyDetailLayout != nullptr))
+    //  Dispatcher handle bind
+    if (Settings.IsValid() && (MainDetailLayout != nullptr))
     {
-        Settings->OnSomethingChanged = FSimpleDelegate::CreateSP(this, &FDeadlineCloudJobDetails::ForceRefreshDetails);
+        Settings->OnPathChanged = FSimpleDelegate::CreateSP(this, &FDeadlineCloudJobDetails::ForceRefreshDetails);
     };
 
 
@@ -180,7 +180,7 @@ void FDeadlineCloudJobDetails::RespondToEvent()
 }
 void FDeadlineCloudJobDetails::ForceRefreshDetails()
 {
-    MyDetailLayout->ForceRefreshDetails();
+    MainDetailLayout->ForceRefreshDetails();
 }
 
 bool FDeadlineCloudJobDetails::CheckConsistency(UDeadlineCloudJob* Job)

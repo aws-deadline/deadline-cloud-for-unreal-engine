@@ -39,10 +39,10 @@ TSharedRef<IDetailCustomization> FDeadlineCloudEnvironmentDetails::MakeInstance(
 void FDeadlineCloudEnvironmentDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
     // The detail layout builder that is using us
-    MyDetailLayout = &DetailBuilder;
+    MainDetailLayout = &DetailBuilder;
 
     TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
-    MyDetailLayout->GetObjectsBeingCustomized(ObjectsBeingCustomized);
+    MainDetailLayout->GetObjectsBeingCustomized(ObjectsBeingCustomized);
     Settings = Cast<UDeadlineCloudEnvironment>(ObjectsBeingCustomized[0].Get());
 
     TSharedPtr<FDeadlineCloudDetailsWidgetsHelper::SConsistencyWidget> ConsistencyUpdateWidget;
@@ -55,7 +55,7 @@ void FDeadlineCloudEnvironmentDetails::CustomizeDetails(IDetailLayoutBuilder& De
         bCheckConsistensyPassed = CheckConsistency(MyObject);
     }
 
-    IDetailCategoryBuilder& PropertiesCategory = MyDetailLayout->EditCategory("Parameters");
+    IDetailCategoryBuilder& PropertiesCategory = MainDetailLayout->EditCategory("Parameters");
 
     PropertiesCategory.AddCustomRow(FText::FromString("Consistency"))
         .Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FDeadlineCloudEnvironmentDetails::GetWidgetVisibility)))
@@ -66,9 +66,9 @@ void FDeadlineCloudEnvironmentDetails::CustomizeDetails(IDetailLayoutBuilder& De
         ];
 
     //  Dispatcher handle bind
-    if (Settings.IsValid() && (MyDetailLayout != nullptr))
+    if (Settings.IsValid() && (MainDetailLayout != nullptr))
     {
-        Settings->OnSomethingChanged = FSimpleDelegate::CreateSP(this, &FDeadlineCloudEnvironmentDetails::ForceRefreshDetails);
+        Settings->OnPathChanged = FSimpleDelegate::CreateSP(this, &FDeadlineCloudEnvironmentDetails::ForceRefreshDetails);
     };
 }
 
@@ -84,7 +84,7 @@ void FDeadlineCloudEnvironmentDetails::OnConsistencyButtonClicked()
 
 void FDeadlineCloudEnvironmentDetails::ForceRefreshDetails()
 {
-    MyDetailLayout->ForceRefreshDetails();
+    MainDetailLayout->ForceRefreshDetails();
 }
 
 TSharedRef<FDeadlineCloudEnvironmentParametersMapBuilder> FDeadlineCloudEnvironmentParametersMapBuilder::MakeInstance(TSharedRef<IPropertyHandle> InPropertyHandle)

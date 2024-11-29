@@ -55,7 +55,7 @@ void FDeadlineCloudStepDetails::RespondToEvent()
 
 void FDeadlineCloudStepDetails::ForceRefreshDetails()
 {
-    MyDetailLayout->ForceRefreshDetails();
+	MainDetailLayout->ForceRefreshDetails();
 }
 
 /*Details*/
@@ -66,13 +66,13 @@ TSharedRef<IDetailCustomization> FDeadlineCloudStepDetails::MakeInstance()
 
 void FDeadlineCloudStepDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
-	MyDetailLayout = &DetailBuilder;
+	MainDetailLayout = &DetailBuilder;
     TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
     DetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
     Settings = Cast<UDeadlineCloudStep>(ObjectsBeingCustomized[0].Get());
 
-    TSharedRef<IPropertyHandle> EnvironmentsHandle = MyDetailLayout->GetProperty("Environments");
-	IDetailPropertyRow* EnvironmentsRow = MyDetailLayout->EditDefaultProperty(EnvironmentsHandle);
+    TSharedRef<IPropertyHandle> EnvironmentsHandle = MainDetailLayout->GetProperty("Environments");
+	IDetailPropertyRow* EnvironmentsRow = MainDetailLayout->EditDefaultProperty(EnvironmentsHandle);
 	TSharedPtr<SWidget> OutNameWidgetEnv;
 	TSharedPtr<SWidget> OutValueWidgetEnv;
 	EnvironmentsRow->GetDefaultWidgets(OutNameWidgetEnv, OutValueWidgetEnv);
@@ -120,8 +120,8 @@ void FDeadlineCloudStepDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBui
 		Settings->OnParameterHidden.BindSP(this, &FDeadlineCloudStepDetails::RespondToEvent);
 	}
 	/* Collapse hidden parameters array  */
-	TSharedRef<IPropertyHandle> HideHandle = MyDetailLayout->GetProperty("HiddenParametersList");
-	IDetailPropertyRow* HideRow = MyDetailLayout->EditDefaultProperty(HideHandle);
+	TSharedRef<IPropertyHandle> HideHandle = MainDetailLayout->GetProperty("HiddenParametersList");
+	IDetailPropertyRow* HideRow = MainDetailLayout->EditDefaultProperty(HideHandle);
 	HideRow->Visibility(EVisibility::Collapsed);
 
 	/* Consistency check */
@@ -131,7 +131,7 @@ void FDeadlineCloudStepDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBui
 		bCheckConsistensyPassed = CheckConsistency(MyObject);
 	}
 
-	IDetailCategoryBuilder& PropertiesCategory = MyDetailLayout->EditCategory("Parameters");
+	IDetailCategoryBuilder& PropertiesCategory = MainDetailLayout->EditCategory("Parameters");
 
 	PropertiesCategory.AddCustomRow(FText::FromString("Consistency"))
 		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FDeadlineCloudStepDetails::GetWidgetVisibility)))
@@ -141,9 +141,9 @@ void FDeadlineCloudStepDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBui
 				.OnFixButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudStepDetails::OnConsistencyButtonClicked))
 		];
 
-    if (Settings.IsValid() && (MyDetailLayout != nullptr))
+    if (Settings.IsValid() && (MainDetailLayout != nullptr))
     {
-        Settings->OnSomethingChanged = FSimpleDelegate::CreateSP(this, &FDeadlineCloudStepDetails::ForceRefreshDetails);
+        Settings->OnPathChanged = FSimpleDelegate::CreateSP(this, &FDeadlineCloudStepDetails::ForceRefreshDetails);
     };
 
 	PropertiesCategory.AddCustomRow(FText::FromString("Visibility"))
