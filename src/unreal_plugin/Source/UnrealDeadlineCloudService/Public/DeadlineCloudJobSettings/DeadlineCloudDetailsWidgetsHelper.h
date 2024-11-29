@@ -112,7 +112,6 @@ public:
 								.Visibility_Lambda([this]()
 									{
 										return CheckBoxPtr.IsValid() ? EVisibility::Visible : IsHovered() ? EVisibility::Visible : EVisibility::Hidden;
-										//return CheckBoxPtr.IsValid() && IsHovered() ? EVisibility::Visible : EVisibility::Hidden;
 									})
 								.CheckedImage(FAppStyle::Get().GetBrush("Icons.Visible"))
 										.CheckedHoveredImage(FAppStyle::Get().GetBrush("Icons.Hidden"))
@@ -123,15 +122,6 @@ public:
 										.ToolTipText(NSLOCTEXT("FDeadlineJobPresetLibraryCustomization", "VisibleInMoveRenderQueueToolTip", "If true this property will be visible for overriding from Movie Render Queue."))
 
 										.OnCheckStateChanged(this, &SEyeCheckBox::HandleCheckStateChanged)
-
-										//.OnCheckStateChanged(FOnCheckStateChangedDelegate::CreateStatic(&OtherClass::HandleCheckBoxStateChanged))
-
-										//.IsChecked_Lambda([this]()
-										//	{
-										//		return FDeadlineCloudJobPresetDetailsCustomization::IsPropertyHiddenInMovieRenderQueue(this->InPropertyPath)
-											//		? ECheckBoxState::Unchecked
-											//		: ECheckBoxState::Checked;
-											//})
 						]
 				];
 		}

@@ -63,16 +63,10 @@ void FDeadlineCloudJobPresetDetailsCustomization::CustomizeChildren(TSharedRef<I
             {
                 if (OuterJob)
                 {
-                    // IDetailGroup& NewGroup = CreatedCategories.FindChecked(StructName)->AddGroup(PropertyCategoryName, FText::FromName(PropertyCategoryName), true);
-                    // UE_LOG(LogTemp, Log, TEXT("Category 0: %s"), *StructName.ToString());
-                    // GroupToUse = CreatedCategories.Add(PropertyCategoryName, &NewGroup);
                     GroupToUse = CreatedCategories.FindChecked(StructName);
                 }
                 else
                 {
-                    // IDetailGroup& NewGroup = ChildBuilder.AddGroup(PropertyCategoryName, FText::FromName(PropertyCategoryName));
-                    // NewGroup.ToggleExpansion(true);
-                    // GroupToUse = CreatedCategories.Add(PropertyCategoryName, &NewGroup);
                     IDetailGroup& NewGroup = ChildBuilder.AddGroup(StructName, StructHandle->GetPropertyDisplayName());
                     NewGroup.ToggleExpansion(true);
                     GroupToUse = CreatedCategories.Add(PropertyCategoryName, &NewGroup);
@@ -125,12 +119,6 @@ void FDeadlineCloudJobPresetDetailsCustomization::CustomizeStructChildrenInAsset
         [
             ValueWidget.ToSharedRef()
         ];
-    //	.ExtensionContent()
-    //	[
-            //FDeadlineCloudDetailsWidgetsHelper::CreateEyeCheckBoxWidget(*PropertyRow.GetPropertyHandle()->GetProperty()->GetPathName())
-            //SNew(SEyeCheckBox, *PropertyRow.GetPropertyHandle()->GetProperty()->GetPathName())
-
-    //	];
 }
 
 void FDeadlineCloudJobPresetDetailsCustomization::CustomizeStructChildrenInMovieRenderQueue(
@@ -178,11 +166,6 @@ void FDeadlineCloudAttachmentDetailsCustomization::CustomizeChildren(
     UMoviePipelineDeadlineCloudExecutorJob* OuterJob = FPropertyAvailabilityHandler::GetOuterJob(StructHandle);
     PropertyOverrideHandler = MakeShared<FPropertyAvailabilityHandler>(OuterJob);
 
-    // Auto-detected are not enabled for overrides
-    // PropertyOverrideHandler->EnableOverridesInMovieRenderQueue(ShowAutoDetectedRow);
-
-    // Auto-detected are not enabled for overrides
-    // PropertyOverrideHandler->EnableOverridesInMovieRenderQueue(AutoDetectedPathsRow);
 
     if (OuterJob)
     {
@@ -288,8 +271,6 @@ void FDeadlineCloudAttachmentArrayBuilder::OnGenerateEntry(
     int32, IDetailChildrenBuilder& ChildrenBuilder) const
 {
     IDetailPropertyRow& PropertyRow = ChildrenBuilder.AddProperty(ElementProperty);
-    // PropertyRow.ShowPropertyButtons(true);
-    // PropertyRow.ShouldAutoExpand(false);
 
     // Hide the reset to default button since it provides little value
     const FResetToDefaultOverride ResetDefaultOverride =
@@ -424,10 +405,6 @@ void FPropertyAvailabilityHandler::EnableInMovieRenderQueue(IDetailPropertyRow& 
     );
 
     PropertyRow
-        // .OverrideResetToDefault(
-        // 	FResetToDefaultOverride::Create(
-        // 		FIsResetToDefaultVisible::CreateStatic( &FDeadlineCloudJobPresetDetailsCustomization::IsResetToDefaultVisibleOverride, Job),
-        // 		FResetToDefaultHandler::CreateStatic(&FDeadlineCloudJobPresetDetailsCustomization::ResetToDefaultOverride, Job)))
         .CustomWidget(true)
         .NameContent()
         .MinDesiredWidth(Row.NameWidget.MinWidth)
