@@ -48,7 +48,7 @@ public:
 
 #if WITH_EDITOR
     void UpdateAttachmentFields();
-    virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+   virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
     virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
 #endif
 
@@ -126,6 +126,10 @@ protected:
      */
     UPROPERTY(config)
     TArray<FPropertyRowEnabledInfo> EnabledPropertyOverrides;
+public:
+
+    FSimpleDelegate OnRequestDetailsRefresh;
+
 
 };
 
@@ -137,6 +141,7 @@ class FMoviePipelineDeadlineCloudExecutorJobCustomization : public IDetailCustom
 public:
 
     static TSharedRef<IDetailCustomization> MakeInstance();
+    TWeakObjectPtr<UMoviePipelineDeadlineCloudExecutorJob> MrqJob;
 
     /** Begin IDetailCustomization interface */
     virtual void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
