@@ -361,7 +361,7 @@ TArray<FDeadlineCloudEnvironmentOverride> UMoviePipelineDeadlineCloudExecutorJob
 		const TArray<UDeadlineCloudEnvironment*> SelectedJobEnvs = Preset->Environments;
 		for (auto env : SelectedJobEnvs)
 		{
-			if (env) 
+			if (env)
 			{
 				EnvOverrides.Add(env->GetEnvironmentData());
 			}
@@ -393,33 +393,17 @@ void FMoviePipelineDeadlineCloudExecutorJobCustomization::CustomizeDetails(IDeta
 		});
 
 	TSharedPtr<IPropertyHandle> JobPropertyHandle = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UMoviePipelineDeadlineCloudExecutorJob, JobPreset));
-	if (JobPropertyHandle.IsValid()) {
+	if (!JobPropertyHandle.IsValid()) return;
 
-		if (ObjectsBeingCustomized.Num() > 0)
-		{
-			UObject* CustomizedObject = ObjectsBeingCustomized[0].Get();
-			if (CustomizedObject) {
-				if (UMoviePipelineDeadlineCloudExecutorJob* MyMrq = Cast<UMoviePipelineDeadlineCloudExecutorJob>(CustomizedObject))
-				{
-					FPropertyChangedEvent PropertyChangedEvent(JobPropertyHandle->GetProperty());
-					CustomizedObject->PostEditChangeProperty(PropertyChangedEvent);
-				}
+	if (ObjectsBeingCustomized.Num() > 0)
+	{
+		UObject* CustomizedObject = ObjectsBeingCustomized[0].Get();
+		if (CustomizedObject) {
+			if (UMoviePipelineDeadlineCloudExecutorJob* MyMrq = Cast<UMoviePipelineDeadlineCloudExecutorJob>(CustomizedObject))
+			{
+				FPropertyChangedEvent PropertyChangedEvent(JobPropertyHandle->GetProperty());
+				CustomizedObject->PostEditChangeProperty(PropertyChangedEvent);
 			}
 		}
 	}
-
-
-
-	/*
-//We hide these properties because we want to use "Name", "UserName" and "Comment" from the Deadline preset
-  const TArray<FName> PropertiesToHide = { "JobName", "Author", "Comment", "ExtraCmdArgs"};
-
-  for (const TSharedRef<IPropertyHandle>& PropertyHandle : OutMrpCategoryProperties)
-  {
-	   if (PropertiesToHide.Contains(PropertyHandle->GetProperty()->GetFName()))
-	   {
-		   PropertyHandle->MarkHiddenByCustomization();
-	   }
-   }
-*/
 }

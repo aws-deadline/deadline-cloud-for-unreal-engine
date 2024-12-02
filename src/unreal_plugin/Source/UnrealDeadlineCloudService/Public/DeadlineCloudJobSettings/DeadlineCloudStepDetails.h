@@ -162,8 +162,7 @@ public:
     EVisibility GetEnvironmentDefaultWidgetVisibility() const;
 
 private:
-    // TSharedRef<SWidget> GenerateStringsArrayContent(const TArray<FString>& StringArray);
-    // TSharedRef<SWidget> GenerateTasksContent(const TArray<FStepTaskParameterDefinition> tasks);
+
     void RespondToEvent();
     void ForceRefreshDetails();
 };

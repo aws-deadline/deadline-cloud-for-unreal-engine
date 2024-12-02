@@ -154,9 +154,6 @@ public:
 		bool bIsChecked;
 
 	};
-
-
-	//static TSharedRef<SWidget> CreateEyeCheckBoxWidget(FName RsultString);
 	static TSharedRef<SWidget> CreateEyeUpdateWidget();
 	
 private:
