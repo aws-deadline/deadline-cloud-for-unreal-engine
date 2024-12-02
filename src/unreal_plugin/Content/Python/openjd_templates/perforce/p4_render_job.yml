@@ -1,0 +1,23 @@
+specificationVersion: jobtemplate-2023-09
+name: RenderJob
+parameterDefinitions:
+- name: ProjectRelativePath
+  type: STRING
+- name: ProjectName
+  type: STRING
+- name: PerforceStreamPath
+  type: STRING
+- name: ExecutableRelativePath
+  type: STRING
+- name: PerforceChangelistNumber
+  type: STRING
+- name: ExtraCmdArgs
+  type: STRING
+  default: '-log'
+- name: ExtraCmdArgsFile
+  type: PATH
+  objectType: FILE
+  dataFlow: IN
+- name: Executable
+  type: STRING
+  default: 'UnrealEditor-Cmd'

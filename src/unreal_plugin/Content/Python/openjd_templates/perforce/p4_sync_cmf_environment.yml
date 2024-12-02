@@ -1,0 +1,45 @@
+name: UgsSyncCmf
+variables:
+    P4_CLIENTS_ROOT_DIRECTORY: 'D:\projects'
+script:
+  embeddedFiles:
+  - name: UgsSync
+    filename: UgsSync.bat
+    type: TEXT
+    data: |
+      :: Go to the directory where all workspaces live
+      set "WorkspaceDir=%P4_CLIENTS_ROOT_DIRECTORY%\%USERNAME%_%COMPUTERNAME%_{{Param.ProjectName}}"
+      mkdir %WorkspaceDir%
+      cd /d %WorkspaceDir%
+      
+      :: Get or Create P4 workspace
+      ugs init {{Param.PerforceStreamPath}} -client=%USERNAME%_%COMPUTERNAME%_{{Param.ProjectName}} -project={{Param.ProjectRelativePath}}
+      
+      :: Find workspace root folder named as Stream path with "/" replaced by "+" (UGS CLI does it by default)
+      set "WorkspaceFolderName={{Param.PerforceStreamPath}}"
+      set "WorkspaceFolderName=%WorkspaceFolderName:/=+%"
+      
+      :: Go to this directory
+      cd /d %WorkspaceFolderName%
+      
+      :: Sync to given changelist, no generate proj files, overwrite clobber files, sync binaries
+      ugs sync {{Param.PerforceChangelistNumber}} -nogpf -clobber -binaries
+      echo Sync completed successfully
+      
+      :: Store this path to Env variable for future using while launching the Unreal Editor and Project within
+      echo openjd_env: P4_CLIENT_DIRECTORY=%CD%
+  - name: RemovePerforceWorkspace
+    filename: RemovePerforceWorkspace.bat
+    type: TEXT
+    data: |
+      :: Remove env variable
+      echo openjd_unset_env: P4_CLIENT_DIRECTORY
+  actions:
+    onEnter:
+      command: '{{Env.File.UgsSync}}'
+      cancelation:
+        mode: NOTIFY_THEN_TERMINATE
+    onExit:
+      command: '{{Env.File.RemovePerforceWorkspace}}'
+      cancelation:
+        mode: NOTIFY_THEN_TERMINATE
