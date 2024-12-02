@@ -8,6 +8,7 @@ import sys
 import time
 import logging
 import threading
+import jsonschema
 from typing import Callable
 
 from deadline.client.api import get_deadline_cloud_library_telemetry_client, TelemetryClient
@@ -401,17 +402,17 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         """
         For job stickiness. Will start everything required for the Task.
 
-        :raises:
-            jsonschema.ValidationError: When init_data fails validation against the adaptor schema.
-            jsonschema.SchemaError: When the adaptor schema itself is nonvalid.
-            RuntimeError: If Unreal did not complete initialization actions due to an exception
-            TimeoutError: If Unreal did not complete initialization actions due to timing out.
-            FileNotFoundError: If the unreal_client.py file could not be found.
+        :raises jsonschema.ValidationError:
+            When init_data fails validation against the adaptor schema.
+        :raises jsonschema.SchemaError: When the adaptor schema itself is invalid.
+        :raises RuntimeError: If Unreal did not complete initialization actions due to an exception
+        :raises TimeoutError: If Unreal did not complete initialization actions due to timing out.
+        :raises FileNotFoundError: If the unreal_client.py file could not be found.
         """
 
         try:
             self.data_validation.validate_init_data(self.init_data)
-        except Exception as e:
+        except (jsonschema.exceptions.ValidationError, jsonschema.exceptions.SchemaError) as e:
             self._record_error_and_raise(exc=e, exception_scope="on_start")
 
         # Notify worker agent about starting Unreal
@@ -455,6 +456,11 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
 
         :param run_data: Dictionary containing Run Data
         :type run_data: dict
+
+        :raises jsonschema.ValidationError:
+            When init_data fails validation against the adaptor schema.
+        :raises jsonschema.SchemaError: When the adaptor schema itself is invalid.
+        :raises RuntimeError: When Unreal exited early and did not render successfully
         """
         if not self._unreal_is_running:
             self._record_error_and_raise(
@@ -464,7 +470,7 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
 
         try:
             self.data_validation.validate_run_data(run_data)
-        except Exception as e:
+        except (jsonschema.exceptions.ValidationError, jsonschema.exceptions.SchemaError) as e:
             self._record_error_and_raise(exc=e, exception_scope="on_run")
 
         # Set up the step handler
