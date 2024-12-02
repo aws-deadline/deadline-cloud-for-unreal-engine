@@ -59,7 +59,7 @@ public:
 		
 		FReply HandleButtonClicked()
 		{
-			bShowHidden = !(bShowHidden);
+			bShowHidden = !bShowHidden;
 
 			if (OnEyeUpdateButtonClicked.IsBound())
 			{
