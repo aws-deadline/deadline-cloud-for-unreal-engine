@@ -7,7 +7,7 @@ import socket
 from pathlib import Path
 
 from deadline.unreal_logger import get_logger
-from deadline.unreal_perforce_utils import perforce, exceptions
+from deadline.unreal_perforce_utils import perforce
 
 
 logger = get_logger()
@@ -76,8 +76,6 @@ def create_perforce_workspace_from_template(
 
     if overridden_workspace_root:
         specification['Root'] = overridden_workspace_root
-    else:
-        specification['Root'] = f"{os.getenv('P4_CLIENTS_DIRECTORY', os.getcwd())}/{workspace_name}"
 
     logger.info(f'Specification: {specification}')
 
@@ -95,11 +93,7 @@ def create_perforce_workspace_from_template(
     return perforce_client
 
 
-def initial_workspace_sync(
-        workspace: perforce.PerforceClient,
-        unreal_project_relative_path: str,
-        changelist: int = None,
-) -> None:
+def initial_workspace_sync(workspace: perforce.PerforceClient, unreal_project_relative_path: str) -> None:
     """
     Do initial workspace synchronization:
 
@@ -131,7 +125,7 @@ def initial_workspace_sync(
 
     for path in paths_to_sync:
         try:
-            workspace.sync(path, changelist=changelist, force=True)
+            workspace.sync(path)
         except Exception as e:
             logger.info(f'Initial workspace sync exception: {str(e)}')
 
@@ -182,16 +176,15 @@ def configure_project_source_control_settings(workspace: perforce.PerforceClient
 def create_workspace(
         perforce_specification_template_path: str,
         unreal_project_relative_path: str,
-        unreal_project_name: str = None,
         overridden_workspace_root: str = None,
         changelist: int = None
 ):
     """
     Create P4 workspace and execute next steps:
 
-    - :meth:`deadline.unreal_perforce_utils.app.get_workspace_specification_template_from_file()`
-    - :meth:`deadline.unreal_perforce_utils.app.initial_workspace_sync()`
-    - :meth:`deadline.unreal_perforce_utils.app.configure_project_source_control_settings()`
+    - :meth:`p4utilsforunreal.app.get_workspace_specification_template_from_file()`
+    - :meth:`p4utilsforunreal.app.initial_workspace_sync()`
+    - :meth:`p4utilsforunreal.app.configure_project_source_control_settings()`
 
     :param perforce_specification_template_path: Path to the perforce specification template file to read specification from
     :param unreal_project_relative_path: path to the .uproject file relative to the workspace root
@@ -200,9 +193,8 @@ def create_workspace(
 
     logger.info('Creating workspace with the following settings:\n'
                 f'Specification template: {perforce_specification_template_path}\n'
-                f'Unreal project relative path: {unreal_project_relative_path}\n'
-                f'Overridden workspace root: {overridden_workspace_root}\n'
-                f'Changelist: {changelist}')
+                f'Unreal project relative path: {unreal_project_relative_path}'
+                f'Overridden workspace root: {overridden_workspace_root}')
 
     workspace_specification_template = get_workspace_specification_template_from_file(
         workspace_specification_template_path=perforce_specification_template_path
@@ -210,14 +202,13 @@ def create_workspace(
 
     workspace = create_perforce_workspace_from_template(
         specification_template=workspace_specification_template,
-        project_name=unreal_project_name or Path(unreal_project_relative_path).stem,
+        project_name=Path(unreal_project_relative_path).stem,
         overridden_workspace_root=overridden_workspace_root
     )
 
     initial_workspace_sync(
         workspace=workspace,
-        unreal_project_relative_path=unreal_project_relative_path,
-        changelist=changelist
+        unreal_project_relative_path=unreal_project_relative_path
     )
 
     configure_project_source_control_settings(
@@ -226,35 +217,25 @@ def create_workspace(
     )
 
 
-def delete_workspace(workspace_name: str = None, project_name: str = None):
+def delete_workspace(project_name: str):
     """
     Clear workspace files that are in depot and delete the workspace
 
-    :param workspace_name: Name of the workspace to delete
-    :param project_name: Name of the Unreal Project to generate a workspace name if not provided
+    :param project_name: Name of the Unreal Project
     """
 
     logger.info(f'Deleting workspace for the project: {project_name}')
 
-    if workspace_name:
-        workspace_name_to_delete = workspace_name
-    elif project_name:
-        workspace_name_to_delete = get_workspace_name(project_name)
-    else:
-        raise exceptions.PerforceWorkspaceNotFoundError(
-            f"Can't get workspace name to delete "
-            f"since no workspace name or Unreal project name is provided"
-        )
-
+    workspace_name = get_workspace_name(project_name)
     p4 = perforce.PerforceConnection().p4
 
     last_exception = None
 
-    workspace_root = p4.fetch_client(workspace_name_to_delete).get('Root').replace('\\', '/')
+    workspace_root = p4.fetch_client(workspace_name).get('Root').replace('\\', '/')
     if workspace_root and os.path.exists(workspace_root):
         try:
             logger.info('Reverting changes in default changelist')
-            p4.client = workspace_name_to_delete
+            p4.client = workspace_name
             p4.run('revert', '-c', 'default', workspace_root + '/...')
         except Exception as e:
             if 'file(s) not opened on this client' in str(e):
@@ -265,7 +246,7 @@ def delete_workspace(workspace_name: str = None, project_name: str = None):
                 last_exception = e
         try:
             logger.info(f'Clearing workspace root: {workspace_root}')
-            p4.client = workspace_name_to_delete
+            p4.client = workspace_name
             p4.run('sync', '-f', workspace_root + '/...#0')
         except Exception as e:
             if 'file(s) up-to-date' in str(e):
@@ -275,8 +256,8 @@ def delete_workspace(workspace_name: str = None, project_name: str = None):
                 last_exception = e
 
     try:
-        logger.info(f'Deleting workspace: {workspace_name_to_delete}')
-        p4.run('client', '-d', '-f', workspace_name_to_delete)
+        logger.info(f'Deleting workspace: {workspace_name}')
+        p4.run('client', '-d', '-f', workspace_name)
     except Exception as e:
         logger.info(f'Error handled while deleting workspace: {e}')
         last_exception = e

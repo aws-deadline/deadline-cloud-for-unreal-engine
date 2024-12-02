@@ -1,0 +1,34 @@
+name: LaunchUnrealEditorWithUgs
+variables:
+  REMOTE_EXECUTION: 'True'
+script:
+  embeddedFiles:
+    - name: initData
+      filename: init-data.yaml
+      type: TEXT
+      data: |
+        executable: "%P4_CLIENT_DIRECTORY%/{{Param.ExecutableRelativePath}}"
+        project_path: "%P4_CLIENT_DIRECTORY%/{{Param.ProjectRelativePath}}"
+        extra_cmd_args: {{Param.ExtraCmdArgs}}
+        extra_cmd_args_file: {{Param.ExtraCmdArgsFile}}
+  actions:
+    onEnter:
+      command: unreal-engine-openjd
+      args:
+      - daemon
+      - start
+      - --connection-file
+      - '{{Session.WorkingDirectory}}/connection.json'
+      - --init-data
+      - file://{{Env.File.initData}}
+      cancelation:
+        mode: NOTIFY_THEN_TERMINATE
+    onExit:
+      command: unreal-engine-openjd
+      args:
+      - daemon
+      - stop
+      - --connection-file
+      - '{{Session.WorkingDirectory}}/connection.json'
+      cancelation:
+        mode: NOTIFY_THEN_TERMINATE
