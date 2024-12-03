@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-
+import sys
 
 remote_execution = os.getenv("REMOTE_EXECUTION", "False")
 if remote_execution != "True":
@@ -17,6 +17,12 @@ if remote_execution != "True":
             f"{Path(__file__).parent.as_posix()}/openjd_templates"
         )
 
+    # Add the actions path to sys path
+    actions_path = Path(__file__).parent.joinpath("submit_actions").as_posix()
+
+    if actions_path not in sys.path:
+        sys.path.append(actions_path)
+
     # These unused imports are REQUIRED!!!
     # Unreal Engine loads any init_unreal.py it finds in its search paths.
     # These imports finish the setup for the plugin.
@@ -27,5 +33,6 @@ if remote_execution != "True":
         ParametersConsistencyCheckerImplementation,
     )
     import remote_executor  # noqa: F401
+
 
     logger.info("DEADLINE CLOUD INITIALIZED")
