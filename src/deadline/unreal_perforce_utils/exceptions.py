@@ -10,7 +10,7 @@ class PerforceWorkspaceNotFoundError(Exception):
     """Raised when a workspace with the given parameters was not found"""
 
 
-class PerforceConnectionError(Exception):
+class PerforceConnectionError(DeadlineCloudSubmitterException):
     """Raised when failed to connect to the Perforce with given credentials"""
 
     pass
