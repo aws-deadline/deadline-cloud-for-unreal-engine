@@ -17,6 +17,9 @@
 #include "Subsystems/ImportSubsystem.h"
 #include "Subsystems/AssetEditorSubsystem.h" 
 
+#include "Misc/Paths.h"
+#include "UObject/NoExportTypes.h"
+
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "UObject/Object.h"
 #include "DeadlineExecutorImplementationLibrary.generated.h"
@@ -42,4 +45,15 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Level Selection", meta = (AllowedClasses = "/Script/Engine.World"))
 	TSoftObjectPtr<UWorld> Map;
+};
+
+UCLASS(Blueprintable)
+class  UPathSelector : public UObject
+{
+	GENERATED_BODY()
+
+public:
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Path Selection")
+	FFilePath FilePath;
 };
