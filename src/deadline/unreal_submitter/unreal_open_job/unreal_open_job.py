@@ -563,10 +563,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             job_parameter_value=common.get_project_file_path(),
         )
 
-        if self._transfer_files_strategy in [
-            TransferProjectFilesStrategy.P4,
-            TransferProjectFilesStrategy.S3,
-        ]:
+        if self._transfer_files_strategy == TransferProjectFilesStrategy.UGS:
             perforce_api = PerforceApi()
 
             unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
