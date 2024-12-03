@@ -5,6 +5,7 @@ from typing import Optional
 from P4 import P4, P4Exception
 
 from deadline.unreal_logger import get_logger
+from deadline.unreal_perforce_utils import exceptions
 
 
 logger = get_logger()
@@ -36,7 +37,9 @@ class PerforceConnection:
         try:
             p4.connect()
         except P4Exception as e:
-            logger.info(f'Could not connect Perforce server {p4.port} as user {p4.user}\n{str(e)}')
+            raise exceptions.PerforceConnectionError(
+                f"Could not connect Perforce server {p4.port} as user {p4.user}\n{str(e)}"
+            )
 
         p4.input = 'y'
         p4.run('trust', ['-y'])
@@ -47,6 +50,27 @@ class PerforceConnection:
             p4.run_login()
 
         self.p4 = p4
+
+    def get_info(self) -> dict[str, Any]:
+        return self.p4.run("info")[0]
+
+    def get_stream_path(self) -> Optional[str]:
+        return self.get_info().get("clientStream")
+
+    def get_client_root(self) -> Optional[str]:
+        client_root = self.get_info().get("clientRoot")
+        if client_root:
+            client_root = client_root.replace("\\", "/")
+        return client_root
+
+    def get_latest_changelist_number(self) -> Optional[int]:
+        changes = self.p4.run("changes", "-c", self.p4.client, "-m", 1, "#have")
+        if changes:
+            return int(changes[0]["change"])
+        return None
+
+    def get_workspace_specification(self) -> Optional[dict]:
+        return self.p4.fetch_client(self.p4.client)
 
 
 class PerforceClient:
@@ -119,3 +143,54 @@ def get_perforce_workspace_specification(
         return workspace_specification
     except P4Exception as e:
         logger.info(str(e))
+
+
+def get_perforce_workspace_specification_template(
+        port: str = None, user: str = None, client: str = None
+) -> dict:
+    """
+    Get perforce workspace specification template using provided port, user and client.
+    Template built from perforce workspace specification by replacing any occurences
+    of workspace name with `{workspace_name}` token in specification fields
+
+    :param port: P4 server address (optional)
+    :param user: P4 user name (optional)
+    :param client: P4 client (workspace) name (optional)
+
+    :raises exceptions.PerforceWorkspaceNotFoundError: When not P4 workspace was found
+    :return: P4 workspace specification dictionary if successful, None otherwise
+    :rtype: Optional[dict]
+    """
+
+    workspace_specification = get_perforce_workspace_specification(port, user, client)
+    if not isinstance(workspace_specification, dict):
+        raise exceptions.PerforceWorkspaceNotFoundError(
+            'No Perforce workspace found. Please check P4 environment and try again'
+        )
+
+    workspace_name = workspace_specification['Client']
+    workspace_root = workspace_specification['Root']
+
+    workspace_name_template = '{workspace_name}'
+
+    workspace_specification_template = {
+        'Client': workspace_name_template,
+        'Root': workspace_root
+    }
+
+    if workspace_specification.get('Stream'):
+        workspace_specification_template['Stream'] = workspace_specification['Stream']
+    elif workspace_specification.get('View'):
+        view_regex = rf'.*(\/\/{workspace_name}\/).*'
+        view_templates = []
+        for view in workspace_specification['View']:
+            match = re.match(view_regex, view)
+            if match and len(match.groups()) == 1 and match.groups()[0] == f'//{workspace_name}/':
+                view_templates.append(
+                    view.replace(f'//{workspace_name}/', f'//{workspace_name_template}/')
+                )
+            else:
+                view_templates.append(view)
+        workspace_specification_template['View'] = view_templates
+
+    return workspace_specification_template

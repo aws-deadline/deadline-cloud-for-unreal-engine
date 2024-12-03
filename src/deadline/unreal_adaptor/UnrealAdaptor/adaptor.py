@@ -367,6 +367,14 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
 
         args.append(execcmds_value)
 
+        # Add Mrq Job Dependencies Descriptor argument if exists
+        if "job_dependencies_descriptor" in self.init_data:
+            args.append(
+                "-MrqJobDependenciesDescriptor={}".format(
+                    self.init_data["job_dependencies_descriptor"]
+                )
+            )
+
         logger.info(f"Starting Unreal Engine with args: {args}")
 
         regexhandler = RegexHandler(self._get_regex_callbacks())

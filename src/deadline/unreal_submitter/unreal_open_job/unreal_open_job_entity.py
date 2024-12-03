@@ -273,9 +273,11 @@ class OpenJobParameterNames:
     UNREAL_EXTRA_CMD_ARGS = "ExtraCmdArgs"
     UNREAL_EXTRA_CMD_ARGS_FILE = "ExtraCmdArgsFile"
     UNREAL_EXECUTABLE_RELATIVE_PATH = "ExecutableRelativePath"
+    UNREAL_MRQ_JOB_DEPENDENCIES_DESCRIPTOR = "MrqJobDependenciesDescriptor"
 
     PERFORCE_STREAM_PATH = "PerforceStreamPath"
     PERFORCE_CHANGELIST_NUMBER = "PerforceChangelistNumber"
+    PERFORCE_WORKSPACE_SPECIFICATION_TEMPLATE = "PerforceWorkspaceSpecificationTemplate"
 
 
 class OpenJobStepParameterNames:

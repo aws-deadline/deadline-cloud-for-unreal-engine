@@ -1,11 +1,16 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import os
+import re
+import json
 import unreal
+from typing import Any
 from pathlib import Path
 
+from deadline.unreal_logger import get_logger
 
-content_dir = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_content_dir())
+
+logger = get_logger()
 
 
 def get_project_file_path() -> str:
@@ -79,7 +84,11 @@ def os_path_from_unreal_path(unreal_path, with_ext: bool = False):
     :rtype: str
     """
 
-    os_path = str(unreal_path).replace("/Game/", content_dir)
+    os_path = str(unreal_path).replace(
+        "/Game/", unreal.Paths.convert_relative_path_to_full(
+            unreal.Paths.project_content_dir()
+        )
+    )
 
     if with_ext:
         asset_data = unreal.EditorAssetLibrary.find_asset_data(unreal_path)
@@ -164,3 +173,94 @@ def get_path_context_from_mrq_job(mrq_job: unreal.MoviePipelineExecutorJob) -> P
     )
 
     return path_context
+
+
+def get_in_process_executor_cmd_args() -> list[str]:
+    """
+    Get inherited and additional command line arguments from
+    unreal.MoviePipelineInProcessExecutorSettings. Clear them from any `-execcmds` commands
+    because, in some cases, users may execute a script that is local to their editor build
+    for some automated workflow but this is not ideal on the farm
+
+    :return: list of command line arguments
+    :rtype: list[str]
+    """
+    cmd_args = []
+
+    in_process_executor_settings = unreal.get_default_object(
+        unreal.MoviePipelineInProcessExecutorSettings
+    )
+
+    inherited_cmds: str = in_process_executor_settings.inherited_command_line_arguments
+    inherited_cmds = re.sub(pattern='(-execcmds="[^"]*")', repl="", string=inherited_cmds)
+    inherited_cmds = re.sub(pattern="(-execcmds='[^']*')", repl="", string=inherited_cmds)
+    cmd_args.extend(inherited_cmds.split(" "))
+
+    additional_cmds: str = in_process_executor_settings.additional_command_line_arguments
+    cmd_args.extend(additional_cmds.split(" "))
+
+    return cmd_args
+
+
+def get_mrq_job_cmd_args(mrq_job: unreal.MoviePipelineExecutorJob) -> list[str]:
+    """
+    Get command line arguments from MRQ job configuration:
+    - job cmd args
+    - device profile cvars
+    - execution cmd args
+
+    :return: list of command line arguments
+    :rtype: list[str]
+    """
+
+    cmd_args = []
+
+    mrq_job.get_configuration().initialize_transient_settings()
+
+    job_url_params: list[str] = []
+    job_cmd_args: list[str] = []
+    job_device_profile_cvars: list[str] = []
+    job_exec_cmds: list[str] = []
+    for setting in mrq_job.get_configuration().get_all_settings():
+        (job_url_params, job_cmd_args, job_device_profile_cvars, job_exec_cmds) = (
+            setting.build_new_process_command_line_args(
+                out_unreal_url_params=job_url_params,
+                out_command_line_args=job_cmd_args,
+                out_device_profile_cvars=job_device_profile_cvars,
+                out_exec_cmds=job_exec_cmds,
+            )
+        )
+
+    cmd_args.extend(job_cmd_args)
+
+    if job_device_profile_cvars:
+        cmd_args.append('-dpcvars="{}"'.format(",".join(job_device_profile_cvars)))
+
+    if job_exec_cmds:
+        cmd_args.append('-execcmds="{}"'.format(",".join(job_exec_cmds)))
+
+    return cmd_args
+
+
+def create_deadline_cloud_temp_file(file_prefix: str, file_data: Any, file_ext: str) -> str:
+    destination_dir = os.path.join(
+        unreal.Paths.project_saved_dir(),
+        "UnrealDeadlineCloudService",
+        file_prefix,
+    )
+    os.makedirs(destination_dir, exist_ok=True)
+
+    temp_file = unreal.Paths.create_temp_filename(
+        destination_dir, prefix=file_prefix, extension=file_ext
+    )
+
+    with open(temp_file, "w") as f:
+        logger.info(f"Saving {file_prefix} file '{temp_file}'")
+        if file_ext == ".json":
+            json.dump(file_data, f)
+        else:
+            f.write(file_data)
+
+    temp_file = unreal.Paths.convert_relative_path_to_full(temp_file).replace("\\", "/")
+
+    return temp_file

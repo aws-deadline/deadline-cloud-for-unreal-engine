@@ -14,7 +14,6 @@ from deadline.client.job_bundle.submission import AssetReferences
 from deadline.client.job_bundle import deadline_yaml_dump, create_job_history_bundle_dir
 
 from deadline.unreal_submitter import common, exceptions, settings
-from deadline.unreal_submitter.perforce_api import PerforceApi
 from deadline.unreal_submitter.unreal_dependency_collector import (
     DependencyCollector,
     DependencyFilters,
@@ -32,7 +31,8 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step import (
 )
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment import (
     UnrealOpenJobEnvironment,
-    UnrealOpenJobUgsEnvironment,
+    UgsUnrealOpenJobEnvironment,
+    P4UnrealOpenJobEnvironment,
 )
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_shared_settings import (
     JobSharedSettings,
@@ -46,6 +46,7 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step_host_require
 )
 
 from deadline.unreal_logger import get_logger
+from deadline.unreal_perforce_utils import perforce
 
 
 logger = get_logger()
@@ -433,7 +434,10 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
     default_template_path = settings.RENDER_JOB_TEMPLATE_DEFAULT_PATH
 
-    job_environment_map = {unreal.DeadlineCloudUgsEnvironment: UnrealOpenJobUgsEnvironment}
+    job_environment_map = {
+        unreal.DeadlineCloudUgsEnvironment: UgsUnrealOpenJobEnvironment,
+        unreal.DeadlineCloudPerforceEnvironmetn: P4UnrealOpenJobEnvironment,
+    }
 
     job_step_map = {unreal.DeadlineCloudRenderStep: RenderUnrealOpenJobStep}
 
@@ -497,11 +501,19 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         if self._name is None and isinstance(self.mrq_job, unreal.MoviePipelineExecutorJob):
             self._name = self.mrq_job.job_name
 
-        ugs_envs = [
-            env for env in self._environments if isinstance(env, UnrealOpenJobUgsEnvironment)
-        ]
+        ugs_envs = [e for e in self._environments if isinstance(e, UgsUnrealOpenJobEnvironment)]
+        p4_envs = [e for e in self._environments if isinstance(e, P4UnrealOpenJobEnvironment)]
+        if ugs_envs and p4_envs:
+            raise exceptions.FailedToDetectFilesTransferStrategy(
+                "Failed to detect how to transfer project files to render because "
+                f"there are multiple options selected: "
+                f"{[e.name for e in ugs_envs]} and {[e.name for e in p4_envs]}. "
+                f"Use only Perforce OR only UnrealGameSync environments inside single OpenJob"
+            )
         if ugs_envs:
             self._transfer_files_strategy = TransferProjectFilesStrategy.UGS
+        elif p4_envs:
+            self._transfer_files_strategy = TransferProjectFilesStrategy.P4
 
     @property
     def mrq_job(self):
@@ -736,34 +748,96 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             if override_environment:
                 env.variables = override_environment.variables.variables
 
-    def _write_cmd_args_to_file(self, cmd_args_str: str) -> str:
-        """
-        Write Unreal launch arguments to temp file with unique name
+    def _build_parameter_values_for_ugs(self, parameter_values: list[dict]) -> list[dict]:
+        p4_conn = perforce.PerforceConnection()
 
-        :param cmd_args_str: command arguments string
-        :type cmd_args_str: str
-
-        :return: temp file path with cmd args content
-        :rtype: str
-        """
-
-        destination_dir = os.path.join(
-            unreal.SystemLibrary.get_project_saved_directory(),
-            "UnrealDeadlineCloudService",
-            "ExtraCmdArgs",
-        )
-        os.makedirs(destination_dir, exist_ok=True)
-
-        cmd_args_file = unreal.Paths.create_temp_filename(
-            destination_dir, prefix="ExtraCmdArgs", extension=".txt"
+        parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+            job_parameter_values=parameter_values,
+            job_parameter_name=OpenJobParameterNames.PERFORCE_STREAM_PATH,
+            job_parameter_value=p4_conn.get_stream_path(),
         )
 
-        with open(cmd_args_file, "w") as f:
-            logger.info(f"Saving ExtraCmdArgs file `{cmd_args_file}`")
-            f.write(cmd_args_str)
+        parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+            job_parameter_values=parameter_values,
+            job_parameter_name=OpenJobParameterNames.PERFORCE_CHANGELIST_NUMBER,
+            job_parameter_value=str(p4_conn.get_latest_changelist_number()) or "latest",
+        )
 
-        self._extra_cmd_args_file_path = unreal.Paths.convert_relative_path_to_full(cmd_args_file)
-        return self._extra_cmd_args_file_path
+        parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+            job_parameter_values=parameter_values,
+            job_parameter_name=OpenJobParameterNames.UNREAL_PROJECT_NAME,
+            job_parameter_value=common.get_project_name(),
+        )
+
+        client_root = p4_conn.get_client_root()
+        if isinstance(client_root, str):
+            unreal_project_path = common.get_project_file_path().replace("\\", "/")
+            unreal_project_relative_path = unreal_project_path.replace(client_root, "")
+            unreal_project_relative_path = unreal_project_relative_path.lstrip("/")
+
+            parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+                job_parameter_values=parameter_values,
+                job_parameter_name=OpenJobParameterNames.UNREAL_PROJECT_RELATIVE_PATH,
+                job_parameter_value=unreal_project_relative_path,
+            )
+
+            unreal_executable_path = sys.executable.replace("\\", "/")
+            unreal_executable_relative_path = unreal_executable_path.replace(client_root, "")
+            unreal_executable_relative_path = unreal_executable_relative_path.lstrip("/")
+
+            parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+                job_parameter_values=parameter_values,
+                job_parameter_name=OpenJobParameterNames.UNREAL_EXECUTABLE_RELATIVE_PATH,
+                job_parameter_value=unreal_executable_relative_path,
+            )
+
+        return parameter_values
+
+    def _build_parameter_values_for_p4(self, parameter_values: list[dict]) -> list[dict]:
+        p4 = perforce.PerforceConnection()
+
+        parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+            job_parameter_values=parameter_values,
+            job_parameter_name=OpenJobParameterNames.PERFORCE_CHANGELIST_NUMBER,
+            job_parameter_value=str(p4.get_latest_changelist_number()) or "latest",
+        )
+
+        client_root = p4.get_client_root()
+        if isinstance(client_root, str):
+            unreal_project_path = common.get_project_file_path().replace("\\", "/")
+            unreal_project_relative_path = unreal_project_path.replace(client_root, "")
+            unreal_project_relative_path = unreal_project_relative_path.lstrip("/")
+
+            parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+                job_parameter_values=parameter_values,
+                job_parameter_name=OpenJobParameterNames.UNREAL_PROJECT_RELATIVE_PATH,
+                job_parameter_value=unreal_project_relative_path,
+            )
+
+        parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+            job_parameter_values=parameter_values,
+            job_parameter_name=OpenJobParameterNames.PERFORCE_WORKSPACE_SPECIFICATION_TEMPLATE,
+            job_parameter_value=common.create_deadline_cloud_temp_file(
+                file_prefix=OpenJobParameterNames.PERFORCE_WORKSPACE_SPECIFICATION_TEMPLATE,
+                file_data=perforce.get_perforce_workspace_specification_template(),
+                file_ext=".json"
+            )
+        )
+
+        # We need to collect job dependencies on the Artist node because
+        # some references type is "soft" and initially will not exist on the disk on Render node.
+        # So we can't sync them and their dependecies until we don't know their paths
+        parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+            job_parameter_values=parameter_values,
+            job_parameter_name=OpenJobParameterNames.UNREAL_MRQ_JOB_DEPENDENCIES_DESCRIPTOR,
+            job_parameter_value=common.create_deadline_cloud_temp_file(
+                file_prefix=OpenJobParameterNames.UNREAL_MRQ_JOB_DEPENDENCIES_DESCRIPTOR,
+                file_data={"job_dependencies": self._get_mrq_job_dependency_paths()},
+                file_ext=".json"
+            )
+        )
+
+        return parameter_values
 
     def _build_parameter_values(self) -> list:
         """
@@ -803,7 +877,11 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
             job_parameter_values=unfilled_parameter_values,
             job_parameter_name=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS_FILE,
-            job_parameter_value=self._write_cmd_args_to_file(cmd_args_str).replace("\\", "/"),
+            job_parameter_value=common.create_deadline_cloud_temp_file(
+                file_prefix=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS_FILE,
+                file_data=cmd_args_str,
+                file_ext=".txt"
+            ),
         )
 
         unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
@@ -813,106 +891,23 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         )
 
         if self._transfer_files_strategy == TransferProjectFilesStrategy.UGS:
-            perforce_api = PerforceApi()
-
-            unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
-                job_parameter_values=unfilled_parameter_values,
-                job_parameter_name=OpenJobParameterNames.PERFORCE_STREAM_PATH,
-                job_parameter_value=perforce_api.get_stream_path(),
+            unfilled_parameter_values = self._build_parameter_values_for_ugs(
+                parameter_values=unfilled_parameter_values
             )
 
-            unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
-                job_parameter_values=unfilled_parameter_values,
-                job_parameter_name=OpenJobParameterNames.PERFORCE_CHANGELIST_NUMBER,
-                job_parameter_value=str(perforce_api.get_latest_changelist_number()) or "latest",
+        if self._transfer_files_strategy == TransferProjectFilesStrategy.P4:
+            unfilled_parameter_values = self._build_parameter_values_for_p4(
+                parameter_values=unfilled_parameter_values
             )
-
-            unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
-                job_parameter_values=unfilled_parameter_values,
-                job_parameter_name=OpenJobParameterNames.UNREAL_PROJECT_NAME,
-                job_parameter_value=common.get_project_name(),
-            )
-
-            client_root = perforce_api.get_client_root()
-            if isinstance(client_root, str):
-                unreal_project_path = common.get_project_file_path().replace("\\", "/")
-                unreal_project_relative_path = unreal_project_path.replace(client_root, "")
-                unreal_project_relative_path = unreal_project_relative_path.lstrip("/")
-
-                unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
-                    job_parameter_values=unfilled_parameter_values,
-                    job_parameter_name=OpenJobParameterNames.UNREAL_PROJECT_RELATIVE_PATH,
-                    job_parameter_value=unreal_project_relative_path,
-                )
-
-                unreal_executable_path = sys.executable.replace("\\", "/")
-                unreal_executable_relative_path = unreal_executable_path.replace(client_root, "")
-                unreal_executable_relative_path = unreal_executable_relative_path.lstrip("/")
-
-                unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
-                    job_parameter_values=unfilled_parameter_values,
-                    job_parameter_name=OpenJobParameterNames.UNREAL_EXECUTABLE_RELATIVE_PATH,
-                    job_parameter_value=unreal_executable_relative_path,
-                )
 
         all_parameter_values = filled_parameter_values + unfilled_parameter_values
         return all_parameter_values
 
     def _get_ue_cmd_args(self) -> list[str]:
-        """
-        Build and return a list of command line arguments to pass to Unreal while launching.
+        cmd_args = common.get_in_process_executor_cmd_args()
 
-        Arguments to include:
-            1. unreal.MoviePipelineInProcessExecutorSettings' inherited CMDs except of any
-            `-execcmds`. In some cases, users may execute a script that is local to their editor
-            build for some automated workflow but this is not ideal on the farm
-            2. unreal.MoviePipelineInProcessExecutorSettings' additional CMDs
-            3. MRQ Job Configuration's CMD args, device profile class vars, execution CMD args
-            4. Extra CMD args provided by user except of `-execcmds` for the same reason
-        """
-        cmd_args = []
-
-        in_process_executor_settings = unreal.get_default_object(
-            unreal.MoviePipelineInProcessExecutorSettings
-        )
-
-        # Append all of inherited command line arguments from the editor
-        inherited_cmds: str = in_process_executor_settings.inherited_command_line_arguments
-        inherited_cmds = re.sub(pattern='(-execcmds="[^"]*")', repl="", string=inherited_cmds)
-        inherited_cmds = re.sub(pattern="(-execcmds='[^']*')", repl="", string=inherited_cmds)
-        cmd_args.extend(inherited_cmds.split(" "))
-
-        # Append all of additional command line arguments from the editor
-        additional_cmds: str = in_process_executor_settings.additional_command_line_arguments
-        cmd_args.extend(additional_cmds.split(" "))
-
-        # Initializes a single instance of every setting
-        # so that even non-user-configured settings have a chance to apply their default values
         if self._mrq_job:
-            self._mrq_job.get_configuration().initialize_transient_settings()
-
-            job_url_params: list[str] = []
-            job_cmd_args: list[str] = []
-            job_device_profile_cvars: list[str] = []
-            job_exec_cmds: list[str] = []
-            for setting in self._mrq_job.get_configuration().get_all_settings():
-                (job_url_params, job_cmd_args, job_device_profile_cvars, job_exec_cmds) = (
-                    setting.build_new_process_command_line_args(
-                        out_unreal_url_params=job_url_params,
-                        out_command_line_args=job_cmd_args,
-                        out_device_profile_cvars=job_device_profile_cvars,
-                        out_exec_cmds=job_exec_cmds,
-                    )
-                )
-
-            # Apply job cmd arguments
-            cmd_args.extend(job_cmd_args)
-
-            if job_device_profile_cvars:
-                cmd_args.append('-dpcvars="{}"'.format(",".join(job_device_profile_cvars)))
-
-            if job_exec_cmds:
-                cmd_args.append('-execcmds="{}"'.format(",".join(job_exec_cmds)))
+            cmd_args.extend(common.get_mrq_job_cmd_args(self.mrq_job))
 
         extra_cmd_args_param = self._find_extra_parameter(
             parameter_name=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS,
@@ -1109,7 +1104,12 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
 
 # UGS Jobs
-class UgsRenderUnrealJob(RenderUnrealOpenJob):
-    """Class for predefined UGS Render Job"""
+class UgsRenderUnrealOpenJob(RenderUnrealOpenJob):
 
     default_template_path = settings.UGS_RENDER_JOB_TEMPLATE_DEFAULT_PATH
+
+
+# Perforce (non UGS) Jobs
+class P4RenderUnrealOpenJob(RenderUnrealOpenJob):
+
+    default_template_path = settings.P4_RENDER_JOB_TEMPLATE_DEFAULT_PATH

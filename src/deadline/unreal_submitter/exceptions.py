@@ -13,12 +13,6 @@ class ParametersAreNotConsistentError(DeadlineCloudSubmitterException):
     pass
 
 
-class PerforceConnectionError(DeadlineCloudSubmitterException):
-    """Raised when failed to connect to the Perforce with given credentials"""
-
-    pass
-
-
 class RenderStepCountConstraintError(DeadlineCloudSubmitterException):
     """Raised when the number of Render Steps in a Render Job is different from 1."""
 
@@ -35,3 +29,7 @@ class RenderArgumentsTypeNotSetError(DeadlineCloudSubmitterException):
     """Raised when the render arguments type is not set"""
 
     pass
+
+
+class FailedToDetectFilesTransferStrategy(DeadlineCloudSubmitterException):
+    """Raised when its failed to detect which strategy to use for transfer files to render"""
