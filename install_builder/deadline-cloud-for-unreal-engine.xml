@@ -18,6 +18,17 @@
             </distributionFileList>
         </folder>
         <folder>
+            <description>Logger Files</description>
+            <destination>${unreal_plugin_dir}/Content/Python/libraries/deadline/unreal_logger</destination>
+            <name>unreal_logger</name>
+            <platforms>all</platforms>
+            <distributionFileList>
+                <distributionDirectory allowWildcards="1">
+                    <origin>components/deadline-cloud-for-unreal-engine/src/deadline/unreal_logger/*</origin>∂
+                </distributionDirectory>
+            </distributionFileList>
+        </folder>
+        <folder>
             <description>Dependency Files</description>
             <destination>${unreal_plugin_dir}/tmp/unreal_deps</destination>
             <name>unreal_deps</name>
@@ -25,17 +36,6 @@
             <distributionFileList>
                 <distributionDirectory allowWildcards="1">
                     <origin>components/deadline-cloud-for-unreal-engine/dependency_bundle</origin>
-                </distributionDirectory>
-            </distributionFileList>
-        </folder>
-        <folder>
-            <description>Prebuild Outputs</description>
-            <destination>${unreal_plugin_dir}</destination>
-            <name>unreal_prebuilds</name>
-            <platforms>all</platforms>
-            <distributionFileList>
-                <distributionDirectory allowWildcards="1">
-                    <origin>components/deadline-cloud-for-unreal-engine/UnrealDeadlineCloudService/*</origin>
                 </distributionDirectory>
             </distributionFileList>
         </folder>
@@ -128,6 +128,7 @@
         <deleteFile>
             <path>${unreal_plugin_dir}/tmp/unreal_deps</path>
         </deleteFile>
+        <addFilesToUninstaller files="${unreal_plugin_dir}" />
     </postInstallationActionList>
     <shouldPackRuleList>
         <compareText>
