@@ -1,7 +1,9 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import os
-from typing import Optional
+import re
+from typing import Optional, Any
+
 from P4 import P4, P4Exception
 
 from deadline.unreal_logger import get_logger
@@ -112,7 +114,7 @@ class PerforceClient:
             path_to_sync = filepath if not changelist else f'{filepath}@{changelist}'
             sync_args.append(path_to_sync)
         elif changelist:
-            sync_args.append(f'@{changelist}')
+            sync_args.append(f"{self.spec['Stream']}/...@{changelist}")
 
         logger.info(f"Running P4 sync with following arguments: {sync_args}")
 

@@ -40,6 +40,7 @@ Source = "https://github.com/aws-deadline/deadline-cloud-for-unreal-engine"
 
 [project.scripts]
 unreal-engine-openjd = "deadline.unreal_adaptor.UnrealAdaptor:main"
+unreal-engine-p4-utils = "deadline.unreal_perforce_utils.cli:main"
 
 [tool.hatch.build]
 artifacts = [
@@ -65,6 +66,7 @@ destinations = [
   "src/deadline/unreal_adaptor",
   "src/deadline/unreal_submitter",
   "src/deadline/unreal_logger",
+  "src/deadline/unreal_perforce_utils",
 ]
 
 [tool.hatch.build.targets.sdist]
@@ -113,6 +115,7 @@ addopts = [
     "--cov=src/deadline/unreal_adaptor",
     "--cov=src/deadline/unreal_submitter",
     "--cov=src/deadline/unreal_logger",
+    "--cov=src/deadline/unreal_perforce_utils",
     "--color=yes",
     "--cov-report=html:build/coverage",
     "--cov-report=xml:build/coverage/coverage.xml",
@@ -134,7 +137,8 @@ filterwarnings = [
 source_pkgs = [
     "src/deadline/unreal_adaptor",
     "src/deadline/unreal_submitter",
-    "src/deadline/unreal_logger"
+    "src/deadline/unreal_logger",
+    "src/deadline/unreal_perforce_utils"
 ]
 branch = true
 parallel = true

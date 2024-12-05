@@ -436,7 +436,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
     job_environment_map = {
         unreal.DeadlineCloudUgsEnvironment: UgsUnrealOpenJobEnvironment,
-        unreal.DeadlineCloudPerforceEnvironmetn: P4UnrealOpenJobEnvironment,
+        unreal.DeadlineCloudPerforceEnvironment: P4UnrealOpenJobEnvironment,
     }
 
     job_step_map = {unreal.DeadlineCloudRenderStep: RenderUnrealOpenJobStep}
@@ -824,9 +824,9 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             )
         )
 
-        # We need to collect job dependencies on the Artist node because
-        # some references type is "soft" and initially will not exist on the disk on Render node.
-        # So we can't sync them and their dependecies until we don't know their paths
+        # We need to collect job dependencies on the Artist node because some of them of
+        # type "soft" and references to them in other downloaded assets will be None on the
+        # Render node. So we can't sync them and their dependencies until we don't know their paths
         parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
             job_parameter_values=parameter_values,
             job_parameter_name=OpenJobParameterNames.UNREAL_MRQ_JOB_DEPENDENCIES_DESCRIPTOR,

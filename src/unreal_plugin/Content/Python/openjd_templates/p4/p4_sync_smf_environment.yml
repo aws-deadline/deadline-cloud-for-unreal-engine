@@ -1,45 +1,17 @@
-name: UgsSyncSmf
+name: P4SyncCmf
 script:
-  embeddedFiles:
-  - name: UgsSync
-    filename: UgsSync.bat
-    type: TEXT
-    data: |
-      :: Get or Create P4 workspace with UGS
-      ugs switch {{Param.PerforceStreamPath}}
-      ugs init {{Param.PerforceStreamPath}} -client=%USERNAME%_%COMPUTERNAME%_{{Param.ProjectName}} -project={{Param.ProjectRelativePath}}
-      
-      :: Find workspace root folder named as Stream path with "/" replaced by "+" (UGS CLI does it by default)
-      set "WorkspaceFolderName={{Param.PerforceStreamPath}}"
-      set "WorkspaceFolderName=%WorkspaceFolderName:/=+%"
-      
-      :: Go to this directory
-      cd /d %WorkspaceFolderName%
-
-      :: Sync to given changelist, no generate proj files, overwrite clobber files, sync binaries
-      ugs sync {{Param.PerforceChangelistNumber}} -nogpf -clobber -binaries
-      echo Sync completed successfuly
-      
-      :: Store this path to Env variable for future using while launching the Unreal Editor and Project within
-      echo openjd_env: P4_CLIENT_DIRECTORY=%CD%
-  - name: RemovePerforceWorkspace
-    filename: RemovePerforceWorkspace.bat
-    type: TEXT
-    data: |
-      :: Clear workspace files
-      p4 sync -f %P4_CLIENT_DIRECTORY%/...#0
-      
-      :: Delete workspace
-      p4 client -d -f %USERNAME%_%COMPUTERNAME%_{{Param.ProjectName}}
-      
-      :: Remove env variable
-      echo openjd_unset_env: P4_CLIENT_DIRECTORY
   actions:
     onEnter:
-      command: '{{Env.File.UgsSync}}'
-      cancelation:
-        mode: NOTIFY_THEN_TERMINATE
-    onExit:
-      command: '{{Env.File.RemovePerforceWorkspace}}'
+      command: unreal-engine-p4-utils
+      args:
+        - create_workspace
+        - -UnrealProjectRelativePath
+        - {{Param.ProjectRelativePath}}
+        - -UnrealProjectName
+        - {{Param.ProjectName}}
+        - -PerforceWorkspaceSpecificationTemplate
+        - {{Param.PerforceWorkspaceSpecificationTemplate}}
+        - -PerforceChangelistNumber
+        - {{Param.PerforceChangelistNumber}}
       cancelation:
         mode: NOTIFY_THEN_TERMINATE
