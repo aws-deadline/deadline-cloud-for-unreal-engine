@@ -814,28 +814,32 @@ class RenderUnrealOpenJob(UnrealOpenJob):
                 job_parameter_value=unreal_project_relative_path,
             )
 
+        workspace_spec_template = common.create_deadline_cloud_temp_file(
+            file_prefix=OpenJobParameterNames.PERFORCE_WORKSPACE_SPECIFICATION_TEMPLATE,
+            file_data=perforce.get_perforce_workspace_specification_template(),
+            file_ext=".json",
+        )
         parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
             job_parameter_values=parameter_values,
             job_parameter_name=OpenJobParameterNames.PERFORCE_WORKSPACE_SPECIFICATION_TEMPLATE,
-            job_parameter_value=common.create_deadline_cloud_temp_file(
-                file_prefix=OpenJobParameterNames.PERFORCE_WORKSPACE_SPECIFICATION_TEMPLATE,
-                file_data=perforce.get_perforce_workspace_specification_template(),
-                file_ext=".json"
-            )
+            job_parameter_value=workspace_spec_template,
         )
+        self._asset_references.input_filenames.add(workspace_spec_template)
 
         # We need to collect job dependencies on the Artist node because some of them of
         # type "soft" and references to them in other downloaded assets will be None on the
         # Render node. So we can't sync them and their dependencies until we don't know their paths
+        job_dependencies_descriptor = common.create_deadline_cloud_temp_file(
+            file_prefix=OpenJobParameterNames.UNREAL_MRQ_JOB_DEPENDENCIES_DESCRIPTOR,
+            file_data={"job_dependencies": self._get_mrq_job_dependency_paths()},
+            file_ext=".json",
+        )
         parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
             job_parameter_values=parameter_values,
             job_parameter_name=OpenJobParameterNames.UNREAL_MRQ_JOB_DEPENDENCIES_DESCRIPTOR,
-            job_parameter_value=common.create_deadline_cloud_temp_file(
-                file_prefix=OpenJobParameterNames.UNREAL_MRQ_JOB_DEPENDENCIES_DESCRIPTOR,
-                file_data={"job_dependencies": self._get_mrq_job_dependency_paths()},
-                file_ext=".json"
-            )
+            job_parameter_value=job_dependencies_descriptor,
         )
+        self._asset_references.input_filenames.add(job_dependencies_descriptor)
 
         return parameter_values
 
@@ -874,15 +878,17 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             job_parameter_value="",
         )
 
+        extra_cmd_args_file = common.create_deadline_cloud_temp_file(
+            file_prefix=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS_FILE,
+            file_data=cmd_args_str,
+            file_ext=".txt"
+        )
         unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
             job_parameter_values=unfilled_parameter_values,
             job_parameter_name=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS_FILE,
-            job_parameter_value=common.create_deadline_cloud_temp_file(
-                file_prefix=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS_FILE,
-                file_data=cmd_args_str,
-                file_ext=".txt"
-            ),
+            job_parameter_value=extra_cmd_args_file,
         )
+        self._asset_references.input_filenames.add(extra_cmd_args_file)
 
         unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
             job_parameter_values=unfilled_parameter_values,
