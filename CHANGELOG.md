@@ -1,3 +1,16 @@
+## 0.3.0 (2024-12-10)
+
+
+### Features
+* ExtraCmdArgsFile parameter to handle param length limit (#96) ([`3cc407d`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/3cc407de34d5204f8fcf3146e0394c39dbf44aa8))
+* split MRQ Job level sequence into shot chunks (#78) ([`d47e734`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/d47e734fe0dec6b34d60065d2a778bd253a9c465))
+* Script for producing plugin prebuild archive (#77) ([`57313a8`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/57313a8e2f450a7d34f3211a0b0fdd02d506506c))
+* Updating default installed version path of unreal to 5.4 (Latest official release).  Changing some comments to reflect support for 5.2 and above.  Adding a registry check for most recently installed version which will override default when found.  It's no longer necessary for 'UnrealDeadlineCloudService' Plugins folder to exist for installation to work, only the Plugins folder needs to exist. (#72) ([`d8e2e6a`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/d8e2e6a92da2125a24617933eb8bd99886331abc))
+
+### Bug Fixes
+* Updating CHANGELOG processing to handle recent breaking changes in python-semantic-release (#95) ([`0081d9d`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/0081d9dae949643972ba5bd465f08ba1fb943344))
+* Importing logger after adding install libraries to sys.path.  Setting uninstall files in submitter installer.  Adding logger to submitter installer. (#93) ([`417c605`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/417c605b14625ad59d143dcfdcc6dd67ba68c52f))
+
 ## 0.2.2 (2024-06-19)
 
 
