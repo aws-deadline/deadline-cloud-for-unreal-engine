@@ -35,11 +35,12 @@ Deadline Cloud Monitor is used to both manage your credentials for submitting jo
 
 ## Deadline Software Installation
 
-```
-python -m pip install deadline-cloud-for-unreal-engine
-```
+- clone or download deadline-cloud-for-unreal-engine either from the release branch or mainline depending on whether you'd like the most recent tested release or all of the most recent commits.
 
-- clone or download deadline-cloud-for-unreal-engine
+```
+git clone https://github.com/aws-deadline/deadline-cloud-for-unreal-engine.git
+git switch release
+```
 
 ## Build the Plugin
 
@@ -54,9 +55,43 @@ runuat.bat BuildPlugin -plugin="C:\deadline\deadline-cloud-for-unreal-engine\src
 
 - Copy the “package” folder above to your Unreal installation’s Plugins folder (C:\Program Files\Epic Games\UE_5.4\Engine\Plugins\UnrealDeadlineCloudService for example)
 
-## Submitter Installer
+## Python Dependencies
 
-Additional python libraries are installed by the submitter installer currently.
+There are several ways to install the required Python dependencies.
+
+If you've built and installed the plugin from the release branch above, you can simply install from pip.  Either install as: (Adjust paths accordingly)
+
+```
+"C:\Program Files\Epic Games\UE_5.4\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install deadline-cloud-for-unreal-engine --target "C:\Program Files\Epic Games\UE_5.4\Engine\Plugins\UnrealDeadlineCloudService\Content\Python\libraries"
+``
+
+Or alternatively in your .uplugin file (In the above steps this would live at C:\Program Files\Epic Games\UE_5.4\Engine\Plugins\UnrealDeadlineCloudService\UnrealDeadlineCloudService.uplugin) you can add a "PythonRequirements" section which matches the latest release of deadline-cloud-for-unreal-engine in GitHub/PyPi, for example:
+
+```
+	"PythonRequirements":
+	[
+		{
+
+			"Platform": "All",
+			"Requirements":
+			[
+				"deadline-cloud-for-unreal-engine>=0.3.0"
+			]
+		}
+	]
+```
+
+Note that you may wish to disable the "strict hash" feature in Unreal's Python settings, or add hash settings for specific library and dependency versions you wish to consume.
+
+Finally if you're pulling from mainline you may have python dependencies which are not yet released to PyPi - you'll want to run something like this to build and install your mainline version.  Note that the .whl file will need to be changed to reflect the version which is output by hatch build:
+
+```
+pip install hatch (If not installed)
+hatch build
+"C:\Program Files\Epic Games\UE_5.4\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install dist\deadline_cloud_for_unreal_engine-0.2.2.post21-py3-none-any.whl --target "C:\Program Files\Epic Games\UE_5.4\Engine\Plugins\UnrealDeadlineCloudService\Content\Python\libraries"
+```
+
+Lastly, Python dependencies can be installed by the submitter installer.  NOTE - these may be out of date with your code above from the release or mainline branch, and this method should not currently be preferred.
 
 1. Download submitter installer from Deadline Cloud AWS Console’s Downloads Tab or from within the Deadline Cloud Monitor under Workstation Setup -> Downloads
 1. Run, install for all users. Default install location is fine.
@@ -160,11 +195,12 @@ This example will use the Meerkat Demo from the Unreal Marketplace:
 1. Under “Farm” ensure your Default Queue is set to your CMF you set up
 1. Optionally set your Job Attachments Filesystem to VIRTUAL
 1. Under Windows/Cinematics select Movie Render Queue
-1. Click Render, and select some shot to render (shot0040 for example, the main shot is quite long)
+1. Click Render, and select "Main_SEQ"
 1. Click “UnsavedConfig” in the top in the settings column 1. you should see DeadlineCloud settings on the left. This window can then be closed.
 1. On the right, drop down “Preset Overrides” (You may need to widen this dialog)
 1. Set “Name” to “Unreal Test Job”
 1. Set “Maximum retries” to 2
+1. Optionally set "Task Chunk Size" to a number higher than 1 - this will tell Deadline Cloud to render the requested number of shots in groups as part of the same task, and may slightly increase performance in some cases.
 1. In Job Attachments, under “Input Files” select “Show Auto-Detected” and the list of Auto Detected Files should populate
 1. Ready to Go! Hit Render (Remote)
 1. You can go to Deadline Cloud Monitor and watch the progress of your job
