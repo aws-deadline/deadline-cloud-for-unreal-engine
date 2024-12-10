@@ -334,9 +334,6 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         self._dependency_collector = DependencyCollector()
 
-        self._manifest_path = ""
-        self._extra_cmd_args_file_path = ""
-
         if self._name is None and isinstance(self.mrq_job, unreal.MoviePipelineExecutorJob):
             self._name = self.mrq_job.job_name
 
@@ -385,10 +382,6 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         if self._name is None:
             self._name = self._mrq_job.job_name
-
-    @property
-    def manifest_path(self):
-        return self._manifest_path
 
     @classmethod
     def from_data_asset(cls, data_asset: unreal.DeadlineCloudRenderJob) -> "RenderUnrealOpenJob":
@@ -619,28 +612,14 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         parameter_values = super()._build_parameter_values()
 
         # skip params predefined in YAML or by given extra parameters
-        # if it is not ExtraCmdArgs since we want to update them with mrq job args
-        unfilled_parameter_values = [
-            p
-            for p in parameter_values
-            if p["value"] is None or p["name"] == OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS
-        ]
+        unfilled_parameter_values = [p for p in parameter_values if p["value"] is None]
         filled_parameter_values = [
             p for p in parameter_values if p not in unfilled_parameter_values
         ]
 
-        cmd_args_str = " ".join(self._get_ue_cmd_args())
-
-        if len(cmd_args_str) <= 1024:
-            unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
-                job_parameter_values=unfilled_parameter_values,
-                job_parameter_name=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS,
-                job_parameter_value=cmd_args_str,
-            )
-
         extra_cmd_args_file = common.create_deadline_cloud_temp_file(
             file_prefix=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS_FILE,
-            file_data=cmd_args_str,
+            file_data=" ".join(self._get_ue_cmd_args()),
             file_ext=".txt"
         )
         unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
@@ -826,10 +805,6 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             asset_references.input_directories.update(
                 RenderUnrealOpenJob.get_required_project_directories()
             )
-
-        # add ue cmd args file
-        if os.path.exists(self._extra_cmd_args_file_path):
-            asset_references.input_filenames.add(self._extra_cmd_args_file_path)
 
         # add attachments from preset overrides
         if self.mrq_job:
