@@ -495,9 +495,6 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         self._dependency_collector = DependencyCollector()
 
-        self._manifest_path = ""
-        self._extra_cmd_args_file_path = ""
-
         if self._name is None and isinstance(self.mrq_job, unreal.MoviePipelineExecutorJob):
             self._name = self.mrq_job.job_name
 
@@ -562,10 +559,6 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         if self._name is None:
             self._name = self._mrq_job.job_name
-
-    @property
-    def manifest_path(self):
-        return self._manifest_path
 
     @classmethod
     def from_data_asset(cls, data_asset: unreal.DeadlineCloudRenderJob) -> "RenderUnrealOpenJob":
@@ -1083,10 +1076,6 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             asset_references.input_directories.update(
                 RenderUnrealOpenJob.get_required_project_directories()
             )
-
-        # add ue cmd args file
-        if os.path.exists(self._extra_cmd_args_file_path):
-            asset_references.input_filenames.add(self._extra_cmd_args_file_path)
 
         # add attachments from preset overrides
         if self.mrq_job:
