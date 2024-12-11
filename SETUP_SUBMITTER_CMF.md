@@ -58,15 +58,15 @@ runuat.bat BuildPlugin -plugin="C:\deadline\deadline-cloud-for-unreal-engine\src
 
 ## Python Dependencies
 
-There are several ways to install the required Python dependencies.
+There are 4 ways to install the required Python dependencies.
 
-If you've built and installed the plugin from the release branch above, you can simply install from pip.  Either install as: (Adjust paths accordingly)
+1. If you've built and installed the plugin from the release branch above, you can simply install from pip. Use the following install command, adjusting the paths to your Unreal installation:
 
 ```
 "C:\Program Files\Epic Games\UE_5.4\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install deadline-cloud-for-unreal-engine --target "C:\Program Files\Epic Games\UE_5.4\Engine\Plugins\UnrealDeadlineCloudService\Content\Python\libraries"
 ```
 
-Or alternatively in your .uplugin file (In the above steps this would live at C:\Program Files\Epic Games\UE_5.4\Engine\Plugins\UnrealDeadlineCloudService\UnrealDeadlineCloudService.uplugin) you can add a "PythonRequirements" section which matches the latest release of deadline-cloud-for-unreal-engine in GitHub/PyPi, for example:
+2.  Alternatively in your .uplugin file (In the above steps this would live at C:\Program Files\Epic Games\UE_5.4\Engine\Plugins\UnrealDeadlineCloudService\UnrealDeadlineCloudService.uplugin) you can add a "PythonRequirements" section which matches the latest release of deadline-cloud-for-unreal-engine in GitHub/PyPi, for example:
 
 ```
 	"PythonRequirements":
@@ -84,7 +84,7 @@ Or alternatively in your .uplugin file (In the above steps this would live at C:
 
 Note that you may wish to disable the "strict hash" feature in Unreal's Python settings, or add hash settings for specific library and dependency versions you wish to consume.
 
-Finally if you're pulling from mainline you may have python dependencies which are not yet released to PyPi - you'll want to run something like this to build and install your mainline version.  Note that the .whl file will need to be changed to reflect the version which is output by hatch build:
+3.  If you're pulling from mainline you may have python dependencies which are not yet released to PyPi - you'll need to build and install your local copy which can be done with hatch.  Note that the .whl file will need to be changed to reflect the version which is output by hatch build:
 
 ```
 // Install hatch if not yet installed
@@ -93,12 +93,12 @@ hatch build
 "C:\Program Files\Epic Games\UE_5.4\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install dist\deadline_cloud_for_unreal_engine-0.2.2.post21-py3-none-any.whl --target "C:\Program Files\Epic Games\UE_5.4\Engine\Plugins\UnrealDeadlineCloudService\Content\Python\libraries"
 ```
 
-Lastly, Python dependencies can be installed by the submitter installer.  NOTE - these may be out of date with your code above from the release or mainline branch, and this method should not currently be preferred.
+4.  Lastly, Python dependencies can be installed by the submitter installer.  NOTE - these may be out of date with your code above from the release or mainline branch, and this method should not currently be preferred.
 
-1. Download submitter installer from Deadline Cloud AWS Console’s Downloads Tab or from within the Deadline Cloud Monitor under Workstation Setup -> Downloads
-1. Run, install for all users. Default install location is fine.
-1. Enable the Unreal Engine Plugin
-1. Make sure the Unreal Engine plugin install path matches where your plugin was copied to (In particular make sure your Unreal version matches)
+	1. Download submitter installer from Deadline Cloud AWS Console’s Downloads Tab or from within the Deadline Cloud Monitor under Workstation Setup -> Downloads
+	1. Run, install for all users. Default install location is fine.
+	1. Enable the Unreal Engine Plugin
+	1. Make sure the Unreal Engine plugin install path matches where your plugin was copied to (In particular make sure your Unreal version matches)
 
 ## Submitter Installation Complete
 
