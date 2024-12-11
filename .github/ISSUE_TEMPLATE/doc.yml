@@ -2,7 +2,7 @@
 name: "📕 Documentation Issue"
 description: Issue in the documentation
 title: "Docs: TITLE"
-labels: ["documenation"]
+labels: ["documentation"]
 body:
   - type: textarea
     id: documentation_issue
