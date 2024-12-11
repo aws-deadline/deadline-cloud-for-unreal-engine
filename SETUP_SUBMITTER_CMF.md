@@ -35,10 +35,11 @@ Deadline Cloud Monitor is used to both manage your credentials for submitting jo
 
 ## Deadline Software Installation
 
-- clone or download deadline-cloud-for-unreal-engine either from the release branch or mainline depending on whether you'd like the most recent tested release or all of the most recent commits.
+- clone or download `deadline-cloud-for-unreal-engine` either from the release branch or mainline depending on whether you'd like the most recent tested release or all of the most recent commits.
 
 ```
 git clone https://github.com/aws-deadline/deadline-cloud-for-unreal-engine.git
+cd deadline-cloud-for-unreal-engine
 git switch release
 ```
 
@@ -63,7 +64,7 @@ If you've built and installed the plugin from the release branch above, you can 
 
 ```
 "C:\Program Files\Epic Games\UE_5.4\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install deadline-cloud-for-unreal-engine --target "C:\Program Files\Epic Games\UE_5.4\Engine\Plugins\UnrealDeadlineCloudService\Content\Python\libraries"
-``
+```
 
 Or alternatively in your .uplugin file (In the above steps this would live at C:\Program Files\Epic Games\UE_5.4\Engine\Plugins\UnrealDeadlineCloudService\UnrealDeadlineCloudService.uplugin) you can add a "PythonRequirements" section which matches the latest release of deadline-cloud-for-unreal-engine in GitHub/PyPi, for example:
 
@@ -86,7 +87,8 @@ Note that you may wish to disable the "strict hash" feature in Unreal's Python s
 Finally if you're pulling from mainline you may have python dependencies which are not yet released to PyPi - you'll want to run something like this to build and install your mainline version.  Note that the .whl file will need to be changed to reflect the version which is output by hatch build:
 
 ```
-pip install hatch (If not installed)
+// Install hatch if not yet installed
+pip install hatch  
 hatch build
 "C:\Program Files\Epic Games\UE_5.4\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install dist\deadline_cloud_for_unreal_engine-0.2.2.post21-py3-none-any.whl --target "C:\Program Files\Epic Games\UE_5.4\Engine\Plugins\UnrealDeadlineCloudService\Content\Python\libraries"
 ```
