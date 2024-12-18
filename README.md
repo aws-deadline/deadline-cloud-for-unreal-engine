@@ -10,7 +10,7 @@
 [openjd-adaptor-runtime]: https://github.com/OpenJobDescription/openjd-adaptor-runtime-for-python
 [openjd-adaptor-runtime-lifecycle]: https://github.com/OpenJobDescription/openjd-adaptor-runtime-for-python/blob/release/README.md#adaptor-lifecycle
 
-AWS Deadline Cloud for Unreal Engine is a python package that allows users to create [AWS Deadline Cloud][deadline-cloud] jobs from within Unreal Engine. Using the [Open Job Description (OpenJD) Adaptor Runtime][openjd-adaptor-runtime] this package also provides a command line application that adapts Unreal's command line interface to support the [OpenJD specification][openjd].
+AWS Deadline Cloud for Unreal Engine is a C++ and python package for Unreal that allows users to create Unreal Movie Render Queue jobs for [AWS Deadline Cloud][deadline-cloud] from within Unreal Engine. Using the [Open Job Description (OpenJD) Adaptor Runtime][openjd-adaptor-runtime] this package also provides a command line application on the worker side to that adapts Unreal's command line interface to support the [OpenJD specification][openjd] and allows efficient rendering of multiple shots from a sequence without restarting Unreal.
 
 ## Compatibility
 
@@ -21,32 +21,20 @@ This library requires:
 
 ## Submitter
 
-This package provides a Unreal Engine plugin that creates jobs for AWS Deadline Cloud using the [AWS Deadline Cloud client library][deadline-cloud-client]. Based on the loaded scene it determines the files required, allows the user to specify render options, and builds an [OpenJD template][openjd] that defines the workflow.
+This package provides a Unreal Engine plugin that creates Unreal Movie Render Queue jobs for AWS Deadline Cloud using the [AWS Deadline Cloud client library][deadline-cloud-client]. Based on the loaded scene it determines the files required, allows the user to specify render options, and builds an [OpenJD template][openjd] that defines the workflow.
 
 ## Adaptor
 
-The Unreal Engine Adaptor implements the [OpenJD][openjd-adaptor-runtime] interface that allows render workloads to launch Unreal Engien and feed it commands. This gives the following benefits:
+The Unreal Engine Adaptor implements the [OpenJD][openjd-adaptor-runtime] interface that allows render workloads to launch Unreal Engine and feed it commands. This gives the following benefits:
 
 - a standardized render application interface,
-- sticky rendering, where the application stays open between tasks,
+- sticky rendering, where the application stays open between tasks (Shots)
 
 Jobs created by the submitter use this adaptor by default.
 
 ### Getting Started
 
-See [SETUP_SUBMITTER_CMF](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_SUBMITTER_CMF.md) for full instructions on setting up to use the submitter or setting up a customer managed fleet and/or instance to act as a worker node.
-
-The adaptor can be installed by the standard python packaging mechanisms:
-
-```sh
-$ pip install deadline-cloud-for-unreal-engine
-```
-
-After installation it can then be used as a command line tool:
-
-```sh
-$ unreal-engine-openjd --help
-```
+See [SETUP_SUBMITTER_CMF](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_SUBMITTER_CMF.md) for full instructions on setting up to use the plugin and submitter or setting up a customer managed fleet and/or instance to act as a worker node.
 
 For more information on the commands the OpenJD adaptor runtime provides, see [here][openjd-adaptor-runtime-lifecycle].
 

@@ -4,9 +4,14 @@ This package has two active branches:
 - `mainline` -- For active development. This branch is not intended to be consumed by other packages. Any commit to this branch may break APIs, dependencies, and so on, and thus break any consumer without notice.
 - `release` -- The official release of the package intended for consumers. Any breaking releases will be accompanied with an increase to this package's interface version.
 
+## Build and Install the Plugin, Submitter, and Adapter
+
+Full instructions for building and installing these packages and the necessary dependencies to act as a submitter and/or worker can be found in [this guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_SUBMITTER_CMF.md).  Use the "mainline" branch for development rather than "release", and if you plan on submitting pull requests work out of [a fork](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/CONTRIBUTING.md#contributing-via-pull-requests).
+
+
 ## Build / Test / Release
 
-### Build the package
+### Build the python packages
 
 ```bash
 hatch build
@@ -36,15 +41,44 @@ hatch run fmt
 hatch run all:test
 ```
 
-## Use development Submitter in Unreal
+### Testing C++ Changes
 
-```bash
-hatch run install
-hatch shell
+When making C++ changes before testing you'll need to rebuild and copy your modified plugin to your Unreal plugins folder following [these steps](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_SUBMITTER_CMF.md#build-the-plugin).
+
+
+### Testing Python Changes
+
+When making changes to the Python submitter you'll need to rebuild and install your .whl file, adjusting paths to your local installation:
+
 ```
-Then launch UnrealEditor-Cmd from that terminal.
+// Install hatch if not yet installed
+pip install hatch
+hatch build
+"C:\Program Files\Epic Games\UE_5.4\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install dist\deadline_cloud_for_unreal_engine-0.2.2.post21-py3-none-any.whl --target "C:\Program Files\Epic Games\UE_5.4\Engine\Plugins\UnrealDeadlineCloudService\Content\Python\libraries"
+```
 
-A development version of deadline-cloud-for-unreal-engine is then available to be loaded.
+When making adaptor changes, the same .whl can either be transferred to your worker or built on the worker off the same changes.
+
+Install the .whl on the worker with:
+
+// Note we're installing the Adaptor to the global pip install which should be found on our path rather than our Unreal plugin.
+pip install ./path/to/my-file.whl
+
+
+### Running Unreal Spec Tests
+
+The Deadline Cloud plugin's Unreal Automation Tests can be run from within Unreal.
+
+1. Open the Tools menu
+2. Select "Session Frontend"
+3. Open the Automation tab
+4. Select "Deadline"
+5. Hit the Go button
+
+
+## Submit a test render
+
+To test out any significant changes it's useful to submit a test render following [this guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_SUBMITTER_CMF.md#submit-a-test-render-optional)
 
 
 ### Building the docs
@@ -73,53 +107,9 @@ A development version of deadline-cloud-for-unreal-engine is then available to b
    You can visit the "Home" page of the docs by opening the **index.html** file
 
 
-## Run unit tests for UnrealSubmitter
 
-1. Prepare the expected job bundle:
-   1. Create the ```expected template.yaml```, ```parameter_values.yaml``` and ```asset_references.yaml``` files with the job properties
-   2. Copy them to the ```..\..\deadline-cloud-for-unreal\test\deadline_submitter_for_unreal\unit\expected_job_bundle``` directory
-2. Launch the Unreal project
-3. Open the Movie Render Queue window (Go to header menu -> "Window" -> "Cinematics" -> "Movie Render Queue")
-4. In the MRQ window add the render job, setup the Config, Map and JobPreset
-3. Open the "Output Log" window (Go to header menu -> "Window" -> "Output Log")
-4. In the Log window switch to "Cmd" type if it's not
-(should be by default, possible variants: "Cmd", "Python", "Python (REPL)")
-5. Run the unit tests for submitter here:
-   ```
-   py "C:\deadline\deadline-cloud-for-unreal\test\deadline_submitter_for_unreal\unit\test_submitter.py"
-   ```
-   Make sure, that you provide the absolute path to the ```test_submitter.py``` script on your computer
-6. The possible successful output:
-   ```
-   Test Case TestUnrealDependencyCollector result:
-   Total run: 5
-   Successful: True
-   Errors: 0
-   Failures: []
-   
-   Test Case TestUnrealOpenJob result:
-   Total run: 3
-   Successful: True
-   Errors: 0
-   Failures: []
-   
-   Test Case TestUnrealSubmitter result:
-   Total run: 4
-   Successful: True
-   Errors: 0
-   Failures: []
-   ```
 
-## Building the Plugin
 
-In order to use this plugin with Unreal Engine, you will need to build the plugin manually. To do this:  
 
-0. Install Visual Studio with C++ components. 
-1. Download this repository.
-2. Open a command line window
-3. Change the directory to Unreal Engine's Batchfiles folder.
-    - eg. [installed UE location]\Engine\Build\Batchfiles
-4. Run the following command:
-    - `RunUAT.bat BuildPlugin -plugin="[root of this repository]\src\unreal_plugin\UnrealDeadlineCloudService.uplugin" -package="[temporary directory]"` 
-5. Copy the temporary directory to Unreal Engine's plugins folder.
-6. Open the uproject in Unreal and enable the UnrealDeadlineCloudService plugin. 
+
+
