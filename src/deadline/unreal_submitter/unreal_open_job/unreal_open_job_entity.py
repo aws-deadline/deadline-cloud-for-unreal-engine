@@ -76,6 +76,8 @@ class UnrealOpenJobEntityBase(ABC):
 class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
     """
     Base class for Unreal Open Job entities
+
+    :cvar default_template_path: Path of the YAML template relative to settings.OPENJD_TEMPLATES_DIRECTORY
     """
 
     default_template_path: Optional[str] = None
@@ -119,34 +121,70 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
 
     @property
     def template_class(self):
+        """Returns the OpenJD template class of the entity"""
         return self._template_class
 
     @property
     def name(self):
+        """Returns the name of the entity"""
         return self._name
 
     @property
     def file_path(self):
+        """Returns the file path of the entity"""
         return self._file_path
 
     def _build_template(self) -> Template:
+        """
+        Base method to build OpenJD model from YAML template
+
+        :return: Template instance (JobTemplate, StepTemplate, Environment)
+        :rtype: Template
+        """
         template_object = self.get_template_object()
         return self.template_class(**template_object)
 
     def _validate_parameters(self) -> bool:
+        """
+        Validate parameters of the entity by checking parameters consistency
+
+        :raises exceptions.ParametersAreNotConsistentError: When parameters are not consistent
+
+        :return: True if parameters are consistent, False otherwise
+        :rtype: bool
+        """
         result = self._check_parameters_consistency()
         if not result.passed:
             raise exceptions.ParametersAreNotConsistentError(result.reason)
         return True
 
     def _check_parameters_consistency(self) -> ParametersConsistencyCheckResult:
-        return ParametersConsistencyCheckResult(True, "Parameters are consensual")
+        """
+        Base implementation of checking entity parameters consistency
+
+        :return: Parameters consistency check result that indicates variables consistent or not
+        :rtype: ParametersConsistencyCheckResult
+        """
+        return ParametersConsistencyCheckResult(True, "Parameters are consistent")
 
     def build_template(self) -> Template:
+        """
+        Base implementation of building entity template.
+        Calls _build_template() that can be overridden in child classes
+
+        :return: Template instance (JobTemplate, StepTemplate, Environment)
+        :rtype: Template
+        """
         self._validate_parameters()
         return self._build_template()
 
     def get_template_object(self) -> dict:
+        """
+        Read the template YAML file and return it as a dict
+
+        :return: Template descriptor
+        :rtype: dict
+        """
         if not os.path.exists(self.file_path):
             raise FileNotFoundError(f'Descriptor file "{self.file_path}" not found')
 
@@ -156,11 +194,26 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
         return template
 
     def get_asset_references(self) -> AssetReferences:
+        """
+        Return asset references to include to upload list on submission
+
+        :return: AssetReferences instance
+        :rtype: AssetReferences
+        """
         return AssetReferences()
 
 
 @dataclass
 class ParameterDefinitionDescriptor:
+    """
+    Data class for converting C++, OpenJD and generic Python classes between each other
+
+    :cvar type_name: OpenJD type (INT, FLOAT, STRING, PATH)
+    :cvar job_parameter_openjd_class: OpenJD class for int, float, string, path Job parameter
+    :cvar task_parameter_openjd_class: OpenJD class for int, float, string, path Step parameter
+    :cvar python_class: Appropriate python class (int, float, string, path)
+    """
+
     type_name: Literal["INT", "FLOAT", "STRING", "PATH"]
     job_parameter_openjd_class: type[
         Union[
@@ -199,6 +252,20 @@ PARAMETER_DEFINITION_MAPPING = {
 
 
 class OpenJobParameterNames:
+    """
+    Class that contains default Job parameter names that can be used during the submission.
+    These parameters can be automatically updated during the submission if no value is provided.
+
+    :cvar UNREAL_PROJECT_PATH: Full local Unreal project path
+    :cvar UNREAL_PROJECT_NAME: Unreal project name
+    :cvar UNREAL_PROJECT_RELATIVE_PATH: Unreal project path relative to P4 workspace root
+    :cvar UNREAL_EXTRA_CMD_ARGS: Extra command line arguments to launch Unreal with
+    :cvar UNREAL_EXTRA_CMD_ARGS_FILE: Path to file containing extra command line arguments
+                                      to launch Unreal with
+    :cvar UNREAL_EXECUTABLE_RELATIVE_PATH: UE executable path relative to P4 workspace root
+    :cvar PERFORCE_STREAM_PATH: P4 stream path, e.g. //MyProject/Mainline
+    :cvar PERFORCE_CHANGELIST_NUMBER: P4 changelist to sync workspace to
+    """
 
     UNREAL_PROJECT_PATH = "ProjectFilePath"
     UNREAL_PROJECT_NAME = "ProjectName"
@@ -212,6 +279,21 @@ class OpenJobParameterNames:
 
 
 class OpenJobStepParameterNames:
+    """
+    Class that contains default OpenJD step parameter names that can be used during the submission.
+    These parameters can be automatically updated during the submission if no value is provided.
+
+    :cvar QUEUE_MANIFEST_PATH: Local path to file that contains serialized MoviePipelineQueue
+    :cvar MOVIE_PIPELINE_QUEUE_PATH: Unreal path to MoviePipelineQueue asset
+    :cvar LEVEL_SEQUENCE_PATH: Unreal path to LevelSequence asset
+    :cvar LEVEL_PATH: Unreal path to Level asset
+    :cvar MRQ_JOB_CONFIGURATION_PATH: Unreal path to MoviePipelinePrimaryConfig asset
+    :cvar OUTPUT_PATH: Local path where Unreal Render Executor will place output files
+
+    :cvar ADAPTOR_HANDLER: Handler name to run the jobs on Adaptor (render/custom)
+    :cvar TASK_CHUNK_SIZE: Count of the shots per OpenJD Step's Task
+    :cvar TASK_CHUNK_ID: Chunk number that should be rendered at OpenJD Step's Task
+    """
 
     QUEUE_MANIFEST_PATH = "QueueManifestPath"
     MOVIE_PIPELINE_QUEUE_PATH = "MoviePipelineQueuePath"

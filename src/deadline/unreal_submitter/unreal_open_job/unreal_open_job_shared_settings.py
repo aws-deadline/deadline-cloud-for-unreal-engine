@@ -62,6 +62,12 @@ class JobSharedSettings:
     def from_u_deadline_cloud_job_shared_settings(
         cls, job_shared_settings: unreal.DeadlineCloudJobSharedSettingsStruct
     ):
+        """
+        Create JobSharedSettings instance from unreal.DeadlineCloudJobSharedSettingsStruct object
+
+        :return: JobSharedSettings instance
+        :rtype: JobSharedSettings
+        """
         return cls(
             initial_state=job_shared_settings.initial_state,
             max_failed_tasks_count=job_shared_settings.maximum_failed_tasks_count,

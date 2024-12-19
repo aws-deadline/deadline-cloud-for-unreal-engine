@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import ast
 import sys
-from unittest.mock import Mock, PropertyMock, patch
+from unittest.mock import Mock, PropertyMock, patch, mock_open
 
 import pytest
 import jsonschema  # type: ignore
@@ -256,6 +256,7 @@ class TestUnrealAdaptor_on_start:
         assert launch_args[1] == init_data["project_path"]
         assert unreal_client_path in launch_args[-1]
 
+    @patch("os.path.exists", return_value=True)
     @patch(
         "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.unreal_client_path",
         new_callable=PropertyMock,
@@ -272,6 +273,7 @@ class TestUnrealAdaptor_on_start:
         mock_logger: Mock,
         mock_get_regex_callbacks: Mock,
         mock_unreal_client_path: Mock,
+        os_path_exists: Mock,
         init_data: dict,
     ):
         """Tests that an UnrealAdaptor starts UE properly with additional cmd arguments"""
@@ -279,14 +281,19 @@ class TestUnrealAdaptor_on_start:
         # GIVEN
         extra_cmd_flag = "-ExtraCmdFlag"
         extra_cmd_arg = "-ExtraCmdNamedArg=ExtraCmdValue"
-        init_data["extra_cmd_args"] = extra_cmd_flag + " " + extra_cmd_arg
+        init_data["extra_cmd_args_file"] = "path/to/args/file.txt"
 
         unreal_client_path = "UnrealClient.py"
         mock_unreal_client_path.side_effect = [unreal_client_path]
         adaptor = UnrealAdaptor(init_data)
 
         # WHEN
-        adaptor._start_unreal_client()
+        with patch(
+            "builtins.open",
+            new_callable=mock_open,
+            read_data=extra_cmd_flag + " " + extra_cmd_arg,
+        ):
+            adaptor._start_unreal_client()
 
         # THEN
         log_calls = mock_logger.mock_calls
@@ -299,6 +306,7 @@ class TestUnrealAdaptor_on_start:
         assert extra_cmd_arg in launch_args
         assert unreal_client_path in launch_args[-1]
 
+    @patch("os.path.exists", return_value=True)
     @patch(
         "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.unreal_client_path",
         new_callable=PropertyMock,
@@ -315,6 +323,7 @@ class TestUnrealAdaptor_on_start:
         mock_logger: Mock,
         mock_get_regex_callbacks: Mock,
         mock_unreal_client_path: Mock,
+        mock_os_path_exists: Mock,
         init_data: dict,
     ):
         """Tests that an UnrealAdaptor starts UE properly with additional cmd arguments"""
@@ -322,7 +331,7 @@ class TestUnrealAdaptor_on_start:
         # GIVEN
         extra_exec_cmds_value = "r.HLOD 123456"
         extra_exec_cmds_arg = f'-execcmds="{extra_exec_cmds_value}"'
-        init_data["extra_cmd_args"] = extra_exec_cmds_arg
+        init_data["extra_cmd_args_file"] = "path/to/args/file.txt"
 
         unreal_client_path = "UnrealClient.py"
         mock_unreal_client_path.side_effect = [unreal_client_path]
@@ -331,7 +340,12 @@ class TestUnrealAdaptor_on_start:
         expected_exec_cmds = f"-execcmds={extra_exec_cmds_value},py {unreal_client_path}"
 
         # WHEN
-        adaptor._start_unreal_client()
+        with patch(
+            "builtins.open",
+            new_callable=mock_open,
+            read_data=extra_exec_cmds_arg,
+        ):
+            adaptor._start_unreal_client()
 
         # THEN
         log_calls = mock_logger.mock_calls

@@ -59,19 +59,9 @@ def main(script_path: str):
 if __name__ == "__main__":
     unreal.log("Executing test script")
 
-    parser = argparse.ArgumentParser(
-        description="Submits test script",
-    )
+    parser = argparse.ArgumentParser(description="Submits test script")
+    parser.add_argument("--script_path", type=str, help="Python script path")
 
-    parser.add_argument(
-        "--script_path",
-        type=str,
-        help="Python script path"
-    )
-
-
-    # Parse the arguments and execute the function callback
     arguments = parser.parse_args()
-    #arguments.func(arguments)
+
     main(arguments.script_path)
-    

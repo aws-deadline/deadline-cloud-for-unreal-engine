@@ -51,6 +51,9 @@ class DependencyOptions:
 
 
 class DependencyCollector:
+    """
+    Helper class to collect asset dependencies recursively.
+    """
 
     def __init__(self):
         self._all_dependencies = list()
@@ -62,14 +65,14 @@ class DependencyCollector:
         asset_path: str,
         dependency_options=DependencyOptions(),
         filter_method: Callable = None,
-        sync_missing: bool = True,
+        sync_assets: bool = False,
     ) -> list[str]:
         """The method starts the algorithm for obtaining dependencies on the passed asset
 
         :param asset_path: Path to the dependency asset to be obtained
         :param dependency_options: Settings for obtaining dependencies.
         :param filter_method: Method by which dependencies will be filtered for synchronization
-        :param sync_missing: Whether to sync missing dependencies or not
+        :param sync_assets: Whether to sync any found assets or not
 
         :return: list of collected dependencies (UE paths, start with /Game, etc.)
         :rtype: list[str]
@@ -79,14 +82,14 @@ class DependencyCollector:
 
         udependency_options = unreal.AssetRegistryDependencyOptions(**dependency_options.as_dict())
 
-        if not unreal.EditorAssetLibrary.does_asset_exist(asset_path):
+        if sync_assets and not unreal.EditorAssetLibrary.does_asset_exist(asset_path):
             self._sync_assets([asset_path])
 
         _, missing_dependencies = self._get_dependencies(
             asset_path, udependency_options, filter_method
         )
         while missing_dependencies:
-            if sync_missing:
+            if sync_assets:
                 self._sync_assets(missing_dependencies)
             # Anyway extend synced even if source control is not available.
             # In that case first recursion before loop and recursion in loop will run one time
@@ -97,9 +100,10 @@ class DependencyCollector:
                 asset_path, udependency_options, filter_method
             )
 
-        self._sync_assets(
-            list(set([d for d in self._all_dependencies if d not in self._already_synced]))
-        )
+        if sync_assets:
+            self._sync_assets(
+                list(set([d for d in self._all_dependencies if d not in self._already_synced]))
+            )
 
         return list(set(self._all_dependencies))
 

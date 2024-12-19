@@ -2,6 +2,7 @@
 
 import os
 import re
+import shutil
 from pathlib import Path
 
 try:
@@ -115,10 +116,22 @@ if unreal:
 class UnrealRenderStepHandler(BaseStepHandler):
     @staticmethod
     def regex_pattern_progress() -> list[re.Pattern]:
+        """
+        Regex pattern for handle the render progress
+
+        :return: A list of regular expression patterns
+        :rtype: list[re.Pattern]
+        """
         return [re.compile(".*Render Executor: Progress: ([0-9.]+)")]
 
     @staticmethod
     def regex_pattern_complete() -> list[re.Pattern]:
+        """
+        Regex pattern for handle the render completion
+
+        :return: A list of regular expression patterns
+        :rtype: list[re.Pattern]
+        """
         return [
             re.compile(".*Render Executor: Rendering is complete"),
             re.compile(".* finished ([0-9]+) jobs in .*"),
@@ -126,20 +139,47 @@ class UnrealRenderStepHandler(BaseStepHandler):
 
     @staticmethod
     def regex_pattern_error() -> list[re.Pattern]:
+        """
+        Regex pattern for handle any python exceptions and render executor errors
+
+        :return: A list of regular expression patterns
+        :rtype: list[re.Pattern]
+        """
         return [re.compile(".*Exception:.*|.*Render Executor: Error:.*|.*LogPython: Error:.*")]
 
     @staticmethod
     def executor_failed_callback(executor, pipeline, is_fatal, error):
+        """
+        Callback executed when an error occurs in RemoteRenderMoviePipelineEditorExecutor
+
+        :param executor: The RemoteRenderMoviePipelineEditorExecutor instance
+        :param pipeline: The unreal.MoviePipelineQueue instance
+        :param is_fatal: Whether the error is fatal or not
+        :param error: The error message
+        """
         logger.error(f"Render Executor: Error: {error}")
 
     @staticmethod
-    def executor_finished_callback(movie_pipeline=None, results=None):
+    def executor_finished_callback(pipeline_executor=None, success=None):
+        """
+        Callback executed when RemoteRenderMoviePipelineEditorExecutor finished render
+
+        :param pipeline_executor: The RemoteRenderMoviePipelineEditorExecutor instance
+        :param success: Whether finished successfully or not
+        """
         logger.info("Render Executor: Rendering is complete")
 
     @staticmethod
     def copy_pipeline_queue_from_manifest_file(
         movie_pipeline_queue_subsystem, queue_manifest_path: str
     ):
+        """
+        Create unreal.MoviePipelineQueue from manifest file by loading the file.
+        Unreal requires the manifest file to be placed under the <project_root>/Saved directory.
+
+        :param movie_pipeline_queue_subsystem: unreal.MoviePipelineQueueSubsystem instance
+        :param queue_manifest_path: Path to the manifest file
+        """
         manifest_queue = unreal.MoviePipelineLibrary.load_manifest_file_from_string(
             queue_manifest_path
         )
@@ -150,7 +190,11 @@ class UnrealRenderStepHandler(BaseStepHandler):
     @staticmethod
     def create_queue_from_manifest(movie_pipeline_queue_subsystem, queue_manifest_path: str):
         """
-        Create the unreal.MoviePipelineQueue object from the given queue manifest path
+        Create the unreal.MoviePipelineQueue object from the given queue manifest path.
+
+        Copy manifest file to `<project_root>/Saved directory` if manifest located outside
+        the project folder (case when project synced via P4/UGS to workspaces root and manifest file
+        passed via S3 and placed in OpenJob `<session_directory>/<asset_root>`)
 
         :param movie_pipeline_queue_subsystem: The unreal.MoviePipelineQueueSubsystem instance
         :param queue_manifest_path: Path to the manifest file
@@ -158,38 +202,17 @@ class UnrealRenderStepHandler(BaseStepHandler):
         manifest_path = queue_manifest_path.replace("\\", "/")
         project_saved_dir = unreal.SystemLibrary.get_project_saved_directory().rstrip("/")
 
-        # If QueueManifestPath under the Project's Saved dir (All stuff pulled via S3, all path mappings saved)
-        if manifest_path.startswith(project_saved_dir):
-            UnrealRenderStepHandler.copy_pipeline_queue_from_manifest_file(
-                movie_pipeline_queue_subsystem, manifest_path
-            )
-        # If Project synced via P4/UGS and queue manifest pulled via S3 to the OpenJob asset root
-        else:
-            serialized_manifest = unreal.MoviePipelineEditorLibrary.convert_manifest_file_to_string(
-                manifest_path
-            )
+        if not manifest_path.startswith(project_saved_dir):
+            project_manifest_directory = os.path.join(
+                project_saved_dir, "UnrealDeadlineCloudService", "RenderJobManifests"
+            ).replace("\\", "/")
+            os.makedirs(project_manifest_directory, exist_ok=True)
+            saved_manifest_file_path = shutil.copy(manifest_path, project_manifest_directory)
+            manifest_path = saved_manifest_file_path
 
-            movie_render_pipeline_dir = os.path.join(
-                unreal.SystemLibrary.get_project_saved_directory(),
-                "UnrealDeadlineCloudService",
-                "RenderJobManifests",
-            )
-            os.makedirs(movie_render_pipeline_dir, exist_ok=True)
-
-            render_job_manifest_path = unreal.Paths.create_temp_filename(
-                movie_render_pipeline_dir, prefix="RenderJobManifest", extension=".utxt"
-            )
-
-            with open(render_job_manifest_path, "w") as manifest:
-                unreal.log(f"Saving Manifest file `{render_job_manifest_path}`")
-                manifest.write(serialized_manifest)
-
-            manifest_path = unreal.Paths.convert_relative_path_to_full(render_job_manifest_path)
-
-            # Go to the first case again
-            UnrealRenderStepHandler.copy_pipeline_queue_from_manifest_file(
-                movie_pipeline_queue_subsystem, manifest_path
-            )
+        UnrealRenderStepHandler.copy_pipeline_queue_from_manifest_file(
+            movie_pipeline_queue_subsystem, manifest_path
+        )
 
     @staticmethod
     def create_queue_from_job_args(
@@ -243,6 +266,7 @@ class UnrealRenderStepHandler(BaseStepHandler):
 
     @staticmethod
     def enable_shots_by_chunk(render_job, task_chunk_size: int, task_chunk_id: int):
+
         all_shots_to_render = [shot for shot in render_job.shot_info if shot.enabled]
         shots_chunk = all_shots_to_render[
             task_chunk_id * task_chunk_size : (task_chunk_id + 1) * task_chunk_size

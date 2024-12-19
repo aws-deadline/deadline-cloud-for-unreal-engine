@@ -159,7 +159,7 @@ class TestUnrealOpenJob:
 
         # THEN
         assert consistency_check_result.passed
-        assert "Parameters are consensual" in consistency_check_result.reason
+        assert "Parameters are consistent" in consistency_check_result.reason
 
     yaml_template = fixtures.f_job_template_default()
     yaml_template["parameterDefinitions"] = []

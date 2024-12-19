@@ -65,7 +65,7 @@ class TestParametersConsistencyChecker:
             (
                 [("paramA", "INT"), ("paramB", "STRING")],
                 [("paramA", "INT"), ("paramB", "STRING")],
-                ParametersConsistencyCheckResult(True, "Parameters are consensual"),
+                ParametersConsistencyCheckResult(True, "Parameters are consistent"),
             ),
             (
                 [("paramA", "INT"), ("paramB", "STRING")],
@@ -245,6 +245,10 @@ class TestParametersConsistencyChecker:
     def test_fix_job_parameters_consistency(self):
         # GIVEN
         checker = ParametersConsistencyChecker()
+        expected_fixed_parameters = [
+            {"name": p["name"], "type": p["type"], "default": p["default"]}
+            for p in fixtures.f_job_template_default()["parameterDefinitions"]
+        ]
 
         # WHEN
         with patch("yaml.safe_load", MagicMock(side_effect=[fixtures.f_job_template_default()])):
@@ -252,11 +256,17 @@ class TestParametersConsistencyChecker:
                 fixed = checker.fix_job_parameters_consistency("", [])
 
         # THEN
-        assert fixed == fixtures.f_job_template_default()["parameterDefinitions"]
+        assert fixed == expected_fixed_parameters
 
     def test_fix_step_parameters_consistency(self):
         # GIVEN
         checker = ParametersConsistencyChecker()
+        expected_fixed_parameters = [
+            {"name": p["name"], "type": p["type"]}
+            for p in fixtures.f_step_template_default()["parameterSpace"][
+                "taskParameterDefinitions"
+            ]
+        ]
 
         # WHEN
         with patch("yaml.safe_load", MagicMock(side_effect=[fixtures.f_step_template_default()])):
@@ -264,10 +274,7 @@ class TestParametersConsistencyChecker:
                 fixed = checker.fix_step_parameters_consistency("", [])
 
         # THEN
-        assert (
-            fixed
-            == fixtures.f_step_template_default()["parameterSpace"]["taskParameterDefinitions"]
-        )
+        assert fixed == expected_fixed_parameters
 
     def test_fix_environment_variables_consistency(self):
         # GIVEN

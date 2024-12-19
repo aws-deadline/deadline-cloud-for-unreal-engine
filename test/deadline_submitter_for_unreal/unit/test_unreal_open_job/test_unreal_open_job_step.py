@@ -70,7 +70,7 @@ class TestUnrealOpenJobStep:
 
         # THEN
         assert consistency_check_result.passed
-        assert "Parameters are consensual" in consistency_check_result.reason
+        assert "Parameters are consistent" in consistency_check_result.reason
 
     yaml_template = f_step_template_default()
     yaml_template["parameterSpace"]["taskParameterDefinitions"] = []

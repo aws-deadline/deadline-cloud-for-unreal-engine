@@ -6,11 +6,6 @@ import sys
 
 remote_execution = os.getenv("REMOTE_EXECUTION", "False")
 if remote_execution != "True":
-    from deadline.unreal_logger import get_logger
-
-    logger = get_logger()
-
-    logger.info("INIT DEADLINE CLOUD")
 
     if "OPENJD_TEMPLATES_DIRECTORY" not in os.environ:
         os.environ["OPENJD_TEMPLATES_DIRECTORY"] = (
@@ -23,6 +18,12 @@ if remote_execution != "True":
     if actions_path not in sys.path:
         sys.path.append(actions_path)
 
+    from deadline.unreal_logger import get_logger
+
+    logger = get_logger()
+
+    logger.info("INIT DEADLINE CLOUD")
+
     # These unused imports are REQUIRED!!!
     # Unreal Engine loads any init_unreal.py it finds in its search paths.
     # These imports finish the setup for the plugin.
@@ -33,6 +34,5 @@ if remote_execution != "True":
         ParametersConsistencyCheckerImplementation,
     )
     import remote_executor  # noqa: F401
-
 
     logger.info("DEADLINE CLOUD INITIALIZED")

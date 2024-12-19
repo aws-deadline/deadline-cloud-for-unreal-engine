@@ -27,7 +27,7 @@ class TestUnrealOpenJobEnvironment:
 
         # THEN
         assert consistency_check_result.passed
-        assert "Parameters are consensual" in consistency_check_result.reason
+        assert "Parameters are consistent" in consistency_check_result.reason
 
     @patch("builtins.open", MagicMock())
     @patch("yaml.safe_load", MagicMock(side_effect=[{"variables": {}}]))

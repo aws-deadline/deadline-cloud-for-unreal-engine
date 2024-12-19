@@ -41,6 +41,13 @@ logger = get_logger()
 
 @dataclass
 class UnrealOpenJobStepParameterDefinition:
+    """
+    Dataclass for storing and managing OpenJob Step Task parameter definitions
+
+    :cvar name: Name of the parameter
+    :cvar type: OpenJD Type of the parameter (INT, FLOAT, STRING, PATH)
+    :cvar range: List of parameter values
+    """
 
     name: str
     type: str
@@ -48,6 +55,13 @@ class UnrealOpenJobStepParameterDefinition:
 
     @classmethod
     def from_unreal_param_definition(cls, u_param: unreal.StepTaskParameterDefinition):
+        """
+        Create UnrealOpenJobStepParameterDefinition instance from unreal.StepTaskParameterDefinition
+        object.
+
+        :return: UnrealOpenJobStepParameterDefinition instance
+        :rtype: UnrealOpenJobStepParameterDefinition
+        """
         python_class = PARAMETER_DEFINITION_MAPPING[u_param.type.name].python_class
         build_kwargs = dict(
             name=u_param.name,
@@ -58,9 +72,21 @@ class UnrealOpenJobStepParameterDefinition:
 
     @classmethod
     def from_dict(cls, param_dict: dict):
+        """
+        Create UnrealOpenJobStepParameterDefinition instance python dict
+
+        :return: UnrealOpenJobStepParameterDefinition instance
+        :rtype: UnrealOpenJobStepParameterDefinition
+        """
         return cls(**param_dict)
 
     def to_dict(self):
+        """
+        Return UnrealOpenJobStepParameterDefinition as dictionary
+
+        :return: UnrealOpenJobStepParameterDefinition as python dict
+        :rtype: dict[str, Any]
+        """
         return asdict(self)
 
 
@@ -90,7 +116,13 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         :type step_dependencies: list[str]
 
         :param environments: The list of environments
-        :type environments: list
+        :type environments: list[UnrealOpenJobEnvironment]
+
+        :param extra_parameters: Extra Step parameters that should be used during the Job execution
+        :type extra_parameters: list[UnrealOpenJobStepParameterDefinition]
+
+        :param host_requirements: HostRequirements to apply to step during the Job execution
+        :type host_requirements: HostRequirements
         """
 
         self._step_dependencies = step_dependencies or []
@@ -131,6 +163,16 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
 
     @classmethod
     def from_data_asset(cls, data_asset: unreal.DeadlineCloudStep) -> "UnrealOpenJobStep":
+        """
+        Create the instance of UnrealOpenJobStep from unreal.DeadlineCloudStep.
+        Call same method on data_asset's environments.
+
+        :param data_asset: unreal.DeadlineCloudStep instance
+
+        :return: UnrealOpenJobStep instance
+        :rtype: UnrealOpenJobStep
+        """
+
         return cls(
             file_path=data_asset.path_to_template.file_path,
             name=data_asset.name,
@@ -147,6 +189,15 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
     def _find_extra_parameter(
         self, parameter_name: str, parameter_type: str
     ) -> Optional[UnrealOpenJobStepParameterDefinition]:
+        """
+        Find extra parameter by given name and type
+
+        :param parameter_name: Parameter name
+        :param parameter_type: Parameter type (INT, FLOAT, STRING, PATH)
+
+        :return: Parameter if found, None otherwise
+        :rtype: UnrealOpenJobStepParameterDefinition
+        """
         return next(
             (
                 p
@@ -157,6 +208,12 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         )
 
     def _create_missing_extra_parameters_from_template(self):
+        """
+        Update parameters with YAML template data. Mostly needed for custom job submission process.
+
+        If no template file found, skip updating.
+        """
+
         try:
             extra_param_names = [p.name for p in self._extra_parameters]
             for p in self.get_template_object()["parameterSpace"]["taskParameterDefinitions"]:
@@ -168,6 +225,16 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
     def _update_extra_parameter(
         self, extra_parameter: UnrealOpenJobStepParameterDefinition
     ) -> bool:
+        """
+        Update parameter by replacing existed parameter with given one
+        after comparing them by name and type.
+
+        :param extra_parameter: UnrealOpenJobStepParameterDefinition instance
+        :type: UnrealOpenJobStepParameterDefinition
+
+        :return: True if updated, False otherwise
+        :rtype: bool
+        """
         existed_parameter = self._find_extra_parameter(extra_parameter.name, extra_parameter.type)
         if existed_parameter:
             self._extra_parameters.remove(existed_parameter)
@@ -176,6 +243,13 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         return False
 
     def _check_parameters_consistency(self):
+        """
+        Check Step parameters consistency
+
+        :return: Result of parameters consistency check
+        :rtype: ParametersConsistencyCheckResult
+        """
+
         result = ParametersConsistencyChecker.check_step_parameters_consistency(
             step_template_path=self.file_path,
             step_parameters=[p.to_dict() for p in self._extra_parameters],
@@ -188,6 +262,9 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
     def _build_step_parameter_definition_list(self) -> list:
         """
         Build the job parameter definition list from the step template object.
+
+        :return: List of Step parameter definitions
+        :rtype: list
         """
 
         step_template_object = self.get_template_object()
@@ -212,6 +289,18 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         return step_parameter_definition_list
 
     def _build_template(self) -> StepTemplate:
+        """
+        Build StepTemplate OpenJD model.
+
+        Build process:
+            1. Fill Step parameter definition list
+            2. Fill Host Requirements if provided
+            3. Build given Environments
+            4. Set up Step dependencies
+
+        :return: StepTemplate instance
+        :rtype: StepTemplate
+        """
         step_template_object = self.get_template_object()
 
         step_parameters = self._build_step_parameter_definition_list()
@@ -249,6 +338,12 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         )
 
     def get_asset_references(self):
+        """
+        Return AssetReferences of itself that union given Environments' AssetReferences
+
+        :return: AssetReferences from this Step and its Environments
+        :rtype: AssetReferences
+        """
         asset_references = super().get_asset_references()
         for environment in self._environments:
             asset_references = asset_references.union(environment.get_asset_references())
@@ -256,6 +351,16 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         return asset_references
 
     def update_extra_parameter(self, extra_parameter: UnrealOpenJobStepParameterDefinition):
+        """
+        Public method for updating UnrealOpenJobStep's extra parameters.
+        See _update_extra_parameter()
+
+        :param extra_parameter: UnrealOpenJobStepParameterDefinition instance
+        :type: UnrealOpenJobStepParameterDefinition
+
+        :return: True if updated, False otherwise
+        :rtype: bool
+        """
         return self._update_extra_parameter(extra_parameter)
 
 
@@ -268,6 +373,15 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
     default_template_path = settings.RENDER_STEP_TEMPLATE_DEFAULT_PATH
 
     class RenderArgsType(IntEnum):
+        """
+        Type of the render arguments
+
+        :cvar NOT_SET: Default value
+        :cvar QUEUE_MANIFEST_PATH: Use manifest file with serialized MoviePipelineQueue
+        :cvar RENDER_DATA: Use Level LevelSequence and MRQJobConfiguration unreal assets
+        :cvar MRQ_ASSET: Use MoviePipelineQueue unreal asset
+        """
+
         NOT_SET = 0
         QUEUE_MANIFEST_PATH = 1
         RENDER_DATA = 2
@@ -299,8 +413,8 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         :param extra_parameters: The list of extra parameters
         :type extra_parameters: list
 
-        :param task_chunk_size: The task chunk size
-        :type task_chunk_size: int
+        :param host_requirements: HostRequirements instance
+        :type host_requirements: HostRequirements
 
         :param mrq_job: MRQ Job object
         :type mrq_job: unreal.MoviePipelineExecutorJob
@@ -324,7 +438,16 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
 
     def _get_chunk_ids_count(self) -> int:
         """
-        Get parameters
+        Get number of shot chunks
+        as count of enabled shots in level sequence divided by chuck size parameter value.
+        If no chunk size parameter value is 0, return 1
+
+        Example:
+            - LevelSequence shots: [sh1 - enabled, sh2 - disabled, sh3 - enabled, sh4 - enabled]
+            - ChunkSize: 2
+            - ChunkIds count: 2 (sh1, sh3; sh4)
+
+        :return: list of ChunkIds, e.g. [0, 1, 2, 3]
         """
 
         if not self.mrq_job:
@@ -351,6 +474,16 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         return task_chunk_ids_count
 
     def _get_render_arguments_type(self) -> Optional["RenderUnrealOpenJobStep.RenderArgsType"]:
+        """
+        Return the render arguments type depending on Step parameters
+
+        Priority of render argument type setting:
+        - RenderArgsType.QUEUE_MANIFEST_PATH If QueueManifestPath parameter exists
+        - RenderArgsType.MRQ_ASSET if MoviePipelineQueuePath parameter exists
+        - RenderArgsType.RENDER_DATA If LevelPath, LevelSequencePath, MrqJobConfigurationPath
+                                     parameters exists
+        - RenderArgsType.NOT_SET if there are no valid parameters
+        """
         parameter_names = [p.name for p in self._extra_parameters]
         for p in parameter_names:
             if p == OpenJobStepParameterNames.QUEUE_MANIFEST_PATH:
@@ -368,7 +501,17 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
 
     def _build_template(self) -> StepTemplate:
         """
-        Build the definition template entity
+        Build StepTemplate OpenJD model.
+
+        Build process:
+            1. Forcibly update Step parameters listed in OpenJobStepParameterNames
+            2. Fill Step parameter definition list
+            3. Fill Host Requirements if provided
+            4. Build given Environments
+            5. Set up Step dependencies
+
+        :return: StepTemplate instance
+        :rtype: StepTemplate
         """
 
         if self._render_args_type == RenderUnrealOpenJobStep.RenderArgsType.NOT_SET:
@@ -417,7 +560,13 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
 
         return step_entity
 
-    def _save_manifest_file(self):
+    def _save_manifest_file(self) -> Optional[str]:
+        """
+        Create new MoviePipelineQueue object, add given MRQ Job here and serialize it to .utxt file
+
+        :return: Path to serialized manifest file
+        :rtype: str
+        """
         new_queue = unreal.MoviePipelineQueue()
         new_job = new_queue.duplicate_job(self.mrq_job)
 
@@ -454,6 +603,14 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         return self._queue_manifest_path
 
     def get_asset_references(self):
+        """
+        Return AssetReferences of itself that union given Environments' AssetReferences and
+        add generated ManifestFile path if exists
+
+        :return: AssetReferences from this Step and its Environments
+        :rtype: AssetReferences
+        """
+
         asset_references = super().get_asset_references()
 
         if self._queue_manifest_path:
@@ -464,5 +621,6 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
 
 # UGS Steps
 class UgsRenderUnrealOpenJobStep(RenderUnrealOpenJobStep):
+    """Parent class for predefined UGS Step"""
 
     default_template_path = settings.UGS_RENDER_STEP_TEMPLATE_DEFAULT_PATH
