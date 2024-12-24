@@ -21,9 +21,10 @@ def unreal_render_step_handler():
 
 class ShotInfoMock:
 
-    def __init__(self, enabled: bool, outer_name: str):
+    def __init__(self, enabled: bool, outer_name: str, inner_name: str):
         self.enabled = enabled
         self.outer_name = outer_name
+        self.inner_name = inner_name
 
 
 class RenderJobMock:
@@ -54,10 +55,11 @@ class TestUnrealRenderStepHandler:
     ):
         # GIVEN
         enabled_shots = [
-            ShotInfoMock(enabled=True, outer_name=f"Enabled{i}") for i in range(enabled_shots_count)
+            ShotInfoMock(enabled=True, outer_name=f"Enabled{i}", inner_name=f"Enabled{i}")
+            for i in range(enabled_shots_count)
         ]
         disabled_shots = [
-            ShotInfoMock(enabled=False, outer_name=f"Disabled{i}")
+            ShotInfoMock(enabled=False, outer_name=f"Disabled{i}", inner_name=f"Disabled{i}")
             for i in range(shots_count - enabled_shots_count)
         ]
         render_job_mock = RenderJobMock(shot_info=enabled_shots + disabled_shots)
@@ -89,7 +91,6 @@ class TestUnrealRenderStepHandler:
             for shot in disabled_shots:
                 assert not shot.enabled
 
-            print(log_mock.mock_calls)
-            log_mock.assert_called_once_with(
+            log_mock.assert_called_with(
                 f"Shots in task: {[shot.outer_name for shot in enabled_shots]}"
             )

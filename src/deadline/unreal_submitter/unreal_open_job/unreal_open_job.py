@@ -784,7 +784,8 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         # skip params predefined in YAML or by given extra parameters
         # if it is not ExtraCmdArgs since we want to update them with mrq job args
         unfilled_parameter_values = [
-            p for p in parameter_values
+            p
+            for p in parameter_values
             if p["value"] is None or p["name"] == OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS
         ]
         filled_parameter_values = [
