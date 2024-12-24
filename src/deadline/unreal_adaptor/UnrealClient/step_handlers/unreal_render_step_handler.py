@@ -274,6 +274,7 @@ class UnrealRenderStepHandler(BaseStepHandler):
         for shot in render_job.shot_info:
             if shot in shots_chunk:
                 shot.enabled = True
+                f"Shot to render: {shot.outer_name}: {shot.inner_name}"
             else:
                 shot.enabled = False
         logger.info(f"Shots in task: {[shot.outer_name for shot in shots_chunk]}")
@@ -308,32 +309,27 @@ class UnrealRenderStepHandler(BaseStepHandler):
                 job_configuration_path=args.get("job_configuration_path", ""),
             )
 
-        job = subsystem.get_queue().get_jobs()[0]
+        for job in subsystem.get_queue().get_jobs():
+            if "chunk_size" in args and "chunk_id" in args:
+                chunk_size: int = args["chunk_size"]
+                chunk_id: int = args["chunk_id"]
+                UnrealRenderStepHandler.enable_shots_by_chunk(
+                    render_job=job,
+                    task_chunk_size=chunk_size,
+                    task_chunk_id=chunk_id,
+                )
 
-        if "chunk_size" in args and "chunk_id" in args:
-            chunk_size: int = args["chunk_size"]
-            chunk_id: int = args["chunk_id"]
-            UnrealRenderStepHandler.enable_shots_by_chunk(
-                render_job=job,
-                task_chunk_size=chunk_size,
-                task_chunk_id=chunk_id,
-            )
+            if "output_path" in args:
+                if not os.path.exists(args["output_path"]):
+                    os.makedirs(args["output_path"], exist_ok=True)
 
-        for shot in job.shot_info:
-            if shot.enabled:
-                logger.info(f"Shot to render: {shot.outer_name}: {shot.inner_name}")
+                new_output_dir = unreal.DirectoryPath()
+                new_output_dir.set_editor_property("path", args["output_path"].replace("\\", "/"))
 
-        if "output_path" in args:
-            if not os.path.exists(args["output_path"]):
-                os.makedirs(args["output_path"], exist_ok=True)
-
-            new_output_dir = unreal.DirectoryPath()
-            new_output_dir.set_editor_property("path", args["output_path"].replace("\\", "/"))
-
-            output_setting = job.get_configuration().find_setting_by_class(
-                unreal.MoviePipelineOutputSetting
-            )
-            output_setting.output_directory = new_output_dir
+                output_setting = job.get_configuration().find_setting_by_class(
+                    unreal.MoviePipelineOutputSetting
+                )
+                output_setting.output_directory = new_output_dir
 
         # Initialize Render executor
         executor = RemoteRenderMoviePipelineEditorExecutor()
