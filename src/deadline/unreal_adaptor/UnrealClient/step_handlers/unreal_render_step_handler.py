@@ -274,7 +274,7 @@ class UnrealRenderStepHandler(BaseStepHandler):
         for shot in render_job.shot_info:
             if shot in shots_chunk:
                 shot.enabled = True
-                f"Shot to render: {shot.outer_name}: {shot.inner_name}"
+                logger.info(f"Shot to render: {shot.outer_name}: {shot.inner_name}")
             else:
                 shot.enabled = False
         logger.info(f"Shots in task: {[shot.outer_name for shot in shots_chunk]}")
