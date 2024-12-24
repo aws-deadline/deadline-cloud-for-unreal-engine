@@ -123,9 +123,9 @@ class PathContext(dict):
 
 def get_path_context_from_mrq_job(mrq_job: unreal.MoviePipelineExecutorJob) -> PathContext:
     """
-    Get build context from the given unreal.ConductorMoviePipelineExecutorJob
+    Get build context from the given unreal.MoviePipelineExecutorJob
 
-    :param mrq_job: unreal.ConductorMoviePipelineExecutorJob
+    :param mrq_job: unreal.MoviePipelineExecutorJob
     :return: :class:`deadline.unreal_submitter.common.PathContext` object
     :rtype: :class:`deadline.unreal_submitter.common.PathContext`
     """

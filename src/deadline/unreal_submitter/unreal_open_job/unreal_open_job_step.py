@@ -62,6 +62,7 @@ class UnrealOpenJobStepParameterDefinition:
         :return: UnrealOpenJobStepParameterDefinition instance
         :rtype: UnrealOpenJobStepParameterDefinition
         """
+
         python_class = PARAMETER_DEFINITION_MAPPING[u_param.type.name].python_class
         build_kwargs = dict(
             name=u_param.name,
@@ -78,15 +79,17 @@ class UnrealOpenJobStepParameterDefinition:
         :return: UnrealOpenJobStepParameterDefinition instance
         :rtype: UnrealOpenJobStepParameterDefinition
         """
+
         return cls(**param_dict)
 
     def to_dict(self):
         """
         Return UnrealOpenJobStepParameterDefinition as dictionary
 
-        :return: UnrealOpenJobStepParameterDefinition as python dict
+        :return: UnrealOpenJobStepParameterDefinition as python dictionary
         :rtype: dict[str, Any]
         """
+
         return asdict(self)
 
 
@@ -196,7 +199,7 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         :param parameter_type: Parameter type (INT, FLOAT, STRING, PATH)
 
         :return: Parameter if found, None otherwise
-        :rtype: UnrealOpenJobStepParameterDefinition
+        :rtype: Optional[UnrealOpenJobStepParameterDefinition]
         """
         return next(
             (
@@ -447,7 +450,10 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
             - ChunkSize: 2
             - ChunkIds count: 2 (sh1, sh3; sh4)
 
-        :return: list of ChunkIds, e.g. [0, 1, 2, 3]
+        :raises ValueError: When no chunk size parameter is set
+
+        :return: ChunkIds count
+        :rtype: int
         """
 
         if not self.mrq_job:
@@ -621,6 +627,6 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
 
 # UGS Steps
 class UgsRenderUnrealOpenJobStep(RenderUnrealOpenJobStep):
-    """Parent class for predefined UGS Step"""
+    """Class for predefined UGS Step"""
 
     default_template_path = settings.UGS_RENDER_STEP_TEMPLATE_DEFAULT_PATH

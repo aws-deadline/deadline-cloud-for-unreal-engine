@@ -42,8 +42,8 @@ def error_notify(
 
                 telemetry_client.record_error(
                     event_details={"exception_scope": "on_submit"},
-                    exception_type=str(e),
-                    from_gui=True,
+                    exception_type=str(type(e)),
+                    from_gui=not self._silent_mode,
                 )
 
                 message = notify_prefix + str(e)
@@ -61,10 +61,7 @@ def error_notify(
 
 class UnrealSubmitStatus(Enum):
     """
-    Enumeration of the current UnrealSubmitter status:
-    - COMPLETED
-    - HASHING
-    - UPLOADING
+    Enumeration of the current UnrealSubmitter status
     """
 
     COMPLETED = 1

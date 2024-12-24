@@ -16,9 +16,9 @@ class UnrealLogHandler(logging.Handler):
         """
         Log the specified logging record.
         Calls the unreal log method corresponding to the record level name:
-        - WARNING - unreal.log_warning
-        - ERROR, CRITICAL - unreal.log_error
-        - DEBUG, INFO and other custom levels - unreal.log
+            - WARNING - unreal.log_warning
+            - ERROR, CRITICAL - unreal.log_error
+            - DEBUG, INFO and other custom levels - unreal.log
         """
 
         if self._unreal_mod is None:

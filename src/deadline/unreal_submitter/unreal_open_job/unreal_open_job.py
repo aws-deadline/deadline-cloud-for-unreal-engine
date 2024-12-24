@@ -52,6 +52,13 @@ logger = get_logger()
 
 
 class TransferProjectFilesStrategy(IntEnum):
+    """
+    Enumeration of ways of transferring project files
+
+    :cvar S3: Default, with S3 file manager
+    :cvar P4: with Perforce API
+    :cvar UGS: with UnrealGameSync API
+    """
 
     S3 = 0
     P4 = 1
@@ -60,12 +67,28 @@ class TransferProjectFilesStrategy(IntEnum):
 
 @dataclass
 class UnrealOpenJobParameterDefinition:
+    """
+    Dataclass for storing and managing OpenJob Parameter Definitions
+
+    :cvar name: Name of the parameter
+    :cvar type: OpenJD Type of the parameter (INT, FLOAT, STRING, PATH)
+    :cvar value: Parameter value
+    """
+
     name: str
     type: str
     value: Any = None
 
     @classmethod
     def from_unreal_param_definition(cls, u_param: unreal.ParameterDefinition):
+        """
+        Create UnrealOpenJobParameterDefinition instance from unreal.ParameterDefinition
+        object.
+
+        :return: UnrealOpenJobParameterDefinition instance
+        :rtype: UnrealOpenJobParameterDefinition
+        """
+
         build_kwargs = dict(name=u_param.name, type=u_param.type.name)
         if u_param.value:
             python_class = PARAMETER_DEFINITION_MAPPING[u_param.type.name].python_class
@@ -74,6 +97,14 @@ class UnrealOpenJobParameterDefinition:
 
     @classmethod
     def from_dict(cls, param_dict: dict):
+        """
+        Create UnrealOpenJobParameterDefinition instance python dict.
+        If source dict has "default" key, use its value
+
+        :return: UnrealOpenJobParameterDefinition instance
+        :rtype: UnrealOpenJobParameterDefinition
+        """
+
         build_kwargs = dict(name=param_dict["name"], type=param_dict["type"])
         if "default" in param_dict:
             build_kwargs["value"] = param_dict["default"]
@@ -81,6 +112,13 @@ class UnrealOpenJobParameterDefinition:
         return cls(**build_kwargs)
 
     def to_dict(self):
+        """
+        Return UnrealOpenJobParameterDefinition as dictionary
+
+        :return: UnrealOpenJobParameterDefinition as python dictionary
+        :rtype: dict[str, Any]
+        """
+
         return asdict(self)
 
 
@@ -108,13 +146,16 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         :type name: str
 
         :param steps: List of steps to be executed by deadline cloud
-        :type steps: list
+        :type steps: list[UnrealOpenJobStep]
 
         :param environments: List of environments to be used by deadline cloud
-        :type environments: list
+        :type environments: list[UnrealOpenJobEnvironment]
 
         :param extra_parameters: List of additional parameters to be added to the job
-        :type extra_parameters: list
+        :type extra_parameters: list[UnrealOpenJobParameterDefinition]
+
+        :param job_shared_settings: JobSharedSettings instance
+        :type job_shared_settings: JobSharedSettings
 
         :param asset_references: AssetReferences object
         :type asset_references: AssetReferences
@@ -142,6 +183,16 @@ class UnrealOpenJob(UnrealOpenJobEntity):
 
     @classmethod
     def from_data_asset(cls, data_asset: unreal.DeadlineCloudJob) -> "UnrealOpenJob":
+        """
+        Create the instance of UnrealOpenJob from unreal.DeadlineCloudJob.
+        Call same method on data_asset's steps, environments.
+
+        :param data_asset: unreal.DeadlineCloudJob instance
+
+        :return: UnrealOpenJob instance
+        :rtype: UnrealOpenJob
+        """
+
         steps = [UnrealOpenJobStep.from_data_asset(step) for step in data_asset.steps]
         for step in steps:
             step.host_requirements = data_asset.job_preset_struct.host_requirements
@@ -165,7 +216,18 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         )
 
     @staticmethod
-    def serialize_template(template: Template):
+    def serialize_template(template: Template) -> dict[str, Any]:
+        """
+        Serialize given template and return ordered dictionary
+        (spec version, name, parameters, envs, steps).
+
+        :param template: Template (JobTemplate, StepTemplate, Environment)
+        :type template: Union[JobTemplate, StepTemplate, Environment]
+
+        :return: Ordered python dictionary
+        :rtype: dict[str, Any]
+        """
+
         template_json = json.loads(template.json(exclude_none=True))
         ordered_keys = [
             "specificationVersion",
@@ -185,12 +247,33 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         job_parameter_name: str,
         job_parameter_value: Any,
     ) -> list[dict[str, Any]]:
+        """
+        Try to find parameter in given list by the provided name
+        and update its value wih provided value.
+
+        :param job_parameter_values: List of parameter values dictionaries (name and value)
+        :type job_parameter_values: list[dict[str, Any]]
+        :param job_parameter_name: Name of the parameter to update
+        :type job_parameter_name: str
+        :param job_parameter_value: Value of the parameter to set
+        :type job_parameter_value: Any
+
+        :return: Given list of parameter values with possibly updated parameter
+        :rtype: list[dict[str, Any]]
+        """
+
         param = next((p for p in job_parameter_values if p["name"] == job_parameter_name), None)
         if param:
             param["value"] = job_parameter_value
         return job_parameter_values
 
     def _create_missing_extra_parameters_from_template(self):
+        """
+        Update parameters with YAML template data. Mostly needed for custom job submission process.
+
+        If no template file found, skip updating.
+        """
+
         try:
             extra_param_names = [p.name for p in self._extra_parameters]
             for p in self.get_template_object()["parameterDefinitions"]:
@@ -202,6 +285,16 @@ class UnrealOpenJob(UnrealOpenJobEntity):
     def _find_extra_parameter(
         self, parameter_name: str, parameter_type: str
     ) -> Optional[UnrealOpenJobParameterDefinition]:
+        """
+        Find extra parameter by given name and type
+
+        :param parameter_name: Parameter name
+        :param parameter_type: Parameter type (INT, FLOAT, STRING, PATH)
+
+        :return: Parameter if found, None otherwise
+        :rtype: Optional[UnrealOpenJobParameterDefinition]
+        """
+
         return next(
             (
                 p
@@ -213,7 +306,8 @@ class UnrealOpenJob(UnrealOpenJobEntity):
 
     def _build_parameter_values(self) -> list:
         """
-        Build and return list of parameter values for the OpenJob
+        Build and return list of parameter values for the OpenJob. Use YAML parameter names and
+        extra parameter values/YAML defaults if exists.
 
         :return: Parameter values list of dictionaries
         :rtype: list
@@ -232,6 +326,13 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         return parameter_values
 
     def _check_parameters_consistency(self):
+        """
+        Check Job parameters consistency
+
+        :return: Result of parameters consistency check
+        :rtype: ParametersConsistencyCheckResult
+        """
+
         result = ParametersConsistencyChecker.check_job_parameters_consistency(
             job_template_path=self.file_path,
             job_parameters=[p.to_dict() for p in self._extra_parameters],
@@ -242,6 +343,19 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         return result
 
     def _build_template(self) -> JobTemplate:
+        """
+        Build JobTemplate OpenJD model.
+
+        Build process:
+            1. Fill specification version for the Job
+            2. Fill Job parameter definition list
+            3. Build given Steps
+            4. Build given Environments
+
+        :return: JobTemplate instance
+        :rtype: JobTemplate
+        """
+
         job_template = self.template_class(
             specificationVersion=settings.JOB_TEMPLATE_VERSION,
             name=self.name,
@@ -257,6 +371,13 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         return job_template
 
     def get_asset_references(self) -> AssetReferences:
+        """
+        Return AssetReferences of itself that union given Environments and Steps' AssetReferences
+
+        :return: AssetReferences from this Job and its Environments and Steps
+        :rtype: AssetReferences
+        """
+
         asset_references = super().get_asset_references()
 
         if self._asset_references:
@@ -271,6 +392,16 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         return asset_references
 
     def create_job_bundle(self):
+        """
+        Create Job bundle directory with next files inside:
+            1. template.yaml - Full OpenJD Job template with steps, envs, parameters, etc.
+            2. parameter_values.yaml - List of Job parameter values + Shared settings values
+            3. asset_references.yaml - Input directories/files, outputs to sync with S3 on submit
+
+        :return: Job bundle directory path
+        :rtype: str
+        """
+
         job_template = self.build_template()
 
         job_bundle_path = create_job_history_bundle_dir("Unreal", self.name)
@@ -295,6 +426,9 @@ class UnrealOpenJob(UnrealOpenJobEntity):
 class RenderUnrealOpenJob(UnrealOpenJob):
     """
     Unreal Open Job for rendering Unreal Engine projects
+
+    :cvar job_environment_map: Map for converting C++ environment classes to Python classes
+    :cvar job_step_map: Map for converting C++ step classes to Python classes
     """
 
     default_template_path = settings.RENDER_JOB_TEMPLATE_DEFAULT_PATH
@@ -314,6 +448,33 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         asset_references: AssetReferences = AssetReferences(),
         mrq_job: unreal.MoviePipelineExecutorJob = None,
     ):
+        """
+        Construct RenderUnrealOpenJob instance.
+
+        :param file_path: Path to the open job template file
+        :type file_path: str
+
+        :param name: Name of the job
+        :type name: str
+
+        :param steps: List of steps to be executed by deadline cloud
+        :type steps: list[UnrealOpenJobStep]
+
+        :param environments: List of environments to be used by deadline cloud
+        :type environments: list[UnrealOpenJobEnvironment]
+
+        :param extra_parameters: List of additional parameters to be added to the job
+        :type extra_parameters: list[UnrealOpenJobParameterDefinition]
+
+        :param job_shared_settings: JobSharedSettings instance
+        :type job_shared_settings: JobSharedSettings
+
+        :param asset_references: AssetReferences object
+        :type asset_references: AssetReferences
+
+        :param mrq_job: unreal.MoviePipelineExecutorJob instance to take render data from
+        :type mrq_job: unreal.MoviePipelineExecutorJob
+        """
         super().__init__(
             file_path,
             name,
@@ -348,6 +509,22 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
     @mrq_job.setter
     def mrq_job(self, value):
+        """
+        Set mrq_job as given value.
+        Updates next objects:
+            1. Job extra parameters from mrq job parameter definition overrides
+            2. Step's parameters and environments from mrq job step overrides for each step
+            3. Environment's variables from mrq job environment overrides for each environment
+            4. Job name if not set by next priority:
+                I. Job preset override - (highest priority)
+                II. Data asset job preset struct
+                III. YAML template
+                IV. MRQ Job name (shot name) - lowest priority
+
+        :param value: unreal.MoviePipelineExecutorJob instance
+        :type value: unreal.MoviePipelineExecutorJob
+        """
+
         self._mrq_job = value
         self._update_steps_settings_from_mrq_job(self._mrq_job)
         self._update_environments_settings_from_mrq_job(self._mrq_job)
@@ -380,6 +557,17 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
     @classmethod
     def from_data_asset(cls, data_asset: unreal.DeadlineCloudRenderJob) -> "RenderUnrealOpenJob":
+        """
+        Create the instance of RenderUnrealOpenJob from unreal.DeadlineCloudRenderJob.
+        Call same method on data_asset's steps, environments.
+        Create appropriate Steps and Environments listed in job_step_map, job_environment_map
+
+        :param data_asset: unreal.DeadlineCloudRenderJob instance
+
+        :return: RenderUnrealOpenJob instance
+        :rtype: RenderUnrealOpenJob
+        """
+
         render_steps_count = RenderUnrealOpenJob.render_steps_count(data_asset)
         if render_steps_count != 1:
             raise exceptions.RenderStepCountConstraintError(
@@ -422,13 +610,31 @@ class RenderUnrealOpenJob(UnrealOpenJob):
     def from_mrq_job(
         cls, mrq_job: unreal.MoviePipelineDeadlineCloudExecutorJob
     ) -> "RenderUnrealOpenJob":
+        """
+        Create the instance of RenderUnrealOpenJob from unreal.MoviePipelineDeadlineCloudExecutorJob.
+        Use it job_preset to create from data asset and set mrq_job as given mrq_job.
+
+        :param mrq_job: unreal.MoviePipelineDeadlineCloudExecutorJob instance
+
+        :return: RenderUnrealOpenJob instance
+        :rtype: RenderUnrealOpenJob
+        """
+
         render_unreal_open_job = cls.from_data_asset(mrq_job.job_preset)
         render_unreal_open_job.mrq_job = mrq_job
         return render_unreal_open_job
 
     @staticmethod
     def render_steps_count(data_asset: unreal.DeadlineCloudRenderJob) -> int:
-        """Count Render Step in the given Render Job data asset"""
+        """
+        Count unreal.DeadlineCloudRenderStep in the given Render Job data asset
+
+        :param data_asset: unreal.DeadlineCloudRenderJob instance
+
+        :return: unreal.DeadlineCloudRenderStep count
+        :rtype: int
+        """
+
         return sum(isinstance(s, unreal.DeadlineCloudRenderStep) for s in data_asset.steps)
 
     @staticmethod
@@ -450,6 +656,21 @@ class RenderUnrealOpenJob(UnrealOpenJob):
     def _update_steps_settings_from_mrq_job(
         self, mrq_job: unreal.MoviePipelineDeadlineCloudExecutorJob
     ):
+        """
+        Iterate through the Job's Steps and update settings with overrides of given MRQ Job
+        for each Step.
+
+        Settings to update:
+            1. Host requirements
+            2. MRQ Job (If step is RenderUnrealOpenJobStep)
+            3. Step depends on list
+            4. Environment variables for each Environment of the Step
+            5. Step parameters
+
+        :param mrq_job: unreal.MoviePipelineDeadlineCloudExecutorJob instance
+        :type mrq_job: unreal.MoviePipelineDeadlineCloudExecutorJob
+        """
+
         for step in self._steps:
             # update host requirements
             step.host_requirements = HostRequirements.from_u_deadline_cloud_host_requirements(
@@ -495,6 +716,14 @@ class RenderUnrealOpenJob(UnrealOpenJob):
     def _update_environments_settings_from_mrq_job(
         self, mrq_job: unreal.MoviePipelineDeadlineCloudExecutorJob
     ):
+        """
+        Iterate through the Job's Environments and update variables map with overrides of given MRQ Job
+        for each Environment.
+
+        :param mrq_job: unreal.MoviePipelineDeadlineCloudExecutorJob instance
+        :type mrq_job: unreal.MoviePipelineDeadlineCloudExecutorJob
+        """
+
         for env in self._environments:
             override_environment = next(
                 (
@@ -508,6 +737,15 @@ class RenderUnrealOpenJob(UnrealOpenJob):
                 env.variables = override_environment.variables.variables
 
     def _write_cmd_args_to_file(self, cmd_args_str: str) -> str:
+        """
+        Write Unreal launch arguments to temp file with unique name
+
+        :param cmd_args_str: command arguments string
+        :type cmd_args_str: str
+
+        :return: temp file path with cmd args content
+        :rtype: str
+        """
 
         destination_dir = os.path.join(
             unreal.SystemLibrary.get_project_saved_directory(),
@@ -528,28 +766,31 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         return self._extra_cmd_args_file_path
 
     def _build_parameter_values(self) -> list:
+        """
+        Build and return list of parameter values for the OpenJob. Use YAML parameter names and
+        extra parameter values/ YAML defaults if exists.
+
+        Fill parameters that were not filled by user on in YAML. Typically, this parameters
+        should not be filled by user (such as Project Path, Extra Cmd Args File, UGS settings, etc.)
+
+        .. note:: Exclude ExtraCmdArgs parameter from parameter values since we shouldn't to pass
+                  empty STRING parameter due to possible bug in DeadlineCloud worker agent.
+                  Should be removed after bug fixed!
+
+        :return: list of parameter values
+        :rtype: list[dict[str, Any]]
+        """
 
         parameter_values = super()._build_parameter_values()
 
         # skip params predefined in YAML or by given extra parameters
         # if it is not ExtraCmdArgs since we want to update them with mrq job args
-        unfilled_parameter_values = [
-            p
-            for p in parameter_values
-            if p["value"] is None or p["name"] == OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS
-        ]
+        unfilled_parameter_values = [p for p in parameter_values if p["value"] is None]
         filled_parameter_values = [
             p for p in parameter_values if p not in unfilled_parameter_values
         ]
 
         cmd_args_str = " ".join(self._get_ue_cmd_args())
-
-        if len(cmd_args_str) <= 1024:
-            unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
-                job_parameter_values=unfilled_parameter_values,
-                job_parameter_name=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS,
-                job_parameter_value=cmd_args_str,
-            )
 
         unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
             job_parameter_values=unfilled_parameter_values,
@@ -606,9 +847,25 @@ class RenderUnrealOpenJob(UnrealOpenJob):
                     job_parameter_value=unreal_executable_relative_path,
                 )
 
-        return filled_parameter_values + unfilled_parameter_values
+        all_parameter_values = filled_parameter_values + unfilled_parameter_values
+        all_parameter_values = [
+            v for v in all_parameter_values
+            if v["name"] != OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS
+        ]
+        return all_parameter_values
 
     def _get_ue_cmd_args(self) -> list[str]:
+        """
+        Build and return a list of command line arguments to pass to Unreal while launching.
+
+        Arguments to include:
+            1. unreal.MoviePipelineInProcessExecutorSettings' inherited CMDs except of any
+            `-execcmds`. In some cases, users may execute a script that is local to their editor
+            build for some automated workflow but this is not ideal on the farm
+            2. unreal.MoviePipelineInProcessExecutorSettings' additional CMDs
+            3. MRQ Job Configuration's CMD args, device profile class vars, execution CMD args
+            4. Extra CMD args provided by user except of `-execcmds` for the same reason
+        """
         cmd_args = []
 
         in_process_executor_settings = unreal.get_default_object(
@@ -617,11 +874,6 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         # Append all of inherited command line arguments from the editor
         inherited_cmds: str = in_process_executor_settings.inherited_command_line_arguments
-
-        # Sanitize the commandline by removing any execcmds that may have passed through the commandline.
-        # We remove the execcmds because, in some cases, users may execute a script that is local to their editor build
-        # for some automated workflow but this is not ideal on the farm.
-        # We will expect all custom startup commands for rendering to go through the `Start Command` in the MRQ settings
         inherited_cmds = re.sub(pattern='(-execcmds="[^"]*")', repl="", string=inherited_cmds)
         inherited_cmds = re.sub(pattern="(-execcmds='[^']*')", repl="", string=inherited_cmds)
         cmd_args.extend(inherited_cmds.split(" "))
@@ -731,8 +983,12 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
     def _get_mrq_job_attachments_input_files(self) -> list[str]:
         """
-        Returns MRQ Job Attachments Input Files
+        Get Job Attachments Input Files from MRQ Job preset overrides
+
+        :return: List of MRQ Job Attachments Input Files
+        :rtype: list[str]
         """
+
         input_files = []
 
         job_input_files = self.mrq_job.preset_overrides.job_attachments.input_files.files.paths
@@ -745,8 +1001,12 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
     def _get_mrq_job_attachments_input_directories(self) -> list[str]:
         """
-        Returns MRQ Job Attachments Input Directories
+        Get Job Attachments Input Directories from MRQ Job preset overrides
+
+        :return: List of MRQ Job Attachments Input Directories
+        :rtype: list[str]
         """
+
         input_directories = []
 
         job_input_directories = (
@@ -761,8 +1021,12 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
     def _get_mrq_job_attachments_output_directories(self) -> list[str]:
         """
-        Returns MRQ Job Attachments Output Directories
+        Get Job Attachments Output Directories from MRQ Job preset overrides
+
+        :return: List of MRQ Job Attachments Output Directories
+        :rtype: list[str]
         """
+
         output_directories = []
 
         job_output_directories = (
@@ -777,7 +1041,11 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
     def _get_mrq_job_output_directory(self) -> str:
         """
-        Returns MRQ Job Configuration's resolved Output Directory
+        Get the output directory path from  MRQ Job Configuration, resolve all possible tokens
+        (e.g. job_name, level, map, etc.) and return resulted path.
+
+        :return: MRQ Job Configuration's resolved Output Directory
+        :rtype: str
         """
 
         output_setting = self.mrq_job.get_configuration().find_setting_by_class(
@@ -789,6 +1057,31 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         output_path = output_path.format_map(path_context).rstrip("/")
 
         return output_path
+
+    def _build_template(self) -> JobTemplate:
+        """
+        Build JobTemplate OpenJD model.
+
+        Build process:
+            1. Fill specification version for the Job
+            2. Fill Job parameter definition list
+            3. Build given Steps
+            4. Build given Environments
+
+        .. note:: Exclude ExtraCmdArgs parameter from template since we shouldn't to pass
+                  empty STRING parameter due to possible bug in DeadlineCloud worker agent.
+                  Should be removed after bug fixed!
+
+        :return: JobTemplate instance
+        :rtype: JobTemplate
+        """
+
+        template = super()._build_template()
+        template.parameterDefinitions = [
+            p for p in template.parameterDefinitions
+            if p.name != OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS
+        ]
+        return template
 
     def get_asset_references(self) -> AssetReferences:
         """
@@ -838,5 +1131,6 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
 # UGS Jobs
 class UgsRenderUnrealJob(RenderUnrealOpenJob):
+    """Class for predefined UGS Render Job"""
 
     default_template_path = settings.UGS_RENDER_JOB_TEMPLATE_DEFAULT_PATH
