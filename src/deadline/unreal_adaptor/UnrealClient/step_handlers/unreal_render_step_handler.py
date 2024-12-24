@@ -192,13 +192,13 @@ class UnrealRenderStepHandler(BaseStepHandler):
         """
         Create the unreal.MoviePipelineQueue object from the given queue manifest path.
 
-        Copy manifest file to `<project_root>/Saved directory` if manifest located outside
-        the project folder (case when project synced via P4/UGS to workspaces root and manifest file
-        passed via S3 and placed in OpenJob `<session_directory>/<asset_root>`)
+        Before creating, check if manifest located outside the Project "Saved" directory
+        and copy it there.
 
         :param movie_pipeline_queue_subsystem: The unreal.MoviePipelineQueueSubsystem instance
         :param queue_manifest_path: Path to the manifest file
         """
+
         manifest_path = queue_manifest_path.replace("\\", "/")
         project_saved_dir = unreal.SystemLibrary.get_project_saved_directory().rstrip("/")
 
@@ -207,8 +207,12 @@ class UnrealRenderStepHandler(BaseStepHandler):
                 project_saved_dir, "UnrealDeadlineCloudService", "RenderJobManifests"
             ).replace("\\", "/")
             os.makedirs(project_manifest_directory, exist_ok=True)
-            saved_manifest_file_path = shutil.copy(manifest_path, project_manifest_directory)
-            manifest_path = saved_manifest_file_path
+
+            destination_manifest_path = os.path.join(project_saved_dir, Path(manifest_path).name)
+            if not os.path.exists(destination_manifest_path):
+                shutil.copy(manifest_path, destination_manifest_path)
+
+            manifest_path = destination_manifest_path.replace("\\", "/")
 
         UnrealRenderStepHandler.copy_pipeline_queue_from_manifest_file(
             movie_pipeline_queue_subsystem, manifest_path
