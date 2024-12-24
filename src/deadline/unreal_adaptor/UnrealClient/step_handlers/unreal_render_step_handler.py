@@ -199,6 +199,8 @@ class UnrealRenderStepHandler(BaseStepHandler):
         :param queue_manifest_path: Path to the manifest file
         """
 
+        logger.info(f"Create unreal.MoviePipelineQueue from manifest file: {queue_manifest_path}")
+
         manifest_path = queue_manifest_path.replace("\\", "/")
         project_saved_dir = unreal.SystemLibrary.get_project_saved_directory().rstrip("/")
 
@@ -209,8 +211,16 @@ class UnrealRenderStepHandler(BaseStepHandler):
             os.makedirs(project_manifest_directory, exist_ok=True)
 
             destination_manifest_path = os.path.join(project_saved_dir, Path(manifest_path).name)
+            logger.info(
+                f"Manifest path {queue_manifest_path} is outside "
+                f"the project saved directory: {project_saved_dir}. "
+                f"Trying to copy it to {destination_manifest_path}"
+            )
             if not os.path.exists(destination_manifest_path):
+                logger.info(f"Copying {manifest_path} to {destination_manifest_path}")
                 shutil.copy(manifest_path, destination_manifest_path)
+            else:
+                logger.info("Destination manifest file already exists, skipping copy")
 
             manifest_path = destination_manifest_path.replace("\\", "/")
 
