@@ -773,9 +773,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         Fill parameters that were not filled by user on in YAML. Typically, this parameters
         should not be filled by user (such as Project Path, Extra Cmd Args File, UGS settings, etc.)
 
-        .. note:: Exclude ExtraCmdArgs parameter from parameter values since we shouldn't to pass
-                  empty STRING parameter due to possible bug in DeadlineCloud worker agent.
-                  Should be removed after bug fixed!
+        .. note:: Set ExtraCmdArgs parameter as empty string "" since Adaptor read args only from file.
 
         :return: list of parameter values
         :rtype: list[dict[str, Any]]
@@ -785,12 +783,21 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         # skip params predefined in YAML or by given extra parameters
         # if it is not ExtraCmdArgs since we want to update them with mrq job args
-        unfilled_parameter_values = [p for p in parameter_values if p["value"] is None]
+        unfilled_parameter_values = [
+            p for p in parameter_values
+            if p["value"] is None or p["name"] == OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS
+        ]
         filled_parameter_values = [
             p for p in parameter_values if p not in unfilled_parameter_values
         ]
 
         cmd_args_str = " ".join(self._get_ue_cmd_args())
+
+        unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+            job_parameter_values=unfilled_parameter_values,
+            job_parameter_name=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS,
+            job_parameter_value="",
+        )
 
         unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
             job_parameter_values=unfilled_parameter_values,
@@ -848,10 +855,6 @@ class RenderUnrealOpenJob(UnrealOpenJob):
                 )
 
         all_parameter_values = filled_parameter_values + unfilled_parameter_values
-        all_parameter_values = [
-            v for v in all_parameter_values
-            if v["name"] != OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS
-        ]
         return all_parameter_values
 
     def _get_ue_cmd_args(self) -> list[str]:
@@ -1057,31 +1060,6 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         output_path = output_path.format_map(path_context).rstrip("/")
 
         return output_path
-
-    def _build_template(self) -> JobTemplate:
-        """
-        Build JobTemplate OpenJD model.
-
-        Build process:
-            1. Fill specification version for the Job
-            2. Fill Job parameter definition list
-            3. Build given Steps
-            4. Build given Environments
-
-        .. note:: Exclude ExtraCmdArgs parameter from template since we shouldn't to pass
-                  empty STRING parameter due to possible bug in DeadlineCloud worker agent.
-                  Should be removed after bug fixed!
-
-        :return: JobTemplate instance
-        :rtype: JobTemplate
-        """
-
-        template = super()._build_template()
-        template.parameterDefinitions = [
-            p for p in template.parameterDefinitions
-            if p.name != OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS
-        ]
-        return template
 
     def get_asset_references(self) -> AssetReferences:
         """
