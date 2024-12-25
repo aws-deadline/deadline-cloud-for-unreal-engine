@@ -217,6 +217,10 @@ def create_workspace(
         overridden_workspace_root=overridden_workspace_root
     )
 
+    # Required to make DeadlineCloud set this variable to Environment
+    p4_client_directory = workspace.spec['Root'].replace('\\', '/')
+    logger.info(f"openjd_env: P4_CLIENT_DIRECTORY={p4_client_directory}")
+
     initial_workspace_sync(
         workspace=workspace,
         unreal_project_relative_path=unreal_project_relative_path,
@@ -227,10 +231,6 @@ def create_workspace(
         workspace=workspace,
         unreal_project_relative_path=unreal_project_relative_path
     )
-
-    # Required output to make DeadlineCloud set this variable to Environment
-    p4_client_directory = workspace.spec['Root'].replace('\\', '/')
-    logger.info(f"openjd_env: P4_CLIENT_DIRECTORY={p4_client_directory}")
 
 
 def revert_all_changes_in_workspace(
@@ -318,12 +318,17 @@ def delete_workspace(workspace_name: str = None, project_name: str = None):
 
     workspace_root = p4.fetch_client(workspace_name_to_delete).get('Root').replace('\\', '/')
     if workspace_root and os.path.exists(workspace_root):
-        last_exception = revert_all_changes_in_workspace(
+        revert_exc = revert_all_changes_in_workspace(
             workspace_name=workspace_name_to_delete, workspace_root=workspace_root, p4_connection=p4
         )
-        last_exception = clear_workspace_files(
+        if revert_exc is not None:
+            last_exception = revert_exc
+
+        clear_exc = clear_workspace_files(
             workspace_name=workspace_name_to_delete, workspace_root=workspace_root, p4_connection=p4
         )
+        if clear_exc is not None:
+            last_exception = clear_exc
 
     try:
         logger.info(f'Deleting workspace: {workspace_name_to_delete}')
