@@ -103,7 +103,7 @@ class PerforceClient:
         If no arguments were given, will sync the whole workspace to latest changelist
 
         :param filepath: File path to sync
-        :param changelist: Changelist number to sync
+        :param changelist: Changelist number to sync. Can be "latest", so passed as string
         :param force: Force sync
         """
         sync_args = ['sync']
@@ -111,9 +111,9 @@ class PerforceClient:
             sync_args.append('-f')
 
         if changelist is None or changelist == "latest":
-            changelist_to_sync = changelist
-        else:
             changelist_to_sync = None
+        else:
+            changelist_to_sync = int(changelist)
 
         if filepath:
             path_to_sync = filepath if not changelist_to_sync else f'{filepath}@{changelist_to_sync}'
