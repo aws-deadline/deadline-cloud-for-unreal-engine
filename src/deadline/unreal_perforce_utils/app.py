@@ -228,27 +228,33 @@ def create_workspace(
         unreal_project_relative_path=unreal_project_relative_path
     )
 
-    # necessary print to make DeadineCloud set this variable to Environment
+    # Required output to make DeadlineCloud set this variable to Environment
     p4_client_directory = workspace.spec['Root'].replace('\\', '/')
-    logger.log(f"openjd_env: P4_CLIENT_DIRECTORY={p4_client_directory}")
+    logger.info(f"openjd_env: P4_CLIENT_DIRECTORY={p4_client_directory}")
 
 
-def revert_all_changes_in_workspace(workspace_name: str) -> Optional[Exception]:
+def revert_all_changes_in_workspace(
+        workspace_name: str, workspace_root: str, p4_connection: perforce.P4
+) -> Optional[Exception]:
     """
     Revert all changes in default changelist by running command
     `p4 revert -c default <workspace_root>/...`.
 
     :param workspace_name: Name of the workspace to revert
     :type workspace_name: str
+    :param workspace_root: Workspace root directory
+    :type workspace_root: str
+    :param p4_connection: P4 connection
+    :type p4_connection: perforce.P4
 
-    :return: Exception if catched, None otherwise
+    :return: Exception if caught, None otherwise
     :rtype: Optional[Exception]
     """
 
     try:
         logger.info('Reverting changes in default changelist')
-        p4.client = workspace_name
-        p4.run('revert', '-c', 'default', workspace_root + '/...')
+        p4_connection.client = workspace_name
+        p4_connection.run('revert', '-c', 'default', workspace_root + '/...')
     except Exception as e:
         if 'file(s) not opened on this client' in str(e):
             logger.info('Nothing to revert')
@@ -257,22 +263,28 @@ def revert_all_changes_in_workspace(workspace_name: str) -> Optional[Exception]:
             return e
 
 
-def clear_workspace_files(workspace_name: str) -> Optional[Exception]:
+def clear_workspace_files(
+        workspace_name: str, workspace_root: str, p4_connection: perforce.P4
+) -> Optional[Exception]:
     """
     Delete all local files from workspace syncing them to revision #0.
     Command `p4 sync -f <workspace_root>/...#0>`.
 
     :param workspace_name: Name of the workspace to clear
     :type workspace_name: str
+    :param workspace_root: Workspace root directory
+    :type workspace_root: str
+    :param p4_connection: P4 connection
+    :type p4_connection: perforce.P4
 
-    :return: Exception if catched, None otherwise
+    :return: Exception if caught, None otherwise
     :rtype: Optional[Exception]
     """
 
     try:
         logger.info(f'Clearing workspace root: {workspace_root}')
-        p4.client = workspace_name_to_delete
-        p4.run('sync', '-f', workspace_root + '/...#0')
+        p4_connection.client = workspace_name
+        p4_connection.run('sync', '-f', workspace_root + '/...#0')
     except Exception as e:
         if 'file(s) up-to-date' in str(e):
             logger.info('Nothing to clear')
@@ -306,8 +318,12 @@ def delete_workspace(workspace_name: str = None, project_name: str = None):
 
     workspace_root = p4.fetch_client(workspace_name_to_delete).get('Root').replace('\\', '/')
     if workspace_root and os.path.exists(workspace_root):
-        last_exception = revert_all_changes_in_workspace(workspace_name_to_delete)
-        last_exception = clear_workspace_files(workspace_name_to_delete)
+        last_exception = revert_all_changes_in_workspace(
+            workspace_name=workspace_name_to_delete, workspace_root=workspace_root, p4_connection=p4
+        )
+        last_exception = clear_workspace_files(
+            workspace_name=workspace_name_to_delete, workspace_root=workspace_root, p4_connection=p4
+        )
 
     try:
         logger.info(f'Deleting workspace: {workspace_name_to_delete}')
