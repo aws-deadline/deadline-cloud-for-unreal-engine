@@ -22,7 +22,7 @@ def parse_args():
         '-PerforceWorkspaceSpecificationTemplate', required=False, help='P4 spec JSON file path'
     )
     argparser.add_argument(
-        "-PerforceChangelistNumber", type=int, required=False, help='Changelist number to sync to'
+        "-PerforceChangelistNumber", type=str, required=False, help='Changelist number to sync to'
     ),
     argparser.add_argument(
         "-PerforceWorkspaceName", type=int, required=False, help='Changelist number to sync to'

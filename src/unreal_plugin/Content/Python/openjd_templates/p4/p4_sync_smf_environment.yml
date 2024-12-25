@@ -1,17 +1,17 @@
-name: P4SyncCmf
+name: P4SyncSmf
 script:
   actions:
     onEnter:
       command: unreal-engine-p4-utils
       args:
-        - create_workspace
-        - -UnrealProjectRelativePath
-        - {{Param.ProjectRelativePath}}
-        - -UnrealProjectName
-        - {{Param.ProjectName}}
-        - -PerforceWorkspaceSpecificationTemplate
-        - {{Param.PerforceWorkspaceSpecificationTemplate}}
-        - -PerforceChangelistNumber
-        - {{Param.PerforceChangelistNumber}}
+      - create_workspace
+      - -UnrealProjectRelativePath
+      - '{{Param.ProjectRelativePath}}'
+      - -UnrealProjectName
+      - '{{Param.ProjectName}}'
+      - -PerforceWorkspaceSpecificationTemplate
+      - '{{Param.PerforceWorkspaceSpecificationTemplate}}'
+      - -PerforceChangelistNumber
+      - '{{Param.PerforceChangelistNumber}}'
       cancelation:
         mode: NOTIFY_THEN_TERMINATE

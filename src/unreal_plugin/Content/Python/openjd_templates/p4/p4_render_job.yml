@@ -3,14 +3,18 @@ name: RenderJob
 parameterDefinitions:
 - name: ProjectRelativePath
   type: STRING
+- name: ProjectName
+  type: STRING
 - name: PerforceChangelistNumber
   type: STRING
 - name: PerforceWorkspaceSpecificationTemplate
   type: PATH
-  objectType: IN
+  objectType: FILE
+  dataFlow: IN
 - name: MrqJobDependenciesDescriptor
   type: PATH
-  objectType: IN
+  objectType: FILE
+  dataFlow: IN
 - name: ExtraCmdArgs
   type: STRING
   default: '-log'

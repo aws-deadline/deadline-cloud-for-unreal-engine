@@ -97,7 +97,7 @@ class PerforceClient:
 
         self.p4.save_client(self.spec)
 
-    def sync(self, filepath: str = None, changelist: int = None, force: bool = False):
+    def sync(self, filepath: str = None, changelist: str = None, force: bool = False):
         """
         Execute `p4 sync` on the given file path or changelist.
         If no arguments were given, will sync the whole workspace to latest changelist
@@ -110,11 +110,16 @@ class PerforceClient:
         if force:
             sync_args.append('-f')
 
+        if changelist is None or changelist == "latest":
+            changelist_to_sync = changelist
+        else:
+            changelist_to_sync = None
+
         if filepath:
-            path_to_sync = filepath if not changelist else f'{filepath}@{changelist}'
+            path_to_sync = filepath if not changelist_to_sync else f'{filepath}@{changelist_to_sync}'
             sync_args.append(path_to_sync)
-        elif changelist:
-            sync_args.append(f"{self.spec['Stream']}/...@{changelist}")
+        elif changelist_to_sync:
+            sync_args.append(f"{self.spec['Stream']}/...@{changelist_to_sync}")
 
         logger.info(f"Running P4 sync with following arguments: {sync_args}")
 

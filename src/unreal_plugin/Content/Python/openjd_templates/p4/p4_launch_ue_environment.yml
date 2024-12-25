@@ -1,4 +1,4 @@
-name: LaunchUnrealEditorWithUgs
+name: LaunchUnrealEditorWithP4
 variables:
   REMOTE_EXECUTION: 'True'
 script:

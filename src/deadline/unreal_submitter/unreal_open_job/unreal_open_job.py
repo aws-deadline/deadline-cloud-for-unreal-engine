@@ -524,7 +524,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
             job_parameter_values=parameter_values,
             job_parameter_name=OpenJobParameterNames.PERFORCE_CHANGELIST_NUMBER,
-            job_parameter_value=str(p4_conn.get_latest_changelist_number()) or "latest",
+            job_parameter_value=str(p4.get_latest_changelist_number() or "latest"),
         )
 
         parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
@@ -563,7 +563,13 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
             job_parameter_values=parameter_values,
             job_parameter_name=OpenJobParameterNames.PERFORCE_CHANGELIST_NUMBER,
-            job_parameter_value=str(p4.get_latest_changelist_number()) or "latest",
+            job_parameter_value=str(p4.get_latest_changelist_number() or "latest"),
+        )
+
+        parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+            job_parameter_values=parameter_values,
+            job_parameter_name=OpenJobParameterNames.UNREAL_PROJECT_NAME,
+            job_parameter_value=common.get_project_name(),
         )
 
         client_root = p4.get_client_root()

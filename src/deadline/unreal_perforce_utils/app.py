@@ -98,7 +98,7 @@ def create_perforce_workspace_from_template(
 def initial_workspace_sync(
         workspace: perforce.PerforceClient,
         unreal_project_relative_path: str,
-        changelist: int = None,
+        changelist: str = None,
 ) -> None:
     """
     Do initial workspace synchronization:
@@ -110,6 +110,7 @@ def initial_workspace_sync(
 
     :param workspace: p4utilsforunreal.perforce.PerforceClient instance
     :param unreal_project_relative_path: path to the .uproject file relative to the workspace root
+    :param changelist: Changelist number to sync workspace to
     """
 
     logger.info('Workspace initial synchronizing ...')
@@ -184,7 +185,7 @@ def create_workspace(
         unreal_project_relative_path: str,
         unreal_project_name: str = None,
         overridden_workspace_root: str = None,
-        changelist: int = None
+        changelist: str = None
 ):
     """
     Create P4 workspace and execute next steps:
@@ -195,7 +196,9 @@ def create_workspace(
 
     :param perforce_specification_template_path: Path to the perforce specification template file to read specification from
     :param unreal_project_relative_path: path to the .uproject file relative to the workspace root
+    :param unreal_project_name: Name of the .uproject file
     :param overridden_workspace_root: Workspace local path root (Optional, root from template is used by default)
+    :param changelist: Changelist to sync workspace to
     """
 
     logger.info('Creating workspace with the following settings:\n'

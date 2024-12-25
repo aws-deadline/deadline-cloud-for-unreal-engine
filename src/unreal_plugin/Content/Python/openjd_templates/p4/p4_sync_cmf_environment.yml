@@ -1,20 +1,20 @@
 name: P4SyncCmf
 variables:
-    P4_CLIENTS_ROOT_DIRECTORY: 'D:\projects'
+  P4_CLIENTS_ROOT_DIRECTORY: 'D:\projects'
 script:
   actions:
     onEnter:
       command: unreal-engine-p4-utils
       args:
-        - create_workspace
-        - -UnrealProjectRelativePath
-        - {{Param.ProjectRelativePath}}
-        - -UnrealProjectName
-        - {{Param.ProjectName}}
-        - -PerforceWorkspaceSpecificationTemplate
-        - {{Param.PerforceWorkspaceSpecificationTemplate}}
-        - -PerforceChangelistNumber
-        - {{Param.PerforceChangelistNumber}}
+      - create_workspace
+      - -UnrealProjectRelativePath
+      - '{{Param.ProjectRelativePath}}'
+      - -UnrealProjectName
+      - '{{Param.ProjectName}}'
+      - -PerforceWorkspaceSpecificationTemplate
+      - '{{Param.PerforceWorkspaceSpecificationTemplate}}'
+      - -PerforceChangelistNumber
+      - '{{Param.PerforceChangelistNumber}}'
       cancelation:
         mode: NOTIFY_THEN_TERMINATE
     onExit:
@@ -22,6 +22,6 @@ script:
       args:
         - delete_workspace
         - -UnrealProjectName
-        - {{Param.ProjectName}}
+        - '{{Param.ProjectName}}'
       cancelation:
         mode: NOTIFY_THEN_TERMINATE
