@@ -85,9 +85,7 @@ def os_path_from_unreal_path(unreal_path, with_ext: bool = False):
     """
 
     os_path = str(unreal_path).replace(
-        "/Game/", unreal.Paths.convert_relative_path_to_full(
-            unreal.Paths.project_content_dir()
-        )
+        "/Game/", unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_content_dir())
     )
 
     if with_ext:

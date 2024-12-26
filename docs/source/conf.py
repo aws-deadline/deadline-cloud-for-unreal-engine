@@ -16,7 +16,7 @@ extensions = ["sphinx.ext.autodoc", "sphinx.ext.napoleon"]
 
 templates_path = ["_templates"]
 exclude_patterns = []
-autodoc_mock_imports = ["unreal", "deadline.client", "deadline.job_attachments", "openjd"]
+autodoc_mock_imports = ["unreal", "deadline.client", "deadline.job_attachments", "openjd", "P4"]
 autodoc_member_order = "bysource"
 autodoc_default_options = {"members": True, "undoc-members": True, "private-members": True}
 

@@ -3,6 +3,7 @@
 
 class UnrealSourceControlNotAvailableError(Exception):
     """Raised whenn Unreal Source Control Provider is not available"""
+
     pass
 
 

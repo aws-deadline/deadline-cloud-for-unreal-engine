@@ -7,3 +7,4 @@ Submitter and Adaptor API
    unreal_adaptor
    unreal_logger
    unreal_submitter
+   unreal_perforce_utils

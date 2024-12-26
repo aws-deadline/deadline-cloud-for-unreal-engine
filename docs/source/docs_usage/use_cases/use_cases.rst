@@ -6,6 +6,7 @@ How To create, configure and submit Jobs, Steps, Environments from UI
 
    create_render_job
    create_ugs_render_job
+   create_p4_render_job
    submit_job
    submit_predefined_render_job
    submit_render_job_from_bp

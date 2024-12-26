@@ -28,14 +28,6 @@ unreal\_submitter.exceptions
    :undoc-members:
    :show-inheritance:
 
-unreal\_submitter.perforce\_api
---------------------------------------
-
-.. automodule:: unreal_submitter.perforce_api
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 unreal\_submitter.settings
 ---------------------------------
 

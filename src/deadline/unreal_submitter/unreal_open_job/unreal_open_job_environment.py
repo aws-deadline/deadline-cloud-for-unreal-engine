@@ -107,6 +107,7 @@ class LaunchEditorUnrealOpenJobEnvironment(UnrealOpenJobEnvironment):
 # UGS Environments
 class UgsUnrealOpenJobEnvironment(UnrealOpenJobEnvironment):
     """Parent class for predefined UGS Environment"""
+
     pass
 
 
@@ -143,4 +144,3 @@ class P4SyncCmfUnrealOpenJobEnvironment(P4UnrealOpenJobEnvironment):
 
 class P4SyncSmfUnrealOpenJobEnvironment(P4UnrealOpenJobEnvironment):
     default_template_path = settings.P4_SYNC_SMF_ENVIRONMENT_TEMPLATE_DEFAULT_PATH
-

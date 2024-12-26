@@ -107,36 +107,109 @@ class TestPerforceClient:
     @pytest.mark.parametrize(
         "filepath, changelist, force, stream_path, expected_arguments",
         [
-            ("file_to_sync", 1, True, None, ["sync", "-f", "file_to_sync@1"]),
-            (None, 12, True, "//DepotName/Main", ["sync", "-f", "//DepotName/Main/...@12"]),
+            ("file_to_sync", "1", True, None, ["sync", "-f", "file_to_sync@1"]),
+            (None, "12", True, "//DepotName/Main", ["sync", "-f", "//DepotName/Main/...@12"]),
             (None, None, False, None, ["sync"]),
             (None, None, True, None, ["sync", "-f"]),
-        ]
+        ],
     )
     @patch("deadline.unreal_perforce_utils.perforce.logger")
     @patch("deadline.unreal_perforce_utils.perforce.P4", autospec=True)
     def test_sync(
-            self, p4_mock, logger_mock: Mock, filepath, changelist, force, stream_path, expected_arguments
+        self,
+        p4_mock,
+        logger_mock: Mock,
+        filepath,
+        changelist,
+        force,
+        stream_path,
+        expected_arguments,
     ):
         # GIVEN
         connection = perforce.PerforceConnection()
-        with patch.object(connection.p4, "fetch_client", new_callable=MagicMock()):
-            client = perforce.PerforceClient(perforce.PerforceConnection(), name="MyP4Client")
+
+        fetch_client_mock = MagicMock()
+        connection.p4.fetch_client = fetch_client_mock
+
+        client = perforce.PerforceClient(perforce.PerforceConnection(), name="MyP4Client")
+
+        spec_stream_mock = MagicMock()
+        client.spec = spec_stream_mock
 
         if stream_path is not None:
-            client.spec["Stream"] = stream_path
+            spec_stream_mock.__getitem__.return_value = stream_path
 
         # WHEN
         with patch.object(client.p4, "run", new_callable=MagicMock()):
             client.sync(filepath, changelist, force)
 
         # THEN
-        assert logger_mock.assert_called_once_with(
-            [f"Running P4 sync with following arguments: {expected_arguments}"]
+        logger_mock.info.assert_called_once_with(
+            f"Running P4 sync with following arguments: {expected_arguments}"
         )
 
 
 class TestPerforceWorkspaceSpecification:
 
-    def test_get_perforce_workspace_specification_template_stream_only(self):
-        pass
+    @pytest.mark.parametrize(
+        "workspace_spec, expected_result",
+        [
+            (
+                {
+                    "Client": "MockedClientName",
+                    "Root": "path/to/root",
+                    "Stream": "//MockedProjectName/Mainline",
+                },
+                {
+                    "Client": "{workspace_name}",
+                    "Root": "path/to/root",
+                    "Stream": "//MockedProjectName/Mainline",
+                },
+            ),
+            (
+                {
+                    "Client": "MockedClientName",
+                    "Root": "path/to/root",
+                    "View": [
+                        "//MockedProjectName/Mainline/... //MockedClientName/...",
+                        "//PluginsStream/Dev/... //MockedClientName/Plugins/...",
+                        "//OtherProjectName/Mainline/... //OtherClientName/...",
+                    ],
+                },
+                {
+                    "Client": "{workspace_name}",
+                    "Root": "path/to/root",
+                    "View": [
+                        "//MockedProjectName/Mainline/... //{workspace_name}/...",
+                        "//PluginsStream/Dev/... //{workspace_name}/Plugins/...",
+                        "//OtherProjectName/Mainline/... //OtherClientName/...",
+                    ],
+                },
+            ),
+        ],
+    )
+    @patch("deadline.unreal_perforce_utils.perforce.P4", autospec=True)
+    def test_get_perforce_workspace_specification_template(
+        self, p4_mock: Mock, workspace_spec: dict, expected_result: dict
+    ):
+        # GIVEN
+        perforce.get_perforce_workspace_specification = MagicMock(return_value=workspace_spec)
+
+        # WHEN
+        template = perforce.get_perforce_workspace_specification_template()
+
+        # THEN
+        assert template == expected_result
+
+    @patch("deadline.unreal_perforce_utils.perforce.P4", autospec=True)
+    def test_get_perforce_workspace_specification_template_failed(self, p4_mock: Mock):
+
+        # GIVEN
+        perforce.get_perforce_workspace_specification = MagicMock(return_value=None)
+
+        # WHEN
+        with pytest.raises(exceptions.PerforceWorkspaceNotFoundError) as exc_info:
+            perforce.get_perforce_workspace_specification_template()
+
+        # THEN
+        assert exc_info

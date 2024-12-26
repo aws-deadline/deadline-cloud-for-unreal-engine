@@ -13,4 +13,5 @@ Examples of the submission from Unreal Python located in **Content/Python/submit
    py_submission_general
    py_submit_render_job
    py_submit_ugs_render_job
+   py_submit_p4_render_job
    py_submit_custom_job

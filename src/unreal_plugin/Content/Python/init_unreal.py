@@ -43,12 +43,14 @@ else:
     tokens, switchers, cmd_parameters = unreal.SystemLibrary.parse_command_line(
         unreal.SystemLibrary.get_command_line()
     )
-    unreal.log(f'Parsed arguments:\n'
-               f'Tokens: {tokens}\n'
-               f'Switchers: {switchers}\n'
-               f'CMD Parameters: {cmd_parameters}')
+    unreal.log(
+        f"Parsed arguments:\n"
+        f"Tokens: {tokens}\n"
+        f"Switchers: {switchers}\n"
+        f"CMD Parameters: {cmd_parameters}"
+    )
 
-    unreal.log('Waiting for asset registry completion ...')
+    unreal.log("Waiting for asset registry completion ...")
     asset_registry = unreal.AssetRegistryHelpers.get_asset_registry()
     asset_registry.wait_for_completion()
 
@@ -56,9 +58,7 @@ else:
         descriptor = cmd_parameters["MrqJobDependenciesDescriptor"]
 
         if not os.path.exists(descriptor):
-            unreal.log_error(
-                f"MrqJobDependenciesDescriptor file does not exist: {descriptor}"
-            )
+            unreal.log_error(f"MrqJobDependenciesDescriptor file does not exist: {descriptor}")
         else:
             with open(descriptor, "r") as f:
                 job_dependencies_descriptor = json.load(f)
@@ -69,8 +69,8 @@ else:
                 synced = unreal.SourceControl.sync_files([job_dependency])
                 if synced:
                     unreal.AssetRegistryHelpers().get_asset_registry().scan_modified_asset_files(
-                        [job_dependency])
+                        [job_dependency]
+                    )
                     unreal.AssetRegistryHelpers().get_asset_registry().scan_paths_synchronous(
                         [job_dependency], True, True
                     )
-                    

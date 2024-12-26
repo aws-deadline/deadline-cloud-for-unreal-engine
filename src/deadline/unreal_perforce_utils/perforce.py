@@ -27,11 +27,11 @@ class PerforceConnection:
         p4 = P4()
         p4.charset = charset
 
-        p4_port = port or os.getenv('P4PORT')
+        p4_port = port or os.getenv("P4PORT")
         if p4_port:
             p4.port = p4_port
 
-        p4_user = user or os.getenv('P4USER')
+        p4_user = user or os.getenv("P4USER")
         if p4_user:
             p4.user = p4_user
 
@@ -42,10 +42,10 @@ class PerforceConnection:
                 f"Could not connect Perforce server {p4.port} as user {p4.user}\n{str(e)}"
             )
 
-        p4.input = 'y'
-        p4.run('trust', ['-y'])
+        p4.input = "y"
+        p4.run("trust", ["-y"])
 
-        p4_password = password or os.getenv('P4PASSWD')
+        p4_password = password or os.getenv("P4PASSWD")
         if p4_password:
             p4.password = p4_password
             p4.run_login()
@@ -90,6 +90,8 @@ class PerforceConnection:
         if len(where_info) == 1:
             return where_info[0].get("depotFile")
 
+        return None
+
 
 class PerforceClient:
     """
@@ -122,9 +124,9 @@ class PerforceClient:
         :param changelist: Changelist number to sync. Can be "latest", so passed as string
         :param force: Force sync
         """
-        sync_args = ['sync']
+        sync_args = ["sync"]
         if force:
-            sync_args.append('-f')
+            sync_args.append("-f")
 
         if changelist is None or changelist == "latest":
             changelist_to_sync = None
@@ -132,18 +134,21 @@ class PerforceClient:
             changelist_to_sync = int(changelist)
 
         if filepath:
-            path_to_sync = filepath if not changelist_to_sync else f'{filepath}@{changelist_to_sync}'
+            path_to_sync = (
+                filepath if not changelist_to_sync else f"{filepath}@{changelist_to_sync}"
+            )
             sync_args.append(path_to_sync)
         elif changelist_to_sync:
             sync_args.append(f"{self.spec['Stream']}/...@{changelist_to_sync}")
 
         logger.info(f"Running P4 sync with following arguments: {sync_args}")
+        print(f"Running P4 sync with following arguments: {sync_args}")
 
         self.p4.run(sync_args)
 
 
 def get_perforce_workspace_specification(
-        port: str = None, user: str = None, client: str = None
+    port: str = None, user: str = None, client: str = None
 ) -> Optional[dict]:
     """
     Get perforce workspace specification using provided port, user and client.
@@ -167,13 +172,15 @@ def get_perforce_workspace_specification(
     except P4Exception as e:
         logger.info(str(e))
 
+    return None
+
 
 def get_perforce_workspace_specification_template(
-        port: str = None, user: str = None, client: str = None
+    port: str = None, user: str = None, client: str = None
 ) -> dict:
     """
     Get perforce workspace specification template using provided port, user and client.
-    Template built from perforce workspace specification by replacing any occurences
+    Template built from perforce workspace specification by replacing any occurrences
     of workspace name with `{workspace_name}` token in specification fields
 
     :param port: P4 server address (optional)
@@ -188,32 +195,29 @@ def get_perforce_workspace_specification_template(
     workspace_specification = get_perforce_workspace_specification(port, user, client)
     if not isinstance(workspace_specification, dict):
         raise exceptions.PerforceWorkspaceNotFoundError(
-            'No Perforce workspace found. Please check P4 environment and try again'
+            "No Perforce workspace found. Please check P4 environment and try again"
         )
 
-    workspace_name = workspace_specification['Client']
-    workspace_root = workspace_specification['Root']
+    workspace_name = workspace_specification["Client"]
+    workspace_root = workspace_specification["Root"]
 
-    workspace_name_template = '{workspace_name}'
+    workspace_name_template = "{workspace_name}"
 
-    workspace_specification_template = {
-        'Client': workspace_name_template,
-        'Root': workspace_root
-    }
+    workspace_specification_template = {"Client": workspace_name_template, "Root": workspace_root}
 
-    if workspace_specification.get('Stream'):
-        workspace_specification_template['Stream'] = workspace_specification['Stream']
-    elif workspace_specification.get('View'):
-        view_regex = rf'.*(\/\/{workspace_name}\/).*'
+    if workspace_specification.get("Stream"):
+        workspace_specification_template["Stream"] = workspace_specification["Stream"]
+    elif workspace_specification.get("View"):
+        view_regex = rf".*(\/\/{workspace_name}\/).*"
         view_templates = []
-        for view in workspace_specification['View']:
+        for view in workspace_specification["View"]:
             match = re.match(view_regex, view)
-            if match and len(match.groups()) == 1 and match.groups()[0] == f'//{workspace_name}/':
+            if match and len(match.groups()) == 1 and match.groups()[0] == f"//{workspace_name}/":
                 view_templates.append(
-                    view.replace(f'//{workspace_name}/', f'//{workspace_name_template}/')
+                    view.replace(f"//{workspace_name}/", f"//{workspace_name_template}/")
                 )
             else:
                 view_templates.append(view)
-        workspace_specification_template['View'] = view_templates
+        workspace_specification_template["View"] = view_templates
 
     return workspace_specification_template
