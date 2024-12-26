@@ -220,6 +220,8 @@ def create_workspace(
     # Required to make DeadlineCloud set this variable to Environment
     p4_client_directory = workspace.spec['Root'].replace('\\', '/')
     logger.info(f"openjd_env: P4_CLIENT_DIRECTORY={p4_client_directory}")
+    # For some reason, adaptor doesn't show logger records, need to R&D
+    print(f"openjd_env: P4_CLIENT_DIRECTORY={p4_client_directory}")
 
     initial_workspace_sync(
         workspace=workspace,

@@ -524,7 +524,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
             job_parameter_values=parameter_values,
             job_parameter_name=OpenJobParameterNames.PERFORCE_CHANGELIST_NUMBER,
-            job_parameter_value=str(p4.get_latest_changelist_number() or "latest"),
+            job_parameter_value=str(p4_conn.get_latest_changelist_number() or "latest"),
         )
 
         parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
@@ -601,7 +601,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         # Render node. So we can't sync them and their dependencies until we don't know their paths
         job_dependencies_descriptor = common.create_deadline_cloud_temp_file(
             file_prefix=OpenJobParameterNames.UNREAL_MRQ_JOB_DEPENDENCIES_DESCRIPTOR,
-            file_data={"job_dependencies": self._get_mrq_job_dependency_paths()},
+            file_data={"job_dependencies": self._get_mrq_job_dependency_depot_paths()},
             file_ext=".json",
         )
         parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
@@ -729,6 +729,30 @@ class RenderUnrealOpenJob(UnrealOpenJob):
                 os_dependencies.append(os_dependency)
 
         return os_dependencies
+
+    def _get_mrq_job_dependency_depot_paths(self) -> list[str]:
+        """
+        Collects the dependencies if Level and LevelSequence of MRQ Job and returns paths
+        converted from UE relative (i.e. /Game/...) to Perforce Depot (//MyProject/Mainline/...).
+        Using depot file paths allow to sync in any locations other than User's ones.
+
+        :return: List of the dependency depot paths
+        :rtype: list[str]
+        """
+
+        p4_conn = perforce.PerforceConnection()
+
+        depot_dependencies = []
+        for local_path in self._get_mrq_job_dependency_paths():
+            depot_path = p4_conn.get_depot_file_path(local_path)
+            if depot_path is not None:
+                depot_dependencies.append(depot_path)
+            else:
+                logger.warning(
+                    f"Local file {local_path} does not exist on the Depot. Skipping ..."
+                )
+
+        return depot_dependencies
 
     def _get_mrq_job_attachments_input_files(self) -> list[str]:
         """
