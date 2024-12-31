@@ -43,6 +43,22 @@ cd deadline-cloud-for-unreal-engine
 git switch release
 ```
 
+## Optional - Build and Install Plugin with script
+
+A helper script exists at scripts/build_plugin.py which will optionally automate the next 2 steps for you.  It will attempt to find the latest version of Unreal, build your plugin and python dependencies, and install them in the correct locations.  Settings like the Unreal version to use can be overridden.  See the full help list with:
+
+```
+python scripts/build_plugin.py -h
+```
+
+To build and install your current copy of deadline-cloud-for-unreal-engine as a submitter with the latest Unreal Engine installation, run:
+
+```
+python scripts/build_plugin.py --install
+```
+
+If you've installed with this script successfully, you can now skip to "Submitter Installation Complete"
+
 ## Build the Plugin
 
 Adjust the first two paths below based on where your installation of Unreal lives, and where you installed deadline-cloud-for-unreal-engine.
@@ -134,6 +150,31 @@ The Unreal Plugin currently must be compiled locally.
 
 ## Deadline Software Installation
 
+- clone or download `deadline-cloud-for-unreal-engine` either from the release branch or mainline depending on whether you'd like the most recent tested release or all of the most recent commits.  Note that you'll want to ensure your worker version of the libraries is compatible with the version being used from your submitters.
+
+```
+git clone https://github.com/aws-deadline/deadline-cloud-for-unreal-engine.git
+cd deadline-cloud-for-unreal-engine
+git switch release
+```
+
+Optional - Build and install plugin and dependencies with script
+
+A helper script exists at scripts/build_plugin.py which will optionally automate the remaining installation steps for you.  It will attempt to find the latest version of Unreal, build your plugin and python dependencies, and install them in the correct locations.  Settings like the Unreal version to use can be overridden.  See the full help list with:
+
+```
+python scripts/build_plugin.py -h
+```
+
+To build and install your current copy of deadline-cloud-for-unreal-engine as a worker with the latest Unreal Engine installation, run:
+
+```
+python scripts/build_plugin.py --install --worker
+```
+
+If you've installed with this script successfully, you can now skip to "Submit a Test Render"
+
+
 ```
 python -m pip install deadline-cloud-worker-agent
 ```
@@ -152,7 +193,7 @@ pip install hatch
 hatch build
 python -m pip install dist\my-built-wheel.whl
 ```
-- clone or download deadline-cloud-for-unreal-engine
+
 
 ## Build the Plugin
 
