@@ -6,6 +6,10 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import Unr
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_parameters_consistency import (
     ParametersConsistencyChecker,
 )
+from deadline.unreal_logger import get_logger
+
+
+logger = get_logger()
 
 
 # Base Environment implementation
@@ -67,7 +71,7 @@ class UnrealOpenJobEnvironment(UnrealOpenJobEntity):
                 if key not in self._variables:
                     self._variables[key] = value
         except FileNotFoundError:
-            pass
+            logger.warning("No template file found to read parameters from.")
 
     def _check_parameters_consistency(self):
         """

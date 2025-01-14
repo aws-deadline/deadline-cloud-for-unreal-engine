@@ -1,18 +1,8 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import os
-import re
-import glob
-import json
 import unreal
-from typing import Any
 from pathlib import Path
-
-from deadline.unreal_logger import get_logger
-from deadline.unreal_submitter import exceptions
-
-
-logger = get_logger()
 
 
 def get_project_file_path() -> str:
@@ -72,20 +62,15 @@ def os_path_from_unreal_path(unreal_path, with_ext: bool = False):
     """
     Convert Unreal path to OS path, e.g. /Game/Assets/MyAsset to C:/UE_project/Content/Assets/MyAsset.uasset.
 
-    if parameter ``with_ext`` is ``True``, tries to set appropriate extension based on three factors:
+    if parameter with_ext is set to True, tries to get type of the asset by unreal.AssetData and set appropriate extension:
 
-    1. Search for files with pattern, e.g. C:/UE_project/Content/Assets/MyAsset.*
-    2. Unreal Editor does not allow you to create assets with same name in same directory
-       (their package names should be different). Therefore, for the pattern
-       C:/UE_project/Content/Assets/MyAsset.* there should be only 1 result
+    - type World - .umap
+    - other types - .uasset
 
-    If there are multiple files (file created not from Unreal Editor), raises the exception.
-    If there are no files, returns path with ".uasset" extension
+    If for some reason it can't find asset data (e.g. temporary level's actors don't have asset data), it will set ".uasset"
 
     :param unreal_path: Unreal Path of the asset, e.g. /Game/Assets/MyAsset
     :param with_ext: if True, build the path with extension (.uasset or .umap), set asterisk "*" otherwise.
-
-    :raises LookupError: if there are multiple files with different extensions
 
     :return: the OS path of the asset
     :rtype: str
@@ -94,23 +79,24 @@ def os_path_from_unreal_path(unreal_path, with_ext: bool = False):
     content_dir = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_content_dir())
     os_path = str(unreal_path).replace("/Game/", content_dir)
 
-    if not with_ext:
-        return os_path + ".*"
+    if with_ext:
+        asset_data = unreal.EditorAssetLibrary.find_asset_data(unreal_path)
+        asset_class_name = (
+            asset_data.asset_class_path.asset_name
+            if hasattr(asset_data, "asset_class_path")
+            else asset_data.asset_class
+        )  # support older version of UE python API
 
-    search_pattern = os_path + ".*"
-    os_paths = glob.glob(search_pattern)  # find all occurrences of the path with any extension
+        if (
+            not asset_class_name.is_none()
+        ):  # AssetData not found - asset not in the project / on disk
+            os_path += ".umap" if asset_class_name == "World" else ".uasset"
+        else:
+            os_path += ".uasset"
+    else:
+        os_path += ".*"
 
-    if not os_paths:
-        return os_path + ".uasset"
-
-    if len(os_paths) > 1:
-        raise LookupError(
-            "Multiple files found for asset {}:\n{}".format(
-                unreal_path, "\n".join(["- " + p for p in os_paths])
-            )
-        )
-
-    return os_paths[0].replace("\\", "/")
+    return os_path
 
 
 def os_abs_from_relative(os_path):
@@ -176,117 +162,3 @@ def get_path_context_from_mrq_job(mrq_job: unreal.MoviePipelineExecutorJob) -> P
     )
 
     return path_context
-
-
-def get_in_process_executor_cmd_args() -> list[str]:
-    """
-    Get inherited and additional command line arguments from
-    unreal.MoviePipelineInProcessExecutorSettings. Clear them from any `-execcmds` commands
-    because, in some cases, users may execute a script that is local to their editor build
-    for some automated workflow but this is not ideal on the farm
-
-    :return: list of command line arguments
-    :rtype: list[str]
-    """
-    cmd_args = []
-
-    in_process_executor_settings = unreal.get_default_object(
-        unreal.MoviePipelineInProcessExecutorSettings
-    )
-
-    inherited_cmds: str = in_process_executor_settings.inherited_command_line_arguments
-    inherited_cmds = re.sub(pattern='(-execcmds="[^"]*")', repl="", string=inherited_cmds)
-    inherited_cmds = re.sub(pattern="(-execcmds='[^']*')", repl="", string=inherited_cmds)
-    cmd_args.extend(inherited_cmds.split(" "))
-
-    additional_cmds: str = in_process_executor_settings.additional_command_line_arguments
-    cmd_args.extend(additional_cmds.split(" "))
-
-    return cmd_args
-
-
-def get_mrq_job_cmd_args(mrq_job: unreal.MoviePipelineExecutorJob) -> list[str]:
-    """
-    Get command line arguments from MRQ job configuration:
-    - job cmd args
-    - device profile cvars
-    - execution cmd args
-
-    :return: list of command line arguments
-    :rtype: list[str]
-    """
-
-    cmd_args = []
-
-    mrq_job.get_configuration().initialize_transient_settings()
-
-    job_url_params: list[str] = []
-    job_cmd_args: list[str] = []
-    job_device_profile_cvars: list[str] = []
-    job_exec_cmds: list[str] = []
-    for setting in mrq_job.get_configuration().get_all_settings():
-        (job_url_params, job_cmd_args, job_device_profile_cvars, job_exec_cmds) = (
-            setting.build_new_process_command_line_args(
-                out_unreal_url_params=job_url_params,
-                out_command_line_args=job_cmd_args,
-                out_device_profile_cvars=job_device_profile_cvars,
-                out_exec_cmds=job_exec_cmds,
-            )
-        )
-
-    cmd_args.extend(job_cmd_args)
-
-    if job_device_profile_cvars:
-        cmd_args.append('-dpcvars="{}"'.format(",".join(job_device_profile_cvars)))
-
-    if job_exec_cmds:
-        cmd_args.append('-execcmds="{}"'.format(",".join(job_exec_cmds)))
-
-    return cmd_args
-
-
-def create_deadline_cloud_temp_file(file_prefix: str, file_data: Any, file_ext: str) -> str:
-    destination_dir = os.path.join(
-        unreal.Paths.project_saved_dir(),
-        "UnrealDeadlineCloudService",
-        file_prefix,
-    )
-    os.makedirs(destination_dir, exist_ok=True)
-
-    temp_file = unreal.Paths.create_temp_filename(
-        destination_dir, prefix=file_prefix, extension=file_ext
-    )
-
-    with open(temp_file, "w") as f:
-        logger.info(f"Saving {file_prefix} file '{temp_file}'")
-        if file_ext == ".json":
-            json.dump(file_data, f, indent=4)
-        else:
-            f.write(file_data)
-
-    temp_file = unreal.Paths.convert_relative_path_to_full(temp_file).replace("\\", "/")
-
-    return temp_file
-
-
-def validate_path_does_not_contain_non_valid_chars(path: str) -> bool:
-    """
-    Checks if the given path contains non-valid characters * ? " < > |
-
-    :param path: path to check
-    :type path: str
-
-    :raises exceptions.InvalidRenderOutputPathError: if the path contains invalid characters
-
-    :return: True if the path is valid
-    :rtype: bool
-    """
-
-    match = re.findall('[*?"<>|]', path)
-    if match:
-        raise exceptions.PathContainsNonValidCharacters(
-            f'The path "{path}" contains not allowed characters: {match}. '
-            f'Path should not include following characters * ? " < > |'
-        )
-
-    return True

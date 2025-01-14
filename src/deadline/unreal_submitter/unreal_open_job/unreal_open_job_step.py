@@ -26,9 +26,6 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import (
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment import (
     UnrealOpenJobEnvironment,
 )
-from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step_host_requirements import (
-    HostRequirements,
-)
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_parameters_consistency import (
     ParametersConsistencyChecker,
 )
@@ -106,7 +103,7 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         step_dependencies: list[str] = None,
         environments: list[UnrealOpenJobEnvironment] = None,
         extra_parameters: list[UnrealOpenJobStepParameterDefinition] = None,
-        host_requirements: HostRequirements = HostRequirements(),
+        host_requirements: HostRequirementsTemplate = None,
     ):
         """
         :param file_path: The file path of the step descriptor
@@ -145,7 +142,7 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         return self._host_requirements
 
     @host_requirements.setter
-    def host_requirements(self, value):
+    def host_requirements(self, value: HostRequirementsTemplate):
         self._host_requirements = value
 
     @property
@@ -223,7 +220,7 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
                 if p["name"] not in extra_param_names:
                     self._extra_parameters.append(UnrealOpenJobStepParameterDefinition.from_dict(p))
         except FileNotFoundError:
-            pass
+            logger.warning("No template file found to read parameters from.")
 
     def _update_extra_parameter(
         self, extra_parameter: UnrealOpenJobStepParameterDefinition
@@ -308,13 +305,6 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
 
         step_parameters = self._build_step_parameter_definition_list()
 
-        if self._host_requirements and not self._host_requirements.run_on_all_worker_nodes:
-            host_requirements_template = HostRequirementsTemplate(
-                **self._host_requirements.as_dict()
-            )
-        else:
-            host_requirements_template = None
-
         return self.template_class(
             name=self.name,
             script=StepScript(**step_template_object["script"]),
@@ -337,7 +327,7 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
                 if self._step_dependencies
                 else None
             ),
-            hostRequirements=host_requirements_template,
+            hostRequirements=self.host_requirements,
         )
 
     def get_asset_references(self):

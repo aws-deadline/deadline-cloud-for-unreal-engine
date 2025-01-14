@@ -9,12 +9,14 @@ import sys
 remote_execution = os.getenv("REMOTE_EXECUTION", "False")
 if remote_execution != "True":
 
+    # Add predefined OpenJD templates directory to sys path
+    # to get available to submit jobs without providing YAMLs for default entities
     if "OPENJD_TEMPLATES_DIRECTORY" not in os.environ:
         os.environ["OPENJD_TEMPLATES_DIRECTORY"] = (
             f"{Path(__file__).parent.as_posix()}/openjd_templates"
         )
 
-    # Add the actions path to sys path
+    # Add the custom submit actions path to sys path
     actions_path = Path(__file__).parent.joinpath("submit_actions").as_posix()
 
     if actions_path not in sys.path:

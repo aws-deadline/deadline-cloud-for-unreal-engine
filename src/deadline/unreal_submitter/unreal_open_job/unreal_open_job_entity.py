@@ -97,13 +97,9 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
         self._template_class = template_class
         self._file_path: Optional[str] = None
 
-        if file_path is not None:
-            template_path = file_path
-        else:
-            template_path = "{templates_dir}/{template_path}".format(
-                templates_dir=settings.OPENJD_TEMPLATES_DIRECTORY,
-                template_path=self.default_template_path,
-            )
+        template_path = file_path or os.path.join(
+            settings.OPENJD_TEMPLATES_DIRECTORY, self.default_template_path or ""
+        )
 
         if os.path.exists(template_path):
             self._file_path = template_path.replace("\\", "/")

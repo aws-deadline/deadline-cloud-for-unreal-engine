@@ -202,7 +202,11 @@ class UnrealRenderStepHandler(BaseStepHandler):
         logger.info(f"Create unreal.MoviePipelineQueue from manifest file: {queue_manifest_path}")
 
         manifest_path = queue_manifest_path.replace("\\", "/")
-        project_saved_dir = unreal.SystemLibrary.get_project_saved_directory().rstrip("/")
+
+        project_dir = os.path.dirname(
+            unreal.Paths.convert_relative_path_to_full(unreal.Paths.get_project_file_path())
+        )
+        project_saved_dir = os.path.join(project_dir, "Saved").replace("\\", "")
 
         if not manifest_path.startswith(project_saved_dir):
             project_manifest_directory = os.path.join(
@@ -210,7 +214,9 @@ class UnrealRenderStepHandler(BaseStepHandler):
             ).replace("\\", "/")
             os.makedirs(project_manifest_directory, exist_ok=True)
 
-            destination_manifest_path = os.path.join(project_saved_dir, Path(manifest_path).name)
+            destination_manifest_path = os.path.join(
+                project_manifest_directory, Path(manifest_path).name
+            )
             logger.info(
                 f"Manifest path {queue_manifest_path} is outside "
                 f"the project saved directory: {project_saved_dir}. "

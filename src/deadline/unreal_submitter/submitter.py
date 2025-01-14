@@ -26,7 +26,7 @@ telemetry_client = get_deadline_cloud_library_telemetry_client()
 telemetry_client.update_common_details(
     {
         "deadline-cloud-for-unreal-engine-submitter-version": version,
-        # 5.4.3-34507850+++UE5+Release-5.4
+        # Example: 5.4.3-34507850+++UE5+Release-5.4
         "unreal-engine-version": unreal.SystemLibrary.get_engine_version(),
     }
 )

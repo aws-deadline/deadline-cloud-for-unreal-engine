@@ -42,7 +42,7 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_parameters_consis
     ParametersConsistencyChecker,
 )
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step_host_requirements import (
-    HostRequirements,
+    HostRequirementsHelper,
 )
 
 from deadline.unreal_logger import get_logger
@@ -195,8 +195,12 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         """
 
         steps = [UnrealOpenJobStep.from_data_asset(step) for step in data_asset.steps]
+
+        host_requirements = HostRequirementsHelper.u_host_requirements_to_openjd_host_requirements(
+            data_asset.job_preset_struct.host_requirements
+        )
         for step in steps:
-            step.host_requirements = data_asset.job_preset_struct.host_requirements
+            step.host_requirements = host_requirements
 
         shared_settings = data_asset.job_preset_struct.job_shared_settings
 
@@ -281,7 +285,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
                 if p["name"] not in extra_param_names:
                     self._extra_parameters.append(UnrealOpenJobParameterDefinition.from_dict(p))
         except FileNotFoundError:
-            pass
+            logger.warning("No template file found to read parameters from.")
 
     def _find_extra_parameter(
         self, parameter_name: str, parameter_type: str
@@ -580,11 +584,14 @@ class RenderUnrealOpenJob(UnrealOpenJob):
                 f"Currently it has {render_steps_count} Render Steps"
             )
 
+        host_requirements = HostRequirementsHelper.u_host_requirements_to_openjd_host_requirements(
+            data_asset.job_preset_struct.host_requirements
+        )
         steps = []
         for source_step in data_asset.steps:
             job_step_cls = cls.job_step_map.get(type(source_step), UnrealOpenJobStep)
             job_step = job_step_cls.from_data_asset(source_step)
-            job_step.host_requirements = data_asset.job_preset_struct.host_requirements
+            job_step.host_requirements = host_requirements
             steps.append(job_step)
 
         environments = []
@@ -676,11 +683,12 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         :type mrq_job: unreal.MoviePipelineDeadlineCloudExecutorJob
         """
 
+        host_requirements = HostRequirementsHelper.u_host_requirements_to_openjd_host_requirements(
+            mrq_job.preset_overrides.host_requirements
+        )
         for step in self._steps:
             # update host requirements
-            step.host_requirements = HostRequirements.from_u_deadline_cloud_host_requirements(
-                mrq_job.preset_overrides.host_requirements
-            )
+            step.host_requirements = host_requirements
 
             # set mrq job to render step
             if isinstance(step, RenderUnrealOpenJobStep):
@@ -858,7 +866,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         parameter_values = super()._build_parameter_values()
 
-        # skip params predefined in YAML or by given extra parameters
+        # skip params with filled values (in YAML or by User in UI)
         # if it is not ExtraCmdArgs since we want to update them with mrq job args
         unfilled_parameter_values = [
             p
