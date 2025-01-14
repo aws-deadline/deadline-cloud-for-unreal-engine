@@ -54,40 +54,39 @@ if unreal:
             if len(jobs) == 0:
                 logger.error(f"Render Executor: Error: {queue} has 0 jobs")
 
-            job = jobs[0]
-
-            # get output settings block
-            output_settings = job.get_configuration().find_or_add_setting_by_class(
-                unreal.MoviePipelineOutputSetting
-            )
-
-            # if user override frame range, use overriden values
-            if output_settings.use_custom_playback_range:
-                self.totalFrameRange = (
-                    output_settings.custom_end_frame - output_settings.custom_start_frame
+            for job in jobs:
+                # get output settings block
+                output_settings = job.get_configuration().find_or_add_setting_by_class(
+                    unreal.MoviePipelineOutputSetting
                 )
 
-            # else use default frame range of the level sequence
-            else:
-                level_sequence = unreal.EditorAssetLibrary.load_asset(
-                    unreal.SystemLibrary.conv_soft_object_reference_to_string(
-                        unreal.SystemLibrary.conv_soft_obj_path_to_soft_obj_ref(job.sequence)
+                # if user override frame range, use overriden values
+                if output_settings.use_custom_playback_range:
+                    self.totalFrameRange += (
+                        output_settings.custom_end_frame - output_settings.custom_start_frame
                     )
-                )
-                if level_sequence is None:
+
+                # else use default frame range of the level sequence
+                else:
+                    level_sequence = unreal.EditorAssetLibrary.load_asset(
+                        unreal.SystemLibrary.conv_soft_object_reference_to_string(
+                            unreal.SystemLibrary.conv_soft_obj_path_to_soft_obj_ref(job.sequence)
+                        )
+                    )
+                    if level_sequence is None:
+                        logger.error(
+                            "Render Executor: Error: Level Sequence not loaded. Check if the sequence "
+                            "exists and is valid"
+                        )
+
+                    self.totalFrameRange += (
+                        level_sequence.get_playback_end() - level_sequence.get_playback_start()
+                    )
+
+                if self.totalFrameRange == 0:
                     logger.error(
-                        "Render Executor: Error: Level Sequence not loaded. Check if the sequence "
-                        "exists and is valid"
+                        "Render Executor: Error: Cannot render the Queue with frame range of zero length"
                     )
-
-                self.totalFrameRange = (
-                    level_sequence.get_playback_end() - level_sequence.get_playback_start()
-                )
-
-            if self.totalFrameRange == 0:
-                logger.error(
-                    "Render Executor: Error: Cannot render the Queue with frame range of zero length"
-                )
 
             # don't forget to call parent's execute to run the render process
             super().execute(queue)
@@ -206,7 +205,7 @@ class UnrealRenderStepHandler(BaseStepHandler):
         project_dir = os.path.dirname(
             unreal.Paths.convert_relative_path_to_full(unreal.Paths.get_project_file_path())
         )
-        project_saved_dir = os.path.join(project_dir, "Saved").replace("\\", "")
+        project_saved_dir = os.path.join(project_dir, "Saved").replace("\\", "/")
 
         if not manifest_path.startswith(project_saved_dir):
             project_manifest_directory = os.path.join(
