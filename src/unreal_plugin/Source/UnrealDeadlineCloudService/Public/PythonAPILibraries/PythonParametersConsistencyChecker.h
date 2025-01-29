@@ -31,19 +31,19 @@ class UNREALDEADLINECLOUDSERVICE_API UPythonParametersConsistencyChecker : publi
 
 public:
 	UFUNCTION(BlueprintImplementableEvent)
-	FParametersConsistencyCheckResult	CheckJobParametersConsistency(UDeadlineCloudJob* Job);
+	FParametersConsistencyCheckResult	CheckJobParametersConsistency(const UDeadlineCloudJob* Job);
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void FixJobParametersConsistency (UDeadlineCloudJob* Job);
    
 	UFUNCTION(BlueprintImplementableEvent)
-	FParametersConsistencyCheckResult	CheckStepParametersConsistency(UDeadlineCloudStep* Step);
+	FParametersConsistencyCheckResult	CheckStepParametersConsistency(const UDeadlineCloudStep* Step);
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void	FixStepParametersConsistency (UDeadlineCloudStep* Step);
 
 	UFUNCTION(BlueprintImplementableEvent)
-	FParametersConsistencyCheckResult	CheckEnvironmentVariablesConsistency(UDeadlineCloudEnvironment* Environment);
+	FParametersConsistencyCheckResult	CheckEnvironmentVariablesConsistency(const UDeadlineCloudEnvironment* Environment);
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void	FixEnvironmentVariablesConsistency(UDeadlineCloudEnvironment* Environment);

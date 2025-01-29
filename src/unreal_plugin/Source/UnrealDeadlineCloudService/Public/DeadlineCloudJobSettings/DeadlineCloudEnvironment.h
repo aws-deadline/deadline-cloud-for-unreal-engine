@@ -49,7 +49,7 @@ public:
 	void OpenEnvFile(const FString& Path);
 
 	UFUNCTION()
-	FParametersConsistencyCheckResult CheckEnvironmentVariablesConsistency( UDeadlineCloudEnvironment* Env) ;
+	FParametersConsistencyCheckResult CheckEnvironmentVariablesConsistency(const UDeadlineCloudEnvironment* Env) ;
 
 	UFUNCTION()
 	void FixEnvironmentVariablesConsistency(UDeadlineCloudEnvironment* Env);

@@ -26,7 +26,7 @@ void UDeadlineCloudEnvironment::OpenEnvFile(const FString& Path)
     }
 }
 
-FParametersConsistencyCheckResult UDeadlineCloudEnvironment::CheckEnvironmentVariablesConsistency(UDeadlineCloudEnvironment* Env)
+FParametersConsistencyCheckResult UDeadlineCloudEnvironment::CheckEnvironmentVariablesConsistency(const UDeadlineCloudEnvironment* Env)
 {
     if (auto Library = UPythonParametersConsistencyChecker::Get())
     {

@@ -279,7 +279,7 @@ public:
 	void FixConsistencyForHiddenParameters();
 
 	UFUNCTION()
-	FParametersConsistencyCheckResult CheckJobParametersConsistency(UDeadlineCloudJob* Self);
+	FParametersConsistencyCheckResult CheckJobParametersConsistency(const UDeadlineCloudJob* Self);
 
 	UFUNCTION(BlueprintCallable, Category = "Parameters")
 	TArray <FParameterDefinition> GetJobParameters();

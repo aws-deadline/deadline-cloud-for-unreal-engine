@@ -38,7 +38,7 @@ void UDeadlineCloudStep::FixStepParametersConsistency(UDeadlineCloudStep* Step)
 }
 
 
-FParametersConsistencyCheckResult UDeadlineCloudStep::CheckStepParametersConsistency(UDeadlineCloudStep* Self)
+FParametersConsistencyCheckResult UDeadlineCloudStep::CheckStepParametersConsistency(const UDeadlineCloudStep* Self)
 {
     if (auto Library = UPythonParametersConsistencyChecker::Get())
     {

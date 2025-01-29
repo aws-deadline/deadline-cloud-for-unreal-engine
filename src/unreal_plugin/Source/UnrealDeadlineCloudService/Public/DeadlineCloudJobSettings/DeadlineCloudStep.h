@@ -77,7 +77,7 @@ public:
 	void OpenStepFile(const FString& Path);
 
 	UFUNCTION()
-	FParametersConsistencyCheckResult CheckStepParametersConsistency(UDeadlineCloudStep* Step);
+	FParametersConsistencyCheckResult CheckStepParametersConsistency(const UDeadlineCloudStep* Step);
 
 	UFUNCTION(BlueprintCallable, Category = "Parameters")
 	void FixStepParametersConsistency(UDeadlineCloudStep* Step);
