@@ -36,9 +36,9 @@ bool FDeadlineCloudStepDetails::CheckConsistency(UDeadlineCloudStep* Step)
 
 void FDeadlineCloudStepDetails::OnViewAllButtonClicked()
 {
-		bool Show = Settings->GetDisplayHiddenParameters();
-		Settings->SetDisplayHiddenParameters(!Show);
-		ForceRefreshDetails();
+	bool Show = Settings->GetDisplayHiddenParameters();
+	Settings->SetDisplayHiddenParameters(!Show);
+	ForceRefreshDetails();
 }
 
 void FDeadlineCloudStepDetails::OnConsistencyButtonClicked()
@@ -61,17 +61,17 @@ void FDeadlineCloudStepDetails::ForceRefreshDetails()
 /*Details*/
 TSharedRef<IDetailCustomization> FDeadlineCloudStepDetails::MakeInstance()
 {
-    return MakeShareable(new FDeadlineCloudStepDetails);
+	return MakeShareable(new FDeadlineCloudStepDetails);
 }
 
 void FDeadlineCloudStepDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
 	MainDetailLayout = &DetailBuilder;
-    TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
-    DetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
-    Settings = Cast<UDeadlineCloudStep>(ObjectsBeingCustomized[0].Get());
+	TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
+	DetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
+	Settings = Cast<UDeadlineCloudStep>(ObjectsBeingCustomized[0].Get());
 
-    TSharedRef<IPropertyHandle> EnvironmentsHandle = MainDetailLayout->GetProperty("Environments");
+	TSharedRef<IPropertyHandle> EnvironmentsHandle = MainDetailLayout->GetProperty("Environments");
 	IDetailPropertyRow* EnvironmentsRow = MainDetailLayout->EditDefaultProperty(EnvironmentsHandle);
 	TSharedPtr<SWidget> OutNameWidgetEnv;
 	TSharedPtr<SWidget> OutValueWidgetEnv;
@@ -141,10 +141,10 @@ void FDeadlineCloudStepDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBui
 				.OnFixButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudStepDetails::OnConsistencyButtonClicked))
 		];
 
-    if (Settings.IsValid() && (MainDetailLayout != nullptr))
-    {
-        Settings->OnPathChanged = FSimpleDelegate::CreateSP(this, &FDeadlineCloudStepDetails::ForceRefreshDetails);
-    };
+	if (Settings.IsValid() && (MainDetailLayout != nullptr))
+	{
+		Settings->OnPathChanged = FSimpleDelegate::CreateSP(this, &FDeadlineCloudStepDetails::ForceRefreshDetails);
+	};
 
 	PropertiesCategory.AddCustomRow(FText::FromString("Visibility"))
 		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FDeadlineCloudStepDetails::GetEyeWidgetVisibility)))
@@ -214,7 +214,7 @@ void FDeadlineCloudStepParametersArrayCustomization::CustomizeHeader(TSharedRef<
 	NameHandle->GetValue(StepNameValue);
 
 	ArrayBuilder->StepName = FName(StepNameValue);
-    ArrayBuilder->GenerateWrapperStructHeaderRowContent(InHeaderRow, InPropertyHandle->CreatePropertyNameWidget());
+	ArrayBuilder->GenerateWrapperStructHeaderRowContent(InHeaderRow, InPropertyHandle->CreatePropertyNameWidget());
 }
 
 void FDeadlineCloudStepParametersArrayCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> InPropertyHandle, IDetailChildrenBuilder& InChildBuilder, IPropertyTypeCustomizationUtils& InCustomizationUtils)
@@ -292,8 +292,8 @@ TSharedRef<FDeadlineCloudStepParametersArrayBuilder> FDeadlineCloudStepParameter
 }
 
 FDeadlineCloudStepParametersArrayBuilder::FDeadlineCloudStepParametersArrayBuilder(TSharedRef<IPropertyHandle> InPropertyHandle)
-    : FDetailArrayBuilder(InPropertyHandle, false, false, true),
-		ArrayProperty(InPropertyHandle->AsArray())
+	: FDetailArrayBuilder(InPropertyHandle, false, false, true),
+	ArrayProperty(InPropertyHandle->AsArray())
 {
 
 }
@@ -313,15 +313,15 @@ void FDeadlineCloudStepParametersArrayBuilder::GenerateWrapperStructHeaderRowCon
 	NodeRow.OverrideResetToDefault(FResetToDefaultOverride::Create(TAttribute<bool>(false)));
 
 	NodeRow.ValueContent()
-	.HAlign( HAlign_Left )
-	.VAlign( VAlign_Center )
-	.MinDesiredWidth(170.f)
-	.MaxDesiredWidth(170.f);
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.MinDesiredWidth(170.f)
+		.MaxDesiredWidth(170.f);
 
 	NodeRow.NameContent()
-	[
-		NameContent
-	];
+		[
+			NameContent
+		];
 
 	NodeRow.IsEnabled(TAttribute<bool>::CreateLambda([this]()
 		{
@@ -388,16 +388,16 @@ bool FDeadlineCloudStepParametersArrayBuilder::IsPropertyHidden(FName Parameter)
 	}
 	if (MrqJob)
 	{
-			for (auto StepOverride : MrqJob->JobPreset->Steps)
+		for (auto StepOverride : MrqJob->JobPreset->Steps)
+		{
+			if (StepOverride)
 			{
-				if (StepOverride)
+				if (FName(StepOverride->Name) == StepName)
 				{
-					if (FName(StepOverride->Name) == StepName)
-					{
-						Contains = StepOverride->ContainsHiddenParameters(Parameter);
-					}
-				}				
-			}	
+					Contains = StepOverride->ContainsHiddenParameters(Parameter);
+				}
+			}
+		}
 	}
 	return Contains;
 }
@@ -521,12 +521,12 @@ bool FDeadlineCloudStepParametersArrayBuilder::IsEyeWidgetEnabled(FName Paramete
 					if (FName(StepOverride->Name) == StepName)
 					{
 						result = StepOverride->ContainsHiddenParameters(Parameter);
-						
+
 					}
 				}
 			}
 		}
-	
+
 	}
 	return result;
 }
@@ -544,8 +544,8 @@ TSharedRef<FDeadlineCloudStepParameterListBuilder> FDeadlineCloudStepParameterLi
 }
 
 FDeadlineCloudStepParameterListBuilder::FDeadlineCloudStepParameterListBuilder(TSharedRef<IPropertyHandle> InPropertyHandle)
-    : FDetailArrayBuilder(InPropertyHandle, true, false, true),
-		ArrayProperty(InPropertyHandle->AsArray())
+	: FDetailArrayBuilder(InPropertyHandle, true, false, true),
+	ArrayProperty(InPropertyHandle->AsArray())
 {
 }
 
@@ -569,9 +569,9 @@ void FDeadlineCloudStepParameterListBuilder::GenerateWrapperStructHeaderRowConte
 
 
 	NodeRow.NameContent()
-	[
-		NameContent
-	];
+		[
+			NameContent
+		];
 
 	NodeRow.IsEnabled(TAttribute<bool>::CreateLambda([this]()
 		{
@@ -627,7 +627,7 @@ void FDeadlineCloudStepParameterListBuilder::OnGenerateEntry(TSharedRef<IPropert
 
 void FDeadlineCloudStepParameterListCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> InPropertyHandle, FDetailWidgetRow& InHeaderRow, IPropertyTypeCustomizationUtils& InCustomizationUtils)
 {
-    TSharedPtr<IPropertyHandle> ArrayHandle = InPropertyHandle->GetChildHandle("Range", false);
+	TSharedPtr<IPropertyHandle> ArrayHandle = InPropertyHandle->GetChildHandle("Range", false);
 
 	const TSharedPtr<IPropertyHandle> TypeHandle = InPropertyHandle->GetChildHandle("Type", false);
 
@@ -644,12 +644,12 @@ void FDeadlineCloudStepParameterListCustomization::CustomizeHeader(TSharedRef<IP
 
 	ArrayBuilder = FDeadlineCloudStepParameterListBuilder::MakeInstance(ArrayHandle.ToSharedRef(), Type);
 
-    ArrayBuilder->GenerateWrapperStructHeaderRowContent(InHeaderRow, InPropertyHandle->CreatePropertyNameWidget());
+	ArrayBuilder->GenerateWrapperStructHeaderRowContent(InHeaderRow, InPropertyHandle->CreatePropertyNameWidget());
 }
 
 void FDeadlineCloudStepParameterListCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> InPropertyHandle, IDetailChildrenBuilder& InChildBuilder, IPropertyTypeCustomizationUtils& InCustomizationUtils)
 {
-    InChildBuilder.AddCustomBuilder(ArrayBuilder.ToSharedRef());
+	InChildBuilder.AddCustomBuilder(ArrayBuilder.ToSharedRef());
 }
 
 #undef LOCTEXT_NAMESPACE
