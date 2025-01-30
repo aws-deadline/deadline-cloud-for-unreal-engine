@@ -122,4 +122,8 @@ void UDeadlineCloudEnvironment::PostEditChangeProperty(FPropertyChangedEvent& Pr
             OnPathChanged.ExecuteIfBound();
         }
     }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("Changed property is nullptr"));
+    }
 }
