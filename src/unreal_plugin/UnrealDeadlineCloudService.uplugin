@@ -34,5 +34,16 @@
 			"Name": "UnrealDeadlineCloudService",
 			"Type" : "UncookedOnly"
 		}
+	],
+	"PythonRequirements":
+	[
+		{
+
+			"Platform": "All",
+			"Requirements":
+			[
+				"deadline-cloud-for-unreal-engine>=0.3.0"
+			]
+		}
 	]
 }
