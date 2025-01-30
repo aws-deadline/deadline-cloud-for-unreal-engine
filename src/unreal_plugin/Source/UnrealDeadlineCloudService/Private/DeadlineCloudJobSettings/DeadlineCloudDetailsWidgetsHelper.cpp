@@ -7,7 +7,9 @@
 #include "EditorDirectories.h"
 
 #define LOCTEXT_NAMESPACE "DeadlineWidgets"
-
+/*
+SDeadlineCloudFilePathWidget is a custom Slate widget class that implements a file path picker interface.
+ */
 class  SDeadlineCloudFilePathWidget : public SCompoundWidget
 {
 public:
@@ -53,7 +55,10 @@ FString SDeadlineCloudFilePathWidget::GetSelectedFilePath() const
 
 	return FilePath;
 }
-
+/*
+SDeadlineCloudStringWidget is a custom Slate widget that creates an editable text box for string properties.
+It handles the display and editing of string values through a property handle.
+*/
 class SDeadlineCloudStringWidget : public SCompoundWidget
 {
 public:
@@ -96,7 +101,10 @@ private:
 
 	TSharedPtr<IPropertyHandle> StringProperty;
 };
-
+/*
+SDeadlineCloudIntWidget is a custom Slate widget for integer input fields.
+It wraps a SNumericEntryBox that converts between string-based input and integer display/editing.
+*/
 class SDeadlineCloudIntWidget : public SCompoundWidget
 {
 public:
@@ -137,7 +145,9 @@ private:
 
 	TSharedPtr<IPropertyHandle> Property;
 };
-
+/*
+SDeadlineCloudFloatWidget is a custom Slate widget for float input fields.
+*/
 class SDeadlineCloudFloatWidget : public SCompoundWidget
 {
 public:
@@ -179,7 +189,10 @@ private:
 
 	TSharedPtr<IPropertyHandle> Property;
 };
-
+/*
+SConsistencyWidget shows consistency check result for Deadline Job|Step|Environment parameters and same parameters loaded from .yaml for consistency check.
+A part of parameter consistency checking system in a Deadline Cloud plugin, where it notifies users of parameter changes and provides a way to update them.
+*/
 void FDeadlineCloudDetailsWidgetsHelper::SConsistencyWidget::Construct(const FArguments& InArgs) {
 
 	OnFixButtonClicked = InArgs._OnFixButtonClicked;
@@ -205,7 +218,10 @@ void FDeadlineCloudDetailsWidgetsHelper::SConsistencyWidget::Construct(const FAr
 				]
 		];
 };
-
+/*
+SEyeUpdateWidget shows that some Deadline Job|Step|Environment parameters will be hidden in MRQ tab.
+SEyeUpdateWidget makes these parameters visible/hidden to user in Deadline Job|Step|Environment widget.
+*/
 void FDeadlineCloudDetailsWidgetsHelper::SEyeUpdateWidget::Construct(const FArguments& InArgs) {
 
 	OnEyeUpdateButtonClicked = InArgs._OnEyeUpdateButtonClicked;
