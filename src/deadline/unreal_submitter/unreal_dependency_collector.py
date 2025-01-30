@@ -1,5 +1,5 @@
 import unreal
-from typing import Callable
+from typing import Optional, Callable
 from dataclasses import dataclass, asdict
 
 from deadline.unreal_submitter import common
@@ -64,7 +64,7 @@ class DependencyCollector:
         self,
         asset_path: str,
         dependency_options=DependencyOptions(),
-        filter_method: Callable = None,
+        filter_method: Optional[Callable] = None,
         sync_assets: bool = False,
     ) -> list[str]:
         """The method starts the algorithm for obtaining dependencies on the passed asset
@@ -111,7 +111,7 @@ class DependencyCollector:
         self,
         asset_path: str,
         udependency_options: unreal.AssetRegistryDependencyOptions,
-        filter_method: Callable = None,
+        filter_method: Optional[Callable] = None,
     ) -> tuple[list, list]:
         """
         The method recursively all dependencies on the passed asset

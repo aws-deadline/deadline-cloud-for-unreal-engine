@@ -1,4 +1,5 @@
 import unreal
+from typing import Optional
 from openjd.model.v2023_09 import Environment, EnvironmentScript
 
 from deadline.unreal_submitter import settings
@@ -18,7 +19,12 @@ class UnrealOpenJobEnvironment(UnrealOpenJobEntity):
     Unreal Open Job Environment entity
     """
 
-    def __init__(self, file_path: str = None, name: str = None, variables: dict[str, str] = None):
+    def __init__(
+        self,
+        file_path: Optional[str] = None,
+        name: Optional[str] = None,
+        variables: Optional[dict[str, str]] = None,
+    ):
         """
         :param file_path: The file path of the environment descriptor
         :type file_path: str

@@ -82,7 +82,12 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
 
     default_template_path: Optional[str] = None
 
-    def __init__(self, template_class: TemplateClass, file_path: str = None, name: str = None):
+    def __init__(
+        self,
+        template_class: TemplateClass,
+        file_path: Optional[str] = None,
+        name: Optional[str] = None,
+    ):
         """
         :param template_class: The template class for the entity
         :type template_class: TemplateClass

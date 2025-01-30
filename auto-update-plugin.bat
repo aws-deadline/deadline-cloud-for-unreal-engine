@@ -1,3 +1,56 @@
+REM This batch file is used for automating the update process of a UnrealDeadlineCloudService plugin.
+REM
+REM Usage:
+REM   auto-update-plugin.bat
+REM   -Branch {branch_name}
+REM   -UnrealVersion {version_number}
+REM   -ProjectDir {directory_path}
+REM
+REM Steps:
+REM   1. Update this local repo by checking out the provided branch and pull changes
+REM   2. Build UE plugin for provided UE version to %TEMP%\UnrealDeadlineCloudService folder.
+REM      It's necessary to have UE installed in default location (C:\Program Files\Epic Games)
+REM   3. Copy the built plugin to the Project's Plugins folder under the provided Project DIRECTORY
+REM   4. Create pip packages destination folder inside the UE Plugin (Content\Python\Lib\Win64\site-packages)
+REM   5. Install deadline-cloud-for-unreal-engine to UE Plugin site-packages in editable mode
+REM   6. Clear build TMP folder
+REM
+REM Example: auto-update-plugin.bat -Branch mainline -UnrealVersion 5.4 -ProjectDir C:\Projects\MyProject
+
+
+@echo off
+setlocal
+
+REM Initialize variables
+set "Branch="
+set "UnrealVersion="
+set "ProjectDir="
+
+:parseArgs
+if "%~1"=="" goto endParseArgs
+
+if "%~1"=="-Branch" (
+    set "Branch=%~2"
+    shift
+    shift
+    goto parseArgs
+)
+
+if "%~1"=="-UnrealVersion" (
+    set "UnrealVersion=%~2"
+    shift
+    shift
+    goto parseArgs
+)
+
+if "%~1"=="-ProjectDir" (
+    set "ProjectDir=%~2"
+    shift
+    shift
+    goto parseArgs
+)
+
+:endParseArgs
 @echo off
 setlocal
 
@@ -39,7 +92,7 @@ goto parseArgs
 
 echo Repo BRANCH: %Branch%
 echo Unreal Engine VERSION: %UnrealVersion%
-echo Unrel Project DIRECTORY: %ProjectDir%
+echo Unreal Project DIRECTORY: %ProjectDir%
 
 
 REM 1. Update local repo

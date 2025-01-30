@@ -6,7 +6,7 @@ pre-install-commands = [
 [envs.default.scripts]
 sync = "pip install -r requirements-testing.txt"
 test = "pytest --cov-config pyproject.toml {args:test}"
-typing = "mypy --implicit-optional {args:src test}"
+typing = "mypy {args:src test}"
 style = [
   "ruff check {args:.}",
   "black --check --diff {args:.}",

@@ -61,7 +61,7 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
         u_step_task_parameter_definition = unreal.StepTaskParameterDefinition()
         u_step_task_parameter_definition.name = step_parameter["name"]
         u_step_task_parameter_definition.type = getattr(unreal.ValueType, step_parameter["type"])
-        u_step_task_parameter_definition.range = [str(v) for v in step_parameter["range"]]
+        u_step_task_parameter_definition.range = [str(v) for v in step_parameter.get("range", [])]
 
         return u_step_task_parameter_definition
 

@@ -9,7 +9,7 @@ import time
 import logging
 import threading
 import jsonschema
-from typing import Callable
+from typing import Callable, Optional
 
 from deadline.client.api import get_deadline_cloud_library_telemetry_client, TelemetryClient
 from openjd.adaptor_runtime._version import version as openjd_adaptor_version
@@ -392,7 +392,7 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         self._action_queue.enqueue_action(Action(name="client_loaded"))
 
     def _record_error_and_raise(
-        self, exc: Exception, exception_scope: str, exit_code: int = None
+        self, exc: Exception, exception_scope: str, exit_code: Optional[int] = None
     ) -> None:
         """
         Record telemetry error event and raise given exception

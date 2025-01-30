@@ -98,12 +98,12 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
 
     def __init__(
         self,
-        file_path: str = None,
-        name: str = None,
-        step_dependencies: list[str] = None,
-        environments: list[UnrealOpenJobEnvironment] = None,
-        extra_parameters: list[UnrealOpenJobStepParameterDefinition] = None,
-        host_requirements: HostRequirementsTemplate = None,
+        file_path: Optional[str] = None,
+        name: Optional[str] = None,
+        step_dependencies: Optional[list[str]] = None,
+        environments: Optional[list[UnrealOpenJobEnvironment]] = None,
+        extra_parameters: Optional[list[UnrealOpenJobStepParameterDefinition]] = None,
+        host_requirements: Optional[HostRequirementsTemplate] = None,
     ):
         """
         :param file_path: The file path of the step descriptor
@@ -382,13 +382,13 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
 
     def __init__(
         self,
-        file_path: str = None,
-        name: str = None,
-        step_dependencies: list[str] = None,
-        environments: list = None,
-        extra_parameters: list = None,
-        host_requirements=None,
-        mrq_job: unreal.MoviePipelineExecutorJob = None,
+        file_path: Optional[str] = None,
+        name: Optional[str] = None,
+        step_dependencies: Optional[list[str]] = None,
+        environments: Optional[list] = None,
+        extra_parameters: Optional[list] = None,
+        host_requirements: Optional[HostRequirementsTemplate] = None,
+        mrq_job: Optional[unreal.MoviePipelineExecutorJob] = None,
     ):
         """
         :param file_path: The file path of the step descriptor

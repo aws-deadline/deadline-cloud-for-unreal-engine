@@ -22,6 +22,14 @@ script:
       
       :: Store this path to Env variable for future using while launching the Unreal Editor and Project within
       echo openjd_env: P4_CLIENT_DIRECTORY=%CD%
+      
+      :: Error handling
+      IF ERRORLEVEL NEQ 0 (
+          echo Error detected! Code: %ERRORLEVEL%
+      	  exit /b !ERRORCODE!
+      ) ELSE (
+          echo Command succeeded!
+      )
   - name: RemovePerforceWorkspace
     filename: RemovePerforceWorkspace.bat
     type: TEXT
