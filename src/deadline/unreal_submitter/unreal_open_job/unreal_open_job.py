@@ -275,7 +275,8 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         """
         Update parameters with YAML template data. Mostly needed for custom job submission process.
 
-        If no template file found, skip updating.
+        If no template file found, skip updating and log warning.
+        This is not an error and should not break the building process.
         """
 
         try:
@@ -800,6 +801,9 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             p for p in parameter_values if p not in unfilled_parameter_values
         ]
 
+        # Unreal Engine can handle long CMD args strings and OpenJD has a limit of 1024 chars.
+        # Therefore, we need to write them to file and set ExtraCmdArgs parameter as empty string.
+        # Unreal Adaptor uses only ExtraCmdArgsFile parameter to read args from file.
         cmd_args_str = " ".join(self._get_ue_cmd_args())
 
         unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
@@ -890,6 +894,12 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         inherited_cmds = re.sub(pattern="(-execcmds='[^']*')", repl="", string=inherited_cmds)
         cmd_args.extend(inherited_cmds.split(" "))
 
+        logger.warning(
+            "Appearance of custom '-execcmds' argument on the Render node can cause unpredictable "
+            "issues. Argument '-execcmds' of MoviePipelineInProcessExecutorSettings' "
+            "Inherited Command Line arguments will be ignored."
+        )
+
         # Append all of additional command line arguments from the editor
         additional_cmds: str = in_process_executor_settings.additional_command_line_arguments
         cmd_args.extend(additional_cmds.split(" "))
@@ -935,6 +945,13 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             cleared_extra_cmds_args = re.sub(
                 pattern="(-execcmds='[^']*')", repl="", string=cleared_extra_cmds_args
             )
+
+            logger.warning(
+                "Appearance of custom '-execcmds' argument on the Render node can cause unpredictable "
+                "issues. Argument '-execcmds' of Unreal Open Job's "
+                "Extra Command Line arguments will be ignored."
+            )
+
             if cleared_extra_cmds_args:
                 cmd_args.extend(cleared_extra_cmds_args.split(" "))
 
@@ -1064,6 +1081,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             unreal.MoviePipelineOutputSetting
         )
         output_path = output_setting.output_directory.path
+        common.validate_path_does_not_contain_invalid_chars(output_path)
 
         path_context = common.get_path_context_from_mrq_job(self.mrq_job)
         output_path = output_path.format_map(path_context).rstrip("/")

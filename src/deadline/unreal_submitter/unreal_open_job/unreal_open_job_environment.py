@@ -69,7 +69,8 @@ class UnrealOpenJobEnvironment(UnrealOpenJobEntity):
         """
         Update variables with YAML template data. Mostly needed for custom job submission process.
 
-        If no template file found, skip updating.
+        If no template file found, skip updating and log warning.
+        This is not an error and should not break the building process.
         """
         try:
             template_variables = self.get_template_object().get("variables", {})

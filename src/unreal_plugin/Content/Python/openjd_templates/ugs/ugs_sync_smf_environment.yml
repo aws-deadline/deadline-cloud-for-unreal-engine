@@ -6,7 +6,7 @@ script:
     type: TEXT
     data: |
       :: Get or Create P4 workspace with UGS
-      ugs switch {{Param.PerforceStreamPath}}
+      :: ugs switch {{Param.PerforceStreamPath}}
       ugs init {{Param.PerforceStreamPath}} -client=%USERNAME%_%COMPUTERNAME%_{{Param.ProjectName}} -project={{Param.ProjectRelativePath}}
       
       :: Find workspace root folder named as Stream path with "/" replaced by "+" (UGS CLI does it by default)

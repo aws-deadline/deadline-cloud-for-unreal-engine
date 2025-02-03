@@ -211,7 +211,8 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         """
         Update parameters with YAML template data. Mostly needed for custom job submission process.
 
-        If no template file found, skip updating.
+        If no template file found, skip updating and log warning.
+        This is not an error and should not break the building process.
         """
 
         try:
@@ -537,6 +538,8 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
                 unreal.MoviePipelineOutputSetting
             )
             output_path = output_setting.output_directory.path
+            common.validate_path_does_not_contain_invalid_chars(output_path)
+
             path_context = common.get_path_context_from_mrq_job(self.mrq_job)
             output_path = output_path.format_map(path_context).rstrip("/")
             output_param_definition = UnrealOpenJobStepParameterDefinition(

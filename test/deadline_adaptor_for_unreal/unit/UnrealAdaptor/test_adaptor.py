@@ -99,9 +99,15 @@ class TestUnrealAdaptor_on_start:
         # THEN
         assert mock_sleep.call_count == 3
 
+    @patch(
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.telemetry_client",
+        new_callable=PropertyMock,
+    )
     @patch("threading.Thread")
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.AdaptorServer")
-    def test_server_init_fail(self, mock_server: Mock, mock_thread: Mock, init_data: dict) -> None:
+    def test_server_init_fail(
+        self, mock_server: Mock, mock_thread: Mock, mock_telemetry_client: Mock, init_data: dict
+    ) -> None:
         """Tests that an error is raised if no socket becomes available"""
         # GIVEN
         adaptor = UnrealAdaptor(init_data)

@@ -1,8 +1,12 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import os
+import re
+import glob
 import unreal
 from pathlib import Path
+
+from deadline.unreal_submitter import exceptions
 
 
 def get_project_file_path() -> str:
@@ -62,15 +66,20 @@ def os_path_from_unreal_path(unreal_path, with_ext: bool = False):
     """
     Convert Unreal path to OS path, e.g. /Game/Assets/MyAsset to C:/UE_project/Content/Assets/MyAsset.uasset.
 
-    if parameter with_ext is set to True, tries to get type of the asset by unreal.AssetData and set appropriate extension:
+    if parameter ``with_ext`` is ``True``, tries to set appropriate extension based on three factors:
 
-    - type World - .umap
-    - other types - .uasset
+    1. Search for files with pattern, e.g. C:/UE_project/Content/Assets/MyAsset.*
+    2. Unreal Editor does not allow you to create assets with same name in same directory
+       (their package names should be different). Therefore, for the pattern
+       C:/UE_project/Content/Assets/MyAsset.* there should be only 1 result
 
-    If for some reason it can't find asset data (e.g. temporary level's actors don't have asset data), it will set ".uasset"
+    If there are multiple files (file created not from Unreal Editor), raises the exception.
+    If there are no files, returns path with ".uasset" extension
 
     :param unreal_path: Unreal Path of the asset, e.g. /Game/Assets/MyAsset
     :param with_ext: if True, build the path with extension (.uasset or .umap), set asterisk "*" otherwise.
+
+    :raises LookupError: if there are multiple files with different extensions
 
     :return: the OS path of the asset
     :rtype: str
@@ -79,24 +88,23 @@ def os_path_from_unreal_path(unreal_path, with_ext: bool = False):
     content_dir = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_content_dir())
     os_path = str(unreal_path).replace("/Game/", content_dir)
 
-    if with_ext:
-        asset_data = unreal.EditorAssetLibrary.find_asset_data(unreal_path)
-        asset_class_name = (
-            asset_data.asset_class_path.asset_name
-            if hasattr(asset_data, "asset_class_path")
-            else asset_data.asset_class
-        )  # support older version of UE python API
+    if not with_ext:
+        return os_path + ".*"
 
-        if (
-            not asset_class_name.is_none()
-        ):  # AssetData not found - asset not in the project / on disk
-            os_path += ".umap" if asset_class_name == "World" else ".uasset"
-        else:
-            os_path += ".uasset"
-    else:
-        os_path += ".*"
+    search_pattern = os_path + ".*"
+    os_paths = glob.glob(search_pattern)  # find all occurrences of the path with any extension
 
-    return os_path
+    if not os_paths:
+        return os_path + ".uasset"
+
+    if len(os_paths) > 1:
+        raise LookupError(
+            "Multiple files found for asset {}:\n{}".format(
+                unreal_path, "\n".join(["- " + p for p in os_paths])
+            )
+        )
+
+    return os_paths[0].replace("\\", "/")
 
 
 def os_abs_from_relative(os_path):
@@ -162,3 +170,26 @@ def get_path_context_from_mrq_job(mrq_job: unreal.MoviePipelineExecutorJob) -> P
     )
 
     return path_context
+
+
+def validate_path_does_not_contain_invalid_chars(path: str) -> bool:
+    """
+    Checks if the given path contains invalid characters : * ? " < > |
+
+    :param path: path to check
+    :type path: str
+
+    :raises exceptions.InvalidRenderOutputPathError: if the path contains invalid characters
+
+    :return: True if the path is valid
+    :rtype: bool
+    """
+
+    match = re.findall('[:*?"<>|]', path)
+    if match:
+        raise exceptions.PathContainsInvalidCharacters(
+            f'The path "{path}" contains not allowed characters: {match}. '
+            f'Path should not include following characters : * ? " < > |'
+        )
+
+    return True
