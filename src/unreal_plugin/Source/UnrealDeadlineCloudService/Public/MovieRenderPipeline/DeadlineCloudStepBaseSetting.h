@@ -14,19 +14,19 @@
 UCLASS(Blueprintable, Abstract)
 class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudStepBaseSetting : public UMoviePipelineSetting
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
 public:
-	/** List of Deadline Cloud step names this step depends on */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Rendering", meta = (GetOptions = "GetStepOptions"))
-	TArray<FString> DependsOn;
+    /** List of Deadline Cloud step names this step depends on */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Rendering", meta = (GetOptions = "GetStepOptions"))
+    TArray<FString> DependsOn;
 
-	virtual bool IsValidOnShots() const override { return true; }
+    virtual bool IsValidOnShots() const override { return true; }
 
 #if UE_VERSION_NEWER_THAN(5, 2, -1)
-	virtual bool IsValidOnPrimary() const override { return true; }
+    virtual bool IsValidOnPrimary() const override { return true; }
 #else
-	virtual bool IsValidOnMaster() const override { return true; }
+    virtual bool IsValidOnMaster() const override { return true; }
 #endif
 
 #if WITH_EDITOR

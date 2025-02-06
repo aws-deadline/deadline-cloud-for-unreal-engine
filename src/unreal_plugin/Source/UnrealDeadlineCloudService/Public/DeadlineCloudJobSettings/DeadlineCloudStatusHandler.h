@@ -10,7 +10,7 @@ class UDeadlineCloudDeveloperSettings;
  */
 class UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudStatusHandler
 {
-	inline static const FName NAME_DirectoryWatcher = "DirectoryWatcher";
+    inline static const FName NAME_DirectoryWatcher = "DirectoryWatcher";
 	/** Help struct to keep a list of config directory watch handlers */
 	struct FConfigWatchedDirInfo
 	{

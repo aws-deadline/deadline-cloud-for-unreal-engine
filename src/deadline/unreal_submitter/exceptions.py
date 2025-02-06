@@ -37,7 +37,7 @@ class RenderArgumentsTypeNotSetError(DeadlineCloudSubmitterException):
     pass
 
 
-class PathContainsInvalidCharacters(DeadlineCloudSubmitterException):
+class PathContainsNonValidCharacters(DeadlineCloudSubmitterException):
     """Raised when the path contains not allowed characters"""
 
     pass

@@ -7,25 +7,25 @@
 #include "IDirectoryWatcher.h"
 
 FDeadlineCloudStatusHandler::FDeadlineCloudStatusHandler(TWeakObjectPtr<UDeadlineCloudDeveloperSettings> InSettings)
-	: Settings(InSettings)
+    : Settings(InSettings)
 {
 }
 
 FDeadlineCloudStatusHandler::~FDeadlineCloudStatusHandler()
 {
-	StopDirectoryWatch();
+    StopDirectoryWatch();
 }
 
 void FDeadlineCloudStatusHandler::StopDirectoryWatch()
 {
-	FDirectoryWatcherModule& DirectoryWatcherModule = FModuleManager::LoadModuleChecked<FDirectoryWatcherModule>(NAME_DirectoryWatcher);
-	if (const auto DirectoryWatcher = DirectoryWatcherModule.Get())
-	{
-		for (auto& WatchedDirectory : WatchedDirectories)
-		{
-			if (WatchedDirectory.DirectoryWatcherHandle.IsValid())
-			{
-				DirectoryWatcher->UnregisterDirectoryChangedCallback_Handle(
+    FDirectoryWatcherModule& DirectoryWatcherModule = FModuleManager::LoadModuleChecked<FDirectoryWatcherModule>(NAME_DirectoryWatcher);
+    if (const auto DirectoryWatcher = DirectoryWatcherModule.Get())
+    {
+        for (auto& WatchedDirectory : WatchedDirectories)
+        {
+            if (WatchedDirectory.DirectoryWatcherHandle.IsValid())
+            {
+    			DirectoryWatcher->UnregisterDirectoryChangedCallback_Handle(
 					WatchedDirectory.FolderPath, WatchedDirectory.DirectoryWatcherHandle);
 				WatchedDirectory.FolderPath.Empty();
 			}

@@ -15,16 +15,16 @@
 UCLASS()
 class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudJobBundleLibrary : public UObject, public TPythonAPILibraryBase<UDeadlineCloudJobBundleLibrary>
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
 public:
-	/**
-	 * Collect list of rendered Level and Level Sequence assets 
-	 * @param MrqJob Unreal MRQ job
-	 * @return List of the Level and LevelSequence job dependencies
-	 */
-	UFUNCTION(BlueprintImplementableEvent)
-	TArray<FString> GetJobDependencies(const UMoviePipelineDeadlineCloudExecutorJob *MrqJob);
+    /**
+     * Collect list of rendered Level and Level Sequence assets
+     * @param MrqJob Unreal MRQ job
+     * @return List of the Level and LevelSequence job dependencies
+     */
+    UFUNCTION(BlueprintImplementableEvent)
+    TArray<FString> GetJobDependencies(const UMoviePipelineDeadlineCloudExecutorJob *MrqJob);
 
 	/** @return list of CPU architectures */
 	UFUNCTION(BlueprintImplementableEvent)

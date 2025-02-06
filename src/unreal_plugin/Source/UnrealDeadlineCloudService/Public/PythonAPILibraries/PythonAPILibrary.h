@@ -11,7 +11,7 @@ template<typename T>
 class UNREALDEADLINECLOUDSERVICE_API TPythonAPILibraryBase
 {
 public:
-	static T* Get()
+    static T* Get()
 	{
 		TArray<UClass*> PythonAPIClasses;
 		GetDerivedClasses(T::StaticClass(), PythonAPIClasses);

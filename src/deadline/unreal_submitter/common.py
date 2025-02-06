@@ -187,7 +187,7 @@ def validate_path_does_not_contain_invalid_chars(path: str) -> bool:
 
     match = re.findall('[:*?"<>|]', path)
     if match:
-        raise exceptions.PathContainsInvalidCharacters(
+        raise exceptions.PathContainsNonValidCharacters(
             f'The path "{path}" contains not allowed characters: {match}. '
             f'Path should not include following characters : * ? " < > |'
         )

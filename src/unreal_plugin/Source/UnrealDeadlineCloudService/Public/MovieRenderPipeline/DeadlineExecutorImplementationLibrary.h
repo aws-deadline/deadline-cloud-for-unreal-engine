@@ -28,29 +28,29 @@
 UCLASS()
 class UNREALDEADLINECLOUDSERVICE_API UDeadlineExecutorImplementationLibrary : public UObject
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
 public:
-	UFUNCTION(BlueprintCallable, Category = "Deadline Executor")
-	static TSubclassOf<UMoviePipelineExecutorBase> GetDefaultDeadlineExecutor();
-	
+    UFUNCTION(BlueprintCallable, Category = "Deadline Executor")
+    static TSubclassOf<UMoviePipelineExecutorBase> GetDefaultDeadlineExecutor();
+
 };
 
 UCLASS(Blueprintable)
 class  ULevelSelector : public UObject
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
 public:
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Level Selection", meta = (AllowedClasses = "/Script/Engine.World"))
-	TSoftObjectPtr<UWorld> Map;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Level Selection", meta = (AllowedClasses = "/Script/Engine.World"))
+    TSoftObjectPtr<UWorld> Map;
 };
 
 UCLASS(Blueprintable)
 class  UPathSelector : public UObject
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
 public:
 

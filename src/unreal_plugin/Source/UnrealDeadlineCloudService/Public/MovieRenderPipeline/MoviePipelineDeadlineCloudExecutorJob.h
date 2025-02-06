@@ -36,12 +36,12 @@ public:
 
     void SetPropertyRowEnabledInMovieRenderJob(const FName& InPropertyPath, bool bInEnabled);
 
-	/**
-	 * Returns the Deadline job info with overrides applied, if enabled.
-	 * Skips any property not 
-	 */
-	UFUNCTION(BlueprintCallable, Category = "DeadlineCloud")
-	FDeadlineCloudJobPresetStruct GetDeadlineJobPresetStructWithOverrides() const;
+    /**
+     * Returns the Deadline job info with overrides applied, if enabled.
+     * Skips any property not
+     */
+    UFUNCTION(BlueprintCallable, Category = "DeadlineCloud")
+    FDeadlineCloudJobPresetStruct GetDeadlineJobPresetStructWithOverrides() const;
 
     UFUNCTION(BlueprintCallable, Category = "DeadlineCloud")
     FDeadlineCloudJobParametersArray GetParameterDefinitionWithOverrides() const;

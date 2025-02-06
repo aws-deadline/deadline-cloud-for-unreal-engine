@@ -53,6 +53,7 @@ if unreal:
             jobs = queue.get_jobs()
             if len(jobs) == 0:
                 logger.error(f"Render Executor: Error: {queue} has 0 jobs")
+                return
 
             for job in jobs:
                 # get output settings block
@@ -78,6 +79,7 @@ if unreal:
                             "Render Executor: Error: Level Sequence not loaded. Check if the sequence "
                             "exists and is valid"
                         )
+                        return
 
                     self.totalFrameRange += (
                         level_sequence.get_playback_end() - level_sequence.get_playback_start()

@@ -12,11 +12,11 @@
 USTRUCT(BlueprintType)
 struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudCustomScriptStepParameters : public FDeadlineCloudCompositeStepParameters
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
-	/** Path to custom python script to execute */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(RelativeToGameDir, Category=Rendering))
-	FFilePath Script;
+    /** Path to custom python script to execute */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(RelativeToGameDir, Category=Rendering))
+    FFilePath Script;
 };
 
 /**
@@ -27,10 +27,10 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudCustomScriptStepParameters :
 UCLASS(Blueprintable)
 class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudCustomScriptStepSetting : public UDeadlineCloudCompositeStepBaseSetting
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
 public:
-	/** List of custom script steps */
+    /** List of custom script steps */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Rendering)
 	TArray<FDeadlineCloudCustomScriptStepParameters> DeadlineCloudSteps;
 

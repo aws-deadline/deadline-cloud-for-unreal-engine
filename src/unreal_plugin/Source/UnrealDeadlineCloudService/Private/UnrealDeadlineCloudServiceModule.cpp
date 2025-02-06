@@ -14,14 +14,14 @@
 
 void FUnrealDeadlineCloudServiceModule::StartupModule()
 {
-	FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
-	PropertyModule.RegisterCustomClassLayout(
-		UDeadlineCloudDeveloperSettings::StaticClass()->GetFName(),
-		FOnGetDetailCustomizationInstance::CreateStatic(&FDeadlineCloudSettingsDetails::MakeInstance)
-	);
-	//job step, environment object details
-	PropertyModule.RegisterCustomClassLayout(
-		UDeadlineCloudJob::StaticClass()->GetFName(),
+    FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
+    PropertyModule.RegisterCustomClassLayout(
+        UDeadlineCloudDeveloperSettings::StaticClass()->GetFName(),
+        FOnGetDetailCustomizationInstance::CreateStatic(&FDeadlineCloudSettingsDetails::MakeInstance)
+    );
+    //job step, environment object details
+    PropertyModule.RegisterCustomClassLayout(
+        UDeadlineCloudJob::StaticClass()->GetFName(),
 		FOnGetDetailCustomizationInstance::CreateStatic(&FDeadlineCloudJobDetails::MakeInstance));
 
 	PropertyModule.RegisterCustomClassLayout(

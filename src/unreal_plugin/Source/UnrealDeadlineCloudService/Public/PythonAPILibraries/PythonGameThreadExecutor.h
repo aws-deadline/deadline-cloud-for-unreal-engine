@@ -15,7 +15,7 @@
 UCLASS(Blueprintable)
 class UNREALDEADLINECLOUDSERVICE_API UPythonGameThreadExecutor : public UObject, public TPythonAPILibraryBase<UPythonGameThreadExecutor>, public FTickableEditorObject
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 public:
 
 	/** This method is called in Tick method. This way the code it runs will be executed in Editor Main thread */

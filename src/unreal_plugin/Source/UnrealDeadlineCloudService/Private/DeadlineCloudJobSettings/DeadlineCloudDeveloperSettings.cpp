@@ -6,34 +6,34 @@
 
 UDeadlineCloudDeveloperSettings::UDeadlineCloudDeveloperSettings()
 {
-	// UE_LOG(LogTemp, Log, TEXT("UDeadlineCloudDeveloperSettings::UDeadlineCloudDeveloperSettings()"));
-	// if (const auto SettingsLib = UDeadlineCloudSettingsLibrary::Get())
-	// {
-	// 	WorkStationConfiguration.Global.AWS_Profile = SettingsLib->GetProfile();
-	// 	UE_LOG(LogTemp, Log, TEXT("Update setting AWS profile: %s"), *WorkStationConfiguration.Global.AWS_Profile);
-	// }
-	OnSettingChanged().AddLambda([this](UObject*, const FPropertyChangedEvent& PropertyChangedEvent)
-	{
-		this->OnSettingsModified(PropertyChangedEvent.GetPropertyName().ToString());	
-	});
+    // UE_LOG(LogTemp, Log, TEXT("UDeadlineCloudDeveloperSettings::UDeadlineCloudDeveloperSettings()"));
+    // if (const auto SettingsLib = UDeadlineCloudSettingsLibrary::Get())
+    // {
+    //     WorkStationConfiguration.Global.AWS_Profile = SettingsLib->GetProfile();
+    //     UE_LOG(LogTemp, Log, TEXT("Update setting AWS profile: %s"), *WorkStationConfiguration.Global.AWS_Profile);
+    // }
+    OnSettingChanged().AddLambda([this](UObject*, const FPropertyChangedEvent& PropertyChangedEvent)
+    {
+        this->OnSettingsModified(PropertyChangedEvent.GetPropertyName().ToString());
+    });
 }
 
 FText UDeadlineCloudDeveloperSettings::GetSectionText() const
 {
-	return NSLOCTEXT("DeadlineCloudDeveloperSettings", "DeadlineCloudDeveloperSettingsSection", "Deadline Cloud");
+    return NSLOCTEXT("DeadlineCloudDeveloperSettings", "DeadlineCloudDeveloperSettingsSection", "Deadline Cloud");
 }
 
 FName UDeadlineCloudDeveloperSettings::GetSectionName() const
 {
-	return TEXT("DeadlineCloud");
+    return TEXT("DeadlineCloud");
 }
 
 
 // TArray<FString> UDeadlineCloudDeveloperSettings::GetAwsProfiles()
 // {
-// 	if (const auto SettingsLib = UDeadlineCloudSettingsLibrary::Get())
-// 	{
-// 		return SettingsLib->GetProfiles();
+//     if (const auto SettingsLib = UDeadlineCloudSettingsLibrary::Get())
+//     {
+//     	return SettingsLib->GetProfiles();
 // 	}
 // 	return TArray<FString>();
 // }

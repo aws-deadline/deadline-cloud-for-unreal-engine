@@ -18,20 +18,20 @@
 UENUM(BlueprintType)
 enum class EValueType : uint8
 {
-	INT UMETA(DisplayName = "Integer"),
-	FLOAT   UMETA(DisplayName = "Float"),
-	STRING UMETA(DisplayName = "String"),
-	PATH    UMETA(DisplayName = "Path")
+    INT UMETA(DisplayName = "Integer"),
+    FLOAT   UMETA(DisplayName = "Float"),
+    STRING UMETA(DisplayName = "String"),
+    PATH    UMETA(DisplayName = "Path")
 };
 
 USTRUCT(BlueprintType)
 struct FParameterDefinition
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
-	// Name
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
-	FString Name;
+    // Name
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
+    FString Name;
 	// Type	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
 	EValueType Type;

@@ -13,22 +13,22 @@ SDeadlineCloudFilePathWidget is a custom Slate widget class that implements a fi
 class  SDeadlineCloudFilePathWidget : public SCompoundWidget
 {
 public:
-	SLATE_BEGIN_ARGS(SDeadlineCloudFilePathWidget) {}
-		SLATE_ARGUMENT(TSharedPtr<IPropertyHandle>, PathPropertyHandle)
-	SLATE_END_ARGS()
-	void Construct(const FArguments& InArgs);
+    SLATE_BEGIN_ARGS(SDeadlineCloudFilePathWidget) {}
+        SLATE_ARGUMENT(TSharedPtr<IPropertyHandle>, PathPropertyHandle)
+    SLATE_END_ARGS()
+    void Construct(const FArguments& InArgs);
 private:
-	TSharedPtr<IPropertyHandle> PathProperty;
-	FString GetSelectedFilePath() const;
-	void OnPathPicked(const FString& PickedPath);
+    TSharedPtr<IPropertyHandle> PathProperty;
+    FString GetSelectedFilePath() const;
+    void OnPathPicked(const FString& PickedPath);
 };
 
 void SDeadlineCloudFilePathWidget::Construct(const FArguments& InArgs)
 {
-	PathProperty = InArgs._PathPropertyHandle;
-	ChildSlot
-		[
-			SNew(SFilePathPicker)
+    PathProperty = InArgs._PathPropertyHandle;
+    ChildSlot
+        [
+            SNew(SFilePathPicker)
 				.BrowseButtonImage(FAppStyle::GetBrush("PropertyWindow.Button_Ellipsis"))
 				.BrowseButtonStyle(FAppStyle::Get(), "HoverHintOnly")
 				.BrowseButtonToolTip(LOCTEXT("FileButtonToolTipText", "Choose a file from this computer"))

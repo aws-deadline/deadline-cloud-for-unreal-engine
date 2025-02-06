@@ -18,32 +18,32 @@
 USTRUCT(BlueprintType)
 struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudJobSharedSettingsStruct
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
 public:
-	/** Job Name */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Shared Settings", meta = (DisplayPriority = 0))
-	FString Name = "Untitled";
+    /** Job Name */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Shared Settings", meta = (DisplayPriority = 0))
+    FString Name = "Untitled";
 
-	/** Job description */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Shared Settings", meta = (DisplayPriority = 1))
-	FString Description = "No description";
+    /** Job description */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Shared Settings", meta = (DisplayPriority = 1))
+    FString Description = "No description";
 
-	/** Job initial state */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Shared Settings", meta = (GetOptions = "GetJobInitialStateOptions", DisplayPriority = 2))
-	FString InitialState = "READY";
+    /** Job initial state */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Shared Settings", meta = (GetOptions = "GetJobInitialStateOptions", DisplayPriority = 2))
+    FString InitialState = "READY";
 
-	/** Max number of failed tasks */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Shared Settings", meta = (DisplayPriority = 3))
-	int32 MaximumFailedTasksCount = 1;
+    /** Max number of failed tasks */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Shared Settings", meta = (DisplayPriority = 3))
+    int32 MaximumFailedTasksCount = 1;
 
-	/** Maximum retries per task */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Shared Settings", meta = (DisplayPriority = 4))
-	int32 MaximumRetriesPerTask = 50;
+    /** Maximum retries per task */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Shared Settings", meta = (DisplayPriority = 4))
+    int32 MaximumRetriesPerTask = 50;
 
-	/** Job priority */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Shared Settings", meta = (DisplayPriority = 5))
-	int32 Priority = 50;
+    /** Job priority */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Shared Settings", meta = (DisplayPriority = 5))
+    int32 Priority = 50;
 };
 
 /**
@@ -55,18 +55,18 @@ public:
 USTRUCT(BlueprintType)
 struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudHostRequirementsStruct
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
-	/** Indicates the job can be launched on all of the available worker nodes */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Host requirements")
-	bool bRunOnAllWorkerNodes = true;
+    /** Indicates the job can be launched on all of the available worker nodes */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Host requirements")
+    bool bRunOnAllWorkerNodes = true;
 
-	/** Required OS */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Host requirements", meta = (EditCondition = "!bRunOnAllWorkerNodes", GetOptions = "GetOperatingSystems"))
-	FString OperatingSystem;
+    /** Required OS */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Host requirements", meta = (EditCondition = "!bRunOnAllWorkerNodes", GetOptions = "GetOperatingSystems"))
+    FString OperatingSystem;
 
-	/** Required CPU architecture */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Host requirements", meta = (EditCondition = "!bRunOnAllWorkerNodes", GetOptions = "GetCpuArchitectures"))
+    /** Required CPU architecture */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Host requirements", meta = (EditCondition = "!bRunOnAllWorkerNodes", GetOptions = "GetCpuArchitectures"))
 	FString CPU_Architecture;
 
 	/** Required number of CPU cores */
