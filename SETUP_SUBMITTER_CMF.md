@@ -9,6 +9,10 @@ If you’re setting up on a brand new Windows EC2 Instance as your submitter, a 
 1. Download the Epic Installer and install the latest version of Unreal (5.2 or higher is required)
 1. NVIDIA GRID drivers - Follow Windows instructions - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/install-nvidia-driver.html#nvidia-GRID-driver
 
+## Windows Long Paths
+
+Many of the steps below may attempt to create files which exceed the default Windows maximum path length.  Before attempting to build and install the Deadline Cloud for Unreal Engine submitter or adapter on a Windows machine you are strongly encouraged to enable Windows Long path support by following the instructions in one of the options from [this page](https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation?tabs=registry), such as by running the PowerShell command [here](https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation?tabs=powershell#tabpanel_1_powershell).
+
 ## Install Build Tools
 
 The Unreal Submitter Plugin currently must be compiled locally.
