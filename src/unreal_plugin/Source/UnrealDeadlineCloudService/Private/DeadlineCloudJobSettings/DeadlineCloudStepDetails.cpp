@@ -27,48 +27,48 @@
 
 bool FDeadlineCloudStepDetails::CheckConsistency(UDeadlineCloudStep* Step)
 {
-	FParametersConsistencyCheckResult result;
-	result = Step->CheckStepParametersConsistency(Step);
+    FParametersConsistencyCheckResult result;
+    result = Step->CheckStepParametersConsistency(Step);
 
-	UE_LOG(LogTemp, Warning, TEXT("Check consistency result: %s"), *result.Reason);
-	return result.Passed;
+    UE_LOG(LogTemp, Warning, TEXT("Check consistency result: %s"), *result.Reason);
+    return result.Passed;
 }
 
 void FDeadlineCloudStepDetails::OnViewAllButtonClicked()
 {
-	bool Show = Settings->GetDisplayHiddenParameters();
-	Settings->SetDisplayHiddenParameters(!Show);
-	ForceRefreshDetails();
+    bool Show = Settings->GetDisplayHiddenParameters();
+    Settings->SetDisplayHiddenParameters(!Show);
+    ForceRefreshDetails();
 }
 
 void FDeadlineCloudStepDetails::OnConsistencyButtonClicked()
 {
-	Settings->FixStepParametersConsistency(Settings.Get());
-	UE_LOG(LogTemp, Warning, TEXT("FixStepParametersConsistency"));
-	ForceRefreshDetails();
+    Settings->FixStepParametersConsistency(Settings.Get());
+    UE_LOG(LogTemp, Warning, TEXT("FixStepParametersConsistency"));
+    ForceRefreshDetails();
 }
 
 void FDeadlineCloudStepDetails::RespondToEvent()
 {
-	ForceRefreshDetails();
+    ForceRefreshDetails();
 }
 
 void FDeadlineCloudStepDetails::ForceRefreshDetails()
 {
-	MainDetailLayout->ForceRefreshDetails();
+    MainDetailLayout->ForceRefreshDetails();
 }
 
 /*Details*/
 TSharedRef<IDetailCustomization> FDeadlineCloudStepDetails::MakeInstance()
 {
-	return MakeShareable(new FDeadlineCloudStepDetails);
+    return MakeShareable(new FDeadlineCloudStepDetails);
 }
 
 void FDeadlineCloudStepDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
-	MainDetailLayout = &DetailBuilder;
-	TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
-	DetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
+    MainDetailLayout = &DetailBuilder;
+    TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
+    DetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
 	Settings = Cast<UDeadlineCloudStep>(ObjectsBeingCustomized[0].Get());
 
 	TSharedRef<IPropertyHandle> EnvironmentsHandle = MainDetailLayout->GetProperty("Environments");

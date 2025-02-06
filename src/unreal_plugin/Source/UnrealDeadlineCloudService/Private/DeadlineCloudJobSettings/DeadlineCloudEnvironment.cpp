@@ -53,7 +53,7 @@ void UDeadlineCloudEnvironment::FixEnvironmentVariablesConsistency(UDeadlineClou
 
 FDeadlineCloudEnvironmentOverride UDeadlineCloudEnvironment::GetEnvironmentData()
 {
-	return { this->Name, this->Variables };
+    return { this->Name, this->Variables };
 }
 
 bool UDeadlineCloudEnvironment::IsDefaultVariables()

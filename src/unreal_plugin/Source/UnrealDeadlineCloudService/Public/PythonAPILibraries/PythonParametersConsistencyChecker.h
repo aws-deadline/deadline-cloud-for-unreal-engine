@@ -12,13 +12,13 @@ USTRUCT(BlueprintType)
 struct FParametersConsistencyCheckResult 
 
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checker")
-	bool Passed = false;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checker")
+    bool Passed = false;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checker")
-	FString Reason;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checker")
+    FString Reason;
 
 };
 
@@ -27,11 +27,11 @@ struct FParametersConsistencyCheckResult
 UCLASS()
 class UNREALDEADLINECLOUDSERVICE_API UPythonParametersConsistencyChecker : public UObject, public TPythonAPILibraryBase<UPythonParametersConsistencyChecker>
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
 public:
-	UFUNCTION(BlueprintImplementableEvent)
-	FParametersConsistencyCheckResult	CheckJobParametersConsistency(const UDeadlineCloudJob* Job);
+    UFUNCTION(BlueprintImplementableEvent)
+    FParametersConsistencyCheckResult    CheckJobParametersConsistency(const UDeadlineCloudJob* Job);
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void FixJobParametersConsistency (UDeadlineCloudJob* Job);

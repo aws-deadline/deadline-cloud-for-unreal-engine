@@ -21,7 +21,7 @@ public:
     static TSharedRef<FDeadlineCloudStepParametersArrayBuilder> MakeInstance(
         TSharedRef<IPropertyHandle> InPropertyHandle);
 
-	FDeadlineCloudStepParametersArrayBuilder(
+    FDeadlineCloudStepParametersArrayBuilder(
 		TSharedRef<IPropertyHandle> InPropertyHandle);
 
     void GenerateWrapperStructHeaderRowContent(FDetailWidgetRow& NodeRow, TSharedRef<SWidget> NameContent);

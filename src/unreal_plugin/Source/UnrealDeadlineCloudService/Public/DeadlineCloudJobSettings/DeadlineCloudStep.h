@@ -8,22 +8,22 @@
 USTRUCT(BlueprintType)
 struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudStepParametersArray
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
-	/** List of files paths */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
-	TArray<FStepTaskParameterDefinition> Parameters;
+    /** List of files paths */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
+    TArray<FStepTaskParameterDefinition> Parameters;
 };
 
 USTRUCT(BlueprintType)
 struct  FDeadlineCloudStepOverride
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 1))
-	FString Name;
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 1))
+    FString Name;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 3, GetOptions = "GetDependsList"))
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 3, GetOptions = "GetDependsList"))
 	TSet<FString> DependsOn;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 4))

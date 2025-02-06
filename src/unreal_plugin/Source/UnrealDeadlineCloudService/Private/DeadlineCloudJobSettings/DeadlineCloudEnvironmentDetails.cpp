@@ -24,13 +24,13 @@
 
 bool FDeadlineCloudEnvironmentDetails::CheckConsistency(UDeadlineCloudEnvironment* Env)
 {
-	FParametersConsistencyCheckResult result;
-	if (Env != nullptr)
-	{
-		result = Env->CheckEnvironmentVariablesConsistency(Env);
+    FParametersConsistencyCheckResult result;
+    if (Env != nullptr)
+    {
+        result = Env->CheckEnvironmentVariablesConsistency(Env);
 
-		UE_LOG(LogTemp, Warning, TEXT("Check consistency result: %s"), *result.Reason);
-		return result.Passed;
+        UE_LOG(LogTemp, Warning, TEXT("Check consistency result: %s"), *result.Reason);
+        return result.Passed;
 	}
 	else
 	{
