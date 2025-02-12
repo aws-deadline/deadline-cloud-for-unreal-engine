@@ -23,7 +23,10 @@ class UnrealCustomStepHandler(BaseStepHandler):
 
     @staticmethod
     def regex_pattern_complete() -> list[re.Pattern]:
-        return [re.compile(".*Custom Step Executor: Complete")]
+        return [
+            re.compile(".*Custom Step Executor: Complete"),
+            re.compile(".*QUIT EDITOR")
+        ]
 
     @staticmethod
     def regex_pattern_error() -> list[re.Pattern]:
@@ -60,18 +63,33 @@ class UnrealCustomStepHandler(BaseStepHandler):
 
     def run_script(self, args: dict) -> bool:
         """
-        Executing a script using the provided arguments.
+        Executing a script using the provided arguments by calling the
+        https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/PythonScriptLibrary?application_version=5.4#unreal.PythonScriptLibrary.execute_python_command_ex
 
         :param args: A dictionary that contains the arguments for running the script.
         :return: boolean indicating the script run successfully or not.
         """
 
         try:
-            script_module = UnrealCustomStepHandler.validate_script(script_path=args["script_path"])
-            script_args = args.get("script_args", {})
-            result = script_module.main(**script_args)
-            logger.info(f"Custom Step Executor: Complete: {result}")
+            import unreal
+            result = unreal.PythonScriptLibrary.execute_python_command_ex(
+                f"{args['script_path']} {args.get('script_args', '')}",
+                execution_mode=unreal.PythonCommandExecutionMode.EXECUTE_FILE,
+                file_execution_scope=unreal.PythonFileExecutionScope.PUBLIC
+            )
+
+            if result:
+                failure, _ = result
+
+                # If the command ran successfully, this will return None else the
+                # failure
+                # https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/PythonScriptLibrary?application_version=5.4#unreal.PythonScriptLibrary.execute_python_command_ex
+                if failure:
+                    raise RuntimeError(failure)
+
+            logger.info(f"Custom Step Executor Result: {result}")
             return True
+
         except Exception as e:
             logger.info(
                 f"Custom Step Executor: Error: "

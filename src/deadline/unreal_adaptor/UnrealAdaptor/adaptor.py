@@ -345,11 +345,16 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
             "-log",
             "-unattended",
             "-stdout",
-            "-NoLoadingScreen",
-            "-NoScreenMessages",
-            "-RenderOffscreen",
             "-allowstdoutlogverbosity",
         ]
+
+        remote_execution = os.getenv("REMOTE_EXECUTION", "True")
+        if remote_execution == "True":
+            log_args += [
+                "-NoLoadingScreen",
+                "-NoScreenMessages",
+                "-RenderOffscreen"
+            ]
 
         extra_cmd_args = extra_cmd_str.split(" ")
 
@@ -503,14 +508,15 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
             #  This is always an error case because the Unreal Client should still be running and
             #  waiting for the next command. If the thread finished, then we cannot continue
             exit_code = self._unreal_client.returncode
-            self._record_error_and_raise(
-                exc=RuntimeError(
-                    "Unreal exited early and did not render successfully, please check render logs. "
-                    f"Exit code {exit_code}"
-                ),
-                exception_scope="on_run",
-                exit_code=exit_code,
-            )
+            if exit_code != 0:
+                self._record_error_and_raise(
+                    exc=RuntimeError(
+                        "Unreal exited early and did not render successfully, please check render logs. "
+                        f"Exit code {exit_code}"
+                    ),
+                    exception_scope="on_run",
+                    exit_code=exit_code,
+                )
 
     def on_stop(self) -> None:
         """

@@ -322,6 +322,11 @@ class UnrealRenderStepHandler(BaseStepHandler):
                 movie_pipeline_queue_subsystem=subsystem,
                 queue_manifest_path=args["queue_manifest_path"],
             )
+        elif args.get("queue_path"):
+            UnrealRenderStepHandler.create_queue_from_queue_asset(
+                movie_pipeline_queue_subsystem=subsystem,
+                movie_pipeline_queue_asset_path=args["queue_path"]
+            )
         else:
             UnrealRenderStepHandler.create_queue_from_job_args(
                 movie_pipeline_queue_subsystem=subsystem,
