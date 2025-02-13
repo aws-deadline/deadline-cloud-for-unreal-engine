@@ -24,7 +24,7 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
 
     @staticmethod
     def job_parameter_to_u_parameter_definition(
-        job_parameter: dict[str, Any]
+        job_parameter: dict[str, Any],
     ) -> unreal.ParameterDefinition:
         """
         Convert given Job Parameter definition dictionary to unreal.ParameterDefinition.
@@ -48,7 +48,7 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
 
     @staticmethod
     def step_parameter_to_u_step_task_parameter(
-        step_parameter: dict[str, str]
+        step_parameter: dict[str, str],
     ) -> unreal.StepTaskParameterDefinition:
         """
         Convert given Step Parameter definition dictionary to unreal.StepTaskParameterDefinition.

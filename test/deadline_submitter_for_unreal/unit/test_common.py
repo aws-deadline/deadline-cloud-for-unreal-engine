@@ -24,7 +24,7 @@ class TestCommon:
             r"usr\JD\test\test.txt",
             "{project_dir}/Saved/MovieRenders/{day}{mont}{year}",
             "0123456789!@#$%^&()-_=+{}[];:',./",
-        ]
+        ],
     )
     def test_validate_non_valid_chars_in_path_passed(self, path: str):
         # WHEN
@@ -38,11 +38,11 @@ class TestCommon:
         [
             '"{project_dir}/Saved/MovieRenders/Output"',
             '{project_dir}/Saved/MovieRenders/"CopiedAsPath"',
-            '{project_dir}/Saved/MovieRenders/MyOutput|NightlyRender',
+            "{project_dir}/Saved/MovieRenders/MyOutput|NightlyRender",
             '{project_dir}/Saved/MovieRenders/"CopiedAsPath"-*mycomment*',
             '{project_dir}/Saved/MovieRenders/"CopiedAsPath"-notready?',
             '{project_dir}/Saved/MovieRenders/"CopiedAsPath"-<description>',
-        ]
+        ],
     )
     def test_validate_non_valid_chars_in_path_failed(self, path: str):
         # THEN
