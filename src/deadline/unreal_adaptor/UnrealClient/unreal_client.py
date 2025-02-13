@@ -46,14 +46,8 @@ class UnrealClient(WinClientInterface):
 
     def client_loaded(self, *args, **kwargs) -> None:
         """Log the message that UnrealClient loaded"""
-        import unreal
 
         logger.info(f"{self.__class__.__name__} loaded")
-
-        global client_handler
-
-        if client_handler:
-            unreal.unregister_slate_post_tick_callback(client_handler)
 
     def set_handler(self, handler_dict: dict) -> None:
         """Set the current Step Handler"""
@@ -69,6 +63,12 @@ class UnrealClient(WinClientInterface):
         import unreal
 
         logger.info("Quit the Editor: normal shutdown")
+
+        global client_handler
+
+        if client_handler:
+            unreal.unregister_slate_post_tick_callback(client_handler)
+
         unreal.SystemLibrary.quit_editor()
 
     def graceful_shutdown(self, *args, **kwargs) -> None:
@@ -76,6 +76,12 @@ class UnrealClient(WinClientInterface):
         import unreal
 
         logger.info("Quit the Editor: graceful shutdown")
+
+        global client_handler
+
+        if client_handler:
+            unreal.unregister_slate_post_tick_callback(client_handler)
+
         unreal.SystemLibrary.quit_editor()
 
     def poll(self, delta_time: float) -> None:
