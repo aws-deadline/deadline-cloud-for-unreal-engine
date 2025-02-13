@@ -172,9 +172,9 @@ def get_path_context_from_mrq_job(mrq_job: unreal.MoviePipelineExecutorJob) -> P
     return path_context
 
 
-def validate_path_does_not_contain_invalid_chars(path: str) -> bool:
+def validate_path_does_not_contain_non_valid_chars(path: str) -> bool:
     """
-    Checks if the given path contains invalid characters : * ? " < > |
+    Checks if the given path contains non-valid characters * ? " < > |
 
     :param path: path to check
     :type path: str
@@ -185,11 +185,11 @@ def validate_path_does_not_contain_invalid_chars(path: str) -> bool:
     :rtype: bool
     """
 
-    match = re.findall('[:*?"<>|]', path)
+    match = re.findall('[*?"<>|]', path)
     if match:
         raise exceptions.PathContainsNonValidCharacters(
             f'The path "{path}" contains not allowed characters: {match}. '
-            f'Path should not include following characters : * ? " < > |'
+            f'Path should not include following characters * ? " < > |'
         )
 
     return True
