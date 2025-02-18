@@ -31,7 +31,7 @@ dependencies = [
     "deadline >= 0.49,< 0.50",
     "openjd-adaptor-runtime >= 0.8.1,< 0.10",
     "openjd-model",
-    "p4python == 2024.1.2645203"
+    "p4python == 2024.2.2682690"
 ]
 
 [project.urls]
