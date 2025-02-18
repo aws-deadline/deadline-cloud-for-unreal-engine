@@ -6,7 +6,7 @@ This will walk you through setting up your Unreal Submitter with optional additi
 
 If you’re setting up on a brand new Windows EC2 Instance as your submitter, a g5.2xlarge instance with 200 GB of storage will likely be reasonable minimum:
 
-1. Download the Epic Installer and install the latest version of Unreal (5.2 or higher is required)
+1. Download the Epic Installer and install a version of Unreal between versions 5.2 and 5.4. With 5.5 a bug has been observed that may prevent headless rendering on Deadline Cloud - we recommend using version 5.4.x at latest currently.
 1. NVIDIA GRID drivers - Follow Windows instructions - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/install-nvidia-driver.html#nvidia-GRID-driver
 
 ## Windows Long Paths
