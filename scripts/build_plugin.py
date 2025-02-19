@@ -84,6 +84,9 @@ def build_whl() -> str:
 
     if not whl_path:
         raise Exception("Failed to retrieve .whl file from hatch build")
+
+    whl_path = os.path.join(get_source_root(), whl_path)
+
     logger.info(f"Build result: {result.returncode}, whl_path is {whl_path}")
     return whl_path
 
@@ -114,6 +117,30 @@ def install_plugin_build_output(output_folder: str, plugin_folder: str):
     shutil.copy2(os.path.join(output_folder, f"{PLUGIN_FOLDER_NAME}.uplugin"), plugin_folder)
 
 
+def install_test_content(plugin_folder: str):
+    """
+    Copies test data to the destination plugin folder
+    """
+
+    logger.info(f"Copying test content to {plugin_folder}")
+
+    source_root = get_source_root()
+
+    template_extension = os.path.join(
+        "Source", "UnrealDeadlineCloudService", "Private", "Tests", "openjd_templates"
+    )
+    template_dir = os.path.join(source_root, "src", "unreal_plugin", template_extension)
+    if not os.path.exists(template_dir):
+        raise Exception(f"Could not find openjd_templates directory at {template_dir}")
+
+    template_dest_dir = os.path.join(plugin_folder, template_extension)
+    shutil.copytree(
+        template_dir,
+        template_dest_dir,
+        dirs_exist_ok=True,
+    )
+
+
 def install_whl_to_plugin(whl_path: str, engine_root: str):
     """
     Installs the given .whl file to the plugin folder in the given Unreal Engine installation
@@ -138,13 +165,13 @@ def install_whl_to_plugin(whl_path: str, engine_root: str):
     # Pip install the .whl file to the plugin libraries path
     logger.info(f"Installing {whl_path} to {plugin_libraries_path}")
     result = subprocess.run(
-        [python_path, "-m", "pip", "install", whl_path, "-t", plugin_libraries_path],
+        [python_path, "-m", "pip", "install", whl_path, "-t", plugin_libraries_path, "--upgrade"],
         check=True,
     )
     logger.info(f"Install result: {result.returncode}")
 
 
-def install_plugin(engine_root: str, output_folder: str, whl_path: str):
+def install_plugin(engine_root: str, output_folder: str, whl_path: str, binaries: bool):
     """
     Installs the plugin to the given Unreal Engine installation, copying the compiled binaries and resources from the given output folder and
     installing the whl file
@@ -156,11 +183,12 @@ def install_plugin(engine_root: str, output_folder: str, whl_path: str):
 
     plugin_folder = get_plugin_folder(engine_root)
 
-    if os.path.exists(plugin_folder):
+    if binaries and os.path.exists(plugin_folder):
         logger.info(f"Removing existing plugin folder at {plugin_folder}")
         shutil.rmtree(plugin_folder)
 
-    install_plugin_build_output(output_folder, plugin_folder)
+    if binaries:
+        install_plugin_build_output(output_folder, plugin_folder)
     install_whl_to_plugin(whl_path, engine_root)
     logger.info(f"Plugin installed to {plugin_folder}")
 
@@ -215,6 +243,19 @@ def find_runuat(engine_root: str) -> str:
     return runuat_path
 
 
+def get_source_root() -> str:
+    """
+    Return the path of the root of the deadline-cloud-for-unreal-engine source.  Assumes it's 1 folder up from the directory this
+    file lives in, which is in a "/scripts/" subfolder off the root
+    """
+
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Get the parent directory
+    parent_dir = os.path.dirname(current_dir)
+    return parent_dir
+
+
 def get_input_uplugin_path() -> str:
     """
     Return the path of the .uplugin file to build.  Assumes cwd is the root of deadline-cloud-for-unreal-engine
@@ -223,7 +264,7 @@ def get_input_uplugin_path() -> str:
     """
 
     uplugin_path = os.path.join(
-        os.getcwd(), "src", "unreal_plugin", "UnrealDeadlineCloudService.uplugin"
+        get_source_root(), "src", "unreal_plugin", "UnrealDeadlineCloudService.uplugin"
     )
     if not os.path.exists(uplugin_path):
         raise Exception(
@@ -293,6 +334,8 @@ def build_and_install(
     output_folder: str = None,
     install: bool = False,
     worker: bool = False,
+    binaries: bool = True,
+    test: bool = False,
 ):
     """
     Build the plugin and optionally install it to the given Unreal Engine installation
@@ -302,6 +345,8 @@ def build_and_install(
     :param output_folder: Path to folder to build the plugin in
     :param install: Whether to install the plugin to the Unreal Engine installation
     :param worker: Whether to install the plugin as a worker plugin to the global python interpreter
+    :param binaries: Should binaries be included in the installation
+    :param test: Should test content be included in the plugin installation
     """
 
     logger.info("Beginning build...")
@@ -318,16 +363,20 @@ def build_and_install(
     # Either input_folder path to .uplugin is given, or we assume you're in the root of the repo
     plugin_input_folder = uplugin_path or get_input_uplugin_path()
 
-    build_plugin(runuat_path, plugin_input_folder, output_folder)
+    if binaries:
+        build_plugin(runuat_path, plugin_input_folder, output_folder)
 
     whl_path = build_whl()
 
     if install:
-        install_plugin(engine_root, output_folder, whl_path)
+        install_plugin(engine_root, output_folder, whl_path, binaries)
 
     if worker:
         install_whl_global(whl_path)
         install_worker_dependencies(engine_root)
+
+    if test:
+        install_test_content(get_plugin_folder(engine_root))
 
 
 def main():
@@ -360,6 +409,17 @@ def main():
         action="store_true",
         help="Install the plugin as a worker plugin to the global python interpreter.  Generally should be paired with --install.",
     )
+    parser.add_argument(
+        "--no-binaries",
+        default=False,
+        action="store_true",
+        help="Skip building new binaries",
+    )
+    parser.add_argument(
+        "--test",
+        action="store_true",
+        help="Include test content in the destination plugin install",
+    )
     args = parser.parse_args()
 
     build_and_install(
@@ -368,6 +428,8 @@ def main():
         output_folder=args.output_folder,
         install=args.install,
         worker=args.worker,
+        binaries=not args.no_binaries,
+        test=args.test,
     )
 
 
