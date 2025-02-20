@@ -73,24 +73,19 @@ class PerforceConnection:
     def get_workspace_specification(self) -> Optional[dict]:
         return self.p4.fetch_client(self.p4.client)
 
-    def get_depot_file_path(self, local_file_path: str) -> Optional[str]:
+    def get_depot_file_paths(self, local_file_paths: list[str]) -> list[str]:
         """
-        Return the file location on Perforce depot by running `p4 where <local_path>`
+        Return the file locations on Perforce depot by running `p4 where <local_paths>`
 
-        :param local_file_path: Local file path to find in Depot
+        :param local_file_paths: Local file paths to find in Depot
 
-        :return: File path on Perforce depot if found, None otherwise
-        :rtype: Optional[str]
+        :return: File paths on Perforce depot if found, None otherwise
+        :rtype: list[str]
         """
 
-        local_file_path = local_file_path.replace("\\", "/")
+        where_info = self.p4.run("where", local_file_paths)
 
-        where_info = self.p4.run("where", local_file_path)
-        # Should consist of 1 element because we give single path, but let's be defensive
-        if len(where_info) == 1:
-            return where_info[0].get("depotFile")
-
-        return None
+        return [file_info.get("depotFile") for file_info in where_info]
 
 
 class PerforceClient:

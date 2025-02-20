@@ -995,15 +995,10 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         :rtype: list[str]
         """
 
-        p4_conn = perforce.PerforceConnection()
+        local_dependencies = self._get_mrq_job_dependency_paths()
 
-        depot_dependencies = []
-        for local_path in self._get_mrq_job_dependency_paths():
-            depot_path = p4_conn.get_depot_file_path(local_path)
-            if depot_path is not None:
-                depot_dependencies.append(depot_path)
-            else:
-                logger.warning(f"Local file {local_path} does not exist on the Depot. Skipping ...")
+        p4_conn = perforce.PerforceConnection()
+        depot_dependencies = p4_conn.get_depot_file_paths(local_dependencies)
 
         return depot_dependencies
 
