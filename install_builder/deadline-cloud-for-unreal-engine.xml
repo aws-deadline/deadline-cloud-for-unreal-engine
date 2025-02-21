@@ -13,7 +13,7 @@
             <platforms>all</platforms>
             <distributionFileList>
                 <distributionDirectory allowWildcards="1">
-                    <origin>components/deadline-cloud-for-unreal-engine/src/deadline/unreal_submitter/*</origin>∂
+                    <origin>components/deadline-cloud-for-unreal-engine/src/deadline/unreal_submitter/*</origin>
                 </distributionDirectory>
             </distributionFileList>
         </folder>
@@ -24,7 +24,7 @@
             <platforms>all</platforms>
             <distributionFileList>
                 <distributionDirectory allowWildcards="1">
-                    <origin>components/deadline-cloud-for-unreal-engine/src/deadline/unreal_logger/*</origin>∂
+                    <origin>components/deadline-cloud-for-unreal-engine/src/deadline/unreal_logger/*</origin>
                 </distributionDirectory>
             </distributionFileList>
         </folder>

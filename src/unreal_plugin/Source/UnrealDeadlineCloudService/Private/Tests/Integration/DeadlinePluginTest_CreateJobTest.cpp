@@ -1,3 +1,4 @@
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "CoreMinimal.h"
 #include "HAL/PlatformTime.h"
 #include "Misc/AutomationTest.h"
@@ -13,9 +14,6 @@
 #include "Modules/ModuleManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogCreateJobTest, Log, All);
-
-// Path to the level sequence Asset to attempt to create a job for
-const char LevelSequencePath[] = "/Game/Levels/Main_SEQ.Main_SEQ";
 
 class WaitForJobCreationLogCommand : public IAutomationLatentCommand, public FOutputDevice
 {
@@ -120,6 +118,43 @@ private:
     UMoviePipelineQueue* m_originalQueue;
 };
 
+ULevelSequence* FindFirstLevelSequence()
+{
+    // Get the asset registry
+    FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+    IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+
+    // Create filter to search for level sequences
+    FARFilter Filter;
+    Filter.ClassPaths.Add(ULevelSequence::StaticClass()->GetClassPathName());
+    Filter.PackagePaths.Add(TEXT("/Game"));
+    Filter.bRecursivePaths = true;
+
+    // Get all assets matching our filter
+    TArray<FAssetData> AssetList;
+    AssetRegistry.GetAssets(Filter, AssetList);
+
+    // Find the sequence with shortest path
+    ULevelSequence* ShortestPathSequence = nullptr;
+    int32 ShortestDepth = MAX_int32;
+
+    for (const FAssetData& Asset : AssetList)
+    {
+        FString Path = Asset.GetObjectPathString();
+        TArray<FString> PathSegments;
+        Path.ParseIntoArray(PathSegments, TEXT("/"));
+        int32 Depth = PathSegments.Num();
+
+        if (Depth < ShortestDepth)
+        {
+            ShortestDepth = Depth;
+            ShortestPathSequence = Cast<ULevelSequence>(Asset.GetAsset());
+        }
+    }
+
+    return ShortestPathSequence;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovieQueueCreateJobTest, "Deadline.Integration.CreateJob",
     EAutomationTestFlags::EditorContext |
     EAutomationTestFlags::ProductFilter)
@@ -154,11 +189,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovieQueueCreateJobTest, "Deadline.Integration
     TestNotNull(TEXT("Active Queue should exist"), ActiveQueue);
     UE_LOG(LogCreateJobTest, Display, TEXT("Got Active Queue"));
 
-    // Load sequence and create job
-    FString AssetPath = UTF8_TO_TCHAR(LevelSequencePath);
-    ULevelSequence* LevelSequence = LoadObject<ULevelSequence>(nullptr, *AssetPath);
+    // Find and load level sequence
+    ULevelSequence* LevelSequence = FindFirstLevelSequence();
+
     TestNotNull(TEXT("LevelSequence should not be null"), LevelSequence);
-    UE_LOG(LogCreateJobTest, Display, TEXT("Got LevelSequence"));
+    UE_LOG(LogCreateJobTest, Display, TEXT("Got LevelSequence: %s"), *LevelSequence->GetPathName());
 
     UMoviePipelineExecutorJob* NewJob = UMoviePipelineEditorBlueprintLibrary::CreateJobFromSequence(ActiveQueue, LevelSequence);
     if (!NewJob)
