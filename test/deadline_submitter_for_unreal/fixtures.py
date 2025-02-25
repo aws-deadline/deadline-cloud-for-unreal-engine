@@ -1,3 +1,6 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+
 def f_job_template_default() -> dict:
     return {
         "specificationVersion": "jobtemplate-2023-09",

@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
 import os
 import yaml
 from dataclasses import dataclass

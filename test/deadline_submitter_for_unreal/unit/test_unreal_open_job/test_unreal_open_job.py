@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
 import sys
 import pytest
 from unittest.mock import patch, Mock, MagicMock

@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
 from P4 import P4, P4Exception
 from typing import Optional, Any
 

@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
 import unreal
 from typing import Optional
 from openjd.model.v2023_09 import Environment, EnvironmentScript

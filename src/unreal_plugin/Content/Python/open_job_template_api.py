@@ -1,4 +1,5 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
 import yaml
 import unreal
 from typing import Any
