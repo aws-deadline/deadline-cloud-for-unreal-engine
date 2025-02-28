@@ -2,6 +2,10 @@
 
 This will walk you through setting up your Unreal Submitter with optional additional instructions for setting up an instance to act as a worker as part of a Customer Managed Fleet (CMF). The Unreal Submitter in Deadline Cloud can currently only work if you've set up a CMF and have connected a worker with Unreal installed on an appropriate instance type.
 
+## Branch to use - release vs mainline
+
+These instructions are updated along with the corresponding code and scripts fairly often.  You'll later need to choose to pull down the code which corresponds to a specific branch. The usual choice is between release which is more stable, or mainline which has the latest changes.  If the version of the instructions you're currently reading doesn't come from the branch you intend to use, you should switch to the instructions from that branch now.  For example, if you're currently reading the mainline version of the instructions but intend to use the release branch, please switch to the release version [here](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/release/SETUP_SUBMITTER_CMF.md)
+
 ## Create a new Windows EC2 instance to install Unreal on (Optional)
 
 If you’re setting up on a brand new Windows EC2 Instance as your submitter, a g5.2xlarge instance with 200 GB of storage will likely be reasonable minimum:
