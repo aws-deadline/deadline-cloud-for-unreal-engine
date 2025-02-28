@@ -1,11 +1,11 @@
 Create P4 Render Job
 ======================
 
-To submit MRQ Job from Unreal Project under Perforce repository you need to meet next requirements:
-   1. Unreal Project should lay under the P4 workspace
+To submit an MRQ Job from an Unreal Project in a Perforce repository you need to meet following requirements:
+   1. The Unreal Project should be within the P4 workspace
    #. Check that your current P4 connection is established and you’re logged in P4
 
-P4 Render Job structure is pretty same as Default Render Job but contains extra Environments
+The P4 Render Job structure is pretty much the same as the Default Render Job but contains an extra Environment
 
    * Render Job (**Deadline Cloud Render Job**) - entrypoint
 

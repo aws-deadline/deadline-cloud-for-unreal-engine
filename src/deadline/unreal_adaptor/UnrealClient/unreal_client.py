@@ -24,7 +24,7 @@ from deadline.unreal_adaptor.UnrealClient.step_handlers import get_step_handler_
 
 logger = get_logger()
 
-# Global variables for keep UnrealClient running and prevent deletion by Unreal garbage collector
+# Global variables for keeping UnrealClient running and preventing deletion by the Unreal garbage collector
 MESSAGE_POLL_INTERVAL = float(os.getenv("MESSAGE_POLL_INTERVAL", 1.0))
 unreal_client = None
 client_handler = None
