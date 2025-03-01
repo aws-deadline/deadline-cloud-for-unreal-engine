@@ -1,3 +1,13 @@
+## 0.4.0 (2025-03-01)
+
+
+### Features
+* Updating build_plugin.py support script to add option for installing test content, skipping binary installation, and allowing running from the scripts directory. (#120) ([`61bb7d6`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/61bb7d653afda86c638286939bdf6e1b42c6b0fb))
+* Custom Submitters (#89) ([`b79202c`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/b79202ce1d2ea31b03df11f9e280dfa1099677a0))
+* Updating build_plugin.py support script to remove unnecessary archiving and upload support and add additional installation support for building python libraries and installing both binaries and python code to the given Unreal installation plugins folder with a new --install option (#102) ([`2a63379`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/2a633797280b72879d88d4179572b0fe39e36535))
+* Adding PythonRequirements to plugin to optionally install Python dependencies automatically. (#98) ([`26259ee`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/26259ee85fc1e754e38738567456d65934164246))
+
+
 ## 0.3.0 (2024-12-10)
 
 
