@@ -21,9 +21,11 @@ Many of the steps below may attempt to create files which exceed the default Win
 
 The Unreal Submitter Plugin currently must be compiled locally.
 
-1. Install Visual Studio 2022 or later using the Visual Studio Installer from https://visualstudio.microsoft.com/
-1. When installing, under “Workloads” select “Desktop development with C++”
+1. Install Visual Studio using the Visual Studio Installer from https://visualstudio.microsoft.com/
+1. Verify your Visual Studio and build tools version are compatible with your version of Unreal by checking the table [here](https://dev.epicgames.com/documentation/en-us/unreal-engine/setting-up-visual-studio-development-environment-for-cplusplus-projects-in-unreal-engine?application_version=5.5)
+1. Under "Individual Components", ensure that the MSVC build tools version selected ("Latest" by default) matches the recommended version in the table.  Even though the compatibility guidance may suggest a version "or later", build errors sometimes occur when using a newer version than the one listed as "recommended".
 1. Under “Individual Components”, select a recent .NET Framework SDK (4.6.1 and 4.8.1 have been verified)
+1. Under “Workloads” select “Desktop development with C++”
 
 ## Install Deadline Cloud Monitor
 
@@ -143,9 +145,12 @@ If you’re setting up on a brand new Windows EC2 Instance as your CMF worker no
 
 The Unreal Plugin currently must be compiled locally.
 
-1. Install Visual Studio 2022 or later using the Visual Studio Installer from https://visualstudio.microsoft.com/
-1. When installing, under “Workloads” select “Desktop development with C++”
+1. Install Visual Studio using the Visual Studio Installer from https://visualstudio.microsoft.com/
+1. Verify your Visual Studio and build tools version are compatible with your version of Unreal by checking the table [here](https://dev.epicgames.com/documentation/en-us/unreal-engine/setting-up-visual-studio-development-environment-for-cplusplus-projects-in-unreal-engine?application_version=5.5)
+1. Under "Individual Components", ensure that the MSVC build tools version selected ("Latest" by default) matches the recommended version in the table.  Even though the compatibility guidance may suggest a version "or later", build errors sometimes occur when using a newer version than the one listed as "recommended".
 1. Under “Individual Components”, select a recent .NET Framework SDK (4.6.1 and 4.8.1 have been verified)
+1. Under “Workloads” select “Desktop development with C++”
+
 
 ## Environment Setup
 
