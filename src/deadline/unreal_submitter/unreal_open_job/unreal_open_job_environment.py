@@ -1,5 +1,5 @@
 import unreal
-from typing import Optional
+from typing import Optional, Union
 from openjd.model.v2023_09 import Environment, EnvironmentScript
 
 from deadline.unreal_submitter import settings
@@ -46,8 +46,8 @@ class UnrealOpenJobEnvironment(UnrealOpenJobEntity):
         return self._variables
 
     @variables.setter
-    def variables(self, value: dict[str, str]):
-        self._variables = value
+    def variables(self, value: Union[dict[str, str], unreal.Map]):
+        self._variables = dict(value)
 
     @classmethod
     def from_data_asset(cls, data_asset: unreal.DeadlineCloudEnvironment):
@@ -62,7 +62,7 @@ class UnrealOpenJobEnvironment(UnrealOpenJobEntity):
         return cls(
             file_path=data_asset.path_to_template.file_path,
             name=data_asset.name,
-            variables=data_asset.variables.variables,
+            variables=dict(data_asset.variables.variables),
         )
 
     def _create_missing_variables_from_template(self):

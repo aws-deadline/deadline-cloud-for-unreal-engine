@@ -85,7 +85,7 @@ To test out any significant changes it's useful to submit a test render followin
 
 1. Install python requirements for building Sphinx documentation
    ```
-   pip install -r docs_requirements.txt
+   pip install -r requirements-docs.txt
    ```
 2. Build and install the **deadline-cloud-for-unreal** package in the python that you use to build the docs
    ```

@@ -5,7 +5,7 @@ Create Unreal OpenJob from Python
 OpenJob Python classes
 **********************
 
-Package ``deadline.unreal_submitter.unreal_open_job.unreal_open_job``
+Package ``deadline.deadline.unreal_submitter.unreal_open_job.unreal_open_job``
 contains next OpenJob implementations:
 
 #. ``UnrealOpenJob`` - Base class of OpenJob for Unreal Engine
@@ -15,7 +15,7 @@ contains next OpenJob implementations:
 OpenJob Step Python classes
 ***************************
 
-Package ``deadline.unreal_submitter.unreal_open_job.unreal_open_job_step``
+Package ``deadline.deadline.unreal_submitter.unreal_open_job.unreal_open_job_step``
 contains next OpenJobStep implementations:
 
 #. ``UnrealOpenJobStep`` - Base class of OpenJob Step for Unreal Engine
@@ -25,7 +25,7 @@ contains next OpenJobStep implementations:
 OpenJob Environment Python classes
 **********************************
 
-Package ``deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment``
+Package ``deadline.deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment``
 contains next OpenJob implementations:
 
 #. ``UnrealOpenJobEnvironment`` - Base class of OpenJob Environment for Unreal Engine
@@ -45,7 +45,7 @@ contains next OpenJob implementations:
 OpenJob Submitter Python classes
 ********************************
 
-Package ``deadline.unreal_submitter.submitter``
+Package ``deadline.deadline.unreal_submitter.submitter``
 contains next submitters to execute OpenJob submission:
 
 #. ``UnrealSubmitter`` - base class that implement the main submission logic

@@ -1,6 +1,9 @@
 Create UGS Render Job
 ======================
 
+.. note:: Before creating the UGS jobs, please refer to :ref:`p4-credentials-management` to see
+          how to set up/pass P4 credentials on your workers fleet
+
 To submit MRQ Job from Unreal Project under UGS repository you need to meet next requirements:
    1. Unreal Project should lay under the P4 workspace (UGS repository)
    #. Unreal Project should be launched with the Unreal Editor executable under the P4 Workspace (UGS repository).

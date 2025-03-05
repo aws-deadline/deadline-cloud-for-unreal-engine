@@ -3,8 +3,9 @@
 import sys
 import pytest
 from pathlib import Path
+from typing import Union
 from types import ModuleType
-from unittest.mock import Mock
+from unittest.mock import MagicMock, patch
 
 
 from deadline.unreal_adaptor.UnrealClient.step_handlers.unreal_custom_step_handler import (
@@ -12,17 +13,13 @@ from deadline.unreal_adaptor.UnrealClient.step_handlers.unreal_custom_step_handl
 )
 
 
+unreal_mock = MagicMock()
+sys.modules["unreal"] = unreal_mock
+
+
 @pytest.fixture()
 def unreal_custom_step_handler() -> UnrealCustomStepHandler:
     return UnrealCustomStepHandler()
-
-
-class UnrealPackageMock(Mock):
-    def log(self, message: str) -> None:
-        print(message)
-
-
-sys.modules["unreal"] = UnrealPackageMock()
 
 
 class TestUnrealCustomStepHandler:
@@ -63,27 +60,42 @@ class TestUnrealCustomStepHandler:
             assert isinstance(validated_script, ModuleType) == script_path_map["is_module"]
 
     @pytest.mark.parametrize(
-        "script_path_map",
-        [
-            {
-                "args": {
-                    "script_path": f"{Path(__file__).parent}/custom_scripts/valid_script.py",
-                    "script_args": {"foo": 1, "bar": 2},
-                },
-                "expected_result": True,
-            },
-            {
-                "args": {
-                    "script_path": f"{Path(__file__).parent}/custom_scripts/existed_not_valid_script.py"
-                },
-                "expected_result": False,
-            },
-            {"args": {"script_path": "C:/path/to/not/existed/script.py"}, "expected_result": False},
-        ],
+        "execute_command_output, expected_result", [(None, True), ((None, "Success output"), True)]
     )
     def test_run_script(
-        self, unreal_custom_step_handler: UnrealCustomStepHandler, script_path_map: dict
+        self,
+        unreal_custom_step_handler: UnrealCustomStepHandler,
+        execute_command_output: Union[tuple, None],
+        expected_result: bool,
     ) -> None:
-        real_result = unreal_custom_step_handler.run_script(args=script_path_map["args"])
 
-        assert real_result == script_path_map["expected_result"]
+        # GIVEN
+        with patch(
+            "unreal.PythonScriptLibrary.execute_python_command_ex",
+            return_value=execute_command_output,
+        ):
+            # WHEN
+            real_result = unreal_custom_step_handler.run_script(
+                {"script_path": "path/to/script.py"}
+            )
+
+        # THEN
+        assert real_result == expected_result
+
+    def test_run_script_failed(self, unreal_custom_step_handler: UnrealCustomStepHandler) -> None:
+
+        # GIVEN
+        error_message = "Division by zero"
+        error_traceback = "Traceback\nDivision by zero\n1/0"
+
+        with patch(
+            "unreal.PythonScriptLibrary.execute_python_command_ex",
+            return_value=(error_message, error_traceback),
+        ):
+            # WHEN
+            real_result = unreal_custom_step_handler.run_script(
+                {"script_path": "path/to/script.py"}
+            )
+
+        # THEN
+        assert real_result is False

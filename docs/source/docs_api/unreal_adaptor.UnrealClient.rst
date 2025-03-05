@@ -15,7 +15,7 @@ Submodules
 unreal\_adaptor.UnrealClient.unreal\_client
 --------------------------------------------------
 
-.. automodule:: unreal_adaptor.UnrealClient.unreal_client
+.. automodule:: deadline.unreal_adaptor.UnrealClient.unreal_client
    :members:
    :undoc-members:
    :show-inheritance:

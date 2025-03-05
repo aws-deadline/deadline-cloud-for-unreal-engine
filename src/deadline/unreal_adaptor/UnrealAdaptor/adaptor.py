@@ -350,11 +350,7 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
 
         remote_execution = os.getenv("REMOTE_EXECUTION", "True")
         if remote_execution == "True":
-            log_args += [
-                "-NoLoadingScreen",
-                "-NoScreenMessages",
-                "-RenderOffscreen"
-            ]
+            log_args += ["-NoLoadingScreen", "-NoScreenMessages", "-RenderOffscreen"]
 
         extra_cmd_args = extra_cmd_str.split(" ")
 
@@ -502,11 +498,10 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
                 logger.info("Enqueue wait result")
                 self._action_queue.enqueue_action(Action("wait_result", {}))
 
-        if (
-            not self._unreal_is_running and self._unreal_client
-        ):  # Unreal Client will always exist here.
-            #  This is always an error case because the Unreal Client should still be running and
-            #  waiting for the next command. If the thread finished, then we cannot continue
+        # The Unreal subprocess always exists at this point but can be terminated by a user script
+        # or other means. For example unreal.SystemLibrary.quit_editor().
+        # Before treating it as an error, we should check the return code.
+        if not self._unreal_is_running and self._unreal_client:
             exit_code = self._unreal_client.returncode
             if exit_code != 0:
                 self._record_error_and_raise(

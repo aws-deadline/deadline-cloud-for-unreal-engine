@@ -8,3 +8,4 @@ How To Use
    data_assets
    use_cases/use_cases
    py_use_cases/py_use_cases
+   p4_credentials_management

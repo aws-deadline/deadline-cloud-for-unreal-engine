@@ -16,7 +16,10 @@ logger = get_logger()
 def get_workspace_name(project_name: str) -> str:
     """
     Build and return the workspace name based on the given project name:
-    <USERNAME>_<HOST>_<PROJECT_NAME>
+    ``<USERNAME>_<HOST>_<PROJECT_NAME>``.
+
+    If ``DEADLINE_WORKER_ID`` environment variable is set, it will be appended:
+    ``<USERNAME>_<HOST>_<PROJECT_NAME>_<WORKER_ID>``
 
     :param project_name: Name of the project
 
@@ -24,7 +27,11 @@ def get_workspace_name(project_name: str) -> str:
     :rtype: str
     """
 
-    return f"{os.getlogin()}_{socket.gethostname()}_{project_name}"
+    workspace_name = f"{os.getlogin()}_{socket.gethostname()}_{project_name}"
+    if "DEADLINE_WORKER_ID" in os.environ:
+        workspace_name += f"_{os.environ['DEADLINE_WORKER_ID']}"
+
+    return workspace_name
 
 
 def get_workspace_specification_template_from_file(
@@ -54,10 +61,16 @@ def get_workspace_specification_template_from_file(
 def create_perforce_workspace_from_template(
     specification_template: dict,
     project_name: str,
-    overridden_workspace_root: str = None,
+    overridden_workspace_root: Optional[str] = None,
 ) -> perforce.PerforceClient:
     """
-    Creates Perforce workspace from the template
+    Creates Perforce workspace from the template.
+
+    For template example see
+    :meth:`deadline.unreal_perforce_utils.perforce.get_perforce_workspace_specification_template()`
+
+    Replace ``{workspace_name}`` token in the template with the real workspace name in
+    ``"Client"`` and ``"View"`` fields
 
     :param specification_template: Workspace specification template dictionary
     :param project_name: Name of the project to build workspace name
@@ -76,21 +89,28 @@ def create_perforce_workspace_from_template(
 
     workspace_name = get_workspace_name(project_name=project_name)
 
-    specification_template_str = json.dumps(specification_template)
-    specification_str = specification_template_str.replace("{workspace_name}", workspace_name)
-    specification = json.loads(specification_str)
+    specification_template["Client"] = specification_template["Client"].replace(
+        "{workspace_name}", workspace_name
+    )
+    if "View" in specification_template:
+        updated_views = []
+        for view in specification_template["View"]:
+            updated_views.append(view.replace("{workspace_name}", workspace_name))
+        specification_template["View"] = updated_views
 
     if overridden_workspace_root:
-        specification["Root"] = overridden_workspace_root
+        specification_template["Root"] = overridden_workspace_root
     else:
-        specification["Root"] = (
+        specification_template["Root"] = (
             f"{os.getenv('P4_CLIENTS_ROOT_DIRECTORY', os.getcwd())}/{workspace_name}"
         )
 
-    logger.info(f"Specification: {specification}")
+    logger.info(f"Specification: {specification_template}")
 
     perforce_client = perforce.PerforceClient(
-        connection=perforce.PerforceConnection(), name=workspace_name, specification=specification
+        connection=perforce.PerforceConnection(),
+        name=workspace_name,
+        specification=specification_template,
     )
 
     perforce_client.save()
@@ -104,7 +124,7 @@ def create_perforce_workspace_from_template(
 def initial_workspace_sync(
     workspace: perforce.PerforceClient,
     unreal_project_relative_path: str,
-    changelist: str = None,
+    changelist: Optional[str] = None,
 ) -> None:
     """
     Do initial workspace synchronization:
@@ -188,9 +208,9 @@ def configure_project_source_control_settings(
 def create_workspace(
     perforce_specification_template_path: str,
     unreal_project_relative_path: str,
-    unreal_project_name: str = None,
-    overridden_workspace_root: str = None,
-    changelist: str = None,
+    unreal_project_name: Optional[str] = None,
+    overridden_workspace_root: Optional[str] = None,
+    changelist: Optional[str] = None,
 ):
     """
     Create P4 workspace and execute next steps:
@@ -305,13 +325,26 @@ def clear_workspace_files(
     return None
 
 
-def delete_workspace(workspace_name: str = None, project_name: str = None):
+def delete_workspace(workspace_name: Optional[str] = None, project_name: Optional[str] = None):
     """
-    Clear workspace files that are in depot and delete the workspace
+    Clear workspace files in the depot and delete the workspace.
+    If the `P4_CLIENTS_ROOT_DIRECTORY` environment variable is set, skip deletion. This indicates
+    that the workspaces are located in a permanent directory and should not be deleted.
+
+    Roll back all possible changes in reverse order:
+    Delete worksapce <- Delete local files <- Revert changes
+
+    - :meth:`deadline.unreal_perforce_utils.app.revert_all_changes_in_workspace()`
+    - :meth:`deadline.unreal_perforce_utils.app.clear_workspace_files()`
+    - delete workspace by running ``p4.run("client", "-d", "-f", workspace_name_to_delete)``
 
     :param workspace_name: Name of the workspace to delete
     :param project_name: Name of the Unreal Project to generate a workspace name if not provided
     """
+
+    if "P4_CLIENTS_ROOT_DIRECTORY" in os.environ:
+        logger.info("P4_CLIENTS_ROOT_DIRECTORY variable found. Skip deleting the workspace")
+        return
 
     logger.info(f"Deleting workspace for the project: {project_name}")
 

@@ -1,6 +1,9 @@
 Create P4 Render Job
 ======================
 
+.. note:: Before creating the UGS jobs, please refer to :ref:`p4-credentials-management` to see
+          how to set up/pass P4 credentials on your workers fleet
+
 To submit an MRQ Job from an Unreal Project in a Perforce repository you need to meet following requirements:
    1. The Unreal Project should be within the P4 workspace
    #. Check that your current P4 connection is established and you’re logged in P4

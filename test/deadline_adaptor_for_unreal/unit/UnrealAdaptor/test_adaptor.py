@@ -43,7 +43,7 @@ def run_data() -> dict:
         "job_configuration_path": "/Game/Test/Config",
         "queue_manifest_path": "C:/LocalProjects/AWS_RND/Saved/MovieRenderPipeline/QueueManifest.utxt",
         "script_path": "C:/path/to/custom_script.py",
-        "script_args": {"foo": 1, "bar": "2"},
+        "script_args": "foo=1 bar=2 -force",
     }
 
 

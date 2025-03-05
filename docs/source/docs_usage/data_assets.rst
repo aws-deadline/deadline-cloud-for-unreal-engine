@@ -32,6 +32,13 @@ Create DeadlineCloud data assets
        #. ugs_sync_smf_environment.yml - Environment that sync UGS workspace before render. Use for SMF render farm
        #. ugs_launch_ue_environment.yml - Environment that launch the UE for UGS jobs
        #. ugs_render_step.yml - Step with script that runs UE rendering for UGS jobs
+   #. p4
+
+       i. p4_render_job.yml - Render Job template for P4 jobs
+       #. p4_sync_cmf_environment.yml - Environment that sync P4 workspace before render. Use for CMF render farm
+       #. p4_sync_smf_environment.yml - Environment that sync P4 workspace before render. Use for SMF render farm
+       #. p4_launch_ue_environment.yml - Environment that launch the UE for P4 jobs
+       #. p4_render_step.yml - Step with script that runs UE rendering for P4 jobs
    #. custom
 
        i. custom_job.yml - Job template for executing custom actions

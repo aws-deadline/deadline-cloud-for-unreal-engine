@@ -501,7 +501,9 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         Build StepTemplate OpenJD model.
 
         Build process:
-            1. Forcibly update Step parameters listed in OpenJobStepParameterNames
+            1. Forcibly update Step parameters listed in OpenJobStepParameterNames.
+               If QueueManifestPath parameter exists, set up QueueManifestPath parameter definition
+               and add it to Step Asset References.
             2. Fill Step parameter definition list
             3. Fill Host Requirements if provided
             4. Build given Environments

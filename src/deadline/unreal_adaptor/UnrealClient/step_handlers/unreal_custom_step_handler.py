@@ -23,10 +23,7 @@ class UnrealCustomStepHandler(BaseStepHandler):
 
     @staticmethod
     def regex_pattern_complete() -> list[re.Pattern]:
-        return [
-            re.compile(".*Custom Step Executor: Complete"),
-            re.compile(".*QUIT EDITOR")
-        ]
+        return [re.compile(".*Custom Step Executor: Complete"), re.compile(".*QUIT EDITOR")]
 
     @staticmethod
     def regex_pattern_error() -> list[re.Pattern]:
@@ -72,10 +69,11 @@ class UnrealCustomStepHandler(BaseStepHandler):
 
         try:
             import unreal
+
             result = unreal.PythonScriptLibrary.execute_python_command_ex(
                 f"{args['script_path']} {args.get('script_args', '')}",
                 execution_mode=unreal.PythonCommandExecutionMode.EXECUTE_FILE,
-                file_execution_scope=unreal.PythonFileExecutionScope.PUBLIC
+                file_execution_scope=unreal.PythonFileExecutionScope.PUBLIC,
             )
 
             if result:

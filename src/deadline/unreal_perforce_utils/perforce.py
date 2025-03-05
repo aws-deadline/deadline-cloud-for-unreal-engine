@@ -23,7 +23,13 @@ class PerforceConnection:
        Current connection properties will be used by default
     """
 
-    def __init__(self, port: str = None, user: str = None, password: str = None, charset="none"):
+    def __init__(
+        self,
+        port: Optional[str] = None,
+        user: Optional[str] = None,
+        password: Optional[str] = None,
+        charset="none",
+    ):
         p4 = P4()
         p4.charset = charset
 
@@ -93,7 +99,9 @@ class PerforceClient:
     Wrapper around the P4 workspace (client)
     """
 
-    def __init__(self, connection: PerforceConnection, name: str, specification: dict = None):
+    def __init__(
+        self, connection: PerforceConnection, name: str, specification: Optional[dict] = None
+    ):
         self.p4 = connection.p4
         self.name = name
         self.spec = self.p4.fetch_client(name)
@@ -110,7 +118,9 @@ class PerforceClient:
 
         self.p4.save_client(self.spec)
 
-    def sync(self, filepath: str = None, changelist: str = None, force: bool = False):
+    def sync(
+        self, filepath: Optional[str] = None, changelist: Optional[str] = None, force: bool = False
+    ):
         """
         Execute `p4 sync` on the given file path or changelist.
         If no arguments were given, will sync the whole workspace to latest changelist
@@ -143,7 +153,7 @@ class PerforceClient:
 
 
 def get_perforce_workspace_specification(
-    port: str = None, user: str = None, client: str = None
+    port: Optional[str] = None, user: Optional[str] = None, client: Optional[str] = None
 ) -> Optional[dict]:
     """
     Get perforce workspace specification using provided port, user and client.
@@ -171,12 +181,33 @@ def get_perforce_workspace_specification(
 
 
 def get_perforce_workspace_specification_template(
-    port: str = None, user: str = None, client: str = None
+    port: Optional[str] = None, user: Optional[str] = None, client: Optional[str] = None
 ) -> dict:
     """
     Get perforce workspace specification template using provided port, user and client.
     Template built from perforce workspace specification by replacing any occurrences
     of workspace name with `{workspace_name}` token in specification fields
+
+    Template Example:
+
+    {
+        "Client": "{workspace_name}",
+        "Root": "D:/Perforce/j.doe-JDOE-PC_MeerkatDemo_Mainline",
+        "Stream": "//MeerkatDemo/Mainline"
+    }
+
+    OR
+
+    {
+        "Client": "{workspace_name}",
+        "Root": "D:/Perforce/j.doe-JDOE-PC_MeerkatDemo_Mainline",
+        "View": [
+            "//MeerkatDemo/Mainline/... //{workspace_name}/...",
+            "//Plugins/Mainline/... //{workspace_name}/UE5/MeerkatDemo/Plugins...",
+            "//Plugins/Dev/... //{workspace_name}/UE5/MeerkatDemo/Plugins/Dev...",
+            "//OtherDepsDepot/Mainline/... //{workspace_name}/UE5/MeerkatDemo/Deps...",
+        ]
+    }
 
     :param port: P4 server address (optional)
     :param user: P4 user name (optional)

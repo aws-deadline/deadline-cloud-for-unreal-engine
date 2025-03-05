@@ -36,7 +36,7 @@ class UnrealClient(WinClientInterface):
     """
 
     def __init__(
-            self, socket_path: str, message_poll_interval: float = MESSAGE_POLL_INTERVAL
+        self, socket_path: str, message_poll_interval: float = MESSAGE_POLL_INTERVAL
     ) -> None:
         super().__init__(socket_path)
         self.handler: BaseStepHandler
@@ -84,11 +84,32 @@ class UnrealClient(WinClientInterface):
 
         unreal.SystemLibrary.quit_editor()
 
-    def poll(self, delta_time: float) -> None:
+    def poll(self) -> None:
         """
         This function will poll the server for the next task. If the server is in between Subtasks
         (no actions in the queue), a backoff function will be called to add a delay between the
         requests.
+        """
+
+        status, reason, action = self._request_next_action()
+        if status == HTTPStatus.OK:
+            if action is not None:
+                print(
+                    f"Performing action: {action}",
+                    flush=True,
+                )
+                self._perform_action(action)
+        else:  # Any other status or reason
+            print(
+                f"ERROR: An error was raised when trying to connect to the server: {status} "
+                f"{reason}",
+                file=sys.stderr,
+                flush=True,
+            )
+
+    def poll_by_slate_tick(self, delta_time: float) -> None:
+        """
+        Helper function for polling the server for the next task. Called on each Slate tick.
 
         :param delta_time: Time increment after previous tick in Unreal Slate
         :type delta_time: float
@@ -97,21 +118,7 @@ class UnrealClient(WinClientInterface):
         self.time_elapsed += delta_time
         if self.time_elapsed >= self.message_poll_interval:
             self.time_elapsed = 0
-            status, reason, action = self._request_next_action()
-            if status == HTTPStatus.OK:
-                if action is not None:
-                    print(
-                        f"Performing action: {action}",
-                        flush=True,
-                    )
-                    self._perform_action(action)
-            else:  # Any other status or reason
-                print(
-                    f"ERROR: An error was raised when trying to connect to the server: {status} "
-                    f"{reason}",
-                    file=sys.stderr,
-                    flush=True,
-                )
+            self.poll()
 
 
 def main():
@@ -136,7 +143,7 @@ def main():
     global client_handler
 
     unreal_client = UnrealClient(socket_path)
-    client_handler = unreal.register_slate_post_tick_callback(unreal_client.poll)
+    client_handler = unreal.register_slate_post_tick_callback(unreal_client.poll_by_slate_tick)
 
 
 if __name__ == "__main__":  # pragma: no cover

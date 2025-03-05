@@ -9,7 +9,7 @@ parameterSpace:
     range: []
   - name: ChunkSize
     type: INT
-    range: []
+    range: [1]
   - name: ChunkId
     type: INT
     range: []
