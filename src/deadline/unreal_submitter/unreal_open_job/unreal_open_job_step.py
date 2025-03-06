@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
 import os
 import math
 import unreal
@@ -540,7 +542,7 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
                 unreal.MoviePipelineOutputSetting
             )
             output_path = output_setting.output_directory.path
-            common.validate_path_does_not_contain_invalid_chars(output_path)
+            common.validate_path_does_not_contain_non_valid_chars(output_path)
 
             path_context = common.get_path_context_from_mrq_job(self.mrq_job)
             output_path = output_path.format_map(path_context).rstrip("/")

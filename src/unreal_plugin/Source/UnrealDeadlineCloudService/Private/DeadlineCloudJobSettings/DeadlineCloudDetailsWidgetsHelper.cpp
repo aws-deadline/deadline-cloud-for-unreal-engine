@@ -166,7 +166,7 @@ public:
 					.FillWidth(1.0f)
 					.VAlign(VAlign_Center)
 					[
-						SNew(SNumericEntryBox<float>)
+						SNew(SNumericEntryBox<double>)
 							.Font(IDetailLayoutBuilder::GetDetailFont())
 							.AllowSpin(false)
 							.MinDesiredValueWidth(50.0f)
@@ -175,9 +175,9 @@ public:
 									FString String;
 									Property->GetValue(String);
 
-									return FCString::Atof(*String);
+									return FCString::Atod(*String);
 								})
-							.OnValueCommitted_Lambda([this](float Value, ETextCommit::Type)
+							.OnValueCommitted_Lambda([this](double Value, ETextCommit::Type)
 								{
 									Property->SetValue(FString::SanitizeFloat(Value));
 								})

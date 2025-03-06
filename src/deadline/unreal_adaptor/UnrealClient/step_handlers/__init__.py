@@ -1,4 +1,4 @@
-#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 from typing import Type, Union
 
 from .base_step_handler import BaseStepHandler

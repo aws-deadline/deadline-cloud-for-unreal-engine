@@ -64,7 +64,8 @@ public class UnrealDeadlineCloudService : ModuleRules
                 "JsonUtilities",
                 "AssetTools",
                 "Projects",
-                "AssetRegistry"
+                "AssetRegistry",
+                "LevelSequence"
             }
             );
 

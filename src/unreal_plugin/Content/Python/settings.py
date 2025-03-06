@@ -357,11 +357,7 @@ class DeadlineCloudDeveloperSettingsImplementation(unreal.DeadlineCloudDeveloper
         logger.info("login")
 
         def on_pending_authorization(**kwargs):
-            unreal.log(f'on_pending auth kwargs: {kwargs}')
-
-            # legacy support
-            credential_source = kwargs.get('credential_source', kwargs.get('credential_type'))
-            if credential_source == AwsCredentialsSource.DEADLINE_CLOUD_MONITOR_LOGIN:
+            if kwargs["credentials_source"] == AwsCredentialsSource.DEADLINE_CLOUD_MONITOR_LOGIN:
                 unreal.EditorDialog.show_message(
                     "Deadline Cloud",
                     "Opening Deadline Cloud Monitor. Please login before returning here.",
