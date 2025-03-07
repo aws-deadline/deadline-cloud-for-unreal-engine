@@ -3,7 +3,7 @@
     "type": "object",
     "properties": {
         "project_path": { "type": "string" },
-        "extra_cmd_args": { "type": "string" },
+        "extra_cmd_args": { "type": [ "string", "null" ] },
         "extra_cmd_args_file": { "type": "string" },
         "executable": {"type":  "string"},
         "job_dependencies_descriptor": {"type":  "string"}
