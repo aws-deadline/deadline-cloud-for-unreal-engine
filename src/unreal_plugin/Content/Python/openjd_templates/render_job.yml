@@ -5,18 +5,13 @@ parameterDefinitions:
   type: PATH
   objectType: FILE
   dataFlow: IN
-  userInterface:
-    control: HIDDEN
 - name: ExtraCmdArgs
   type: STRING
   default: '-log'
-<<<<<<<< HEAD:src/unreal_plugin/Content/Python/openjd_templates/job_template.yml
 - name: ExtraCmdArgsFile
   type: PATH
   objectType: FILE
   dataFlow: IN
-========
 - name: Executable
   type: STRING
   default: 'UnrealEditor-Cmd'
->>>>>>>> d550574 (ugs sync wip):src/unreal_plugin/Content/Python/openjd_templates/render_job.yml

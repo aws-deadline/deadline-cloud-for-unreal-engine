@@ -1,4 +1,5 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
 import unreal
 
 from deadline.unreal_logger import get_logger

@@ -304,7 +304,7 @@ class TestUnrealOpenJob:
         [
             (
                 [fixtures.f_step_template_default()],
-                [(fixtures.f_environment_template_default())],
+                [fixtures.f_environment_template_default()],
                 [
                     "specificationVersion",
                     "name",

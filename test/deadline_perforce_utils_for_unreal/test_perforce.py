@@ -1,5 +1,6 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
+import os
 import pytest
 from unittest.mock import patch, Mock, MagicMock
 
@@ -20,16 +21,32 @@ class TestPerforceConnection:
         # THEN
         assert "Could not connect Perforce server" in str(exc_info.value)
 
-    @pytest.mark.parametrize("password, login_calls", [(None, 0), ("VeryStrongPassword", 1)])
-    @patch.object(perforce.P4, "run_login", new_callable=MagicMock())
+    @pytest.mark.parametrize(
+        "in_password, env_vars, out_password, login_called",
+        [
+            (None, {}, "", False),
+            (None, {"P4PASSWD": ""}, "", False),
+            (None, {"P4PASSWD": "EnvPassword"}, "EnvPassword", True),
+            ("InPassword", {}, "InPassword", True),
+            ("InPassword", {"P4PASSWD": ""}, "InPassword", True),
+            ("InPassword", {"P4PASSWD": "EnvPassword"}, "InPassword", True),
+        ],
+    )
     @patch.object(perforce.P4, "connect", MagicMock())
     @patch.object(perforce.P4, "run", MagicMock())
-    def test_login(self, run_login_mock, password, login_calls):
+    @patch.object(perforce.P4, "run_login", new_callable=MagicMock())
+    def test_login(self, run_login_mock, in_password, env_vars, out_password, login_called):
         # GIVEN & WHEN
-        perforce.PerforceConnection(password=password)
+        with patch.dict(os.environ, env_vars, clear=True):
+            conn = perforce.PerforceConnection(password=in_password)
 
         # THEN
-        assert run_login_mock.call_count == login_calls
+        assert conn.p4.password == out_password
+
+        if login_called:
+            run_login_mock.assert_called()
+        else:
+            run_login_mock.assert_not_called()
 
     @pytest.mark.parametrize(
         "p4_output, expected_result",
@@ -38,10 +55,9 @@ class TestPerforceConnection:
             ({"otherInfo": "otherValue"}, None),
         ],
     )
-    @patch("deadline.unreal_perforce_utils.perforce.P4", autospec=True)
     @patch.object(perforce.P4, "connect", MagicMock())
     @patch.object(perforce.P4, "run", MagicMock())
-    def test_get_stream_path(self, p4_mock, p4_output, expected_result):
+    def test_get_stream_path(self, p4_output, expected_result):
         # GIVEN
         perforce_api = perforce.PerforceConnection()
 
@@ -60,10 +76,9 @@ class TestPerforceConnection:
             ({"otherInfo": "otherValue"}, None),
         ],
     )
-    @patch("deadline.unreal_perforce_utils.perforce.P4", autospec=True)
     @patch.object(perforce.P4, "connect", MagicMock())
     @patch.object(perforce.P4, "run", MagicMock())
-    def test_get_client_root(self, p4_mock, p4_output, expected_result):
+    def test_get_client_root(self, p4_output, expected_result):
         # GIVEN
         perforce_api = perforce.PerforceConnection()
 
@@ -78,10 +93,9 @@ class TestPerforceConnection:
         "p4_output, expected_result",
         [([{"change": 10}, {"change": 9}, {"change": 8}], 10), ([], None)],
     )
-    @patch("deadline.unreal_perforce_utils.perforce.P4", autospec=True)
     @patch.object(perforce.P4, "connect", MagicMock())
     @patch.object(perforce.P4, "run", MagicMock())
-    def test_get_latest_changelist_number(self, p4_mock, p4_output, expected_result):
+    def test_get_latest_changelist_number(self, p4_output, expected_result):
         # GIVEN
         perforce_api = perforce.PerforceConnection()
 
@@ -109,12 +123,10 @@ class TestPerforceClient:
         ],
     )
     @patch("deadline.unreal_perforce_utils.perforce.logger")
-    @patch("deadline.unreal_perforce_utils.perforce.P4", autospec=True)
     @patch.object(perforce.P4, "connect", MagicMock())
     @patch.object(perforce.P4, "run", MagicMock())
     def test_sync(
         self,
-        p4_mock,
         logger_mock: Mock,
         filepath,
         changelist,
@@ -123,11 +135,6 @@ class TestPerforceClient:
         expected_arguments,
     ):
         # GIVEN
-        connection = perforce.PerforceConnection()
-
-        fetch_client_mock = MagicMock()
-        connection.p4.fetch_client = fetch_client_mock
-
         client = perforce.PerforceClient(perforce.PerforceConnection(), name="MyP4Client")
 
         spec_stream_mock = MagicMock()
@@ -137,8 +144,7 @@ class TestPerforceClient:
             spec_stream_mock.__getitem__.return_value = stream_path
 
         # WHEN
-        with patch.object(client.p4, "run", new_callable=MagicMock()):
-            client.sync(filepath, changelist, force)
+        client.sync(filepath, changelist, force)
 
         # THEN
         logger_mock.info.assert_called_once_with(
@@ -185,11 +191,10 @@ class TestPerforceWorkspaceSpecification:
             ),
         ],
     )
-    @patch("deadline.unreal_perforce_utils.perforce.P4", autospec=True)
     @patch.object(perforce.P4, "connect", MagicMock())
     @patch.object(perforce.P4, "run", MagicMock())
     def test_get_perforce_workspace_specification_template(
-        self, p4_mock: Mock, workspace_spec: dict, expected_result: dict
+        self, workspace_spec: dict, expected_result: dict
     ):
         # GIVEN
         perforce.get_perforce_workspace_specification = MagicMock(return_value=workspace_spec)
@@ -200,10 +205,9 @@ class TestPerforceWorkspaceSpecification:
         # THEN
         assert template == expected_result
 
-    @patch("deadline.unreal_perforce_utils.perforce.P4", autospec=True)
     @patch.object(perforce.P4, "connect", MagicMock())
     @patch.object(perforce.P4, "run", MagicMock())
-    def test_get_perforce_workspace_specification_template_failed(self, p4_mock: Mock):
+    def test_get_perforce_workspace_specification_template_failed(self):
 
         # GIVEN
         perforce.get_perforce_workspace_specification = MagicMock(return_value=None)

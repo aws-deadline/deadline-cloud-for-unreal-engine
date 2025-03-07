@@ -51,6 +51,10 @@ class PerforceConnection:
         p4.input = "y"
         p4.run("trust", ["-y"])
 
+        # If any of P4 variables is set in environment (PORT, P4USER, P4PASSWD, etc.), P4 instance's
+        # appropriate property will be set automatically. That means right here if
+        # os.environ["P4PASSWD"] = "SomePass" then p4.password will be set to "SomePass".
+        # But let's be defensive and set it explicitly
         p4_password = password or os.getenv("P4PASSWD")
         if p4_password:
             p4.password = p4_password
