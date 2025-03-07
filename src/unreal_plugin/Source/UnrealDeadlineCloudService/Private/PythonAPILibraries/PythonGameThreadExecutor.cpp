@@ -1,4 +1,5 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
 #include "PythonAPILibraries/PythonGameThreadExecutor.h"
 
 void UPythonGameThreadExecutor::Tick(float DeltaTime)

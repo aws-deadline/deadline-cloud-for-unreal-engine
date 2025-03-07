@@ -285,7 +285,7 @@ TSharedRef<FDeadlineCloudStepParametersArrayBuilder> FDeadlineCloudStepParameter
 {
 	TSharedRef<FDeadlineCloudStepParametersArrayBuilder> Builder =
 		MakeShared<FDeadlineCloudStepParametersArrayBuilder>(InPropertyHandle);
-	
+
 	Builder->OnGenerateArrayElementWidget(
 		FOnGenerateArrayElementWidget::CreateSP(Builder, &FDeadlineCloudStepParametersArrayBuilder::OnGenerateEntry));
 	return Builder;

@@ -54,6 +54,32 @@ FString UDeadlineCloudJob::GetDefaultParameterValue(const FString& ParameterName
     return "";
 }
 
+
+void UDeadlineCloudJob::FixConsistencyForHiddenParameters()
+{
+    TArray<FName>Names;
+    TArray<FName>NamesToRemove;
+    TArray<FParameterDefinition> DefaultParameters = UPythonYamlLibrary::Get()->OpenJobFile(PathToTemplate.FilePath);
+    for (FParameterDefinition& Parameter : DefaultParameters)
+    {
+        Names.Add(FName(Parameter.Name));
+    }
+
+    for (auto HiddenName : HiddenParametersList)
+    {
+        bool Contains = Names.Contains(HiddenName);
+        if (!Contains)
+        {
+            NamesToRemove.Add(HiddenName);
+        }
+    }
+    for (auto HiddenName : NamesToRemove)
+    {
+        HiddenParametersList.Remove(HiddenName);
+    }
+
+}
+
 TArray<FParameterDefinition> UDeadlineCloudJob::GetJobParameters()
 {
     return ParameterDefinition.Parameters;
@@ -77,23 +103,15 @@ void UDeadlineCloudJob::FixJobParametersConsistency(UDeadlineCloudJob* Job)
 }
 
 
-TArray<FStepTaskParameterDefinition> UDeadlineCloudJob::GetTaskChunkSizeFromRenderStep() const
+TArray<FStepTaskParameterDefinition> UDeadlineCloudJob::GetAllStepParameters() const
 {
     TArray<FStepTaskParameterDefinition> result;
-    UDeadlineCloudRenderStep* StepAsset;
-    for (auto step : Steps) {
-        StepAsset = Cast<UDeadlineCloudRenderStep>(step);
-        if (StepAsset)
-        {
-            for (auto parameter : StepAsset->TaskParameterDefinitions.Parameters)
-            {
-                if (parameter.Name == "ChunkSize")
-                {
-                    result.Add(parameter);
+    UDeadlineCloudStep* StepAsset;
+    StepAsset = Steps.IsValidIndex(0) ? Steps[0] : nullptr;
 
-                }
-            }
-        }
+    if (StepAsset)
+    {
+        result = StepAsset->GetStepParameters();
     }
     return result;
 }
