@@ -88,7 +88,7 @@ class UnrealCustomStepHandler(BaseStepHandler):
             logger.info(f"Custom Step Executor Result: {result}")
             return True
 
-        except Exception as e:
+        except (KeyError, RuntimeError) as e:
             logger.info(
                 f"Custom Step Executor: Error: "
                 f'Error occured while executing the given script {args.get("script_path")}: {str(e)}\n'

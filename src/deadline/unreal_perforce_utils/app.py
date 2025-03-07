@@ -4,6 +4,7 @@ import os
 import json
 import pprint
 import socket
+import getpass
 from pathlib import Path
 from typing import Optional
 
@@ -27,7 +28,7 @@ def get_workspace_name(project_name: str) -> str:
     :rtype: str
     """
 
-    workspace_name = f"{os.getlogin()}_{socket.gethostname()}_{project_name}"
+    workspace_name = f"{getpass.getuser()}_{socket.gethostname()}_{project_name}"
     if "DEADLINE_WORKER_ID" in os.environ:
         workspace_name += f"_{os.environ['DEADLINE_WORKER_ID']}"
 
@@ -54,7 +55,7 @@ def get_workspace_specification_template_from_file(
     logger.info(
         f"Getting workspace specification template from file: {workspace_specification_template_path} ..."
     )
-    with open(workspace_specification_template_path, "r") as f:
+    with open(workspace_specification_template_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
