@@ -5,7 +5,7 @@ import re
 import glob
 import json
 import unreal
-from typing import Any
+from typing import Any, Optional
 from pathlib import Path
 
 from deadline.unreal_logger import get_logger
@@ -178,6 +178,22 @@ def get_path_context_from_mrq_job(mrq_job: unreal.MoviePipelineExecutorJob) -> P
     return path_context
 
 
+def extract_deadline_args(startup_args: str) -> Optional[str]:
+    """
+    Case insensitive pattern matching -deadlineargs= followed by quote-delimited content
+    :param startup_args: Full argument string given to process at launch
+    :return: argument string passed in -deadlineargs argument, if found
+    """
+
+    pattern = re.compile(r'(?i)-deadlineargs=([\'"])(.*?)\1', re.IGNORECASE)
+    match = pattern.search(startup_args)
+
+    if match:
+        return match.group(2)  # Return the content between quotes
+    else:
+        return None  # No match found
+
+
 def get_in_process_executor_cmd_args() -> list[str]:
     """
     Get inherited and additional command line arguments from
@@ -195,8 +211,20 @@ def get_in_process_executor_cmd_args() -> list[str]:
     )
 
     inherited_cmds: str = in_process_executor_settings.inherited_command_line_arguments
-    inherited_cmds = re.sub(pattern='(-execcmds="[^"]*")', repl="", string=inherited_cmds)
-    inherited_cmds = re.sub(pattern="(-execcmds='[^']*')", repl="", string=inherited_cmds)
+    inherited_cmds = re.sub(
+        pattern='(-execcmds="[^"]*")', repl="", string=inherited_cmds, flags=re.IGNORECASE
+    )
+    inherited_cmds = re.sub(
+        pattern="(-execcmds='[^']*')", repl="", string=inherited_cmds, flags=re.IGNORECASE
+    )
+
+    # Optional override for cases where the arguments used to launch the current instance of Unreal are known
+    # to not match the arguments we want to send to the renderers.
+    deadline_args = extract_deadline_args(inherited_cmds)
+    if deadline_args is not None:
+        logger.info(f"Found deadline args {deadline_args}")
+        inherited_cmds = deadline_args
+
     cmd_args.extend(inherited_cmds.split(" "))
 
     additional_cmds: str = in_process_executor_settings.additional_command_line_arguments

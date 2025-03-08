@@ -5,7 +5,8 @@ pre-install-commands = [
 
 [envs.default.scripts]
 sync = "pip install -r requirements-testing.txt"
-test = "pytest --cov-config pyproject.toml {args:test}"
+test = "pytest test/ --cov-config pyproject.toml --ignore=test/end_to_end {args}"
+e2e = "pytest test/end_to_end --no-cov {args}"
 typing = "mypy {args:src test}"
 style = [
   "ruff check {args:.}",

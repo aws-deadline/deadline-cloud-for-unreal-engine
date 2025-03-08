@@ -418,9 +418,9 @@ def check_configuration_warnings(engine_root: str):
 
 
 def build_and_install(
-    engine_root: str = None,
-    uplugin_path: str = None,
-    output_folder: str = None,
+    engine_root: str = "",
+    uplugin_path: str = "",
+    output_folder: str = "",
     install: bool = False,
     worker: bool = False,
     binaries: bool = True,

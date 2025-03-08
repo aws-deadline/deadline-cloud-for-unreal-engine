@@ -341,16 +341,11 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         extra_cmd_str = re.sub(r'(-execcmds=["\'][^"\']*["\'])', "", extra_cmd_str)
 
         client_path = self.unreal_client_path.replace("\\", "/")
-        log_args = [
-            "-log",
-            "-unattended",
-            "-stdout",
-            "-allowstdoutlogverbosity",
-        ]
+        log_args = ["-log", "-unattended", "-stdout", "-allowstdoutlogverbosity", "-nozen"]
 
         remote_execution = os.getenv("REMOTE_EXECUTION", "True")
         if remote_execution == "True":
-            log_args += ["-NoLoadingScreen", "-NoScreenMessages", "-RenderOffscreen"]
+            log_args += ["-NoLoadingScreen", "-NoScreenMessages", "-RenderOffscreen", "-nozen"]
 
         extra_cmd_args = extra_cmd_str.split(" ")
 

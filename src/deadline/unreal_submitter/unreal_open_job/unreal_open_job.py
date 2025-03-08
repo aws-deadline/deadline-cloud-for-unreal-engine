@@ -1025,12 +1025,14 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         if extra_cmd_args_param:
             extra_cmd_args = str(extra_cmd_args_param.value)
             cleared_extra_cmds_args = re.sub(
-                pattern='(-execcmds="[^"]*")', repl="", string=extra_cmd_args
+                pattern='(-execcmds="[^"]*")', repl="", string=extra_cmd_args, flags=re.IGNORECASE
             )
             cleared_extra_cmds_args = re.sub(
-                pattern="(-execcmds='[^']*')", repl="", string=cleared_extra_cmds_args
+                pattern="(-execcmds='[^']*')",
+                repl="",
+                string=cleared_extra_cmds_args,
+                flags=re.IGNORECASE,
             )
-
             logger.warning(
                 "Appearance of custom '-execcmds' argument on the Render node can cause unpredictable "
                 "issues. Argument '-execcmds' of Unreal Open Job's "
