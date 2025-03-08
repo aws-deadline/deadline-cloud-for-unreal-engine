@@ -1,6 +1,9 @@
 name: Render
 parameterSpace:
   taskParameterDefinitions:
+  - name: ChunkId
+    type: INT
+    range: []
   - name: Handler
     type: STRING
     range: []
@@ -10,9 +13,6 @@ parameterSpace:
   - name: ChunkSize
     type: INT
     range: [1]
-  - name: ChunkId
-    type: INT
-    range: []
   - name: OutputPath
     type: PATH
     range: []
