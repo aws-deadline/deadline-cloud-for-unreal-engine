@@ -141,36 +141,42 @@ void UMoviePipelineDeadlineCloudExecutorJob::UpdateAttachmentFields()
 	}
 }
 
+void UMoviePipelineDeadlineCloudExecutorJob::JobPresetChanged()
+{
+	const UDeadlineCloudJob* SelectedJobPreset = this->JobPreset;
+
+	if (!SelectedJobPreset)
+	{
+		this->JobPreset = CreateDefaultJobPresetFromTemplates(JobPreset);
+		SelectedJobPreset = this->JobPreset;
+	}
+
+	this->PresetOverrides.HostRequirements = SelectedJobPreset->JobPresetStruct.HostRequirements;
+	this->PresetOverrides.JobSharedSettings = SelectedJobPreset->JobPresetStruct.JobSharedSettings;
+
+	this->PresetOverrides.JobAttachments.InputFiles.Files =
+		SelectedJobPreset->JobPresetStruct.JobAttachments.InputFiles.Files;
+
+	this->PresetOverrides.JobAttachments.InputDirectories.Directories =
+		SelectedJobPreset->JobPresetStruct.JobAttachments.InputDirectories.Directories;
+
+	this->PresetOverrides.JobAttachments.OutputDirectories.Directories =
+		SelectedJobPreset->JobPresetStruct.JobAttachments.OutputDirectories.Directories;
+
+	this->ParameterDefinitionOverrides.Parameters =
+		SelectedJobPreset->ParameterDefinition.Parameters;
+
+	this->StepsOverrides = GetStepsToOverride(SelectedJobPreset);
+	this->EnvironmentsOverrides = GetEnvironmentsToOverride(SelectedJobPreset);
+}
+
 void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	// Check if we changed the job Preset an update the override details
 	if (const FName PropertyName = PropertyChangedEvent.GetPropertyName(); PropertyName == "JobPreset")
 	{
-		const UDeadlineCloudJob* SelectedJobPreset = this->JobPreset;
+		JobPresetChanged();
 
-		if (!SelectedJobPreset)
-		{
-			this->JobPreset = CreateDefaultJobPresetFromTemplates(JobPreset);
-			SelectedJobPreset = this->JobPreset;
-		}
-
-		this->PresetOverrides.HostRequirements = SelectedJobPreset->JobPresetStruct.HostRequirements;
-		this->PresetOverrides.JobSharedSettings = SelectedJobPreset->JobPresetStruct.JobSharedSettings;
-
-		this->PresetOverrides.JobAttachments.InputFiles.Files =
-			SelectedJobPreset->JobPresetStruct.JobAttachments.InputFiles.Files;
-
-		this->PresetOverrides.JobAttachments.InputDirectories.Directories =
-			SelectedJobPreset->JobPresetStruct.JobAttachments.InputDirectories.Directories;
-
-		this->PresetOverrides.JobAttachments.OutputDirectories.Directories =
-			SelectedJobPreset->JobPresetStruct.JobAttachments.OutputDirectories.Directories;
-
-		this->ParameterDefinitionOverrides.Parameters =
-			SelectedJobPreset->ParameterDefinition.Parameters;
-
-		this->StepsOverrides = GetStepsToOverride(SelectedJobPreset);
-		this->EnvironmentsOverrides = GetEnvironmentsToOverride(SelectedJobPreset);
 		// Update MRQ widget request
 		if (OnRequestDetailsRefresh.IsBound())
 		{
