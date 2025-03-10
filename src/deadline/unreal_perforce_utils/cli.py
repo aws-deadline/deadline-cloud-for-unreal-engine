@@ -7,7 +7,9 @@ from deadline.unreal_perforce_utils import app
 
 def parse_args():
     argparser = argparse.ArgumentParser("unreal-perforce-utils")
-    argparser.add_argument("command", choices=["create_workspace", "delete_workspace"])
+    argparser.add_argument(
+        "command", choices=["create_workspace", "delete_workspace", "apply_perforce_secrets"]
+    )
     argparser.add_argument("-UnrealProjectName", required=False, help="Unreal Project Name")
     argparser.add_argument(
         "-UnrealProjectRelativePath", required=False, help="Relative path to the workspace root"
@@ -45,6 +47,9 @@ def main():
         app.delete_workspace(
             workspace_name=args.PerforceWorkspaceName, project_name=args.UnrealProjectName
         )
+
+    if args.command == "apply_perforce_secrets":
+        app.apply_perforce_secrets()
 
 
 if __name__ == "__main__":

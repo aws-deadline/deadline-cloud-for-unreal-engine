@@ -6,7 +6,7 @@ from P4 import P4, P4Exception
 from typing import Optional, Any
 
 from deadline.unreal_logger import get_logger
-from deadline.unreal_perforce_utils import exceptions
+from deadline.unreal_perforce_utils import exceptions, secret_manager
 
 
 logger = get_logger()
@@ -16,11 +16,15 @@ class PerforceConnection:
     """
     Wrapper around the P4 object of p4python package
 
-    P4 connection can be created by passing port, user, password and charset to the constructor
-    or setting appropriate P4PORT, P4USER and P4PASSWD environment variables.
+    P4 connection can be created by:
+
+    1. passing port, user, password and charset to the constructor
+    2. providing AWS Secrets Manager secret name in env variable AWS_SECRET_P4INFO where
+       p4 connection parameters are stored
+    3. setting appropriate P4PORT, P4USER and P4PASSWD environment variables.
 
     .. note::
-       Current connection properties will be used by default
+       Default connection properties will be used if none of the above is provided
     """
 
     def __init__(
@@ -33,11 +37,13 @@ class PerforceConnection:
         p4 = P4()
         p4.charset = charset
 
-        p4_port = port or os.getenv("P4PORT")
+        p4_secret = secret_manager.get_perforce_info() or {}
+
+        p4_port = port or p4_secret.get("P4PORT") or os.getenv("P4PORT")
         if p4_port:
             p4.port = p4_port
 
-        p4_user = user or os.getenv("P4USER")
+        p4_user = user or p4_secret.get("P4USER") or os.getenv("P4USER")
         if p4_user:
             p4.user = p4_user
 
@@ -55,7 +61,7 @@ class PerforceConnection:
         # appropriate property will be set automatically. That means right here if
         # os.environ["P4PASSWD"] = "SomePass" then p4.password will be set to "SomePass".
         # But let's be defensive and set it explicitly
-        p4_password = password or os.getenv("P4PASSWD")
+        p4_password = password or p4_secret.get("P4PASSWD") or os.getenv("P4PASSWD")
         if p4_password:
             p4.password = p4_password
             p4.run_login()

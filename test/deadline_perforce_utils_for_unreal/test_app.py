@@ -61,3 +61,30 @@ class TestUnrealP4UtilsApp:
 
         # THEN
         assert exc_info
+
+    @pytest.mark.parametrize(
+        "p4_info, openjd_env_output",
+        [
+            (
+                {"P4PORT": "port", "P4USER": "user", "P4PASSWD": "pass"},
+                ["openjd_env: P4PORT=port", "openjd_env: P4USER=user", "openjd_env: P4PASSWD=pass"],
+            ),
+            ({}, []),
+        ],
+    )
+    @patch("deadline.unreal_perforce_utils.secret_manager.get_perforce_info")
+    def test_apply_perforce_secrets(
+        self, get_perforce_info_mock: Mock, p4_info: dict[str, str], openjd_env_output: list[str]
+    ):
+
+        # GIVEN
+        get_perforce_info_mock.return_value = p4_info
+
+        # WHEN
+        with patch("builtins.print") as print_mock:
+            app.apply_perforce_secrets()
+
+        # THEN
+        assert len(print_mock.mock_calls) == len(openjd_env_output)
+        for i, call in enumerate(print_mock.mock_calls):
+            assert call.args[0] == openjd_env_output[i]
