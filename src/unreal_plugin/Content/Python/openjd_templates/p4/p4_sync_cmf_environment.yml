@@ -1,6 +1,7 @@
 name: P4SyncCmf
 variables:
   P4_CLIENTS_ROOT_DIRECTORY: 'D:\projects'
+  AWS_SECRET_P4INFO: ''
 script:
   actions:
     onEnter:

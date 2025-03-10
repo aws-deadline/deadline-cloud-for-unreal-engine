@@ -1,4 +1,6 @@
 name: P4SyncSmf
+variables:
+  AWS_SECRET_P4INFO: ''
 script:
   actions:
     onEnter:
