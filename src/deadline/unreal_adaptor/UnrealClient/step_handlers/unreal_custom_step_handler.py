@@ -87,13 +87,21 @@ class UnrealCustomStepHandler(BaseStepHandler):
 
             logger.info(f"Custom Step Executor Result: {result}")
             return True
-
-        except (KeyError, RuntimeError) as e:
-            logger.info(
-                f"Custom Step Executor: Error: "
-                f'Error occured while executing the given script {args.get("script_path")}: {str(e)}\n'
-            )
+        except KeyError as e:
             logger.info(traceback.format_exc())
+            logger.info(
+                f"Custom Step Executor: Error: {str(e)}. "
+                f"It is possible `script_path` missed from args {args}\n"
+            )
+            return False
+        except RuntimeError as e:
+            logger.info(traceback.format_exc())
+            logger.info(
+                f"Custom Step Executor: Error: {str(e)}"
+                f"Error occurred while executing the given script {args.get('script_path')} "
+                f"with args {args.get('script_args')} via "
+                f"unreal.PythonScriptLibrary.execute_python_command_ex\n"
+            )
             return False
 
     def wait_result(self, args: Optional[dict] = None) -> None:  # pragma: no cover

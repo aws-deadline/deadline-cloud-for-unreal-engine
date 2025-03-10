@@ -2,9 +2,11 @@
 
 import os
 import ast
+import traceback
 from typing import Optional
 
 import boto3
+from botocore.exceptions import ClientError
 from botocore.utils import InstanceMetadataRegionFetcher
 
 from deadline.unreal_logger import get_logger
@@ -45,18 +47,24 @@ def get_secret_from_env(secret_variable_name: str) -> Optional[str]:
     :return: The secret string
     :rtype: Optional[str]
     """
-    logger.info(f"Getting perforce secret from environment variable: {secret_variable_name}")
+    logger.info(f"Getting secret from environment variable: {secret_variable_name}")
 
     sm_client = get_secret_manager_client()
 
     secret_id = os.getenv(secret_variable_name)
     if secret_id in [None, ""]:
+        logger.warning(f"Cant get secret from empty environment variable {secret_variable_name}")
+        return None
+
+    try:
+        response = sm_client.get_secret_value(SecretId=secret_id)
+    except ClientError as e:
         logger.warning(
-            f"Cant get perforce secret from empty environment variable {secret_variable_name}"
+            f"Failed to get secret from Boto3 SecretsManager by id {secret_id}."
+            f"{e} -- {traceback.format_exc()}"
         )
         return None
 
-    response = sm_client.get_secret_value(SecretId=secret_id)
     if "SecretString" not in response:
         raise KeyError(f"SecretString key not found in response: {response}")
 

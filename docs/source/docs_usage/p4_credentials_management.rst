@@ -30,6 +30,73 @@ the new connection will be configured as:
    User = user.from.registry
    Password = password.from.connection
 
+Use AWS Secrets Manager
+***********************
+
+AWS Secrets Manager allows you to store and manage secrets, such as connection credentials,
+in a secure, highly available, and easily managed service. All workers in your fleet (CMF or SMF)
+can access it if you have configured roles and access across workers in your farm.
+
+To make worker apply connection credentials from AWS Secrets Manager, you need to provide the
+name of the secret in the ``AWS_SECRET_P4INFO`` environment variable in any P4 (UGS) Sync Environment you use.
+Or create the new Environment template and prepend it to your Job.
+
+.. code-block:: yaml
+
+   name: P4SyncCmf
+   variables:
+     AWS_SECRET_P4INFO: DeadlineCloud/MyFleet/P4INFO
+
+Secret ``DeadlineCloud/MyFleet/P4INFO`` may contains any of the following key/value pairs:
+
+#. P4PORT - Perforce server port
+#. P4USER - Perforce user
+#. P4PASSWD - Perforce password
+
+.. note:: The names of the keys should be exactly the same
+   as the P4 connection parameters, i. e. ``P4PORT``, ``P4USER``, ``P4PASSWD``
+
+Example:
+
+You have next P4 Sync Environment:
+
+.. code-block:: yaml
+
+   name: P4SyncCmf
+   variables:
+     AWS_SECRET_P4INFO: DeadlineCloud/MyFleet/P4INFO
+     P4USER: j.doe
+     P4PORT: ssl:my-perforce.com:1666
+   ...
+
+And the secret ``DeadlineCloud/MyFleet/P4INFO`` contains:
+
+#. P4PASSWD = MyVeRyS3cretP4ssW0rd
+#. P4USER = aws-admin-user
+
+Environment variables from AWS Secrets Manager will override the ones from the Job. Configured connection
+parameters will be:
+
+.. code-block::
+
+   Port = ssl:my-perforce.com:1666
+   User = aws-admin-user
+   Password = MyVeRyS3cretP4ssW0rd
+
+User appears twice - in Job environment and in AWS Secrets Manager, but last one take precedence.
+
+.. warning::
+   In UGS case you need to use environment data asset for applying P4 secrets -
+   ``src/unreal_plugin/Content/OpenJD_DataAssets/Render/OpenJD_Environment_ApplyP4Secrets.uasset`` -
+   which is referencing to ``src/unreal_plugin/Content/Python/openjd_templates/p4/p4_apply_secrets_environment.yml``.
+
+   This environment apply P4 credentials from AWS Secretes Manager by printing them to the Job log
+   with prefix ``openjd_env:``. Please, see `OpenJD Environment`_ documentation about sharing new
+   environment variables across actions and other environments in runtime. AWS Deadline Cloud
+   constantly evolving and will soon receive an update that will eliminate the need to print variables to set them.
+   But for now it is the only option.
+
+.. _OpenJD Environment: https://github.com/OpenJobDescription/openjd-specifications/blob/mainline/wiki/2023-09-Template-Schemas.md#4-environment
 
 Pass Connection Credentials within the Job Environment
 ******************************************************
@@ -107,6 +174,8 @@ the `Deadline Cloud Queue Environments Git sample`_:
 Conclusions
 ***********
 
+#. The best option is to use AWS Secrets Manager to store connection credentials. It is the most secure,
+   and you can use it for both CMF and SMF.
 #. If you have a CMF farm, where all workers are inside a network that is not accessible from the outside,
    then you can use a single P4 admin user on all workers, changing only ``P4PORT`` if necessary.
    Optionally, you can pass the credentials within the Job Environment.
