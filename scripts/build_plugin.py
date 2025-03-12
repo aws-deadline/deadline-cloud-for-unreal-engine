@@ -11,12 +11,22 @@ import logging
 import shutil
 import os
 import subprocess
+import sys
 import tempfile
+from typing import Tuple, Optional
 
 DEFAULT_UE_INSTALL_ROOT = "C:\\Program Files\\Epic Games"
 PLUGIN_FOLDER_NAME = "UnrealDeadlineCloudService"
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+formatter = logging.Formatter("%(levelname)s - %(message)s")
+
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.INFO)
+stream_handler.setFormatter(formatter)
+
+logger.addHandler(stream_handler)
 
 
 def find_latest_unreal_engine(folder: str) -> str:
@@ -328,6 +338,85 @@ def install_worker_dependencies(engine_root: str):
     )
 
 
+def unreal_python_has_deadline_installed(engine_root: str) -> Tuple[bool, Optional[str]]:
+    """
+    Test if deadline appears to already be installed to the "Unreal" version of Python's
+    libraries folder where it could potentially take precedence over what we're installing
+    """
+    if sys.platform != "win32":
+        return False, None
+    python_libs_folder = os.path.join(
+        engine_root, "Engine\\Binaries\\ThirdParty\\Python3\\Win64\\Lib"
+    )
+    deadline_folder = os.path.join(python_libs_folder, "deadline")
+
+    if os.path.exists(deadline_folder):
+        return True, deadline_folder
+
+    return False, deadline_folder
+
+
+def long_paths_enabled() -> bool:
+    """
+    Test if Windows long paths are enabled by attempting to create a long path.
+    We need to support both Admin and non Admin usage, so rather than attempt to check
+    the registry we'll simply try to create a file in a folder which exceeds the path limit
+    and catch possible exceptions.
+    """
+
+    # We're only interested in checking on Windows currently
+    if sys.platform != "win32":
+        return True
+
+    # Create a temporary directory as our base
+    with tempfile.TemporaryDirectory() as temp_base:
+        try:
+            # Create a path that exceeds the traditional 260 character limit
+            long_name = "a" * 250  # Do not exceeed 255 character directory name/file name limit
+            long_path = os.path.join(temp_base, long_name)
+
+            # Validate that a folder can be created which exceeds 260 characters
+            os.makedirs(long_path, exist_ok=True)
+
+            # Validate that a file can be created in that folder
+            test_file = os.path.join(long_path, "some_long_path_test.txt")
+            with open(test_file, "w") as f:
+                f.write("Test successful")
+
+            # Long paths appear to be enabled
+            return True
+
+        except (OSError, FileNotFoundError, PermissionError) as e:
+            # If we get an error about the path being too long, then long paths are not enabled
+            if "path too long" in str(e).lower() or "cannot find the path" in str(e).lower():
+                return False
+
+            # For other errors, print but still return False as we couldn't create the long path
+            print(f"Error during long path test: {e}")
+            return False
+
+
+def check_configuration_warnings(engine_root: str):
+    """
+    Check for common configuration issues which may prevent successful jobs
+    """
+    if long_paths_enabled():
+        logger.info("Long paths are enabled")
+    else:
+        logger.warning(
+            "Windows long paths are not enabled.  Please see "
+            "https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_SUBMITTER_CMF.md#windows-long-paths "
+            "for instructions on enabling."
+        )
+
+    deadline_installed, deadline_path = unreal_python_has_deadline_installed(engine_root)
+    if deadline_installed:
+        logger.warning(
+            f"deadline appears to be installed at {deadline_path}.  Please uninstall the deadline tools from this location"
+            "to prevent conflicts."
+        )
+
+
 def build_and_install(
     engine_root: str = None,
     uplugin_path: str = None,
@@ -354,6 +443,8 @@ def build_and_install(
     # Find the latest version of Unreal Engine
     if not engine_root:
         engine_root = find_engine_root()
+
+    check_configuration_warnings(engine_root)
 
     runuat_path = find_runuat(engine_root)
 
