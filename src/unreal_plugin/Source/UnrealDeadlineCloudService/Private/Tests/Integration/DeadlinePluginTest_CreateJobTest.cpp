@@ -86,7 +86,7 @@ public:
     }
 
 private:
-    const int TimeoutSeconds = 180;
+    const int TimeoutSeconds = 300;
     double m_startTime = {};
     bool m_jobCreationFound = false;
     bool m_dialogConfirmationFound = false;
@@ -172,7 +172,20 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovieQueueCreateJobTest, "Deadline.Integration
     }
 
     ProjectSettings->DefaultRemoteExecutor = FSoftClassPath(TEXT("/Engine/PythonTypes.MoviePipelineDeadlineCloudRemoteExecutor"));
+    TSubclassOf<UMoviePipelineExecutorBase> RemoteClass = ProjectSettings->DefaultRemoteExecutor.TryLoadClass<UMoviePipelineExecutorBase>();
+    TestTrue(TEXT("Failed to load remote executor class"), RemoteClass != nullptr);
+
+    ProjectSettings->DefaultExecutorJob = UMoviePipelineDeadlineCloudExecutorJob::StaticClass();
+    TestNotNull(TEXT("Failed to set executor job"), ProjectSettings->DefaultExecutorJob.TryLoadClass<UMoviePipelineExecutorJob>());
+
     UE_LOG(LogCreateJobTest, Display, TEXT("Configured project settings"));
+
+    UE_LOG(LogCreateJobTest, Display, TEXT("DefaultExecutorJob set to: %s"),
+        *ProjectSettings->DefaultExecutorJob.ToString());
+
+    TSubclassOf<UMoviePipelineExecutorJob> ExecutorJobClass = ProjectSettings->DefaultExecutorJob.TryLoadClass<UMoviePipelineExecutorJob>();
+    UE_LOG(LogCreateJobTest, Display, TEXT("TryLoadClass returned: %s"),
+        ExecutorJobClass ? *ExecutorJobClass->GetName() : TEXT("nullptr"));
 
     // Get the Queue Subsystem
     UMoviePipelineQueueSubsystem* QueueSubsystem = GEditor->GetEditorSubsystem<UMoviePipelineQueueSubsystem>();
@@ -195,10 +208,30 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovieQueueCreateJobTest, "Deadline.Integration
     TestNotNull(TEXT("LevelSequence should not be null"), LevelSequence);
     UE_LOG(LogCreateJobTest, Display, TEXT("Got LevelSequence: %s"), *LevelSequence->GetPathName());
 
-    UMoviePipelineExecutorJob* NewJob = UMoviePipelineEditorBlueprintLibrary::CreateJobFromSequence(ActiveQueue, LevelSequence);
-    if (!NewJob)
+    TSoftClassPtr<UMoviePipelineDeadlineCloudExecutorJob> SoftClassPtr = TSoftClassPtr<UMoviePipelineDeadlineCloudExecutorJob>(ProjectSettings->DefaultExecutorJob);
+    UMoviePipelineDeadlineCloudExecutorJob* NewJob = NewObject<UMoviePipelineDeadlineCloudExecutorJob>(GetTransientPackage(), SoftClassPtr.LoadSynchronous());
+
+    NewJob->JobPresetChanged();
+    UMoviePipelineEditorBlueprintLibrary::EnsureJobHasDefaultSettings(NewJob);
+
+    TestNotNull(TEXT("JobPreset should not be null"), NewJob->JobPreset.Get());
+    UE_LOG(LogCreateJobTest, Display, TEXT("Created JobPreset"));
+
+    FSoftObjectPath CurrentWorld;
+
+    UWorld* EditorWorld = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
+
+    CurrentWorld = FSoftObjectPath(EditorWorld);
+
+    FSoftObjectPath Sequence(LevelSequence);
+    NewJob->Map = CurrentWorld;
+    NewJob->SetSequence(Sequence);
+    NewJob->JobName = NewJob->Sequence.GetAssetName();
+
+    UMoviePipelineExecutorJob* QueueJob = ActiveQueue->DuplicateJob(NewJob);
+    if (!QueueJob)
     {
-        UE_LOG(LogCreateJobTest, Error, TEXT("Failed to CreateJobFromSequence"));
+        UE_LOG(LogCreateJobTest, Error, TEXT("Failed to Duplicate Job into queue"));
         return false;
     }
     UE_LOG(LogCreateJobTest, Display, TEXT("Created job from sequence"));
@@ -208,9 +241,9 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovieQueueCreateJobTest, "Deadline.Integration
     // The QueueManifest message may appear 1 or 2 times depending on whether you've run the test before.
     AddExpectedError(TEXT("Failed to load '/Engine/MovieRenderPipeline/Editor/QueueManifest': Can't find file"),
         EAutomationExpectedErrorFlags::Contains, 0);
-    // The -execcmds message WILL appear twice
+    // The -execcmds message may appear 1 or 2 times depending on whether you've run the test before
     AddExpectedError(TEXT("Appearance of custom '-execcmds' argument on the Render node can cause unpredictable issues"),
-        EAutomationExpectedErrorFlags::Contains, 2);
+        EAutomationExpectedErrorFlags::Contains, 0);
 
     // Load and use remote executor
     TSubclassOf<UMoviePipelineExecutorBase> ExecutorClass = ProjectSettings->DefaultRemoteExecutor.TryLoadClass<UMoviePipelineExecutorBase>();

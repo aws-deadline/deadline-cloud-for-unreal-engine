@@ -102,7 +102,7 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
     TArray<FDeadlineCloudEnvironmentOverride> EnvironmentsOverrides = TArray<FDeadlineCloudEnvironmentOverride>();
 
-
+    void JobPresetChanged();
 protected:
 
 #if WITH_EDITOR
