@@ -791,7 +791,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         p4_conn = perforce.PerforceConnection(
             port=conn_settings["port"],
             user=conn_settings["user"],
-            client=conn_settings["workspace"]
+            client=conn_settings["workspace"],
         )
 
         parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
