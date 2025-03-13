@@ -48,7 +48,7 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step_host_require
 )
 
 from deadline.unreal_logger import get_logger
-from deadline.unreal_perforce_utils import perforce
+from deadline.unreal_perforce_utils import perforce, unreal_source_control
 
 
 logger = get_logger()
@@ -752,6 +752,20 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             if override_environment:
                 env.variables = override_environment.variables.variables
 
+    @staticmethod
+    def _get_project_path_relative_to_workspace_root(workspace_root: str) -> str:
+        workspace_root = workspace_root.replace("\\", "/")
+        unreal_project_path = common.get_project_file_path().replace("\\", "/")
+        if not unreal_project_path.startswith(workspace_root):
+            raise exceptions.ProjectIsNotUnderWorkspaceError(
+                f"Project {unreal_project_path} is not under the workspace root: {workspace_root}"
+            )
+
+        unreal_project_relative_path = unreal_project_path.replace(workspace_root, "")
+        unreal_project_relative_path = unreal_project_relative_path.lstrip("/")
+
+        return unreal_project_relative_path
+
     def _build_parameter_values_for_ugs(self, parameter_values: list[dict]) -> list[dict]:
         """
         Build and return list of parameter values for the OpenJob in the Unreal Game Sync integration.
@@ -773,7 +787,12 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         :rtype: list[dict]
         """
 
-        p4_conn = perforce.PerforceConnection()
+        conn_settings = unreal_source_control.get_connection_settings_from_ue_source_control()
+        p4_conn = perforce.PerforceConnection(
+            port=conn_settings["port"],
+            user=conn_settings["user"],
+            client=conn_settings["workspace"]
+        )
 
         parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
             job_parameter_values=parameter_values,
@@ -795,9 +814,9 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         client_root = p4_conn.get_client_root()
         if isinstance(client_root, str):
-            unreal_project_path = common.get_project_file_path().replace("\\", "/")
-            unreal_project_relative_path = unreal_project_path.replace(client_root, "")
-            unreal_project_relative_path = unreal_project_relative_path.lstrip("/")
+            unreal_project_relative_path = self._get_project_path_relative_to_workspace_root(
+                workspace_root=client_root,
+            )
 
             parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
                 job_parameter_values=parameter_values,
@@ -840,7 +859,12 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         :rtype: list[dict]
         """
 
-        p4 = perforce.PerforceConnection()
+        conn_settings = unreal_source_control.get_connection_settings_from_ue_source_control()
+        p4 = perforce.PerforceConnection(
+            port=conn_settings["port"],
+            user=conn_settings["user"],
+            client=conn_settings["workspace"],
+        )
 
         parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
             job_parameter_values=parameter_values,
@@ -856,9 +880,9 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         client_root = p4.get_client_root()
         if isinstance(client_root, str):
-            unreal_project_path = common.get_project_file_path().replace("\\", "/")
-            unreal_project_relative_path = unreal_project_path.replace(client_root, "")
-            unreal_project_relative_path = unreal_project_relative_path.lstrip("/")
+            unreal_project_relative_path = self._get_project_path_relative_to_workspace_root(
+                workspace_root=client_root,
+            )
 
             parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
                 job_parameter_values=parameter_values,
@@ -868,7 +892,11 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         workspace_spec_template = common.create_deadline_cloud_temp_file(
             file_prefix=OpenJobParameterNames.PERFORCE_WORKSPACE_SPECIFICATION_TEMPLATE,
-            file_data=perforce.get_perforce_workspace_specification_template(),
+            file_data=perforce.get_perforce_workspace_specification_template(
+                port=conn_settings["port"],
+                user=conn_settings["user"],
+                client=conn_settings["workspace"],
+            ),
             file_ext=".json",
         )
         parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
@@ -1072,7 +1100,12 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         local_dependencies = self._get_mrq_job_dependency_paths()
 
-        p4_conn = perforce.PerforceConnection()
+        conn_settings = unreal_source_control.get_connection_settings_from_ue_source_control()
+        p4_conn = perforce.PerforceConnection(
+            port=conn_settings["port"],
+            user=conn_settings["user"],
+            client=conn_settings["workspace"],
+        )
         depot_dependencies = p4_conn.get_depot_file_paths(local_dependencies)
 
         return depot_dependencies

@@ -13,12 +13,6 @@ class ParametersAreNotConsistentError(DeadlineCloudSubmitterException):
     pass
 
 
-class PerforceConnectionError(DeadlineCloudSubmitterException):
-    """Raised when failed to connect to the Perforce with given credentials"""
-
-    pass
-
-
 class RenderStepCountConstraintError(DeadlineCloudSubmitterException):
     """Raised when the number of Render Steps in a Render Job is different from 1."""
 
@@ -45,3 +39,7 @@ class PathContainsNonValidCharacters(DeadlineCloudSubmitterException):
 
 class FailedToDetectFilesTransferStrategy(DeadlineCloudSubmitterException):
     """Raised when its failed to detect which strategy to use for transfer files to render"""
+
+
+class ProjectIsNotUnderWorkspaceError(Exception):
+    """Raised when current Unreal Project is not under the current Workspace"""

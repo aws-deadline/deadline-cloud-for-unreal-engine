@@ -32,6 +32,7 @@ class PerforceConnection:
         port: Optional[str] = None,
         user: Optional[str] = None,
         password: Optional[str] = None,
+        client: Optional[str] = None,
         charset="none",
     ):
         p4 = P4()
@@ -65,6 +66,10 @@ class PerforceConnection:
         if p4_password:
             p4.password = p4_password
             p4.run_login()
+
+        p4_client = client or os.getenv("P4CLIENT")
+        if p4_client:
+            p4.client = p4_client
 
         self.p4 = p4
 
