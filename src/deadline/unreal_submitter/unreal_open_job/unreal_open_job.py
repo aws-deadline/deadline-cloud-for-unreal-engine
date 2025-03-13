@@ -756,13 +756,20 @@ class RenderUnrealOpenJob(UnrealOpenJob):
     def _get_project_path_relative_to_workspace_root(workspace_root: str) -> str:
         workspace_root = workspace_root.replace("\\", "/")
         unreal_project_path = common.get_project_file_path().replace("\\", "/")
-        if not unreal_project_path.startswith(workspace_root):
+        if not unreal_project_path.lower().startswith(workspace_root.lower()):
             raise exceptions.ProjectIsNotUnderWorkspaceError(
                 f"Project {unreal_project_path} is not under the workspace root: {workspace_root}"
             )
 
-        unreal_project_relative_path = unreal_project_path.replace(workspace_root, "")
-        unreal_project_relative_path = unreal_project_relative_path.lstrip("/")
+        pattern = re.compile(re.escape(workspace_root), re.IGNORECASE)
+
+        unreal_project_relative_path = pattern.sub('', unreal_project_path, count=1).lstrip('/')
+        if unreal_project_relative_path == unreal_project_path:
+            raise RuntimeError(
+                "Something went wrong during getting Unreal Project Path relative to "
+                f"Perforce Workspace Root. Project path is {unreal_project_path}. "
+                f"Workspace Root: {workspace_root}"
+            )
 
         return unreal_project_relative_path
 

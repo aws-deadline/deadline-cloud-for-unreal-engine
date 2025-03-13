@@ -31,6 +31,7 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job import (  # noqa:
     UnrealOpenJobParameterDefinition,
     TransferProjectFilesStrategy,
 )
+from deadline.unreal_submitter import exceptions  # noqa: E402
 
 
 class TestUnrealOpenJobStepParameterDefinition:
@@ -416,3 +417,43 @@ class TestRenderUnrealOpenJob:
 
         # THEN
         assert transfer_strategy == strategy
+
+    @pytest.mark.parametrize(
+        "workspace_root, project_path, expected_relative_path",
+        [
+            (
+                "C:/Workspaces/Workspace1",
+                "C:/Workspaces/Workspace1\Project1.uproject",
+                "Project1.uproject",
+            ),
+            (
+                "C:\Workspaces/workspace1",
+                "C:/workspaces/Workspace1/UE5\Project1.uproject",
+                "UE5/Project1.uproject",
+            ),
+        ],
+    )
+    def test__get_project_path_relative_to_workspace_root(
+        self, workspace_root: str, project_path: str, expected_relative_path: str
+    ):
+        # GIVEN & WHEN
+        with patch("deadline.unreal_submitter.common.get_project_file_path", return_value=project_path):
+            relative_path = RenderUnrealOpenJob._get_project_path_relative_to_workspace_root(workspace_root)
+
+        # THEN
+        assert relative_path == expected_relative_path
+
+    @pytest.mark.parametrize(
+        "workspace_root, project_path",
+        [
+            ("C:/Workspaces/Workspace1", "C:/Workspaces/Workspace2\Project1.uproject"),
+            ("C:\Workspaces/workspace1", "C:/workspaces/Workspace2/UE5\Project1.uproject"),
+        ],
+    )
+    def test__get_project_path_relative_to_workspace_root_failed(
+        self, workspace_root: str, project_path: str
+    ):
+        # GIVEN & WHEN $ THEN
+        with patch("deadline.unreal_submitter.common.get_project_file_path", return_value=project_path):
+            with pytest.raises(exceptions.ProjectIsNotUnderWorkspaceError):
+                RenderUnrealOpenJob._get_project_path_relative_to_workspace_root(workspace_root)
