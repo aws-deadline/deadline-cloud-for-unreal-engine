@@ -400,15 +400,18 @@ def apply_perforce_secrets() -> None:
     - P4PORT
 
     .. warning::
-       Use with caution! In current implementation all retrieved env variables will be applied with
-       printing to stdout, some sensitive data can be reflected in the job execution history.
+       Be aware that by default environment variables are persisted by printing to stdout
+       (See the openjd_env: line at the end of this method). Consider adding a CloudWatch data
+       protection policy to prevent potentially sensitive information from being echoed to your logs.
+       (See Custom data identifiers - https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CWL-custom-data-identifiers.html)
 
     """
 
     logger.warning(
-        "When using environment variables to connect to Perforce, they will appear in the logs "
-        "with the prefix 'openjd_env'. Use with caution because sensitive data, such as the "
-        "password, port, and user, will be reflected in the job execution history."
+        "Be aware that by default environment variables are persisted by printing to stdout."
+        "Consider adding a CloudWatch data protection policy to prevent potentially sensitive "
+        "information from being echoed to your logs. (See Custom data identifiers - "
+        "https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CWL-custom-data-identifiers.html)"
     )
     logger.info("Applying perforce secrets from Boto3 SecretsManager ...")
 

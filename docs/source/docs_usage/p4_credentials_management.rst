@@ -118,10 +118,18 @@ which is referencing to ``src/unreal_plugin/Content/Python/openjd_templates/p4/p
    with prefix ``openjd_env:``. Please, see `OpenJD Environment`_ documentation about sharing new
    environment variables across actions and other environments in runtime.
 
-   **Use with caution because sensitive data, such as the password, port, and user,**
-   **will be reflected in the job execution history.**
+   **Consider adding a CloudWatch data protection policy to your account if you'll be echoing***
+   **sensitive information. For example, this will apply a global policy to your CloudWatch logs**
+   **which suppresses "openjd_env": lines which appear to be setting environment variables:**
+
+   .. literalinclude:: ../resources/logs_policy_example.sh
+    :language: sh
+    :linenos:
+
+   For more information and options please see `Custom data identifiers`_
 
 .. _OpenJD Environment: https://github.com/OpenJobDescription/openjd-specifications/blob/mainline/wiki/2023-09-Template-Schemas.md#4-environment
+.. _Custom data identifiers: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CWL-custom-data-identifiers.html
 
 You can override ``AWS_SECRET_P4INFO`` value in MRQ Slate UI (Environments overrides block) or update its value
 in the ``src/unreal_plugin/Content/Python/openjd_templates/p4/p4_apply_secrets_environment.yml`` file.
@@ -202,8 +210,10 @@ the `Deadline Cloud Queue Environments Git sample`_:
 Conclusions
 ***********
 
-#. The best option is to use AWS Secrets Manager to store connection credentials. It is the most secure,
-   and you can use it for both CMF and SMF.
+#. Perforce connection credentials can be stored in centralized location in Secrets Manager from a
+   secret your workers will retrieve at runtime. Be aware that with UGS this method currently
+   requires exposing these credentials to your job logs in your account. Consider using a data
+   protection policy to hide them. This will work for both CMF and SMF.
 #. If you have a CMF farm, where all workers are inside a network that is not accessible from the outside,
    then you can use a single P4 admin user on all workers, changing only ``P4PORT`` if necessary.
    Optionally, you can pass the credentials within the Job Environment.

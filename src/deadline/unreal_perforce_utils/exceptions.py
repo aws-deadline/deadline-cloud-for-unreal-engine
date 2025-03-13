@@ -15,3 +15,9 @@ class PerforceConnectionError(Exception):
     """Raised when failed to connect to the Perforce with given credentials"""
 
     pass
+
+
+class SecretsManagerError(Exception):
+    """Raised when failed to get secret from Boto3 SecretsManager"""
+
+    pass

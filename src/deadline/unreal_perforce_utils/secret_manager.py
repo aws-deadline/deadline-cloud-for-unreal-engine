@@ -3,13 +3,14 @@
 import os
 import ast
 import traceback
-from typing import Optional
+from typing import Optional, Any
 
 import boto3
 from botocore.exceptions import ClientError
 from botocore.utils import InstanceMetadataRegionFetcher
 
 from deadline.unreal_logger import get_logger
+from deadline.unreal_perforce_utils import exceptions
 
 
 logger = get_logger()
@@ -38,37 +39,60 @@ def get_secret_manager_client():
     return boto3.client(**client_params)
 
 
-def get_secret_from_env(secret_variable_name: str) -> Optional[str]:
+def get_secret(secret_name: str) -> str:
     """
     Retrieves a secret from Boto3 SecretsManager using passed environment variable name to get secret name.
 
-    :param secret_variable_name: The name of the environment variable containing the secret id
-    :type secret_variable_name: str
+    :param secret_name: The name (id) of the secret
+    :type secret_name: str
     :return: The secret string
-    :rtype: Optional[str]
+    :rtype: str
     """
-    logger.info(f"Getting secret from environment variable: {secret_variable_name}")
+    logger.info(f"Getting secret by name: {secret_name}")
 
     sm_client = get_secret_manager_client()
-
-    secret_id = os.getenv(secret_variable_name)
-    if secret_id in [None, ""]:
-        logger.warning(f"Cant get secret from empty environment variable {secret_variable_name}")
-        return None
-
     try:
-        response = sm_client.get_secret_value(SecretId=secret_id)
+        response = sm_client.get_secret_value(SecretId=secret_name)
     except ClientError as e:
-        logger.warning(
-            f"Failed to get secret from Boto3 SecretsManager by id {secret_id}."
+        raise exceptions.SecretsManagerError(
+            f"Failed to get secret from Boto3 SecretsManager by name {secret_name}."
             f"{e} -- {traceback.format_exc()}"
         )
-        return None
 
     if "SecretString" not in response:
         raise KeyError(f"SecretString key not found in response: {response}")
 
     return response["SecretString"]
+
+
+def validate_perforce_info(perforce_info_str: str, allowed_keys: set[str]) -> dict[str, Any]:
+    try:
+        perforce_info = ast.literal_eval(perforce_info_str)
+        if not isinstance(perforce_info, dict):
+            raise ValueError(
+                f"Perforce info string content is not a dictionary: {perforce_info_str}"
+            )
+
+        actual_keys = set(perforce_info.keys())
+        if not actual_keys:
+            raise ValueError(
+                "Perforce info must not be empty and should contain at least one of "
+                f"{allowed_keys}"
+            )
+
+        if not actual_keys.issubset(allowed_keys):
+            raise ValueError(
+                f"Perforce info contains invalid keys. "
+                f"Allowed keys: {allowed_keys}. Found: {actual_keys}"
+            )
+
+        return perforce_info
+
+    except (ValueError, SyntaxError) as e:
+        raise exceptions.SecretsManagerError(
+            f"Failed to parse perforce info from Boto3 SecretsManager: {perforce_info_str}."
+            f"{e} -- {traceback.format_exc()}"
+        )
 
 
 def get_perforce_info() -> Optional[dict[str, str]]:
@@ -81,11 +105,15 @@ def get_perforce_info() -> Optional[dict[str, str]]:
     """
 
     secret_env_name = "AWS_SECRET_P4INFO"
-    if os.getenv(secret_env_name) in [None, ""]:
+    secret_env_value = os.getenv(secret_env_name)
+    if secret_env_value == "":
         logger.warning(
-            f"{secret_env_name} environment variable not found or empty. Cant get perforce info"
+            f"{secret_env_name} environment variable is empty string ''. Skip get perforce info"
         )
         return None
+    if secret_env_value is None:
+        logger.warning(f"{secret_env_name} environment variable not found. Skip get perforce info")
+        return None
 
-    p4_info_secret = get_secret_from_env(secret_env_name)
-    return ast.literal_eval(p4_info_secret) if p4_info_secret else None
+    p4_info_secret = get_secret(secret_env_value)
+    return validate_perforce_info(p4_info_secret, allowed_keys={"P4PORT", "P4USER", "P4PASSWD"})
