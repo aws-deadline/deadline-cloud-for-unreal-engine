@@ -437,8 +437,12 @@ class TestRenderUnrealOpenJob:
         self, workspace_root: str, project_path: str, expected_relative_path: str
     ):
         # GIVEN & WHEN
-        with patch("deadline.unreal_submitter.common.get_project_file_path", return_value=project_path):
-            relative_path = RenderUnrealOpenJob._get_project_path_relative_to_workspace_root(workspace_root)
+        with patch(
+            "deadline.unreal_submitter.common.get_project_file_path", return_value=project_path
+        ):
+            relative_path = RenderUnrealOpenJob._get_project_path_relative_to_workspace_root(
+                workspace_root=workspace_root,
+            )
 
         # THEN
         assert relative_path == expected_relative_path
@@ -454,6 +458,8 @@ class TestRenderUnrealOpenJob:
         self, workspace_root: str, project_path: str
     ):
         # GIVEN & WHEN $ THEN
-        with patch("deadline.unreal_submitter.common.get_project_file_path", return_value=project_path):
+        with patch(
+            "deadline.unreal_submitter.common.get_project_file_path", return_value=project_path
+        ):
             with pytest.raises(exceptions.ProjectIsNotUnderWorkspaceError):
                 RenderUnrealOpenJob._get_project_path_relative_to_workspace_root(workspace_root)

@@ -763,7 +763,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         pattern = re.compile(re.escape(workspace_root), re.IGNORECASE)
 
-        unreal_project_relative_path = pattern.sub('', unreal_project_path, count=1).lstrip('/')
+        unreal_project_relative_path = pattern.sub("", unreal_project_path, count=1).lstrip("/")
         if unreal_project_relative_path == unreal_project_path:
             raise RuntimeError(
                 "Something went wrong during getting Unreal Project Path relative to "
