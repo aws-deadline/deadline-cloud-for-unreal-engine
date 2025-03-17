@@ -1,3 +1,13 @@
+## 0.5.0 (2025-03-17)
+
+
+### Features
+* support AWS Secrets Manager (#130) ([`b37d188`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/b37d18817ebe050cdf259d29be52f06dcfe65fef))
+* Adding checks with warnings to the build_plugin script for common configuration problems which can cause job failures. (#133) ([`f546e53`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/f546e53bb66a28c0049cfc902d5aa84c0ee342a9))
+* Switching to sorting tasks by ChunkId in DCM (#132) ([`1722d6e`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/1722d6ef8828b6db49cc63cd42429cb6ad885f3b))
+* support Perforce (#101) ([`fa2ef80`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/fa2ef80309807dbb0c901e2d4c896f1681a8b898))
+
+
 ## 0.4.0 (2025-03-01)
 
 
