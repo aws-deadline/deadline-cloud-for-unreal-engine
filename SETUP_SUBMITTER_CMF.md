@@ -185,7 +185,17 @@ To build and install your current copy of deadline-cloud-for-unreal-engine as a 
 python scripts/build_plugin.py --install --worker
 ```
 
-If you've installed with this script successfully, you can now skip to "Submit a Test Render"
+Configure the Deadline Cloud worker agent by running:
+
+```
+install-deadline-worker ^
+  --farm-id FARM_ID ^
+  --fleet-id FLEET_ID ^
+  --region REGION ^
+  --allow-shutdown
+```
+
+If you've installed with this script and configured worker agent successfully, you can now skip to "Submit a Test Render"
 
 
 ```
@@ -240,7 +250,7 @@ On your CMF Worker:
 1. Open Task Manager
 1. Open the Services tab
 1. Find “DeadlineWorker”
-1. If you don’t see it listed you’ve likely missed steps (install-deadline-worker in particular) from the CMF host setup steps
+	1. If you don’t see it listed you’ve likely missed steps (install-deadline-worker in particular) from [the CMF host setup steps](https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/worker-host.html#worker-agent-config)
 1. If the status of the service isn’t currently “Running”, right click it and select start
 1. Logs when launching the worker agent to help diagnose installation issues which can cause problems starting the service can be found in C:\ProgramData\Amazon\Deadline\Logs\worker-agent.log\* and C:\ProgramData\Amazon\Deadline\Logs\queue-<queueid>\session-<sessionid>.log
 
@@ -258,18 +268,17 @@ This example will use the Meerkat Demo from the Unreal Marketplace:
 1. Under Default Job Settings Classes, Click Add New, and add “DeadlineCloudRenderStepSetting”
 1. Now search for the settings for “Deadline Cloud” and ensure that your Status says “AUTHENTICATED” and your Deadline Cloud API says “AUTHORIZED”
 1. If it does not appear, first try using the Login button. If that doesn’t work, open your Deadline Cloud Monitor and ensure you're logged in.
-1. Open “Deadline Cloud Workstation Configuration”:
+1. Open “Deadline Cloud Workstation Configuration”.
 1. Under “Global Settings” ensure your AWS Profile is set correctly to your DCM Profile
 1. Under “Profile” ensure your Default Farm is set to your farm
 1. Under “Farm” ensure your Default Queue is set to your CMF you set up
-1. Optionally set your Job Attachments Filesystem to VIRTUAL
-1. Under Windows/Cinematics select Movie Render Queue
+1. Under Windows/Cinematics, select Movie Render Queue
 1. Click Render, and select "Main_SEQ"
 1. Click “UnsavedConfig” in the top in the settings column 1. you should see DeadlineCloud settings on the left. This window can then be closed.
 1. On the right, drop down “Preset Overrides” (You may need to widen this dialog)
 1. Set “Name” to “Unreal Test Job”
 1. Set “Maximum retries” to 2
 1. Optionally set "Task Chunk Size" to a number higher than 1 - this will tell Deadline Cloud to render the requested number of shots in groups as part of the same task, and may slightly increase performance in some cases.
-1. In Job Attachments, under “Input Files” select “Show Auto-Detected” and the list of Auto Detected Files should populate
-1. Ready to Go! Hit Render (Remote)
-1. You can go to Deadline Cloud Monitor and watch the progress of your job
+1. In Job Attachments, under “Input Files” select “Show Auto-Detected” and the list of Auto Detected Files should populate. 
+1. Ready to Go! Hit “Render (Remote)”. 
+1. You can go to Deadline Cloud Monitor and watch the progress of your job. 
