@@ -111,7 +111,7 @@ if remote_execution != "True":
     # These unused imports are REQUIRED!!!
     # Unreal Engine loads any init_unreal.py it finds in its search paths.
     # These imports finish the setup for the plugin.
-    from settings import DeadlineCloudDeveloperSettingsImplementation  # noqa: F401
+    from settings import DeadlineCloudSettingsLibraryImplementation  # noqa: F401
     from job_library import DeadlineCloudJobBundleLibraryImplementation  # noqa: F401
     from open_job_template_api import (  # noqa: F401
         PythonYamlLibraryImplementation,

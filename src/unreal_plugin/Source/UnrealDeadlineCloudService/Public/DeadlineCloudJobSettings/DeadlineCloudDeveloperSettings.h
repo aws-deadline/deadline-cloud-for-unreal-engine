@@ -3,216 +3,206 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "Engine/DeveloperSettings.h"
-#include "PythonAPILibraries/PythonAPILibrary.h"
+#include "PythonAPILibraries/DeadlineCloudSettingsLibrary.h"
 #include "DeadlineCloudDeveloperSettings.generated.h"
 
 /**
- * Container for Deadline Cloud global settings 
+ * Deadline Cloud Workstation Configuration settings located in Project -> Settings.
  */
-USTRUCT(BlueprintType)
-struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudGlobalPluginSettings
-{
-	GENERATED_BODY()
-
-	/**
-	 * Selected AWS profile. List of the available profiles is returned by "get_aws_profiles"
-	 * method of DeadlineCloudDeveloperSettingsImplementation
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_aws_profiles", DisplayPriority=0, Category="Global Settings"))
-	FString AWS_Profile;
-};
-
-/**
- * Container for Deadline cloud profile settings 
- */
-USTRUCT(BlueprintType)
-struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudProfilePluginSettings
-{
-	GENERATED_BODY()
-
-	/**
-	 * Path to directory where all generated Deadline Cloud job bundles will be places
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(DisplayPriority=1, Category="Profile Settings"))
-	FDirectoryPath JobHistoryDir;
-
-	/**
-	 * Selected Deadline cloud farm. List of the available farms is returned by "get_farms"
-	 * method of DeadlineCloudDeveloperSettingsImplementation
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_farms", DisplayPriority=2, Category="Profile Settings"))
-	FString DefaultFarm;
-};
-
-/**
- * Container for Deadline cloud farm settings
- */
-USTRUCT(BlueprintType)
-struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudFarmPluginSettings
-{
-	GENERATED_BODY()
-
-	/**
-	 * Selected Deadline cloud queue. List of the available queues is returned by "get_queues"
-	 * method of DeadlineCloudDeveloperSettingsImplementation
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_queues", DisplayPriority=3, Category="Farm Settings"))
-	FString DefaultQueue;
-
-	/**
-	 * Selected Deadline cloud storage profiles. List of the available storage profiles is returned by "get_storage_profiles"
-	 * method of DeadlineCloudDeveloperSettingsImplementation
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_storage_profiles", DisplayPriority=4, Category="Farm Settings"))
-	FString DefaultStorageProfile; 
-
-	/**
-	 * Selected Deadline cloud job attachment mode. List of the available job attachment modes is returned by "get_job_attachment_modes"
-	 * method of DeadlineCloudDeveloperSettingsImplementation
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_job_attachment_modes", DisplayPriority=5, Category="Farm Settings"))
-	FString JobAttachmentFilesystemOptions;
-};
-
-/**
- * Container for Deadline cloud general settings
- */
-USTRUCT(BlueprintType)
-struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudGeneralPluginSettings
-{
-	GENERATED_BODY()
-
-	/**
-	 * Deadline Cloud auto accept confirmation prompts setting
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(DisplayPriority=6, Category="General Settings"))
-	bool AutoAcceptConfirmationPrompts = false;
-
-	/**
-	 * Selected files conflict resolution strategy. List of the available strategies is returned by "get_conflict_resolution_options"
-	 * method of DeadlineCloudDeveloperSettingsImplementation
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_conflict_resolution_options", DisplayPriority=7, Category="General Settings"))
-	FString ConflictResolutionOption;
-
-	/**
-	 * Selected Deadline cloud logging level. List of the available strategies is returned by "get_conflict_resolution_options"
-	 * method of DeadlineCloudDeveloperSettingsImplementation
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="get_logging_levels", DisplayPriority=8, Category="General Settings"))
-	FString CurrentLoggingLevel;
-
-};
-
-/**
- * Deadline cloud status indicators (read-only)
- */
-USTRUCT(BlueprintType)
-struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudStatus
-{
-	GENERATED_BODY()
-
-	/** AwsCredentialsSource: NOT_VALID, HOST_PROVIDED, DEADLINE_CLOUD_MONITOR_LOGIN */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="cache")
-	FString CredsType;
-
-	/** AwsAuthenticationStatus: CONFIGURATION_ERROR, AUTHENTICATED, NEEDS_LOGIN */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="cache")
-	FString CredsStatus;
-
-	/** AWS API availability status: AUTHORIZED, NOT AUTHORIZED */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="cache")
-	FString ApiAvailability;
-};
-
-/**
- * Container for Deadline Cloud Workstation Configuration settings
- */
-USTRUCT(BlueprintType)
-struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudPluginSettings
-{
-	GENERATED_BODY()
-
-	/** Global settings */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(Category="Global Settings", DisplayPriority=0))
-	FDeadlineCloudGlobalPluginSettings GlobalSettings;
-
-	/** Profile settings */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(Category="Profile Settings", DisplayPriority=1))
-	FDeadlineCloudProfilePluginSettings Profile;
-
-	/** Farm settings */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(Category="Farm Settings", DisplayPriority=2))
-	FDeadlineCloudFarmPluginSettings Farm;
-
-	/** General settings */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(Category="General Settings", DisplayPriority=3))
-	FDeadlineCloudGeneralPluginSettings General;
-
-	/** Status (read-only) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(Category="cache", DisplayPriority=3))
-	FDeadlineCloudStatus State;
-};
-
-/**
- * Deadline Cloud Workstation Configuration settings located in Project -> Settings. The class is abstract and implemented in Python.
- * Python implementation DeadlineCloudDeveloperSettingsImplementation can be found in Plugin's Content/Python/settings.py
- */
-UCLASS(BlueprintType, Abstract, HideCategories="cache")
-class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudDeveloperSettings : public UDeveloperSettings, public TPythonAPILibraryBase<UDeadlineCloudDeveloperSettings>
+UCLASS(BlueprintType, HideCategories="cache")
+class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudDeveloperSettings : public UDeveloperSettings
 {
 	GENERATED_BODY()
 
 public:
-	/** Deadline Cloud Workstation Configuration settings container */
+
+	/** 
+	* Constructor for UDeadlineCloudDeveloperSettings.
+	*/
+	UDeadlineCloudDeveloperSettings();
+
+	/** 
+	* Gets the default instance of UDeadlineCloudDeveloperSettings.
+	* @return The default settings instance.
+	*/
+	static const UDeadlineCloudDeveloperSettings* Get() { return GetDefault<UDeadlineCloudDeveloperSettings>(); }
+
+	/** 
+	* Gets a mutable instance of UDeadlineCloudDeveloperSettings.
+	* @return A mutable settings instance.
+	*/
+	static UDeadlineCloudDeveloperSettings* GetMutable() { return GetMutableDefault<UDeadlineCloudDeveloperSettings>(); }
+
+	/** 
+	* Deadline Cloud Workstation Configuration settings container.
+	*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(Category="Deadline Cloud Workstation Configuration", DisplayPriority=2))
 	FDeadlineCloudPluginSettings WorkStationConfiguration;
 
-	/** @return Plugin settings main menu option */
+	/** 
+	* @return Plugin settings main menu option.
+	*/
 	virtual FName GetContainerName() const override { return FName("Project"); }
 	
-	/** @return Plugin settings category */
+	/** 
+	* @return Plugin settings category.
+	*/
 	virtual FName GetCategoryName() const override { return FName("Plugins"); }
 
+	/** 
+	* Retrieves the list of farms.
+	* @return An array of farm names.
+	*/
+	UFUNCTION(Category = DeadlineCloudSettings)
+	TArray<FString> GetFarmsList();
+
+	/** 
+	* Retrieves the list of AWS profiles.
+	* @return An array of AWS profile names.
+	*/
+	UFUNCTION(Category = DeadlineCloudSettings)
+	TArray<FString> GetAWSProfilesList();
+
+	/** 
+	* Retrieves the available logging levels.
+	* @return An array of logging level names.
+	*/
+	UFUNCTION(Category = DeadlineCloudSettings)
+	TArray<FString> GetLoggingLevels();
+
+	/** 
+	* Retrieves the conflict resolution options.
+	* @return An array of conflict resolution option names.
+	*/
+	UFUNCTION(Category = DeadlineCloudSettings)
+	TArray<FString> GetConflictResolutionOptions();
+
+	/** 
+	* Retrieves the list of storage profiles.
+	* @return An array of storage profile names.
+	*/
+	UFUNCTION(Category = DeadlineCloudSettings)
+	TArray<FString> GetStorageProfilesList();
+
+	/** 
+	* Retrieves the job attachment modes.
+	* @return An array of job attachment mode names.
+	*/
+	UFUNCTION(Category = DeadlineCloudSettings)
+	TArray<FString> GetJobAttachmentModes();
+
+	/** 
+	* Retrieves the list of queues.
+	* @return An array of queue names.
+	*/
+	UFUNCTION(Category = DeadlineCloudSettings)
+	TArray<FString> GetQueuesList();
+
 	/**
-	 * Override Settings Section name
-	 */
+	* Override Settings Section name.
+	*/
 #if WITH_EDITOR
+	/** 
+	* @return The section text for the settings.
+	*/
 	virtual FText GetSectionText() const override;
+
+	/** 
+	* @return The section name for the settings.
+	*/
 	virtual FName GetSectionName() const override;
+
+	/** 
+	* Handles property changes in the editor.
+	* @param PropertyChangedEvent The event that describes the property change.
+	*/
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+
+	/** 
+	* Initializes properties after construction.
+	*/
+	virtual void PostInitProperties() override;
 #endif
 
-	/** Registers OnSettingsModified method as delegate for setting values changes in the UI */
-	UDeadlineCloudDeveloperSettings();
+	/** Refreshes the settings. */
+	UFUNCTION(Category = DeadlineCloudSettings)
+	void Refresh();
 
-	/**
-	 * Delegate method which is called on each property value change in UI.
-	 * Method is implemented in Python, see "on_settings_modified" in DeadlineCloudDeveloperSettingsImplementation
-	 * @param PropertyPath path to modified property in Unreal reflection system properties naming format.
-	 */
-	UFUNCTION(BlueprintImplementableEvent, Category = DeadlineCloud)
-	void OnSettingsModified(const FString& PropertyPath);
-
-	/**
-	 * Delegate method which is called on each external Deadline Cloud settings directory update.
-	 * Settings directory update is handled by FDeadlineCloudStatusHandler
-	 */
-	UFUNCTION(BlueprintImplementableEvent, Category = DeadlineCloud)
+	/** 
+	* Delegate method called on each external Deadline Cloud settings directory update.
+	* Settings directory update is handled by FDeadlineCloudStatusHandler.
+	*/
+	UFUNCTION(Category = DeadlineCloudSettings)
 	void RefreshState();
 
-	/** Deadline cloud login */
-	UFUNCTION(BlueprintImplementableEvent, Category = DeadlineCloud)
+	/** Internal method to refresh state. */
+	void RefreshStateInternal();
+
+	/** 
+	* Refreshes settings from the default profile.
+	*/
+	UFUNCTION(Category = DeadlineCloudSettings)
+	void RefreshFromDefaultProfile();
+
+	/** Internal method to refresh from the default profile. */
+	void RefreshFromDefaultProfileInternal();
+
+	/** 
+	* Logs in to the Deadline Cloud.
+	*/
+	UFUNCTION(Category = DeadlineCloudSettings)
 	void Login();
 
-	/** Deadline cloud logout */
-	UFUNCTION(BlueprintImplementableEvent, Category = DeadlineCloud)
+	/** 
+	* Logs out of the Deadline Cloud.
+	*/
+	UFUNCTION(Category = DeadlineCloudSettings)
 	void Logout();
 
-	/** Get farm name by its ID */
-	UFUNCTION(BlueprintImplementableEvent, Category = DeadlineCloud)
-	FString GetFarmNameById(const FString& FarmId);
+	/** Saves settings to a file. */
+	void SaveToFile();
 
-	/** Get queue name by its ID */
-	UFUNCTION(BlueprintImplementableEvent, Category = DeadlineCloud)
-	FString GetQueueNameById(const FString& QueueId);
+protected:
+	FDeadlineCloudPluginSettingsCache WorkStationConfigurationCache;
+
+	/** Updates the queues cache list. */
+	void UpdateQueuesCacheList();
+
+	/** Updates the storage profiles cache list. */
+	void UpdateStorageProfilesCacheList();
+
+	/** Updates the farms cache list. */
+	void UpdateFarmsCacheList();
+
+	/** 
+	* Finds an AWS entity by its ID.
+	* @param Id The ID of the entity to find.
+	* @param EntityList The list of entities to search.
+	* @return The found AWS entity.
+	*/
+	static FUnrealAwsEntity FindAwsEntityById(const FString& Id, const TArray<FUnrealAwsEntity>& EntityList);
+
+	/** 
+	* Finds a farm by its ID.
+	* @param FarmId The ID of the farm to find.
+	* @param bUpdateFarmsList Whether to update the farms list.
+	* @return The found farm entity.
+	*/
+	FUnrealAwsEntity FindFarmById(const FString& FarmId, bool bUpdateFarmsList = false);
+
+	/** 
+	* Finds a storage profile by its ID.
+	* @param StorageProfileId The ID of the storage profile to find.
+	* @param bUpdateStorageProfilesList Whether to update the storage profiles list.
+	* @return The found storage profile entity.
+	*/
+	FUnrealAwsEntity FindStorageProfileById(const FString& StorageProfileId, bool bUpdateStorageProfilesList = false);
+
+	/** 
+	* Finds a queue by its ID.
+	* @param QueueId The ID of the queue to find.
+	* @param bUpdateQueuesList Whether to update the queues list.
+	* @return The found queue entity.
+	*/
+	FUnrealAwsEntity FindQueueById(const FString& QueueId, bool bUpdateQueuesList = false);
 };

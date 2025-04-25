@@ -2,6 +2,7 @@
 
 #include "DeadlineCloudJobSettings/DeadlineCloudSettingsDetails.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudDeveloperSettings.h"
+#include "PythonAPILibraries/DeadlineCloudSettingsLibrary.h"
 #include "DetailLayoutBuilder.h"
 #include "DetailWidgetRow.h"
 #include "Widgets/Input/SButton.h"
@@ -26,10 +27,11 @@ void FDeadlineCloudSettingsDetails::CustomizeDetails(IDetailLayoutBuilder& Detai
     TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
     DetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
     Settings = Cast<UDeadlineCloudDeveloperSettings>(ObjectsBeingCustomized[0].Get());
+	//Settings->Refresh();
     DeadlineCloudStatusHandler = MakeUnique<FDeadlineCloudStatusHandler>(Settings.Get());
     DeadlineCloudStatusHandler->StartDirectoryWatch();
 
-    IDetailCategoryBuilder& LoginCategory = DetailBuilder.EditCategory("Login DeadlineCloud");
+    IDetailCategoryBuilder& LoginCategory = DetailBuilder.EditCategory("Login DeadlineCloud", FText::GetEmpty(), ECategoryPriority::Important);
     LoginCategory.AddCustomRow(LOCTEXT("DeadlineCloudLogin", "DeadlineCloudLogin"))
         .ValueContent()
     	[
@@ -43,7 +45,7 @@ void FDeadlineCloudSettingsDetails::CustomizeDetails(IDetailLayoutBuilder& Detai
 				.ToolTipText(LOCTEXT("DeadlineCloudLogin_Tooltip", "Login"))
 				.OnClicked_Lambda([this]()
 				{
-					if (const auto LoginLib = UDeadlineCloudDeveloperSettings::Get())
+					if (auto LoginLib = UDeadlineCloudDeveloperSettings::GetMutable())
 					{
 						LoginLib->Login();
 					}
@@ -59,7 +61,7 @@ void FDeadlineCloudSettingsDetails::CustomizeDetails(IDetailLayoutBuilder& Detai
 				.ToolTipText(LOCTEXT("DeadlineCloudLogout_Tooltip", "Logout"))
 				.OnClicked_Lambda([this]()
 				{
-					if (const auto LoginLib = UDeadlineCloudDeveloperSettings::Get())
+					if (auto LoginLib = UDeadlineCloudDeveloperSettings::GetMutable())
 					{
 						LoginLib->Logout();
 					}
@@ -70,7 +72,8 @@ void FDeadlineCloudSettingsDetails::CustomizeDetails(IDetailLayoutBuilder& Detai
 	
 	DetailBuilder.HideCategory(TEXT("cache"));
 
-	IDetailCategoryBuilder& StatusCategory = DetailBuilder.EditCategory("DeadlineCloud Status");
+	IDetailCategoryBuilder& StatusCategory = DetailBuilder.EditCategory("DeadlineCloud Status", FText::GetEmpty(), ECategoryPriority::TypeSpecific);
+
 	StatusCategory.AddCustomRow(LOCTEXT("DeadlineCloudStatus", "DeadlineCloudStatus"))
 		.ValueContent()
 		[

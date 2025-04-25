@@ -1,7 +1,6 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import sys
-import threading
 import unreal
 
 import boto3
@@ -18,27 +17,11 @@ from deadline.unreal_logger import get_logger
 logger = get_logger()
 
 
-@unreal.ustruct()
-class UnrealAwsEntity(unreal.StructBase):
-    id = unreal.uproperty(str)
-    name = unreal.uproperty(str)
-
-    @staticmethod
-    def create(entity_dict, id_field):
-        """
-        Create a new AwsEntity instance.
-
-        :param entity_dict: A dictionary containing the entity data.
-        :type entity_dict: dict
-        :param id_field: The name of the field that represents the entity's ID.
-        :type id_field: str
-        :return: The newly created AwsEntity instance.
-        :rtype: AwsEntity
-        """
-        aws_entity = UnrealAwsEntity()
-        aws_entity.id = entity_dict[id_field]
-        aws_entity.name = entity_dict["displayName"]
-        return aws_entity
+def create_aws_entity(entity_dict, id_field):
+    aws_entity = unreal.UnrealAwsEntity()
+    aws_entity.id = entity_dict[id_field]
+    aws_entity.name = entity_dict["displayName"]
+    return aws_entity
 
 
 # TODO handling config parameter in api calls
@@ -56,125 +39,45 @@ def _get_current_os() -> str:
 
 
 @unreal.uclass()
-class DeadlineCloudDeveloperSettingsImplementation(unreal.DeadlineCloudDeveloperSettings):
-    farms_cache_list = unreal.uproperty(unreal.Array(UnrealAwsEntity), meta=dict(Category="Cache"))
-    queues_cache_list = unreal.uproperty(unreal.Array(UnrealAwsEntity), meta=dict(Category="Cache"))
-    storage_profile_cache_list = unreal.uproperty(
-        unreal.Array(UnrealAwsEntity), meta=dict(Category="Cache")
-    )
+class DeadlineCloudSettingsLibraryImplementation(unreal.DeadlineCloudSettingsLibrary):
 
     def _post_init(self):
-        self.refresh_from_default_profile()
-        self.refresh_state()
+        self.init_from_python()
 
-    def refresh_from_default_profile(self):
-        t = threading.Thread(target=self.__refresh_deadline_settings, daemon=True)
-        t.start()
+    @unreal.ufunction(override=True)
+    def get_aws_config_setting(self, setting_name: str) -> str:
+        return config.get_setting(setting_name)
 
-    def __refresh_deadline_settings(self):
-        # TODO handle case when user is not logged in
-        try:
-            aws_profile_name = config.get_setting("defaults.aws_profile_name")
-            logger.info(f"aws_profile_name type: {type(aws_profile_name)}")
-            logger.info(f"aws_profile_name value: {aws_profile_name}")
+    @unreal.ufunction(override=True)
+    def set_aws_config_setting(self, setting_name: str, setting_value: str) -> None:
+        config.set_setting(setting_name, setting_value)
 
-            if isinstance(aws_profile_name, list):
-                # Handle the case where it's a list instead of a string
-                logger.warning(f"aws_profile_name is a list: {aws_profile_name}")
-                # Use the first item if available, otherwise use a default
-                aws_profile_name = aws_profile_name[0] if aws_profile_name else "(default)"
-
-            if aws_profile_name in ["(default)", "default", ""]:
-                aws_profile_name = "(default)"
-
-            self.work_station_configuration.global_settings.aws_profile = aws_profile_name
-
-            self.work_station_configuration.profile.job_history_dir.path = config.get_setting(
-                "settings.job_history_dir"
-            ).replace("\\", "/")
-
-            farm_id = config.get_setting("defaults.farm_id")
-            farm_entity = self.find_farm_by_id(farm_id)
-
-            if farm_entity is not None:
-                self.work_station_configuration.profile.default_farm = farm_entity.name
-
-            queue_id = config.get_setting("defaults.queue_id")
-            queue_entity = self.find_queue_by_id(queue_id)
-            if queue_entity is not None:
-                self.work_station_configuration.farm.default_queue = queue_entity.name
-
-            storage_profile_id = config.get_setting("settings.storage_profile_id")
-            storage_profile_entity = self.find_storage_profile_by_id(storage_profile_id)
-            if storage_profile_entity is not None:
-                self.work_station_configuration.farm.default_storage_profile = (
-                    storage_profile_entity.name
-                )
-
-            self.work_station_configuration.farm.job_attachment_filesystem_options = (
-                config.get_setting("defaults.job_attachments_file_system")
-            )
-
-            self.work_station_configuration.general.auto_accept_confirmation_prompts = (
-                config.get_setting("settings.auto_accept") == "true"
-            )
-
-            self.work_station_configuration.general.conflict_resolution_option = config.get_setting(
-                "settings.conflict_resolution"
-            )
-
-            self.work_station_configuration.general.current_logging_level = config.get_setting(
-                "settings.log_level"
-            )
-        except Exception as e:
-            # Add comprehensive error logging
-            logger.error(f"Error in __refresh_deadline_settings: {str(e)}")
-            logger.error(f"Error type: {type(e).__name__}")
-            import traceback
-
-            logger.error(f"Traceback: {traceback.format_exc()}")
-            # Continue with default values if there's an error
-            self.work_station_configuration.global_settings.aws_profile = "(default)"
-
-    @unreal.ufunction(ret=unreal.Array(str))
-    def get_aws_profiles(self):
-        session = boto3.Session()
-        aws_profile_names = list(session._session.full_config["profiles"].keys())
-        for i in range(len(aws_profile_names)):
-            if aws_profile_names[i] in ["default", "(defaults)", ""]:
-                aws_profile_names[i] = "(default)"
-        return aws_profile_names
-
-    @unreal.ufunction(ret=unreal.Array(str))
-    def get_farms(self):
+    @unreal.ufunction(override=True)
+    def get_farms(self) -> list:
         try:
             response = api.list_farms()
-            self.farms_cache_list = [
-                UnrealAwsEntity.create(item, "farmId") for item in response["farms"]
-            ]
+            farms_list = [create_aws_entity(item, "farmId") for item in response["farms"]]
         # TODO: do proper exception handling
         except Exception:
             return []
-        return [farm.name for farm in self.farms_cache_list]
+        return farms_list
 
-    @unreal.ufunction(ret=unreal.Array(str))
-    def get_queues(self):
+    @unreal.ufunction(override=True)
+    def get_queues(self) -> list:
         default_farm_id = config_file.get_setting("defaults.farm_id")
         if default_farm_id:
             try:
                 response = api.list_queues(farmId=default_farm_id)
-                self.queues_cache_list = [
-                    UnrealAwsEntity.create(item, "queueId") for item in response["queues"]
-                ]
+                queues_list = [create_aws_entity(item, "queueId") for item in response["queues"]]
             # TODO: do proper exception handling
             except Exception:
-                self.queues_cache_list = []
+                queues_list = []
         else:
-            self.queues_cache_list = []
-        return [queue.name for queue in self.queues_cache_list]
+            queues_list = []
+        return queues_list
 
-    @unreal.ufunction(ret=unreal.Array(str))
-    def get_storage_profiles(self):
+    @unreal.ufunction(override=True)
+    def get_storage_profiles(self) -> list:
         default_farm_id = config_file.get_setting("defaults.farm_id")
         default_queue_id = config_file.get_setting("defaults.queue_id")
         if default_farm_id and default_queue_id:
@@ -191,228 +94,39 @@ class DeadlineCloudDeveloperSettingsImplementation(unreal.DeadlineCloudDeveloper
                         "osFamily": _get_current_os(),
                     }
                 )
-                self.storage_profile_cache_list = [
-                    UnrealAwsEntity.create(item, "storageProfileId") for item in items
+                storage_profile_list = [
+                    create_aws_entity(item, "storageProfileId") for item in items
                 ]
             # TODO: do proper exception handling
             except Exception:
-                self.storage_profile_cache_list = []
-            return [storage_profile.name for storage_profile in self.storage_profile_cache_list]
+                storage_profile_list = []
+            return storage_profile_list
         else:
-            self.storage_profile_cache_list = []
-        return self.storage_profile_cache_list
-
-    @unreal.ufunction(ret=unreal.Array(str))
-    def get_job_attachment_modes(self):
-        return ["COPIED", "VIRTUAL"]
-
-    @unreal.ufunction(ret=unreal.Array(str))
-    def get_conflict_resolution_options(self):
-        return [option.name for option in FileConflictResolution]
-
-    @unreal.ufunction(ret=unreal.Array(str))
-    def get_logging_levels(self):
-        return ["ERROR", "WARNING", "INFO", "DEBUG"]
+            storage_profile_list = []
+        return storage_profile_list
 
     @unreal.ufunction(override=True)
-    def refresh_state(self):
-        t = threading.Thread(target=self.__refresh_deadline_status, daemon=True)
-        t.start()
-
-    def __refresh_deadline_status(self):
+    def get_api_status(self) -> unreal.DeadlineCloudStatus:
         config_parser = config_file.read_config()
-        self.work_station_configuration.state.creds_type = api.get_credentials_source(
-            config=config_parser
-        ).name
+        state = unreal.DeadlineCloudStatus()
+        state.creds_type = api.get_credentials_source(config=config_parser).name
 
         creds_status = api.check_authentication_status(config=config_parser)
-        self.work_station_configuration.state.creds_status = creds_status.name
+        state.creds_status = creds_status.name
 
         if creds_status == AwsAuthenticationStatus.AUTHENTICATED:
-            self.work_station_configuration.state.api_availability = (
+            state.api_availability = (
                 "AUTHORIZED"
                 if api.check_deadline_api_available(config=config_parser)
                 else "NOT AUTHORIZED"
             )
         else:
-            self.work_station_configuration.state.api_availability = "NOT AUTHORIZED"
+            state.api_availability = "NOT AUTHORIZED"
+
+        return state
 
     @unreal.ufunction(override=True)
-    def on_settings_modified(self, property_name):
-        """
-        TODO refresh config
-        1. When we change an "aws profile" we need to pull Job history dir and default farm
-        2. When we change "default farm" we need to pull default queue,
-           default storage profile, and job attachment fs options
-        """
-        logger.info(f"Changed property: {property_name}")
-
-        # This means we need to change default profile
-        # If the default profile is changed then we update it in the config first
-        # after that we need to save this setting first and read settings for all other values
-        if property_name == "AWS_Profile":
-            config.set_setting(
-                "defaults.aws_profile_name",
-                self.work_station_configuration.global_settings.aws_profile,
-            )
-            self.refresh_from_default_profile()
-            return
-
-        if property_name == "DefaultFarm":
-            farm_value = self.work_station_configuration.profile.default_farm
-            logger.info(f"Farm value: {farm_value}")
-
-            farm = self.find_farm_by_name(farm_value)
-            if farm is not None:
-                # Found by name, use the ID
-                current_farm_id = config.get_setting("defaults.farm_id")
-                if current_farm_id != farm.id:
-                    logger.info(f"Found farm with name {farm_value}, setting ID: {farm.id}")
-                    config.set_setting("defaults.farm_id", farm.id)
-                else:
-                    logger.info(f"Farm ID unchanged (already {farm.id}), skipping update")
-            else:
-                logger.warning(f"Could not find farm with name: {farm_value}")
-
-            self.refresh_from_default_profile()
-            return
-
-        # Handle DefaultQueue property similarly to farm
-        if property_name == "DefaultQueue":
-            queue_value = self.work_station_configuration.farm.default_queue
-            logger.info(f"Queue value: {queue_value}")
-
-            queue = self.find_queue_by_name(queue_value)
-            if queue is not None:
-                # Found by name, use the ID
-                current_queue_id = config.get_setting("defaults.queue_id")
-                if current_queue_id != queue.id:
-                    logger.info(f"Found queue with name {queue_value}, setting ID: {queue.id}")
-                    config.set_setting("defaults.queue_id", queue.id)
-                else:
-                    logger.info(f"Queue ID unchanged (already {queue.id}), skipping update")
-            else:
-                logger.warning(f"Could not find queue with name: {queue_value}")
-            return
-
-        self.save_to_file()
-
-    @unreal.ufunction(override=True)
-    def get_farm_name_by_id(self, farm_id):
-        farm = self.find_farm_by_id(farm_id)
-        return farm.name if farm is not None else ""
-
-    @unreal.ufunction(override=True)
-    def get_queue_name_by_id(self, queue_id):
-        queue = self.find_queue_by_id(queue_id)
-        return queue.name if queue is not None else ""
-
-    def find_farm_by_id(self, farm_id):
-        _ = self.get_farms()
-        farm = next((farm for farm in self.farms_cache_list if farm.id == farm_id), None)
-        return farm
-
-    def find_queue_by_id(self, queue_id):
-        _ = self.get_queues()
-        queue = next((queue for queue in self.queues_cache_list if queue.id == queue_id), None)
-        return queue
-
-    def find_storage_profile_by_id(self, storage_profile_id):
-        _ = self.get_storage_profiles()
-        storage_profile = next(
-            (
-                storage_profile
-                for storage_profile in self.storage_profile_cache_list
-                if storage_profile.id == storage_profile_id
-            ),
-            None,
-        )
-        return storage_profile
-
-    def find_farm_by_name(self, farm_name):
-        # response = api.list_farms()
-        farm = next((farm for farm in self.farms_cache_list if farm.name == farm_name), None)
-        return farm
-
-    def find_queue_by_name(self, queue_name):
-        # default_farm_id = config_file.get_setting("defaults.farm_id")
-        # response = api.list_queues(farmId=default_farm_id)
-        queue = next((queue for queue in self.queues_cache_list if queue.name == queue_name), None)
-        return queue
-
-    def find_storage_by_name(self, storage_profile_name):
-        storage_profile = next(
-            (item for item in self.storage_profile_cache_list if item.name == storage_profile_name),
-            None,
-        )
-        return storage_profile
-
-    def save_to_file(self):
-        config_parser = config_file.read_config()
-        config.set_setting(
-            "defaults.aws_profile_name",
-            self.work_station_configuration.global_settings.aws_profile,
-            config=config_parser,
-        )
-
-        config.set_setting(
-            "settings.job_history_dir",
-            self.work_station_configuration.profile.job_history_dir.path,
-            config=config_parser,
-        )
-
-        farm = self.find_farm_by_name(self.work_station_configuration.profile.default_farm)
-        if farm is not None:
-            logger.info(f"Update default farm: {farm.id} -- {farm.name}")
-            config.set_setting("defaults.farm_id", farm.id, config=config_parser)
-
-        queue = self.find_queue_by_name(self.work_station_configuration.farm.default_queue)
-        if queue is not None:
-            logger.info(f"Update default queue: {queue.id} -- {queue.name}")
-            config.set_setting("defaults.queue_id", queue.id, config=config_parser)
-
-        storage_profile = self.find_storage_by_name(
-            self.work_station_configuration.farm.default_storage_profile
-        )
-        if storage_profile is not None:
-            logger.info(
-                f"Update default storage profile: {storage_profile.id} "
-                f"-- {storage_profile.name}"
-            )
-            config.set_setting(
-                "settings.storage_profile_id", storage_profile.id, config=config_parser
-            )
-
-        # farm.job_attachment_filesystem_options (defaults.job_attachments_file_system)
-        config.set_setting(
-            "defaults.job_attachments_file_system",
-            self.work_station_configuration.farm.job_attachment_filesystem_options,
-            config=config_parser,
-        )
-
-        if self.work_station_configuration.general.auto_accept_confirmation_prompts:
-            config.set_setting("settings.auto_accept", "true", config=config_parser)
-        else:
-            config.set_setting("settings.auto_accept", "false", config=config_parser)
-
-        # general.conflict_resolution_option (settings.conflict_resolution)
-        config.set_setting(
-            "settings.conflict_resolution",
-            self.work_station_configuration.general.conflict_resolution_option,
-            config=config_parser,
-        )
-
-        # general.current_logging_level
-        config.set_setting(
-            "settings.log_level",
-            self.work_station_configuration.general.current_logging_level,
-            config=config_parser,
-        )
-
-        config_file.write_config(config_parser)
-
-    @unreal.ufunction(override=True)
-    def login(self):
+    def login(self) -> bool:
         logger.info("login")
 
         def on_pending_authorization(**kwargs):
@@ -436,12 +150,109 @@ class DeadlineCloudDeveloperSettingsImplementation(unreal.DeadlineCloudDeveloper
             unreal.EditorDialog.show_message(
                 "Deadline Cloud", success_message, unreal.AppMsgType.OK, unreal.AppReturnType.OK
             )
-            self.refresh_from_default_profile()
-            self.refresh_state()
+            return True
+
+        return False
 
     @unreal.ufunction(override=True)
-    def logout(self):
+    def logout(self) -> None:
         logger.info("Deadline Cloud logout")
         api.logout()
-        self.refresh_from_default_profile()
-        self.refresh_state()
+
+    @unreal.ufunction(override=True)
+    def get_aws_profiles(self) -> list:
+        session = boto3.Session()
+        aws_profile_names = list(session._session.full_config["profiles"].keys())
+        for i in range(len(aws_profile_names)):
+            if aws_profile_names[i] in ["default", "(defaults)", ""]:
+                aws_profile_names[i] = "(default)"
+        return aws_profile_names
+
+    @unreal.ufunction(override=True)
+    def get_conflict_resolution_options(self) -> list:
+        return [option.name for option in FileConflictResolution]
+
+    @unreal.ufunction(override=True)
+    def get_job_attachment_modes(self) -> list:
+        return ["COPIED", "VIRTUAL"]
+
+    @unreal.ufunction(override=True)
+    def get_logging_levels(self) -> list:
+        return ["ERROR", "WARNING", "INFO", "DEBUG"]
+
+    @staticmethod
+    def find_entity_by_name(name, objects_list: unreal.UnrealAwsEntity):
+        result_object = next(
+            (result_object for result_object in objects_list if result_object.name == name), None
+        )
+        return result_object
+
+    @unreal.ufunction(override=True)
+    def save_to_aws_config(
+        self,
+        settings: unreal.DeadlineCloudPluginSettings,
+        cache: unreal.DeadlineCloudPluginSettingsCache,
+    ) -> None:
+        config_parser = config_file.read_config()
+        config.set_setting(
+            "defaults.aws_profile_name",
+            settings.global_settings.aws_profile,
+            config=config_parser,
+        )
+
+        config.set_setting(
+            "settings.job_history_dir",
+            settings.profile.job_history_dir.path,
+            config=config_parser,
+        )
+
+        farm = self.find_entity_by_name(settings.profile.default_farm, cache.farms_cache_list)
+        if farm is not None:
+            logger.info(f"Update default farm: {farm.id} -- {farm.name}")
+            config.set_setting("defaults.farm_id", farm.id, config=config_parser)
+
+        queue = self.find_entity_by_name(settings.farm.default_queue, cache.queues_cache_list)
+        if queue is not None:
+            logger.info(f"Update default queue: {queue.id} -- {queue.name}")
+            config.set_setting("defaults.queue_id", queue.id, config=config_parser)
+
+        storage_profile = self.find_entity_by_name(
+            settings.farm.default_storage_profile, cache.storage_profiles_cache_list
+        )
+
+        if storage_profile is not None:
+            logger.info(
+                f"Update default storage profile: {storage_profile.id} "
+                f"-- {storage_profile.name}"
+            )
+            config.set_setting(
+                "settings.storage_profile_id", storage_profile.id, config=config_parser
+            )
+
+        # farm.job_attachment_filesystem_options (defaults.job_attachments_file_system)
+        config.set_setting(
+            "defaults.job_attachments_file_system",
+            settings.farm.job_attachment_filesystem_options,
+            config=config_parser,
+        )
+
+        if settings.general.auto_accept_confirmation_prompts:
+            config.set_setting("settings.auto_accept", "true", config=config_parser)
+        else:
+            config.set_setting("settings.auto_accept", "false", config=config_parser)
+
+        # general.conflict_resolution_option (settings.conflict_resolution)
+        config.set_setting(
+            "settings.conflict_resolution",
+            settings.general.conflict_resolution_option,
+            config=config_parser,
+        )
+
+        # general.current_logging_level
+        config.set_setting(
+            "settings.log_level",
+            settings.general.current_logging_level,
+            config=config_parser,
+        )
+
+        config_file.write_config(config_parser)
