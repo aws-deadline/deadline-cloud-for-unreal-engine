@@ -2,6 +2,7 @@
 
 import sys
 import unreal
+from typing import Any
 
 import boto3
 import deadline.client.config as config
@@ -17,10 +18,22 @@ from deadline.unreal_logger import get_logger
 logger = get_logger()
 
 
-def create_aws_entity(entity_dict, id_field):
+def create_aws_entity(entity_descriptor: dict[str, Any], id_field: str) -> unreal.UnrealAwsEntity:
+    """
+    Create and return instance of UnrealAwsEntity
+
+    :param entity_descriptor: Dictionary descriptor of the entity
+    :type entity_descriptor: dict[str, Any]
+    :param id_field: ID key name of the entity property to get from descriptor and store
+                     in UnrealAwsEntity.id
+    :type id_field: str
+    :return: UnrealAwsEntity object
+    :rtype: unreal.UnrealAwsEntity
+    """
+
     aws_entity = unreal.UnrealAwsEntity()
-    aws_entity.id = entity_dict[id_field]
-    aws_entity.name = entity_dict["displayName"]
+    aws_entity.id = entity_descriptor[id_field]
+    aws_entity.name = entity_descriptor["displayName"]
     return aws_entity
 
 
