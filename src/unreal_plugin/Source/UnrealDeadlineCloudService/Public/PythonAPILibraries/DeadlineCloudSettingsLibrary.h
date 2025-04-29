@@ -217,7 +217,7 @@ public:
     /**
 	* Called after python initialization to set up the library and update settings.
     */
-    UFUNCTION(BlueprintCallable)
+    UFUNCTION(BlueprintCallable, Category = "DeadlineCloudSettingsLibrary")
     void InitFromPython();
 
     /** 
