@@ -159,7 +159,7 @@ void FDeadlineCloudEnvironmentParametersMapBuilder::GenerateChildContent(IDetail
 					.FillWidth(1.0f)
 					.Padding(2.0f, 0.0f)
 					[
-						ValueWidget.ToSharedRef()
+						FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(ItemHandle, EValueType::STRING, EValueValidationType::EnvParameterValue)
 					]
 			];
 

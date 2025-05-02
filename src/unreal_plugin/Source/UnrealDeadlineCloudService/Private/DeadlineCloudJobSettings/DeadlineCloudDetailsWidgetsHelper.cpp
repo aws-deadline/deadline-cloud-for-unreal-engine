@@ -1,12 +1,15 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 #include "DeadlineCloudJobSettings/DeadlineCloudDetailsWidgetsHelper.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudInputValidationHelper.h"
 #include "Widgets/Input/SFilePathPicker.h"
 #include "DetailLayoutBuilder.h"
 #include "Widgets/Input/SNumericEntryBox.h"
 #include "EditorDirectories.h"
+#include "Widgets/Notifications/SPopUpErrorText.h"
 
 #define LOCTEXT_NAMESPACE "DeadlineWidgets"
+
 /*
 SDeadlineCloudFilePathWidget is a custom Slate widget class that implements a file path picker interface.
  */
@@ -15,43 +18,93 @@ class  SDeadlineCloudFilePathWidget : public SCompoundWidget
 public:
     SLATE_BEGIN_ARGS(SDeadlineCloudFilePathWidget) {}
         SLATE_ARGUMENT(TSharedPtr<IPropertyHandle>, PathPropertyHandle)
+		SLATE_EVENT(FOnVerifyTextChanged, IsValidInput)
     SLATE_END_ARGS()
     void Construct(const FArguments& InArgs);
 private:
     TSharedPtr<IPropertyHandle> PathProperty;
+	FOnVerifyTextChanged IsValidInput;
+	TSharedPtr<SPopupErrorText> ErrorReporting;
+	bool bUpdateErrorReporting = false;
+
     FString GetSelectedFilePath() const;
     void OnPathPicked(const FString& PickedPath);
+	EVisibility GetErrorReportingVisibility() const;
 };
 
 void SDeadlineCloudFilePathWidget::Construct(const FArguments& InArgs)
 {
     PathProperty = InArgs._PathPropertyHandle;
+	IsValidInput = InArgs._IsValidInput;
+
     ChildSlot
         [
-            SNew(SFilePathPicker)
-				.BrowseButtonImage(FAppStyle::GetBrush("PropertyWindow.Button_Ellipsis"))
-				.BrowseButtonStyle(FAppStyle::Get(), "HoverHintOnly")
-				.BrowseButtonToolTip(LOCTEXT("FileButtonToolTipText", "Choose a file from this computer"))
-				.BrowseDirectory(FEditorDirectories::Get().GetLastDirectory(ELastDirectory::GENERIC_OPEN))
-				.BrowseTitle(LOCTEXT("PropertyEditorTitle", "File picker..."))
-				.FilePath(this, &SDeadlineCloudFilePathWidget::GetSelectedFilePath)
-				.OnPathPicked(this, &SDeadlineCloudFilePathWidget::OnPathPicked)
+			SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.VAlign(VAlign_Fill)
+				.HAlign(HAlign_Fill)
+				.FillWidth(1)
+				[
+					SNew(SFilePathPicker)
+						.BrowseButtonImage(FAppStyle::GetBrush("PropertyWindow.Button_Ellipsis"))
+						.BrowseButtonStyle(FAppStyle::Get(), "HoverHintOnly")
+						.BrowseButtonToolTip(LOCTEXT("FileButtonToolTipText", "Choose a file from this computer"))
+						.BrowseDirectory(FEditorDirectories::Get().GetLastDirectory(ELastDirectory::GENERIC_OPEN))
+						.BrowseTitle(LOCTEXT("PropertyEditorTitle", "File picker..."))
+						.FilePath(this, &SDeadlineCloudFilePathWidget::GetSelectedFilePath)
+						.OnPathPicked(this, &SDeadlineCloudFilePathWidget::OnPathPicked)
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(3, 0)
+				[
+					SAssignNew(ErrorReporting, SPopupErrorText)
+						.Visibility(TAttribute<EVisibility>::Create(
+							TAttribute<EVisibility>::FGetter::CreateSP(this, &SDeadlineCloudFilePathWidget::GetErrorReportingVisibility)))
+				]
 		];
+
+	if (IsValidInput.IsBound())
+	{
+		FText OutError = FText::GetEmpty();
+		IsValidInput.Execute(FText::FromString(GetSelectedFilePath()), OutError);
+		ErrorReporting->SetError(OutError);
+	}
+}
+
+EVisibility SDeadlineCloudFilePathWidget::GetErrorReportingVisibility() const
+{
+	if (ErrorReporting.IsValid())
+	{
+		return ErrorReporting->HasError() ? EVisibility::Visible : EVisibility::Hidden;
+	}
+	return EVisibility::Collapsed;
 }
 
 void SDeadlineCloudFilePathWidget::OnPathPicked(const FString& PickedPath)
 {
 	FPropertyAccess::Result PathResult = PathProperty->SetValue(PickedPath);
+
 	if (PathResult != FPropertyAccess::Success)
 	{
 		UE_LOG(LogTemp, Error, TEXT("SetValue failed! Result: %d"), static_cast<int32>(PathResult));
 	}
+
+	bUpdateErrorReporting = true;
 }
 
 FString SDeadlineCloudFilePathWidget::GetSelectedFilePath() const
 {
 	FString FilePath;
 	PathProperty->GetValue(FilePath);
+
+	if (ErrorReporting.IsValid() && IsValidInput.IsBound() && bUpdateErrorReporting)
+	{
+		FText Error = FText::GetEmpty();
+
+		IsValidInput.Execute(FText::FromString(FilePath), Error);
+		ErrorReporting->SetError(Error);
+	}
 
 	return FilePath;
 }
@@ -64,12 +117,13 @@ class SDeadlineCloudStringWidget : public SCompoundWidget
 public:
 	SLATE_BEGIN_ARGS(SDeadlineCloudStringWidget) {}
 		SLATE_ARGUMENT(TSharedPtr<IPropertyHandle>, StringPropertyHandle)
+		SLATE_EVENT(FOnVerifyTextChanged, IsValidInput)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs)
 	{
 		StringProperty = InArgs._StringPropertyHandle;
-
+		IsValidInput = InArgs._IsValidInput;
 		ChildSlot
 			[
 				SNew(SHorizontalBox)
@@ -77,18 +131,44 @@ public:
 					.FillWidth(1.0f)
 					.VAlign(VAlign_Center)
 					[
-						SNew(SEditableTextBox)
+						SAssignNew(TextBox, SEditableTextBox)
 							.Font(IDetailLayoutBuilder::GetDetailFont())
-							.OnTextChanged(this, &SDeadlineCloudStringWidget::HandleTextChanged)
 							.Text(this, &SDeadlineCloudStringWidget::GetText)
+							.OnTextCommitted(this, &SDeadlineCloudStringWidget::OnTextCommitted)
+							.OnTextChanged(this, &SDeadlineCloudStringWidget::OnTextChanged)
 					]
 			];
+
+		if (IsValidInput.IsBound())
+		{
+			Error = FText::GetEmpty();
+			IsValidInput.Execute(GetText(), Error);
+			TextBox->SetError(Error);
+		}
 	}
 
 private:
-	void HandleTextChanged(const FText& NewText)
+
+	void OnTextChanged(const FText& InText)
 	{
-		StringProperty->SetValue(NewText.ToString());
+		if (IsValidInput.IsBound())
+		{
+			Error = FText::GetEmpty();
+			IsValidInput.Execute(InText, Error);
+			TextBox->SetError(Error);
+		}
+	}
+
+	void OnTextCommitted(const FText& InText, ETextCommit::Type InCommitType)
+	{
+		if (!Error.IsEmpty())
+		{
+			Error = FText::GetEmpty();
+			TextBox->SetError(Error);
+			return;
+		}
+
+		StringProperty->SetValue(InText.ToString());
 	}
 
 	FText GetText() const
@@ -100,6 +180,9 @@ private:
 	}
 
 	TSharedPtr<IPropertyHandle> StringProperty;
+	TSharedPtr<SEditableTextBox> TextBox;
+	FOnVerifyTextChanged IsValidInput;
+	FText Error;
 };
 /*
 SDeadlineCloudIntWidget is a custom Slate widget for integer input fields.
@@ -250,18 +333,21 @@ void FDeadlineCloudDetailsWidgetsHelper::SEyeUpdateWidget::Construct(const FArgu
 };
 
 
-TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(TSharedPtr<IPropertyHandle> ParameterHandle, EValueType Type)
+TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(TSharedPtr<IPropertyHandle> ParameterHandle, EValueType Type, EValueValidationType ValidationType)
 {
+
 	switch (Type)
 	{
 		using enum EValueType;
 	case EValueType::STRING:
 	{
-		return CreateStringWidget(ParameterHandle);
+		FOnVerifyTextChanged Validation = FDeadlineCloudInputValidationHelper::GetStringValidationFunction(ValidationType);
+		return CreateStringWidget(ParameterHandle, Validation);
 	}
 	case EValueType::PATH:
 	{
-		return CreatePathWidget(ParameterHandle);
+		FOnVerifyTextChanged Validation = FDeadlineCloudInputValidationHelper::GetPathValidationFunction(ValidationType);
+		return CreatePathWidget(ParameterHandle, Validation);
 	}
 	case EValueType::INT:
 	{
@@ -279,6 +365,50 @@ TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByTy
 	}
 
 	return SNullWidget::NullWidget;
+}
+
+TSharedPtr<SWidget> FDeadlineCloudDetailsWidgetsHelper::TryCreatePropertyWidgetFromMetadata(TSharedPtr<IPropertyHandle> ParameterHandle)
+{
+	if (!ParameterHandle.IsValid())
+	{
+		return nullptr;
+	}
+
+	FString TypeString;
+	FString ValidationTypeString;
+
+    if (const FString* CustomWidget = ParameterHandle->GetProperty()->FindMetaData(TEXT("CustomWidgetType")))
+    {
+		FString CustomWidgetName(*CustomWidget);
+        UEnum* EnumPtr = StaticEnum<EValueType>();
+		if (EnumPtr)
+		{
+			const int32 EnumValue = EnumPtr->GetValueByName(FName(*CustomWidgetName));
+			if (EnumValue != INDEX_NONE)
+			{
+				EValueValidationType ValidationType = EValueValidationType::Default;
+
+				if (const FString* Validation = ParameterHandle->GetProperty()->FindMetaData(TEXT("ValidationType")))
+				{
+					FString ValidationString(*Validation);
+					UEnum* EnumValueType = StaticEnum<EValueValidationType>();
+                    if (EnumValueType)
+					{
+						const int32 EnumValidationValue = EnumValueType->GetValueByName(FName(*ValidationString));
+						if (EnumValidationValue != INDEX_NONE)
+                        {
+							ValidationType = EValueValidationType(EnumValidationValue);
+						}
+					}
+				}
+
+				return FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(
+					ParameterHandle, EValueType(EnumValue), ValidationType);
+			}
+		}
+    }
+
+	return nullptr;
 }
 
 TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateNameWidget(FString Parameter)
@@ -310,10 +440,11 @@ TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateEyeUpdateWidget()
 	return  EyeUpdateWidget;
 }
 
-TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreatePathWidget(TSharedPtr<IPropertyHandle> ParameterHandle)
+TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreatePathWidget(TSharedPtr<IPropertyHandle> ParameterHandle, FOnVerifyTextChanged Validation)
 {
 	return SNew(SDeadlineCloudFilePathWidget)
-		.PathPropertyHandle(ParameterHandle);
+		.PathPropertyHandle(ParameterHandle)
+		.IsValidInput(Validation);
 }
 
 TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateIntWidget(TSharedPtr<IPropertyHandle> ParameterHandle)
@@ -328,10 +459,11 @@ TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateFloatWidget(TShare
 		.PropertyHandle(ParameterHandle);
 }
 
-TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateStringWidget(TSharedPtr<IPropertyHandle> ParameterHandle)
+TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateStringWidget(TSharedPtr<IPropertyHandle> ParameterHandle, FOnVerifyTextChanged Validation)
 {
 	return SNew(SDeadlineCloudStringWidget)
-		.StringPropertyHandle(ParameterHandle);
+		.StringPropertyHandle(ParameterHandle)
+		.IsValidInput(Validation);
 }
 
 

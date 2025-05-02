@@ -501,7 +501,7 @@ void FDeadlineCloudJobParametersArrayBuilder::OnGenerateEntry(TSharedRef<IProper
     TSharedPtr<SWidget> ValueWidget;
 
     PropertyRow.GetDefaultWidgets(NameWidget, ValueWidget);
-    ValueWidget = FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(ValueHandle, Type);
+    ValueWidget = FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(ValueHandle, Type, EValueValidationType::JobParameterValue);
 
     bool Checked = !(IsEyeWidgetEnabled(FName(ParameterName)));
     TSharedRef<FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox> EyeWidget = SNew(FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox, FName(ParameterName), Checked);

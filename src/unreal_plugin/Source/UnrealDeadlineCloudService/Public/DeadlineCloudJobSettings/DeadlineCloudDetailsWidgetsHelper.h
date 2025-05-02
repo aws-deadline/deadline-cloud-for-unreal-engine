@@ -5,13 +5,16 @@
 #include "PythonAPILibraries/PythonYamlLibrary.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudJobPresetDetailsCustomization.h"
 
+DECLARE_DELEGATE_RetVal_OneParam(FText, FIsValidInputSignature, const FText);
+
 class DeadlineCloudJobPresetDetailsCustomization;
 
 class FDeadlineCloudDetailsWidgetsHelper
 {
 public:
 
-	static TSharedRef<SWidget> CreatePropertyWidgetByType(TSharedPtr<IPropertyHandle> ParameterHandle, EValueType Type);
+	static TSharedRef<SWidget> CreatePropertyWidgetByType(TSharedPtr<IPropertyHandle> ParameterHandle, EValueType Type, EValueValidationType ValidationType = EValueValidationType::Default);
+	static TSharedPtr<SWidget> TryCreatePropertyWidgetFromMetadata(TSharedPtr<IPropertyHandle> ParameterHandle);
 	static TSharedRef<SWidget> CreateNameWidget(FString Parameter);
 
 	static TSharedRef<SWidget> CreateConsistencyWidget(FString ResultString);
@@ -158,8 +161,8 @@ public:
 	
 private:
 
-	static TSharedRef<SWidget> CreatePathWidget(TSharedPtr<IPropertyHandle> ParameterHandle);
+	static TSharedRef<SWidget> CreatePathWidget(TSharedPtr<IPropertyHandle> ParameterHandle, FOnVerifyTextChanged Validation);
 	static TSharedRef<SWidget> CreateIntWidget(TSharedPtr<IPropertyHandle> ParameterHandle);
 	static TSharedRef<SWidget> CreateFloatWidget(TSharedPtr<IPropertyHandle> ParameterHandle);
-	static TSharedRef<SWidget> CreateStringWidget(TSharedPtr<IPropertyHandle> ParameterHandle);
+	static TSharedRef<SWidget> CreateStringWidget(TSharedPtr<IPropertyHandle> ParameterHandle, FOnVerifyTextChanged Validation);
 };

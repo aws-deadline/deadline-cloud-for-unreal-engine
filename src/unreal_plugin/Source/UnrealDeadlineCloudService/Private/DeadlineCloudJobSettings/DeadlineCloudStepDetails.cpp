@@ -71,6 +71,26 @@ void FDeadlineCloudStepDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBui
     DetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
 	Settings = Cast<UDeadlineCloudStep>(ObjectsBeingCustomized[0].Get());
 
+	TSharedRef<IPropertyHandle> PathToTemplate = MainDetailLayout->GetProperty("PathToTemplate");
+	IDetailPropertyRow* PathToTemplateRow = MainDetailLayout->EditDefaultProperty(PathToTemplate);
+
+	if (PathToTemplateRow)
+	{
+		TSharedPtr<SWidget> NameWidget;
+		TSharedPtr<SWidget> ValueWidget;
+		PathToTemplateRow->GetDefaultWidgets(NameWidget, ValueWidget);
+
+		PathToTemplateRow->CustomWidget()
+			.NameContent()
+			[
+				NameWidget.ToSharedRef()
+			]
+			.ValueContent()
+			[
+				ValueWidget.ToSharedRef()
+			];	
+	}
+
 	TSharedRef<IPropertyHandle> EnvironmentsHandle = MainDetailLayout->GetProperty("Environments");
 	IDetailPropertyRow* EnvironmentsRow = MainDetailLayout->EditDefaultProperty(EnvironmentsHandle);
 	TSharedPtr<SWidget> OutNameWidgetEnv;
@@ -531,13 +551,13 @@ bool FDeadlineCloudStepParametersArrayBuilder::IsEyeWidgetEnabled(FName Paramete
 	return result;
 }
 
-TSharedRef<FDeadlineCloudStepParameterListBuilder> FDeadlineCloudStepParameterListBuilder::MakeInstance(TSharedRef<IPropertyHandle> InPropertyHandle, EValueType Type)
+TSharedRef<FDeadlineCloudStepParameterListBuilder> FDeadlineCloudStepParameterListBuilder::MakeInstance(TSharedRef<IPropertyHandle> InPropertyHandle, EValueType Type, FString Name)
 {
 	TSharedRef<FDeadlineCloudStepParameterListBuilder> Builder =
 		MakeShared<FDeadlineCloudStepParameterListBuilder>(InPropertyHandle);
 
 	Builder->Type = Type;
-
+	Builder->Name = Name;
 	Builder->OnGenerateArrayElementWidget(
 		FOnGenerateArrayElementWidget::CreateSP(Builder, &FDeadlineCloudStepParameterListBuilder::OnGenerateEntry));
 	return Builder;
@@ -584,7 +604,6 @@ void FDeadlineCloudStepParameterListBuilder::GenerateWrapperStructHeaderRowConte
 
 void FDeadlineCloudStepParameterListBuilder::OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const
 {
-
 	IDetailPropertyRow& PropertyRow = ChildrenBuilder.AddProperty(ElementProperty);
 
 	// Hide the reset to default button since it provides little value
@@ -596,7 +615,8 @@ void FDeadlineCloudStepParameterListBuilder::OnGenerateEntry(TSharedRef<IPropert
 
 	TSharedPtr<SWidget> NameWidget;
 	TSharedPtr<SWidget> ValueWidget;
-
+	
+	TSharedPtr<SWidget> CustomWidget = FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(ElementProperty, Type, EValueValidationType::StepParameterValue);
 
 	PropertyRow.GetDefaultWidgets(NameWidget, ValueWidget);
 
@@ -612,10 +632,10 @@ void FDeadlineCloudStepParameterListBuilder::OnGenerateEntry(TSharedRef<IPropert
 		.HAlign(HAlign_Fill)
 		.VAlign(VAlign_Center)
 		[
-			FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(ElementProperty, Type)
+			CustomWidget.ToSharedRef()
 		];
 
-	ValueWidget.ToSharedRef()->SetEnabled(
+	CustomWidget.ToSharedRef()->SetEnabled(
 		TAttribute<bool>::CreateLambda([this]()
 			{
 				if (OnIsEnabled.IsBound())
@@ -630,7 +650,7 @@ void FDeadlineCloudStepParameterListCustomization::CustomizeHeader(TSharedRef<IP
 	TSharedPtr<IPropertyHandle> ArrayHandle = InPropertyHandle->GetChildHandle("Range", false);
 
 	const TSharedPtr<IPropertyHandle> TypeHandle = InPropertyHandle->GetChildHandle("Type", false);
-
+	const TSharedPtr<IPropertyHandle> NameHandle = InPropertyHandle->GetChildHandle("Name", false);
 	if (!TypeHandle.IsValid())
 	{
 		UE_LOG(LogTemp, Error, TEXT("FDeadlineCloudStepParameterListBuilder Type handle is not valid"));
@@ -642,7 +662,10 @@ void FDeadlineCloudStepParameterListCustomization::CustomizeHeader(TSharedRef<IP
 
 	auto Type = (EValueType)TypeValue;
 
-	ArrayBuilder = FDeadlineCloudStepParameterListBuilder::MakeInstance(ArrayHandle.ToSharedRef(), Type);
+	FString NameValue;
+	NameHandle->GetValue(NameValue);
+
+	ArrayBuilder = FDeadlineCloudStepParameterListBuilder::MakeInstance(ArrayHandle.ToSharedRef(), Type, NameValue);
 
 	ArrayBuilder->GenerateWrapperStructHeaderRowContent(InHeaderRow, InPropertyHandle->CreatePropertyNameWidget());
 }

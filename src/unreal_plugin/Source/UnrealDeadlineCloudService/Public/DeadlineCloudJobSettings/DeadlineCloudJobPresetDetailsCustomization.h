@@ -37,7 +37,7 @@ public:
 	 * Adds check box in "Name" view widget for provided property row. Makes property value editable in MRQ view
 	 * @param PropertyRow property row interface
 	 */
-	void EnableInMovieRenderQueue(IDetailPropertyRow& PropertyRow) const;
+	void EnableInMovieRenderQueue(IDetailPropertyRow& PropertyRow, TSharedPtr<SWidget> CustomValueWidget = TSharedPtr<SWidget>()) const;
 
 	/**
 	 * Disables row for editing in Deadline Cloud job preset DataAsset @ref UDeadlineCloudJobPreset 
@@ -87,14 +87,14 @@ protected:
 	 * Adds ability to mark property as overridable in Deadline Cloud DataAsset 
 	 * @param PropertyRow Unreal property row interface
 	 */
-	void CustomizeStructChildrenInAssetDetails(IDetailPropertyRow& PropertyRow) const;
+	void CustomizeStructChildrenInAssetDetails(IDetailPropertyRow& PropertyRow, TSharedPtr<SWidget> CustomValueWidget = TSharedPtr<SWidget>()) const;
 
 	/**
 	 * Adds ability to override default job setting value for Deadline Cloud MRQ job
 	 * @param PropertyRow Unreal property ro interface
 	 * @param Job Deadline Cloud MRQ job
 	 */
-	void CustomizeStructChildrenInMovieRenderQueue(IDetailPropertyRow& PropertyRow, UMoviePipelineDeadlineCloudExecutorJob* Job) const;
+	void CustomizeStructChildrenInMovieRenderQueue(IDetailPropertyRow& PropertyRow, UMoviePipelineDeadlineCloudExecutorJob* Job, TSharedPtr<SWidget> CustomValueWidget = TSharedPtr<SWidget>()) const;
 
 	// static bool IsResetToDefaultVisibleOverride(TSharedPtr<IPropertyHandle> PropertyHandle, UMoviePipelineDeadlineCloudExecutorJob* Job);
 	// static void ResetToDefaultOverride(TSharedPtr<IPropertyHandle> PropertyHandle, UMoviePipelineDeadlineCloudExecutorJob* Job);
@@ -120,6 +120,10 @@ public:
 protected:
 	/** Handles overridden settings in UI */
 	TSharedPtr<FPropertyAvailabilityHandler> PropertyOverrideHandler;
+
+    bool IsPathsContainsErrors(TSharedPtr<IPropertyHandle> PropertyHandle) const;
+    EVisibility GetPathsErrorWidgetVisibility(TSharedPtr<IPropertyHandle> PropertyHandle) const;
+    EVisibility GetPathsDefaultWidgetVisibility(TSharedPtr<IPropertyHandle> PropertyHandle) const;
 };
 
 /**

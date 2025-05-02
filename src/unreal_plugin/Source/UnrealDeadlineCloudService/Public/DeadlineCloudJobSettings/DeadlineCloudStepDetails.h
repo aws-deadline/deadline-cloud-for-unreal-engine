@@ -94,7 +94,7 @@ class FDeadlineCloudStepParameterListBuilder
 public:
 
     static TSharedRef<FDeadlineCloudStepParameterListBuilder> MakeInstance(
-        TSharedRef<IPropertyHandle> InPropertyHandle, EValueType Type
+        TSharedRef<IPropertyHandle> InPropertyHandle, EValueType Type, FString Name
     );
 
 	FDeadlineCloudStepParameterListBuilder(
@@ -109,6 +109,7 @@ private:
     void OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const;
 
     EValueType Type;
+	FString Name;
     TSharedPtr<IPropertyHandleArray> ArrayProperty;
 };
 

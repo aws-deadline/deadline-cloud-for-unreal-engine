@@ -24,6 +24,17 @@ enum class EValueType : uint8
     PATH    UMETA(DisplayName = "Path")
 };
 
+UENUM(BlueprintType)
+enum class EValueValidationType : uint8
+{
+	Default,
+	JobName,
+	JobDescription,
+    JobParameterValue,
+	StepParameterValue,
+	EnvParameterValue
+};
+
 USTRUCT(BlueprintType)
 struct FParameterDefinition
 {
