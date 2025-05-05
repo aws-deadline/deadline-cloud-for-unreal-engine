@@ -86,7 +86,7 @@ class PerforceConnection:
         return client_root
 
     def get_latest_changelist_number(self) -> Optional[int]:
-        changes = self.p4.run("changes", "-c", self.p4.client, "-m", 1, "#have")
+        changes = self.p4.run("changes", "-m", 1, "#have")
         if changes:
             return int(changes[0]["change"])
         return None

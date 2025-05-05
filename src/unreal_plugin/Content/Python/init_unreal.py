@@ -74,14 +74,25 @@ else:
             with open(descriptor, "r") as f:
                 job_dependencies_descriptor = json.load(f)
 
-            for job_dependency in job_dependencies_descriptor.get("job_dependencies", []):
-                if os.path.exists(job_dependency):
-                    continue
-                synced = unreal.SourceControl.sync_files([job_dependency])
+            job_dependencies = job_dependencies_descriptor.get("job_dependencies", [])
+            if job_dependencies:
+                synced = unreal.SourceControl.sync_files(job_dependencies)
                 if synced:
-                    unreal.AssetRegistryHelpers().get_asset_registry().scan_modified_asset_files(
-                        [job_dependency]
+                    content_paths = []
+                    for job_dependence in job_dependencies:
+                        content_path = job_dependence.split("@")[0]
+                        content_path = content_path.replace("\\", "/")
+                        idx = content_path.lower().find("/content/")
+                        if idx == -1:
+                            unreal.log_error(f"Depot path doesn't contain /Content/: {content_path}")
+                        else:
+                            rel_path = content_path[idx + 1:]
+                            content_paths.append(rel_path)
+
+                    asset_registry = unreal.AssetRegistryHelpers().get_asset_registry()
+                    asset_registry.scan_modified_asset_files(
+                        content_paths
                     )
-                    unreal.AssetRegistryHelpers().get_asset_registry().scan_paths_synchronous(
-                        [job_dependency], True, True
+                    asset_registry.scan_paths_synchronous(
+                        content_paths, True, True
                     )
