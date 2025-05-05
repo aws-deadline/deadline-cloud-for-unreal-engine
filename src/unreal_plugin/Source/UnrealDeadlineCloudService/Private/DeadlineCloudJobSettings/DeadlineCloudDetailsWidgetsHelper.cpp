@@ -7,6 +7,7 @@
 #include "Widgets/Input/SNumericEntryBox.h"
 #include "EditorDirectories.h"
 #include "Widgets/Notifications/SPopUpErrorText.h"
+#include "DesktopPlatformModule.h"
 
 #define LOCTEXT_NAMESPACE "DeadlineWidgets"
 
@@ -16,24 +17,93 @@ SDeadlineCloudFilePathWidget is a custom Slate widget class that implements a fi
 class  SDeadlineCloudFilePathWidget : public SCompoundWidget
 {
 public:
-    SLATE_BEGIN_ARGS(SDeadlineCloudFilePathWidget) {}
+    SLATE_BEGIN_ARGS(SDeadlineCloudFilePathWidget) 
+		: _BrowseButtonToolTip(LOCTEXT("BrowseButtonToolTip", "Choose a file from this computer"))
+		, _FileTypeFilter(TEXT("All files (*.*)|*.*"))
+		, _Font()
+		, _IsReadOnly(false)
+		, _DialogReturnsFullPath(false)
+		{}
         SLATE_ARGUMENT(TSharedPtr<IPropertyHandle>, PathPropertyHandle)
 		SLATE_EVENT(FOnVerifyTextChanged, IsValidInput)
+		/** Browse button image resource. */
+		SLATE_ATTRIBUTE(const FSlateBrush*, BrowseButtonImage)
+
+		/** Browse button visual style. */
+		SLATE_STYLE_ARGUMENT(FButtonStyle, BrowseButtonStyle)
+
+		/** Browse button tool tip text. */
+		SLATE_ATTRIBUTE(FText, BrowseButtonToolTip)
+
+		/** The directory to browse by default */
+		SLATE_ATTRIBUTE(FString, BrowseDirectory)
+
+		/** Title for the browse dialog window. */
+		SLATE_ATTRIBUTE(FText, BrowseTitle)
+
+		/** The currently selected file path. */
+		SLATE_ATTRIBUTE(FString, FilePath)
+
+		/** File type filter string. */
+		SLATE_ATTRIBUTE(FString, FileTypeFilter)
+
+		/** Font color and opacity of the path text box. */
+		SLATE_ATTRIBUTE(FSlateFontInfo, Font)
+
+		/** Whether the path text box can be modified by the user. */
+		SLATE_ATTRIBUTE(bool, IsReadOnly)
+
+		/** Whether the path returned by the dialog should be converted from relative to full */
+		SLATE_ATTRIBUTE(bool, DialogReturnsFullPath)
+
     SLATE_END_ARGS()
     void Construct(const FArguments& InArgs);
 private:
     TSharedPtr<IPropertyHandle> PathProperty;
 	FOnVerifyTextChanged IsValidInput;
-	TSharedPtr<SPopupErrorText> ErrorReporting;
-	bool bUpdateErrorReporting = false;
 
+	/** Holds the directory path to browse by default. */
+	TAttribute<FString> BrowseDirectory;
+
+	/** Holds the title for the browse dialog window. */
+	TAttribute<FText> BrowseTitle;
+
+	/** Holds the currently selected file path. */
+	TAttribute<FString> FilePath;
+
+	/** Holds the file type filter string. */
+	TAttribute<FString> FileTypeFilter;
+
+	/** Holds the editable text box. */
+	TSharedPtr<SEditableTextBox> TextBox;
+
+	/** Holds the option for the dialog to return full path instead of relative. */
+	TAttribute<bool> DialogReturnsFullPath;
     FString GetSelectedFilePath() const;
+
+    void OnPathPickedFromDialog(const FString& PickedPath);
     void OnPathPicked(const FString& PickedPath);
-	EVisibility GetErrorReportingVisibility() const;
+
+	void OnTextChanged(const FText& InText);
+	/** Callback for clicking the browse button. */
+	FReply HandleBrowseButtonClicked( );
+
+	/** Callback for getting the text in the path text box. */
+	FText HandleTextBoxText( ) const;
+
+	/** Callback for committing the text in the path text box. */
+	void HandleTextBoxTextCommitted( const FText& NewText, ETextCommit::Type /*CommitInfo*/ );
+
+	void HandleExternalPathPropertyChanged();
 };
 
 void SDeadlineCloudFilePathWidget::Construct(const FArguments& InArgs)
 {
+	BrowseDirectory = InArgs._BrowseDirectory;
+	BrowseTitle = InArgs._BrowseTitle;
+	FilePath = InArgs._FilePath;
+	FileTypeFilter = InArgs._FileTypeFilter;
+	DialogReturnsFullPath = InArgs._DialogReturnsFullPath;
     PathProperty = InArgs._PathPropertyHandle;
 	IsValidInput = InArgs._IsValidInput;
 
@@ -45,22 +115,42 @@ void SDeadlineCloudFilePathWidget::Construct(const FArguments& InArgs)
 				.HAlign(HAlign_Fill)
 				.FillWidth(1)
 				[
-					SNew(SFilePathPicker)
-						.BrowseButtonImage(FAppStyle::GetBrush("PropertyWindow.Button_Ellipsis"))
-						.BrowseButtonStyle(FAppStyle::Get(), "HoverHintOnly")
-						.BrowseButtonToolTip(LOCTEXT("FileButtonToolTipText", "Choose a file from this computer"))
-						.BrowseDirectory(FEditorDirectories::Get().GetLastDirectory(ELastDirectory::GENERIC_OPEN))
-						.BrowseTitle(LOCTEXT("PropertyEditorTitle", "File picker..."))
-						.FilePath(this, &SDeadlineCloudFilePathWidget::GetSelectedFilePath)
-						.OnPathPicked(this, &SDeadlineCloudFilePathWidget::OnPathPicked)
-				]
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(3, 0)
-				[
-					SAssignNew(ErrorReporting, SPopupErrorText)
-						.Visibility(TAttribute<EVisibility>::Create(
-							TAttribute<EVisibility>::FGetter::CreateSP(this, &SDeadlineCloudFilePathWidget::GetErrorReportingVisibility)))
+					SNew(SHorizontalBox)
+
+					+ SHorizontalBox::Slot()
+						.FillWidth(1.0f)
+						.VAlign(VAlign_Center)
+						[
+							SAssignNew(TextBox, SEditableTextBox)
+								.Text(HandleTextBoxText())
+								.Font(InArgs._Font)
+								.SelectAllTextWhenFocused(true)
+								.ClearKeyboardFocusOnCommit(true)
+								.OnTextCommitted(this, &SDeadlineCloudFilePathWidget::HandleTextBoxTextCommitted)
+								.OnTextChanged(this, &SDeadlineCloudFilePathWidget::OnTextChanged)
+								.OnVerifyTextChanged(IsValidInput)
+								.SelectAllTextOnCommit(false)
+								.IsReadOnly(InArgs._IsReadOnly)
+						]
+
+					+ SHorizontalBox::Slot()
+						.AutoWidth()
+						.Padding(4.0f, 0.0f, 0.0f, 0.0f)
+						.VAlign(VAlign_Center)
+						[
+							SNew(SButton)
+								.ButtonStyle(InArgs._BrowseButtonStyle)
+								.ToolTipText(InArgs._BrowseButtonToolTip)
+								.OnClicked(this, &SDeadlineCloudFilePathWidget::HandleBrowseButtonClicked)
+								.ContentPadding(2.0f)
+								.ForegroundColor(FSlateColor::UseForeground())
+								.IsFocusable(false)
+								[
+									SNew(SImage)
+										.Image(InArgs._BrowseButtonImage)
+										.ColorAndOpacity(FSlateColor::UseForeground())
+								]
+						]
 				]
 		];
 
@@ -68,17 +158,84 @@ void SDeadlineCloudFilePathWidget::Construct(const FArguments& InArgs)
 	{
 		FText OutError = FText::GetEmpty();
 		IsValidInput.Execute(FText::FromString(GetSelectedFilePath()), OutError);
-		ErrorReporting->SetError(OutError);
+		TextBox->SetError(OutError);
+	}
+
+	if (PathProperty.IsValid())
+	{
+		PathProperty->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(this, &SDeadlineCloudFilePathWidget::HandleExternalPathPropertyChanged));
 	}
 }
 
-EVisibility SDeadlineCloudFilePathWidget::GetErrorReportingVisibility() const
+void SDeadlineCloudFilePathWidget::HandleExternalPathPropertyChanged()
 {
-	if (ErrorReporting.IsValid())
+	FString NewPath;
+	if (PathProperty->GetValue(NewPath) == FPropertyAccess::Success)
 	{
-		return ErrorReporting->HasError() ? EVisibility::Visible : EVisibility::Hidden;
+		TextBox->SetText(FText::FromString(NewPath));
 	}
-	return EVisibility::Collapsed;
+}
+
+FReply SDeadlineCloudFilePathWidget::HandleBrowseButtonClicked()
+{
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+
+	if (DesktopPlatform == nullptr)
+	{
+		return FReply::Handled();
+	}
+
+	const FString DefaultPath = BrowseDirectory.IsSet()
+		? BrowseDirectory.Get()
+		: FPaths::GetPath(GetSelectedFilePath());
+
+	TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
+	void* ParentWindowHandle = (ParentWindow.IsValid() && ParentWindow->GetNativeWindow().IsValid())
+		? ParentWindow->GetNativeWindow()->GetOSWindowHandle()
+		: nullptr;
+
+	TArray<FString> OutFiles;
+
+	if (DesktopPlatform->OpenFileDialog(ParentWindowHandle, BrowseTitle.Get().ToString(), DefaultPath, TEXT(""), FileTypeFilter.Get(), EFileDialogFlags::None, OutFiles))
+	{
+		if (DialogReturnsFullPath.Get())
+		{
+			OnPathPickedFromDialog(FPaths::ConvertRelativePathToFull(OutFiles[0]));
+		}
+		else
+		{
+			OnPathPickedFromDialog(OutFiles[0]);
+		}
+	}
+
+	return FReply::Handled();
+}
+
+FText SDeadlineCloudFilePathWidget::HandleTextBoxText() const
+{
+	return FText::FromString(GetSelectedFilePath());
+}
+
+void SDeadlineCloudFilePathWidget::OnTextChanged(const FText& InText)
+{
+	TextBox->SetText(InText);
+}
+
+void SDeadlineCloudFilePathWidget::HandleTextBoxTextCommitted(const FText& NewText, ETextCommit::Type CommitInfo)
+{
+	OnPathPicked(NewText.ToString());
+}
+
+void SDeadlineCloudFilePathWidget::OnPathPickedFromDialog(const FString& PickedPath)
+{
+	if (IsValidInput.IsBound())
+	{
+		FText Error = FText::GetEmpty();
+		IsValidInput.Execute(FText::FromString(PickedPath), Error);
+		TextBox->SetError(Error);
+	}
+
+	OnPathPicked(PickedPath);
 }
 
 void SDeadlineCloudFilePathWidget::OnPathPicked(const FString& PickedPath)
@@ -89,25 +246,16 @@ void SDeadlineCloudFilePathWidget::OnPathPicked(const FString& PickedPath)
 	{
 		UE_LOG(LogTemp, Error, TEXT("SetValue failed! Result: %d"), static_cast<int32>(PathResult));
 	}
-
-	bUpdateErrorReporting = true;
 }
 
 FString SDeadlineCloudFilePathWidget::GetSelectedFilePath() const
 {
-	FString FilePath;
-	PathProperty->GetValue(FilePath);
+	FString PropertyFilePath;
+	PathProperty->GetValue(PropertyFilePath);
 
-	if (ErrorReporting.IsValid() && IsValidInput.IsBound() && bUpdateErrorReporting)
-	{
-		FText Error = FText::GetEmpty();
-
-		IsValidInput.Execute(FText::FromString(FilePath), Error);
-		ErrorReporting->SetError(Error);
-	}
-
-	return FilePath;
+	return PropertyFilePath;
 }
+
 /*
 SDeadlineCloudStringWidget is a custom Slate widget that creates an editable text box for string properties.
 It handles the display and editing of string values through a property handle.
@@ -136,6 +284,7 @@ public:
 							.Text(this, &SDeadlineCloudStringWidget::GetText)
 							.OnTextCommitted(this, &SDeadlineCloudStringWidget::OnTextCommitted)
 							.OnTextChanged(this, &SDeadlineCloudStringWidget::OnTextChanged)
+							.OnVerifyTextChanged(IsValidInput)
 					]
 			];
 
@@ -151,23 +300,10 @@ private:
 
 	void OnTextChanged(const FText& InText)
 	{
-		if (IsValidInput.IsBound())
-		{
-			Error = FText::GetEmpty();
-			IsValidInput.Execute(InText, Error);
-			TextBox->SetError(Error);
-		}
 	}
 
 	void OnTextCommitted(const FText& InText, ETextCommit::Type InCommitType)
 	{
-		if (!Error.IsEmpty())
-		{
-			Error = FText::GetEmpty();
-			TextBox->SetError(Error);
-			return;
-		}
-
 		StringProperty->SetValue(InText.ToString());
 	}
 
@@ -444,7 +580,12 @@ TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreatePathWidget(TShared
 {
 	return SNew(SDeadlineCloudFilePathWidget)
 		.PathPropertyHandle(ParameterHandle)
-		.IsValidInput(Validation);
+		.IsValidInput(Validation)
+		.BrowseButtonImage(FAppStyle::GetBrush("PropertyWindow.Button_Ellipsis"))
+		.BrowseButtonStyle(FAppStyle::Get(), "HoverHintOnly")
+		.BrowseButtonToolTip(LOCTEXT("FileButtonToolTipText", "Choose a file from this computer"))
+		.BrowseDirectory(FEditorDirectories::Get().GetLastDirectory(ELastDirectory::GENERIC_OPEN))
+		.BrowseTitle(LOCTEXT("PropertyEditorTitle", "File picker..."));
 }
 
 TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateIntWidget(TSharedPtr<IPropertyHandle> ParameterHandle)
