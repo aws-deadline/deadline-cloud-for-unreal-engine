@@ -1081,7 +1081,12 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             level_path, filter_method=DependencyFilters.dependency_in_game_folder
         )
 
-        return level_sequence_dependencies + level_dependencies + [level_sequence_path, level_path]
+        all_dependencies = (
+            level_sequence_dependencies + level_dependencies + [level_sequence_path, level_path]
+        )
+        unique_dependencies = list(set(all_dependencies))
+
+        return unique_dependencies
 
     def _get_mrq_job_dependency_paths(self):
         """
