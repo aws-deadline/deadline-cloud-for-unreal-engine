@@ -2,9 +2,80 @@
 
 import os
 import json
+import sys
 import unreal
 from pathlib import Path
-import sys
+from typing import Optional
+
+
+def get_ue_path(in_path: str) -> Optional[str]:
+    """
+    Convert given path to unreal path by replacing substring that ends with /content/ to /Game/.
+    If it can't convert, return None
+
+    :param in_path: Path to convert
+    :type in_path: str
+    :return: Converted path or None
+    :rtype: str
+    """
+
+    keyword = "/content/"
+    idx = in_path.lower().find(keyword)
+    if idx == -1:
+        unreal.log_error(f"Depot path doesn't contain /Content/: {in_path}")
+        return None
+
+    ue_path = "/Game/" + in_path[idx + len(keyword) :]
+    return ue_path
+
+
+def sync_mrq_dependencies(dependencies_descriptor_path: str) -> None:
+    """
+    Read given dependencies descriptor, try to sync them with unreal source control and
+    scan modified assets
+
+    :param dependencies_descriptor_path: Path to the dependencies JSON descriptor file
+    :type dependencies_descriptor_path: str
+    """
+
+    if not os.path.exists(dependencies_descriptor_path):
+        unreal.log_error(
+            f"MrqJobDependenciesDescriptor file does not exist: {dependencies_descriptor_path}"
+        )
+        return
+
+    with open(dependencies_descriptor_path, "r", encoding="utf8") as f:
+        job_dependencies_descriptor = json.load(f)
+
+    job_dependencies = job_dependencies_descriptor.get("job_dependencies", [])
+    if not job_dependencies:
+        unreal.log_error(f"Job dependencies list is empty: {dependencies_descriptor_path}")
+        return
+
+    synced = unreal.SourceControl.sync_files(job_dependencies)
+    if not synced:
+        unreal.log_error(
+            f"Failed to sync job dependencies: {dependencies_descriptor_path}. "
+            f"Sync error message: {unreal.SourceControl.last_error_msg()}"
+        )
+        return
+
+    ue_paths = []
+    for job_dependency in job_dependencies:
+        # Trim changelist number if any
+        content_path = job_dependency.split("@")[0].replace("\\", "/")
+        ue_path = get_ue_path(content_path)
+        if ue_path:
+            ue_paths.append(ue_path)
+
+    if not ue_paths:
+        unreal.log_error("No UE paths converted from input paths. Nothing to scan.")
+        return
+
+    asset_registry = unreal.AssetRegistryHelpers().get_asset_registry()
+    asset_registry.scan_modified_asset_files(ue_paths)
+    asset_registry.scan_paths_synchronous(ue_paths, True, True)
+
 
 remote_execution = os.getenv("REMOTE_EXECUTION", "False")
 if remote_execution != "True":
@@ -51,6 +122,7 @@ if remote_execution != "True":
     logger.info("DEADLINE CLOUD INITIALIZED")
 
 else:
+
     tokens, switchers, cmd_parameters = unreal.SystemLibrary.parse_command_line(
         unreal.SystemLibrary.get_command_line()
     )
@@ -66,33 +138,4 @@ else:
     asset_registry.wait_for_completion()
 
     if "MrqJobDependenciesDescriptor" in cmd_parameters:
-        descriptor = cmd_parameters["MrqJobDependenciesDescriptor"]
-
-        if not os.path.exists(descriptor):
-            unreal.log_error(f"MrqJobDependenciesDescriptor file does not exist: {descriptor}")
-        else:
-            with open(descriptor, "r") as f:
-                job_dependencies_descriptor = json.load(f)
-
-            job_dependencies = job_dependencies_descriptor.get("job_dependencies", [])
-            if job_dependencies:
-                synced = unreal.SourceControl.sync_files(job_dependencies)
-                if synced:
-                    content_paths = []
-                    for job_dependence in job_dependencies:
-                        content_path = job_dependence.split("@")[0]
-                        content_path = content_path.replace("\\", "/")
-                        idx = content_path.lower().find("/content/")
-                        if idx == -1:
-                            unreal.log_error(f"Depot path doesn't contain /Content/: {content_path}")
-                        else:
-                            rel_path = content_path[idx + 1:]
-                            content_paths.append(rel_path)
-
-                    asset_registry = unreal.AssetRegistryHelpers().get_asset_registry()
-                    asset_registry.scan_modified_asset_files(
-                        content_paths
-                    )
-                    asset_registry.scan_paths_synchronous(
-                        content_paths, True, True
-                    )
+        sync_mrq_dependencies(cmd_parameters["MrqJobDependenciesDescriptor"])

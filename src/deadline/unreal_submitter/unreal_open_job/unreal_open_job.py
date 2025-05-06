@@ -873,11 +873,11 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             client=conn_settings["workspace"],
         )
 
-        _latest_changelist_number = str(p4.get_latest_changelist_number() or "latest")
+        latest_changelist_number = str(p4.get_latest_changelist_number() or "latest")
         parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
             job_parameter_values=parameter_values,
             job_parameter_name=OpenJobParameterNames.PERFORCE_CHANGELIST_NUMBER,
-            job_parameter_value=_latest_changelist_number,
+            job_parameter_value=latest_changelist_number,
         )
 
         parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
@@ -919,9 +919,12 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         # Render node. So we can't sync them and their dependencies until we don't know their paths
         job_dependencies_descriptor = common.create_deadline_cloud_temp_file(
             file_prefix=OpenJobParameterNames.UNREAL_MRQ_JOB_DEPENDENCIES_DESCRIPTOR,
-            file_data={"job_dependencies": self._get_mrq_job_dependency_depot_paths(_latest_changelist_number)},
+            file_data={
+                "job_dependencies": self._get_mrq_job_dependency_depot_paths(
+                    latest_changelist_number,
+                )
+            },
             file_ext=".json",
-
         )
         parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
             job_parameter_values=parameter_values,
@@ -1099,12 +1102,19 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         return os_dependencies
 
-    def _get_mrq_job_dependency_depot_paths(self, latest_changelist_number: Optional[str] = None) -> list[str]:
+    def _get_mrq_job_dependency_depot_paths(
+        self, changelist_number: Optional[str] = None
+    ) -> list[str]:
         """
         Collects the dependencies if Level and LevelSequence of MRQ Job and returns paths
         converted from UE relative (i.e. /Game/...) to Perforce Depot (//MyProject/Mainline/...).
         Using depot file paths allow to sync in any locations other than User's ones.
 
+        If `changelist_number` is provided, append it to the end of each path with
+        "@" prefix, i.e. //MyProject/Mainline/Assets/MyAsset.uasset@12345
+
+        :param changelist_number: Perforce changelist number
+        :type changelist_number: Optional[str]
         :return: List of the dependency depot paths
         :rtype: list[str]
         """
@@ -1119,9 +1129,8 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         )
         depot_dependencies = p4_conn.get_depot_file_paths(local_dependencies)
 
-        if latest_changelist_number and latest_changelist_number != "latest":
-            changelist_postfix = f"@{latest_changelist_number}"
-            depot_dependencies = [f"{path}{changelist_postfix}" for path in depot_dependencies]
+        if changelist_number and changelist_number != "latest":
+            depot_dependencies = [f"{path}@{changelist_number}" for path in depot_dependencies]
 
         return depot_dependencies
 
