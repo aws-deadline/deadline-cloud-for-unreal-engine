@@ -163,7 +163,7 @@ bool FDeadlineCloudInputValidationHelper::ContainsNoControlCharacters(const FStr
 {
     for (const TCHAR Ch : InStr)
     {
-        if (FChar::IsControl(Ch))
+        if (FChar::IsControl(Ch) && !ExcludeList.Contains(Ch))
         {
             return false;
         }

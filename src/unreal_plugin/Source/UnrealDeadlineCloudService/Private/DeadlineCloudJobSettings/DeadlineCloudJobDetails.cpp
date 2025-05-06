@@ -26,6 +26,8 @@
 #include "MovieRenderPipeline/MoviePipelineDeadlineCloudExecutorJob.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudJobPresetDetailsCustomization.h"
 
+#include "Framework/MetaData/DriverMetaData.h"
+
 #define LOCTEXT_NAMESPACE "JobDetails"
 
 
@@ -502,6 +504,8 @@ void FDeadlineCloudJobParametersArrayBuilder::OnGenerateEntry(TSharedRef<IProper
 
     PropertyRow.GetDefaultWidgets(NameWidget, ValueWidget);
     ValueWidget = FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(ValueHandle, Type, EValueValidationType::JobParameterValue);
+	FName Tag = FName("JobParameter." + ParameterName);
+	ValueWidget->AddMetadata(FDriverMetaData::Id(Tag));
 
     bool Checked = !(IsEyeWidgetEnabled(FName(ParameterName)));
     TSharedRef<FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox> EyeWidget = SNew(FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox, FName(ParameterName), Checked);

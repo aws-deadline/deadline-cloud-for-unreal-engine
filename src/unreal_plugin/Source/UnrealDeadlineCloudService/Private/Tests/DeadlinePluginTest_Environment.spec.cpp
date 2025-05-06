@@ -19,7 +19,7 @@
 #include "PythonAPILibraries/PythonParametersConsistencyChecker.h"
 
 
-BEGIN_DEFINE_SPEC(FDeadlinePluginEnvironmentSpec, "Deadline",
+BEGIN_DEFINE_SPEC(FDeadlinePluginEnvironmentSpec, "DeadlineCloud",
     EAutomationTestFlags::ProductFilter | EAutomationTestFlags::EditorContext);
 
 

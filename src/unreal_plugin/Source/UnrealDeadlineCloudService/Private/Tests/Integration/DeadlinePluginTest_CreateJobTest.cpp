@@ -464,7 +464,7 @@ ULevelSequence* FindFirstLevelSequence()
     return ShortestPathSequence;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovieQueueCreateJobTest, "Deadline.Integration.CreateJob",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovieQueueCreateJobTest, "DeadlineCloud.Integration.CreateJob",
     EAutomationTestFlags::EditorContext |
     EAutomationTestFlags::ProductFilter)
 

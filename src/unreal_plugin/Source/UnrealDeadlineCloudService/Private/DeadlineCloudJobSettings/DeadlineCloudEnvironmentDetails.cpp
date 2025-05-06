@@ -20,6 +20,7 @@
 #include "Widgets/Input/SFilePathPicker.h"
 #include "Widgets/Input/SEditableTextBox.h"
 
+#include "Framework/MetaData/DriverMetaData.h"
 #define LOCTEXT_NAMESPACE "EnvironmentDetails"
 
 bool FDeadlineCloudEnvironmentDetails::CheckConsistency(UDeadlineCloudEnvironment* Env)
@@ -61,6 +62,29 @@ void FDeadlineCloudEnvironmentDetails::CustomizeDetails(IDetailLayoutBuilder& De
 	{
 		UDeadlineCloudEnvironment* MyObject = Settings.Get();
 		bCheckConsistensyPassed = CheckConsistency(MyObject);
+	}
+
+	TSharedRef<IPropertyHandle> PathToTemplate = MainDetailLayout->GetProperty("PathToTemplate");
+	IDetailPropertyRow* PathToTemplateRow = MainDetailLayout->EditDefaultProperty(PathToTemplate);
+
+	if (PathToTemplateRow)
+	{
+		TSharedPtr<SWidget> NameWidget;
+		TSharedPtr<SWidget> ValueWidget;
+		PathToTemplateRow->GetDefaultWidgets(NameWidget, ValueWidget);
+
+		FName Tag = FName("Environment.PathToTemplate");
+		ValueWidget->AddMetadata(FDriverMetaData::Id(Tag));
+
+		PathToTemplateRow->CustomWidget()
+			.NameContent()
+			[
+				NameWidget.ToSharedRef()
+			]
+			.ValueContent()
+			[
+				ValueWidget.ToSharedRef()
+			];	
 	}
 
 	IDetailCategoryBuilder& PropertiesCategory = MainDetailLayout->EditCategory("Parameters");
@@ -140,6 +164,13 @@ void FDeadlineCloudEnvironmentParametersMapBuilder::GenerateChildContent(IDetail
 		TSharedPtr<SWidget> NameWidget;
 		TSharedPtr<SWidget> ValueWidget;
 
+		TSharedPtr<SWidget> CustomValueWidget = FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(ItemHandle, EValueType::STRING, EValueValidationType::EnvParameterValue);
+		TSharedPtr<IPropertyHandle> KeyHandle = ItemHandle->GetKeyHandle();
+		FString Name;
+		KeyHandle->GetValue(Name);
+		FName Tag = FName("EnvironmentParameter." + Name);
+		CustomValueWidget->AddMetadata(FDriverMetaData::Id(Tag));
+
 		ItemRow.GetDefaultWidgets(NameWidget, ValueWidget);
 		ItemRow.CustomWidget(true)
 			.CopyAction(EmptyCopyPasteAction)
@@ -159,7 +190,7 @@ void FDeadlineCloudEnvironmentParametersMapBuilder::GenerateChildContent(IDetail
 					.FillWidth(1.0f)
 					.Padding(2.0f, 0.0f)
 					[
-						FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(ItemHandle, EValueType::STRING, EValueValidationType::EnvParameterValue)
+						CustomValueWidget.ToSharedRef()
 					]
 			];
 

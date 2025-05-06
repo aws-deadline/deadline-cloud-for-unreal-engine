@@ -10,7 +10,6 @@ public:
     static FOnVerifyTextChanged GetStringValidationFunction(EValueValidationType ValidationType);
     static FOnVerifyTextChanged GetPathValidationFunction(EValueValidationType ValidationType);
 
-private:
     /** Basic length validation */
     static bool IsValidLength(const FString& InStr, int32 Min, int32 Max);
 

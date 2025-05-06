@@ -10,7 +10,7 @@
 #include "Widgets/Input/SCheckBox.h"
 #include "Misc/EngineVersionComparison.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudDetailsWidgetsHelper.h"
-
+#include "Framework/MetaData/DriverMetaData.h"
 #define LOCTEXT_NAMESPACE "UnrealDeadlineCloudServiceModule"
 
 TSharedRef<IPropertyTypeCustomization> FDeadlineCloudJobPresetDetailsCustomization::MakeInstance()
@@ -79,7 +79,13 @@ void FDeadlineCloudJobPresetDetailsCustomization::CustomizeChildren(TSharedRef<I
 
         IDetailPropertyRow& PropertyRow = GroupToUse->AddPropertyRow(ChildHandle);
 
-		TSharedPtr<SWidget> CustomValueWidget = FDeadlineCloudDetailsWidgetsHelper::TryCreatePropertyWidgetFromMetadata(ChildHandle);
+        TSharedPtr<SWidget> CustomValueWidget = FDeadlineCloudDetailsWidgetsHelper::TryCreatePropertyWidgetFromMetadata(ChildHandle);
+        if (CustomValueWidget.IsValid())
+        {
+            FString ParameterName = ChildHandle->GetProperty()->GetName();
+            FName Tag = FName("JobPreset." + ParameterName);
+            CustomValueWidget->AddMetadata(FDriverMetaData::Id(Tag));
+        }
 
         if (OuterJob)
         {

@@ -24,18 +24,19 @@ public class UnrealDeadlineCloudService : ModuleRules
         PublicDependencyModuleNames.AddRange(
             new string[]
             {
-                    "UnrealEd",
-    "EditorSubsystem",
-             "Slate",
-             "SlateCore",
-             "EditorWidgets",
-             "Core",
-             "CoreUObject",
-             "Engine",
-             "MovieRenderPipelineCore",
+                 "AutomationDriver",
+                 "UnrealEd",
+                 "EditorSubsystem",
+                 "Slate",
+                 "SlateCore",
+                 "EditorWidgets",
+                 "Core",
+                 "CoreUObject",
+                 "Engine",
+                 "MovieRenderPipelineCore",
                  "MovieRenderPipelineEditor",
-             "InputCore",
-             "DesktopWidgets",
+                 "InputCore",
+                 "DesktopWidgets",
             }
             );
 

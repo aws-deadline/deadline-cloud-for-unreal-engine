@@ -21,6 +21,7 @@
 #include "MovieRenderPipeline/MoviePipelineDeadlineCloudExecutorJob.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudJobPresetDetailsCustomization.h"
 
+#include "Framework/MetaData/DriverMetaData.h"
 #define LOCTEXT_NAMESPACE "StepDetails"
 
 
@@ -79,6 +80,9 @@ void FDeadlineCloudStepDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBui
 		TSharedPtr<SWidget> NameWidget;
 		TSharedPtr<SWidget> ValueWidget;
 		PathToTemplateRow->GetDefaultWidgets(NameWidget, ValueWidget);
+
+		FName Tag = FName("Step.PathToTemplate");
+		ValueWidget->AddMetadata(FDriverMetaData::Id(Tag));
 
 		PathToTemplateRow->CustomWidget()
 			.NameContent()
@@ -617,6 +621,8 @@ void FDeadlineCloudStepParameterListBuilder::OnGenerateEntry(TSharedRef<IPropert
 	TSharedPtr<SWidget> ValueWidget;
 	
 	TSharedPtr<SWidget> CustomWidget = FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(ElementProperty, Type, EValueValidationType::StepParameterValue);
+	FName Tag = FName("StepParameter." + Name);
+	CustomWidget->AddMetadata(FDriverMetaData::Id(Tag));
 
 	PropertyRow.GetDefaultWidgets(NameWidget, ValueWidget);
 
