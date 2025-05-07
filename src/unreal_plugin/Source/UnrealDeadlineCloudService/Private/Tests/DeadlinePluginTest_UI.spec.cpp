@@ -436,11 +436,11 @@ void FDeadlinePluginUISpec::Define()
 					PathParametersPathWidget->Type(PathParametersText);
 					PathParametersPathWidget->Type(EKeys::Enter);
 					TEST_EQUAL(PathParameterOldValue, CreatedJobDataAsset->ParameterDefinition.Parameters[0].Value);
-
+					FString Empty;
 					PathParametersPathWidget->TypeChord(EKeys::LeftControl, EKeys::A);
 					PathParametersPathWidget->Type(EKeys::Delete);
 					PathParametersPathWidget->Type(EKeys::Enter);
-					TEST_EQUAL(PathParameterOldValue, CreatedJobDataAsset->ParameterDefinition.Parameters[0].Value);
+					TEST_EQUAL(Empty, CreatedJobDataAsset->ParameterDefinition.Parameters[0].Value);
 
 					FString PathParametersTextValid = "ValidString";
 					PathParametersPathWidget->TypeChord(EKeys::LeftControl, EKeys::A);

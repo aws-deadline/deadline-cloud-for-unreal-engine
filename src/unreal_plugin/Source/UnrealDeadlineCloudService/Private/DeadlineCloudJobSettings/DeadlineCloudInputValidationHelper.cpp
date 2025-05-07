@@ -113,7 +113,7 @@ FOnVerifyTextChanged FDeadlineCloudInputValidationHelper::GetPathValidationFunct
             [](const FText Input, FText& Error) -> bool
             {
                 FString InputString = Input.ToString();
-                if (!IsValidLength(InputString, 1, 1024, Error))
+                if (!IsValidLength(InputString, 0, 1024, Error))
                 {
                     return false;
                 }
