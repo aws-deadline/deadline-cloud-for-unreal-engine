@@ -58,12 +58,33 @@ class DeadlineCloudSettingsLibraryImplementation(unreal.DeadlineCloudSettingsLib
         self.init_from_python()
 
     @unreal.ufunction(override=True)
-    def get_aws_config_setting(self, setting_name: str) -> str:
-        return config.get_setting(setting_name)
+    def get_aws_string_config_setting(self, setting_name: str) -> str:
+        try:
+            result = config.get_setting(setting_name)
+            logger.info(f"try get aws string config setting {setting_name} type: {type(result)}")
+            logger.info(f"try get aws string config setting {setting_name} value: {result}")
+
+            if isinstance(result, list):
+                logger.warning(f"{setting_name} is a list: {result}")
+                result = result[0]
+
+            return str(result)
+
+        except Exception as e:
+            logger.error(f"Error in get_aws_string_config_setting: {str(e)}")
+            return ""
 
     @unreal.ufunction(override=True)
-    def set_aws_config_setting(self, setting_name: str, setting_value: str) -> None:
-        config.set_setting(setting_name, setting_value)
+    def set_aws_string_config_setting(self, setting_name: str, setting_value: str) -> None:
+        try:
+            current_setting = config.get_setting(setting_name)
+            if setting_value != current_setting:
+                logger.info(f"set aws string config setting {setting_name} value: {setting_value}")
+                config.set_setting(setting_name, setting_value)
+            else:
+                logger.info(f"{setting_name} unchanged (already {setting_value}), skipping update")
+        except Exception as e:
+            logger.error(f"Error in set_aws_string_config_setting: {str(e)}")
 
     @unreal.ufunction(override=True)
     def get_farms(self) -> list:

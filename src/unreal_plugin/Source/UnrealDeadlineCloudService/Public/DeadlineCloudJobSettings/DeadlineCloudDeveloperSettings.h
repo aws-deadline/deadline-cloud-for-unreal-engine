@@ -162,26 +162,6 @@ public:
 	/** Saves settings to a file. */
 	void SaveToFile();
 
-protected:
-	FDeadlineCloudPluginSettingsCache WorkStationConfigurationCache;
-
-	/** Updates the queues cache list. */
-	void UpdateQueuesCacheList();
-
-	/** Updates the storage profiles cache list. */
-	void UpdateStorageProfilesCacheList();
-
-	/** Updates the farms cache list. */
-	void UpdateFarmsCacheList();
-
-	/** 
-	* Finds an AWS entity by its ID.
-	* @param Id The ID of the entity to find.
-	* @param EntityList The list of entities to search.
-	* @return The found AWS entity.
-	*/
-	static FUnrealAwsEntity FindAwsEntityById(const FString& Id, const TArray<FUnrealAwsEntity>& EntityList);
-
 	/** 
 	* Finds a farm by its ID.
 	* @param FarmId The ID of the farm to find.
@@ -205,4 +185,26 @@ protected:
 	* @return The found queue entity.
 	*/
 	FUnrealAwsEntity FindQueueById(const FString& QueueId, bool bUpdateQueuesList = false);
+
+protected:
+	FDeadlineCloudPluginSettingsCache WorkStationConfigurationCache;
+
+	/** Updates the queues cache list. */
+	void UpdateQueuesCacheList();
+
+	/** Updates the storage profiles cache list. */
+	void UpdateStorageProfilesCacheList();
+
+	/** Updates the farms cache list. */
+	void UpdateFarmsCacheList();
+
+	/** 
+	* Finds an AWS entity by its ID.
+	* @param Id The ID of the entity to find.
+	* @param EntityList The list of entities to search.
+	* @return The found AWS entity.
+	*/
+	static FUnrealAwsEntity FindAwsEntityById(const FString& Id, const TArray<FUnrealAwsEntity>& EntityList);
+
+
 };

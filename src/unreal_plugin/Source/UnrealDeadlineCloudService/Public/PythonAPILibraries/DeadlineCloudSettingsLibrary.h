@@ -226,7 +226,7 @@ public:
      * @return The value of the specified setting.
      */
     UFUNCTION(BlueprintImplementableEvent)
-    FString GetAWSConfigSetting(const FString& SettingName);
+    FString GetAWSStringConfigSetting(const FString& SettingName);
 
     /** 
      * Sets a specific AWS configuration setting by name.
@@ -234,7 +234,7 @@ public:
      * @param SettingValue The value to set for the specified setting.
      */
     UFUNCTION(BlueprintImplementableEvent)
-    void SetAWSConfigSetting(const FString& SettingName, const FString& SettingValue);
+    void SetAWSStringConfigSetting(const FString& SettingName, const FString& SettingValue);
 
     /** 
      * Retrieves a list of available AWS profiles.

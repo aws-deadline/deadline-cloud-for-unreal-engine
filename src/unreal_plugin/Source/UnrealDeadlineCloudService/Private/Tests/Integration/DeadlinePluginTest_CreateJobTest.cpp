@@ -149,7 +149,7 @@ public:
     {
         UE_LOG(LogCreateJobTest, Display, TEXT("Applying test settings"));
         // Get settings
-        UDeadlineCloudDeveloperSettings* Settings = UDeadlineCloudDeveloperSettings::Get();
+        UDeadlineCloudDeveloperSettings* Settings = UDeadlineCloudDeveloperSettings::GetMutable();
         if (!Settings)
         {
             UE_LOG(LogCreateJobTest, Error, TEXT("Failed to get Python implementation of settings"));
@@ -205,7 +205,7 @@ public:
                         UE_LOG(LogCreateJobTest, Display, TEXT("Converting farm ID '%s' to name"), *Value);
 
                         // Look up the farm name from the ID using the Settings object
-                        FString FoundName = Settings->GetFarmNameById(Value);
+                        FString FoundName = Settings->FindFarmById(Value, true).Name;
                         if (!FoundName.IsEmpty())
                         {
                             FarmName = FoundName;
@@ -246,7 +246,7 @@ public:
                         UE_LOG(LogCreateJobTest, Display, TEXT("Converting queue ID '%s' to name"), *Value);
 
                         // Look up the queue name from the ID using the Settings object
-                        FString FoundName = Settings->GetQueueNameById(Value);
+                        FString FoundName = Settings->FindQueueById(Value, true).Name;
                         if (!FoundName.IsEmpty())
                         {
                             QueueName = FoundName;
@@ -285,13 +285,15 @@ public:
             if (farmChanged)
             {
                 UE_LOG(LogCreateJobTest, Display, TEXT("Triggering OnSettingsModified for DefaultFarm"));
-                Settings->OnSettingsModified("DefaultFarm");
+				FPropertyChangedEvent PropertyEvent(Settings->GetClass()->FindPropertyByName(TEXT("WorkStationConfiguration.Profile.DefaultFarm")));
+                Settings->PostEditChangeProperty(PropertyEvent);
             }
 
             if (queueChanged)
             {
                 UE_LOG(LogCreateJobTest, Display, TEXT("Triggering OnSettingsModified for DefaultQueue"));
-                Settings->OnSettingsModified("DefaultQueue");
+				FPropertyChangedEvent PropertyEvent(Settings->GetClass()->FindPropertyByName(TEXT("WorkStationConfiguration.Farm.DefaultQueue")));
+                Settings->PostEditChangeProperty(PropertyEvent);
             }
         }
     }
@@ -299,7 +301,7 @@ public:
     static void RestoreOriginalSettings()
     {
         // Restore original settings
-        UDeadlineCloudDeveloperSettings* Settings = UDeadlineCloudDeveloperSettings::Get();
+        UDeadlineCloudDeveloperSettings* Settings = UDeadlineCloudDeveloperSettings::GetMutable();
         if (Settings)
         {
             UE_LOG(LogCreateJobTest, Display, TEXT("Restoring settings, original farm %s queue %s"), *OriginalFarmId, *OriginalQueueId);
@@ -311,7 +313,8 @@ public:
                     *Settings->WorkStationConfiguration.Profile.DefaultFarm, *OriginalFarmId);
                 Settings->WorkStationConfiguration.Profile.DefaultFarm = OriginalFarmId;
                 Settings->SaveConfig();
-                Settings->OnSettingsModified("DefaultFarm");
+                FPropertyChangedEvent PropertyEvent(Settings->GetClass()->FindPropertyByName(TEXT("WorkStationConfiguration.Profile.DefaultFarm")));
+				Settings->PostEditChangeProperty(PropertyEvent);
             }
             else
             {
@@ -325,7 +328,8 @@ public:
                     *Settings->WorkStationConfiguration.Farm.DefaultQueue, *OriginalQueueId);
                 Settings->WorkStationConfiguration.Farm.DefaultQueue = OriginalQueueId;
                 Settings->SaveConfig();
-                Settings->OnSettingsModified("DefaultQueue");
+				FPropertyChangedEvent PropertyEvent(Settings->GetClass()->FindPropertyByName(TEXT("WorkStationConfiguration.Farm.DefaultQueue")));
+				Settings->PostEditChangeProperty(PropertyEvent);
             }
             else
             {

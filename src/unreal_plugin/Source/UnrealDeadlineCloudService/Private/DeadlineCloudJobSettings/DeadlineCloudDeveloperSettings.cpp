@@ -122,7 +122,7 @@ void UDeadlineCloudDeveloperSettings::PostEditChangeProperty(FPropertyChangedEve
 		{
 			if (auto Library = UDeadlineCloudSettingsLibrary::Get())
 			{
-				Library->SetAWSConfigSetting(DeadlineSettingsKeys::AwsProfileName, WorkStationConfiguration.GlobalSettings.AWS_Profile);
+				Library->SetAWSStringConfigSetting(DeadlineSettingsKeys::AwsProfileName, WorkStationConfiguration.GlobalSettings.AWS_Profile);
 			}
 
 			RefreshFromDefaultProfile();
@@ -132,7 +132,7 @@ void UDeadlineCloudDeveloperSettings::PostEditChangeProperty(FPropertyChangedEve
 			FUnrealAwsEntity Farm = FindFarmById(WorkStationConfiguration.Profile.DefaultFarm, true);
 			if (auto Library = UDeadlineCloudSettingsLibrary::Get())
 			{
-				Library->SetAWSConfigSetting(DeadlineSettingsKeys::FarmId, Farm.Id);
+				Library->SetAWSStringConfigSetting(DeadlineSettingsKeys::FarmId, Farm.Id);
 			}
 
 			RefreshFromDefaultProfile();
@@ -183,7 +183,7 @@ void UDeadlineCloudDeveloperSettings::RefreshFromDefaultProfileInternal()
 {
     if (auto Library = UDeadlineCloudSettingsLibrary::Get())
     {
-		FString AWSProfileName = Library->GetAWSConfigSetting(DeadlineSettingsKeys::AwsProfileName);
+		FString AWSProfileName = Library->GetAWSStringConfigSetting(DeadlineSettingsKeys::AwsProfileName);
         if (AWSProfileName.IsEmpty() || AWSProfileName == TEXT("default") || AWSProfileName == TEXT("(default)"))
         {
             AWSProfileName = TEXT("(default)");
@@ -191,12 +191,12 @@ void UDeadlineCloudDeveloperSettings::RefreshFromDefaultProfileInternal()
 
 		WorkStationConfiguration.GlobalSettings.AWS_Profile = AWSProfileName;
 
-		FString JobHistoryDir = Library->GetAWSConfigSetting(DeadlineSettingsKeys::JobHistoryDir);
+		FString JobHistoryDir = Library->GetAWSStringConfigSetting(DeadlineSettingsKeys::JobHistoryDir);
         JobHistoryDir.ReplaceInline(TEXT("\\"), TEXT("/"));
 
 		WorkStationConfiguration.Profile.JobHistoryDir.Path = JobHistoryDir;
 
-        FString FarmId = Library->GetAWSConfigSetting(DeadlineSettingsKeys::FarmId);
+        FString FarmId = Library->GetAWSStringConfigSetting(DeadlineSettingsKeys::FarmId);
 
 		FUnrealAwsEntity Farm = FindFarmById(FarmId, true);
 		if (Farm.IsValid())
@@ -204,30 +204,30 @@ void UDeadlineCloudDeveloperSettings::RefreshFromDefaultProfileInternal()
 			WorkStationConfiguration.Profile.DefaultFarm = Farm.Name;
 		}
 
-		FString QueueId = Library->GetAWSConfigSetting(DeadlineSettingsKeys::QueueId);
+		FString QueueId = Library->GetAWSStringConfigSetting(DeadlineSettingsKeys::QueueId);
 		FUnrealAwsEntity Queue = FindQueueById(QueueId, true);
 		if (Queue.IsValid())
 		{
 			WorkStationConfiguration.Farm.DefaultQueue = Queue.Name;
 		}
 
-		FString StorageProfileId = Library->GetAWSConfigSetting(DeadlineSettingsKeys::StorageProfileId);
+		FString StorageProfileId = Library->GetAWSStringConfigSetting(DeadlineSettingsKeys::StorageProfileId);
 		FUnrealAwsEntity StorageProfile = FindStorageProfileById(StorageProfileId, true);
 		if (StorageProfile.IsValid())
 		{
 			WorkStationConfiguration.Farm.DefaultStorageProfile = StorageProfile.Name;
 		}
 
-		FString JobAttachmentFilesystemOptions = Library->GetAWSConfigSetting(DeadlineSettingsKeys::JobAttachmentsFileSystem);
+		FString JobAttachmentFilesystemOptions = Library->GetAWSStringConfigSetting(DeadlineSettingsKeys::JobAttachmentsFileSystem);
 		WorkStationConfiguration.Farm.JobAttachmentFilesystemOptions = JobAttachmentFilesystemOptions;
 
-		FString AutoAcceptConfirmationPrompts = Library->GetAWSConfigSetting(DeadlineSettingsKeys::AutoAccept);
+		FString AutoAcceptConfirmationPrompts = Library->GetAWSStringConfigSetting(DeadlineSettingsKeys::AutoAccept);
 		WorkStationConfiguration.General.AutoAcceptConfirmationPrompts = AutoAcceptConfirmationPrompts == TEXT("true");
 
-		FString ConflictResolutionOption = Library->GetAWSConfigSetting(DeadlineSettingsKeys::ConflictResolution);
+		FString ConflictResolutionOption = Library->GetAWSStringConfigSetting(DeadlineSettingsKeys::ConflictResolution);
 		WorkStationConfiguration.General.ConflictResolutionOption = ConflictResolutionOption;
 
-		FString CurrentLoggingLevel = Library->GetAWSConfigSetting(DeadlineSettingsKeys::LogLevel);
+		FString CurrentLoggingLevel = Library->GetAWSStringConfigSetting(DeadlineSettingsKeys::LogLevel);
 		WorkStationConfiguration.General.CurrentLoggingLevel = CurrentLoggingLevel;
     }
 }
