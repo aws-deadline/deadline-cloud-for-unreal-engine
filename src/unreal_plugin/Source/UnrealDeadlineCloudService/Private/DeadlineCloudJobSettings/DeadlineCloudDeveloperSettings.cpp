@@ -118,7 +118,7 @@ void UDeadlineCloudDeveloperSettings::PostEditChangeProperty(FPropertyChangedEve
 
 	if (PropertyChangedEvent.Property)
 	{
-		if (PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UDeadlineCloudDeveloperSettings, WorkStationConfiguration.GlobalSettings.AWS_Profile))
+		if (PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(FDeadlineCloudGlobalPluginSettings, AWS_Profile))
 		{
 			if (auto Library = UDeadlineCloudSettingsLibrary::Get())
 			{
@@ -127,9 +127,9 @@ void UDeadlineCloudDeveloperSettings::PostEditChangeProperty(FPropertyChangedEve
 
 			RefreshFromDefaultProfile();
 		}
-		else if (PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UDeadlineCloudDeveloperSettings, WorkStationConfiguration.Profile.DefaultFarm))
+		else if (PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(FDeadlineCloudProfilePluginSettings, DefaultFarm))
 		{
-			FUnrealAwsEntity Farm = FindFarmById(WorkStationConfiguration.Profile.DefaultFarm, true);
+			FUnrealAwsEntity Farm = FindFarmByName(WorkStationConfiguration.Profile.DefaultFarm, true);
 			if (auto Library = UDeadlineCloudSettingsLibrary::Get())
 			{
 				Library->SetAWSStringConfigSetting(DeadlineSettingsKeys::FarmId, Farm.Id);
@@ -279,6 +279,16 @@ FUnrealAwsEntity UDeadlineCloudDeveloperSettings::FindFarmById(const FString& Fa
 	return FindAwsEntityById(FarmId, WorkStationConfigurationCache.FarmsCacheList);
 }
 
+FUnrealAwsEntity UDeadlineCloudDeveloperSettings::FindFarmByName(const FString& FarmName, bool bUpdateFarmsList)
+{
+	if (bUpdateFarmsList)
+	{
+		UpdateFarmsCacheList();
+	}
+
+	return FindAwsEntityByName(FarmName, WorkStationConfigurationCache.FarmsCacheList);
+}
+
 void UDeadlineCloudDeveloperSettings::UpdateStorageProfilesCacheList()
 {
 	WorkStationConfigurationCache.StorageProfilesCacheList.Reset();
@@ -297,6 +307,16 @@ FUnrealAwsEntity UDeadlineCloudDeveloperSettings::FindStorageProfileById(const F
 
 	return FindAwsEntityById(StorageProfileId, WorkStationConfigurationCache.StorageProfilesCacheList);
 
+}
+
+FUnrealAwsEntity UDeadlineCloudDeveloperSettings::FindStorageProfileByName(const FString& StorageProfileName, bool bUpdateStorageProfilesList)
+{
+	if (bUpdateStorageProfilesList)
+	{
+		UpdateStorageProfilesCacheList();
+	}
+
+	return FindAwsEntityByName(StorageProfileName, WorkStationConfigurationCache.StorageProfilesCacheList);
 }
 
 void UDeadlineCloudDeveloperSettings::UpdateQueuesCacheList()
@@ -318,11 +338,34 @@ FUnrealAwsEntity UDeadlineCloudDeveloperSettings::FindQueueById(const FString& Q
 	return FindAwsEntityById(QueueId, WorkStationConfigurationCache.QueuesCacheList);
 }
 
+FUnrealAwsEntity UDeadlineCloudDeveloperSettings::FindQueueByName(const FString& QueueName, bool bUpdateQueuesList)
+{
+	if (bUpdateQueuesList)
+	{
+		UpdateQueuesCacheList();
+	}
+
+	return FindAwsEntityByName(QueueName, WorkStationConfigurationCache.QueuesCacheList);
+}
+
 FUnrealAwsEntity UDeadlineCloudDeveloperSettings::FindAwsEntityById(const FString& Id, const TArray<FUnrealAwsEntity>& EntityList)
 {
 	for (const auto& Entity : EntityList)
 	{
 		if (Entity.Id == Id)
+		{
+			return Entity;
+		}
+	}
+
+	return FUnrealAwsEntity();
+}
+
+FUnrealAwsEntity UDeadlineCloudDeveloperSettings::FindAwsEntityByName(const FString& Name, const TArray<FUnrealAwsEntity>& EntityList)
+{
+	for (const auto& Entity : EntityList)
+	{
+		if (Entity.Name == Name)
 		{
 			return Entity;
 		}

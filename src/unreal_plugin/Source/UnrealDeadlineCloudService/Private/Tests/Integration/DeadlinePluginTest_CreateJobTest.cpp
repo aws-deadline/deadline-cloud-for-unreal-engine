@@ -145,6 +145,66 @@ private:
 class FSettingsHelper
 {
 public:
+    static FProperty* ResolvePropertyByPath(UObject* RootObject, const FString& PropertyPath)
+    {
+	    if (!RootObject)
+	    {
+		    UE_LOG(LogCreateJobTest, Error, TEXT("RootObject is null"));
+		    return nullptr;
+	    }
+
+	    TArray<FString> PathSegments;
+	    PropertyPath.ParseIntoArray(PathSegments, TEXT("."));
+	    if (PathSegments.Num() == 0)
+	    {
+		    UE_LOG(LogCreateJobTest, Error, TEXT("Property path is empty"));
+		    return nullptr;
+	    }
+
+	    UStruct* CurrentStruct = RootObject->GetClass();
+	    void* CurrentContainer = RootObject;
+
+	    for (int32 i = 0; i < PathSegments.Num(); ++i)
+	    {
+		    const FName SegmentName(*PathSegments[i]);
+		    FProperty* FoundProperty = CurrentStruct->FindPropertyByName(SegmentName);
+		    if (!FoundProperty)
+		    {
+			    UE_LOG(LogCreateJobTest, Error, TEXT("Property '%s' not found in '%s'"), *SegmentName.ToString(), *CurrentStruct->GetName());
+			    return nullptr;
+		    }
+
+		    if (i == PathSegments.Num() - 1)
+		    {
+			    return FoundProperty;
+		    }
+
+		    if (FStructProperty* StructProp = CastField<FStructProperty>(FoundProperty))
+		    {
+			    CurrentContainer = StructProp->ContainerPtrToValuePtr<void>(CurrentContainer);
+			    CurrentStruct = StructProp->Struct;
+		    }
+		    else if (FObjectProperty* ObjectProp = CastField<FObjectProperty>(FoundProperty))
+		    {
+			    UObject* InnerObject = ObjectProp->GetObjectPropertyValue_InContainer(CurrentContainer);
+			    if (!InnerObject)
+			    {
+				    UE_LOG(LogCreateJobTest, Error, TEXT("Nested object '%s' is null"), *SegmentName.ToString());
+				    return nullptr;
+			    }
+			    CurrentContainer = InnerObject;
+			    CurrentStruct = InnerObject->GetClass();
+		    }
+		    else
+		    {
+			    UE_LOG(LogCreateJobTest, Error, TEXT("Unsupported property '%s' (not struct or object)"), *SegmentName.ToString());
+			    return nullptr;
+		    }
+	    }
+
+	    return nullptr;
+    }
+
     static void ApplyTestSettings()
     {
         UE_LOG(LogCreateJobTest, Display, TEXT("Applying test settings"));
@@ -155,7 +215,7 @@ public:
             UE_LOG(LogCreateJobTest, Error, TEXT("Failed to get Python implementation of settings"));
             return;
         }
-
+        
         // Cache original values
         OriginalFarmId = Settings->WorkStationConfiguration.Profile.DefaultFarm;
         OriginalQueueId = Settings->WorkStationConfiguration.Farm.DefaultQueue;
@@ -313,7 +373,9 @@ public:
                     *Settings->WorkStationConfiguration.Profile.DefaultFarm, *OriginalFarmId);
                 Settings->WorkStationConfiguration.Profile.DefaultFarm = OriginalFarmId;
                 Settings->SaveConfig();
-                FPropertyChangedEvent PropertyEvent(Settings->GetClass()->FindPropertyByName(TEXT("WorkStationConfiguration.Profile.DefaultFarm")));
+
+                FProperty* Property = ResolvePropertyByPath(Settings, TEXT("WorkStationConfiguration.Profile.DefaultFarm"));
+                FPropertyChangedEvent PropertyEvent(Property);
 				Settings->PostEditChangeProperty(PropertyEvent);
             }
             else
@@ -328,7 +390,9 @@ public:
                     *Settings->WorkStationConfiguration.Farm.DefaultQueue, *OriginalQueueId);
                 Settings->WorkStationConfiguration.Farm.DefaultQueue = OriginalQueueId;
                 Settings->SaveConfig();
-				FPropertyChangedEvent PropertyEvent(Settings->GetClass()->FindPropertyByName(TEXT("WorkStationConfiguration.Farm.DefaultQueue")));
+
+				FProperty* Property = ResolvePropertyByPath(Settings, TEXT("WorkStationConfiguration.Farm.DefaultQueue"));
+                FPropertyChangedEvent PropertyEvent(Property);
 				Settings->PostEditChangeProperty(PropertyEvent);
             }
             else

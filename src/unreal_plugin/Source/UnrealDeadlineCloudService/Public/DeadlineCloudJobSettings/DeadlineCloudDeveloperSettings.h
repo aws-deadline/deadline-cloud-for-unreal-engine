@@ -169,6 +169,7 @@ public:
 	* @return The found farm entity.
 	*/
 	FUnrealAwsEntity FindFarmById(const FString& FarmId, bool bUpdateFarmsList = false);
+	FUnrealAwsEntity FindFarmByName(const FString& FarmName, bool bUpdateFarmsList = false);
 
 	/** 
 	* Finds a storage profile by its ID.
@@ -177,6 +178,7 @@ public:
 	* @return The found storage profile entity.
 	*/
 	FUnrealAwsEntity FindStorageProfileById(const FString& StorageProfileId, bool bUpdateStorageProfilesList = false);
+	FUnrealAwsEntity FindStorageProfileByName(const FString& StorageProfileName, bool bUpdateStorageProfilesList = false);
 
 	/** 
 	* Finds a queue by its ID.
@@ -185,7 +187,7 @@ public:
 	* @return The found queue entity.
 	*/
 	FUnrealAwsEntity FindQueueById(const FString& QueueId, bool bUpdateQueuesList = false);
-
+	FUnrealAwsEntity FindQueueByName(const FString& QueueName, bool bUpdateQueuesList = false);
 protected:
 	FDeadlineCloudPluginSettingsCache WorkStationConfigurationCache;
 
@@ -206,5 +208,5 @@ protected:
 	*/
 	static FUnrealAwsEntity FindAwsEntityById(const FString& Id, const TArray<FUnrealAwsEntity>& EntityList);
 
-
+	static FUnrealAwsEntity FindAwsEntityByName(const FString& Name, const TArray<FUnrealAwsEntity>& EntityList);
 };
