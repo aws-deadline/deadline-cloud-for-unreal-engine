@@ -345,14 +345,16 @@ public:
             if (farmChanged)
             {
                 UE_LOG(LogCreateJobTest, Display, TEXT("Triggering OnSettingsModified for DefaultFarm"));
-				FPropertyChangedEvent PropertyEvent(Settings->GetClass()->FindPropertyByName(TEXT("WorkStationConfiguration.Profile.DefaultFarm")));
+				FProperty* Property = ResolvePropertyByPath(Settings, TEXT("WorkStationConfiguration.Profile.DefaultFarm"));
+                FPropertyChangedEvent PropertyEvent(Property);
                 Settings->PostEditChangeProperty(PropertyEvent);
             }
 
             if (queueChanged)
             {
                 UE_LOG(LogCreateJobTest, Display, TEXT("Triggering OnSettingsModified for DefaultQueue"));
-				FPropertyChangedEvent PropertyEvent(Settings->GetClass()->FindPropertyByName(TEXT("WorkStationConfiguration.Farm.DefaultQueue")));
+				FProperty* Property = ResolvePropertyByPath(Settings, TEXT("WorkStationConfiguration.Farm.DefaultQueue"));
+                FPropertyChangedEvent PropertyEvent(Property);
                 Settings->PostEditChangeProperty(PropertyEvent);
             }
         }
