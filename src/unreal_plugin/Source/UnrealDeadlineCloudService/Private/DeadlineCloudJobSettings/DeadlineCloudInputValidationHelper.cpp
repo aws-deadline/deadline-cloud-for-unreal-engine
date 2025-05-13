@@ -1,7 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 #include "DeadlineCloudJobSettings/DeadlineCloudInputValidationHelper.h"
-//#include "Internationalization/Regex.h"
 
 #define LOCTEXT_NAMESPACE "DeadlineWidgets"
 
@@ -10,132 +9,83 @@
 //The best approach to validation is to create a wrapper around the OpenJD validators to avoid 
 //code duplication and reduce the chance of errors. However, for now, private functions are used internally
 
+static FOnVerifyTextChanged MakeValidator(FValidatorFunc Func)
+{
+    return FOnVerifyTextChanged::CreateLambda(
+        [Func](const FText& Input, FText& Error) -> bool
+        {
+            const FString InputString = Input.ToString();
+            return Func(InputString, Error);
+        });
+}
+
+FValidatorFunc FDeadlineCloudInputValidationHelper::CreateLengthValidator(int32 Min, int32 Max)
+{
+    return [Min, Max](const FString& Str, FText& Error)
+    {
+        return IsValidLength(Str, Min, Max, Error);
+    };
+}
+
+FValidatorFunc FDeadlineCloudInputValidationHelper::CreateLengthAndIdentifierValidator(int32 Min, int32 Max)
+{
+    return [Min, Max](const FString& Str, FText& Error)
+    {
+        return IsValidLength(Str, Min, Max, Error)
+            && IsValidIdentifier(Str, Error);
+    };
+}
+
+FValidatorFunc FDeadlineCloudInputValidationHelper::CreateLengthAndControlValidator(int32 Min, int32 Max, TSet<TCHAR> ExcludeList)
+{
+    return [Min, Max, ExcludeList](const FString& Str, FText& Error)
+    {
+        return IsValidLength(Str, Min, Max, Error)
+            && ContainsNoControlCharacters(Str, Error, ExcludeList);
+    };
+}
+
 FOnVerifyTextChanged FDeadlineCloudInputValidationHelper::GetStringValidationFunction(EValueValidationType ValidationType)
 {
+    using enum EValueValidationType;
+
     switch (ValidationType)
     {
-        using enum EValueValidationType;
+    case JobName:
+        return MakeValidator(CreateLengthAndIdentifierValidator(1, 64));
 
-    case EValueValidationType::JobName:
-    {
-        return FOnVerifyTextChanged::CreateLambda(
-            [](const FText Input, FText& Error) -> bool
-            {
-                FString InputString = Input.ToString();
-                if (!IsValidLength(InputString, 1, 64, Error))
-                {
-                    return false;
-                }
+    case JobDescription:
+        return MakeValidator(CreateLengthAndControlValidator(0, 2048, { '\n', '\r', '\t' }));
 
-				if (!IsValidIdentifier(InputString, Error))
-				{
-					return false;
-				}
+    case JobParameterValue:
+        return MakeValidator(CreateLengthValidator(0, 1024));
 
-                return true;
-            });
+    case StepParameterValue:
+        return MakeValidator(CreateLengthValidator(1, 1024));
+
+    case EnvParameterValue:
+        return MakeValidator(CreateLengthValidator(0, 2048));
+
+    default:
+        return FOnVerifyTextChanged();
     }
-
-    case EValueValidationType::JobDescription:
-    {
-        return FOnVerifyTextChanged::CreateLambda(
-            [](const FText Input, FText& Error) -> bool
-            {
-                FString InputString = Input.ToString();
-				if (!IsValidLength(InputString, 0, 2048, Error))
-				{
-					return false;
-				}
-
-                TSet<TCHAR> AllowedControls = { '\n', '\r', '\t' };
-				if (!ContainsNoControlCharacters(InputString, Error, AllowedControls))
-				{
-					return false;
-				}
-
-                return true;
-            });
-    }
-
-    case EValueValidationType::JobParameterValue:
-    {
-        return FOnVerifyTextChanged::CreateLambda(
-            [](const FText Input, FText& Error) -> bool
-            {
-                FString InputString = Input.ToString();
-                if (!IsValidLength(InputString, 0, 1024, Error))
-                {
-                    return false;
-                }
-                return true;
-            });
-    }
-
-    case EValueValidationType::StepParameterValue:
-    {
-        return FOnVerifyTextChanged::CreateLambda(
-            [](const FText Input, FText& Error) -> bool
-            {
-                FString InputString = Input.ToString();
-                if (!IsValidLength(InputString, 1, 1024, Error))
-                {
-                    return false;
-                }
-                return true;
-            });
-    }
-
-    case EValueValidationType::EnvParameterValue:
-    {
-        return FOnVerifyTextChanged::CreateLambda(
-            [](const FText Input, FText& Error) -> bool
-            {
-                FString InputString = Input.ToString();
-                if (!IsValidLength(InputString, 0, 2048, Error))
-                {
-                    return false;
-                }
-                return true;
-            });
-    }
-    }
-    return FOnVerifyTextChanged();
 }
 
 FOnVerifyTextChanged FDeadlineCloudInputValidationHelper::GetPathValidationFunction(EValueValidationType ValidationType)
 {
+    using enum EValueValidationType;
+
     switch (ValidationType)
     {
-        using enum EValueValidationType;
-    case EValueValidationType::JobParameterValue:
-    {
-        return FOnVerifyTextChanged::CreateLambda(
-            [](const FText Input, FText& Error) -> bool
-            {
-                FString InputString = Input.ToString();
-                if (!IsValidLength(InputString, 0, 1024, Error))
-                {
-                    return false;
-                }
-                return true;
-            });
-    }
+    case JobParameterValue:
+        return MakeValidator(CreateLengthValidator(0, 1024));
 
-    case EValueValidationType::StepParameterValue:
-    {
-        return FOnVerifyTextChanged::CreateLambda(
-            [](const FText Input, FText& Error) -> bool
-            {
-                FString InputString = Input.ToString();
-                if (!IsValidLength(InputString, 1, 1024, Error))
-                {
-                    return false;
-                }
-                return true;
-            });
+    case StepParameterValue:
+        return MakeValidator(CreateLengthValidator(1, 1024));
+
+    default:
+        return FOnVerifyTextChanged();
     }
-    }
-    return FOnVerifyTextChanged();
 }
 
 bool FDeadlineCloudInputValidationHelper::IsValidLength(const FString& InStr, int32 Min, int32 Max)
@@ -154,8 +104,10 @@ bool FDeadlineCloudInputValidationHelper::IsValidLength(const FString& InStr, in
             FText::AsNumber(Min),
             FText::AsNumber(Max)
         );
+
         return false;
     }
+
     return true;
 }
 
@@ -168,6 +120,7 @@ bool FDeadlineCloudInputValidationHelper::ContainsNoControlCharacters(const FStr
             return false;
         }
     }
+
     return true;
 }
 
@@ -179,8 +132,10 @@ bool FDeadlineCloudInputValidationHelper::ContainsNoControlCharacters(const FStr
             LOCTEXT("InvalidControlChars", "{0} contains invalid control characters."),
             FieldName
         );
+
         return false;
     }
+
     return true;
 }
 
@@ -215,8 +170,10 @@ bool FDeadlineCloudInputValidationHelper::IsValidIdentifier(const FString& InStr
             LOCTEXT("InvalidIdentifier", "{0} must start with a letter or underscore and contain only Latin letters, digits, or underscores."),
             FieldName
         );
+
         return false;
     }
+
     return true;
 }
 

@@ -4,9 +4,12 @@
 #include "CoreMinimal.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudDetailsWidgetsHelper.h"
 
+using FValidatorFunc = TFunction<bool(const FString&, FText&)>;
+
 class FDeadlineCloudInputValidationHelper
 {
 public:
+
     static FOnVerifyTextChanged GetStringValidationFunction(EValueValidationType ValidationType);
     static FOnVerifyTextChanged GetPathValidationFunction(EValueValidationType ValidationType);
 
@@ -28,5 +31,11 @@ public:
 
     /** Identifier with error message */
     static bool IsValidIdentifier(const FString& InStr, FText& OutError, const FText& FieldName = FText::FromString(TEXT("Identifier")));
+
+private:
+
+    static FValidatorFunc CreateLengthValidator(int32 Min, int32 Max);
+    static FValidatorFunc CreateLengthAndIdentifierValidator(int32 Min, int32 Max);
+    static FValidatorFunc CreateLengthAndControlValidator(int32 Min, int32 Max, TSet<TCHAR> ExcludeList);
 
 };

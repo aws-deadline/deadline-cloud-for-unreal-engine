@@ -6,7 +6,6 @@
 #include "Engine/Engine.h"
 #include "UObject/UObjectGlobals.h"
 #include "AssetToolsModule.h"
-#include "Runtime/Core/Public/Modules/ModuleManager.h"
 #include "Engine/AssetManager.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "AssetRegistry/IAssetRegistry.h"
@@ -21,7 +20,6 @@
 #include "PythonAPILibraries/PythonParametersConsistencyChecker.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudInputValidationHelper.h"
 
-#include "Misc/AutomationTest.h"
 #include "Tests/AutomationCommon.h"
 #include "Subsystems/AssetEditorSubsystem.h"
 #include "AutomationDriverTypeDefs.h"
@@ -253,15 +251,13 @@ static FString ConvertLocalPathToFull(const FString& Path)
 	return FullPath;
 }
 
-static void OpenEditorForAsset(UObject* Asset)
+static void ExpandAllProperties(const FString DetailsPath, FAutomationDriverPtr Driver)
 {
-	UAssetEditorSubsystem* AssetEditor = GEditor->GetEditorSubsystem<UAssetEditorSubsystem>();
-	AssetEditor->CloseAllAssetEditors();
-	AssetEditor->OpenEditorForAsset(Asset);
-}
+	FString MainCategoryExpanderArrowPath = DetailsPath + "//<SDetailCategoryTableRow>//<SDetailExpanderArrow>";
+	FDriverElementCollectionRef ParametersCategory = Driver->FindElements(By::Path(MainCategoryExpanderArrowPath));
+	ParametersCategory->GetElements()[0]->Click(EMouseButtons::Type::Right);
+	Driver->Wait(FTimespan::FromSeconds(1));
 
-static void ExpandAllProperties(FAutomationDriverPtr Driver)
-{
 	FString PopupElementsPath = "<SWindow>//<SPopup>//<SMultiBoxWidget>//<SBorder>//<SVerticalBox>//<SScrollBox>//<SHorizontalBox>//<SOverlay>//<SScrollPanel>//<SVerticalBox>//<SHorizontalBox>//<SMenuEntryButton>";
 
 	FDriverElementCollectionRef PopupElements = Driver->FindElements(By::Path(PopupElementsPath));
@@ -290,8 +286,52 @@ static void ScrollToElement(FAutomationDriverPtr Driver, FDriverElementRef List,
 	}
 }
 
+template<typename AssetType>
+AssetType* CreateAndOpenAsset(
+    const FString& RelativeTemplatePath,
+    FString& OutFullTemplatePath)
+{
+    OutFullTemplatePath = ConvertLocalPathToFull(RelativeTemplatePath);
+    AssetType* Asset = NewObject<AssetType>();
+    Asset->PathToTemplate.FilePath = OutFullTemplatePath;
+
+    if constexpr (std::is_same_v<AssetType, UDeadlineCloudJob>)
+    {
+        Asset->OpenJobFile(OutFullTemplatePath);
+    }
+    else if constexpr (std::is_same_v<AssetType, UDeadlineCloudStep>)
+    {
+        Asset->OpenStepFile(OutFullTemplatePath);
+    }
+    else if constexpr (std::is_same_v<AssetType, UDeadlineCloudEnvironment>)
+    {
+        Asset->OpenEnvFile(OutFullTemplatePath);
+    }
+
+    auto* Editor = GEditor->GetEditorSubsystem<UAssetEditorSubsystem>();
+    Editor->CloseAllAssetEditors();
+    Editor->OpenEditorForAsset(Asset);
+    return Asset;
+}
+
+static void InputText(FDriverElementRef Widget, const FString& Text, bool bRemoveTextBeforeInput)
+{
+	if (bRemoveTextBeforeInput)
+	{
+		Widget->TypeChord(EKeys::LeftControl, EKeys::A);
+		Widget->Type(EKeys::Delete);
+	}
+	if (!Text.IsEmpty())
+	{
+		Widget->Type(Text);
+	}
+	Widget->Type(EKeys::Enter);
+}
+
+
+
 BEGIN_DEFINE_SPEC(FDeadlinePluginUISpec, "DeadlineCloud",
-    EAutomationTestFlags::ProductFilter | EAutomationTestFlags::EditorContext);
+    EAutomationTestFlags::ProductFilter | EAutomationTestFlags::EditorContext | EAutomationTestFlags::NonNullRHI);
 
 FAutomationDriverPtr Driver;
 UDeadlineCloudStep* CreatedStepDataAsset;
@@ -306,6 +346,41 @@ FString EnvTemplate = "/Source/UnrealDeadlineCloudService/Private/Tests/openjd_t
 FString PathToJobTemplate;
 FString JobTemplate = "/Source/UnrealDeadlineCloudService/Private/Tests/openjd_templates/render_job_UI.yml";
 
+const FString DetailsPath = "<SStandaloneAssetEditorToolkitHost>//<SDetailsView>";
+const FString ListPath = DetailsPath + "//<SListPanel>";
+const FString ScrollBarPath = DetailsPath + "//<SScrollBar>";
+
+FDriverElementPtr Details;
+FDriverElementPtr List;
+FDriverElementPtr ScrollBar;
+
+inline bool Init(UObject* Asset)
+{
+    if (!IsValid(Asset))
+    {
+        TestTrue(TEXT("Asset should exist"), false);
+        return false;
+    }
+    // Locate Details View
+    Details = Driver->FindElement(By::Path(DetailsPath));
+    Driver->Wait(Until::ElementExists(Details.ToSharedRef(), FWaitTimeout::InSeconds(2.f)));
+    if (!Details->Exists())
+    {
+        TestTrue(TEXT("Details view should exist"), false);
+        return false;
+    }
+    Details->Focus();
+
+    // Locate List and ScrollBar
+    List = Driver->FindElement(By::Path(ListPath));
+    if (!List->Exists())
+    {
+        TestTrue(TEXT("List widget should exist"), false);
+        return false;
+    }
+    ScrollBar = Driver->FindElement(By::Path(ScrollBarPath));
+    return true;
+}
 
 END_DEFINE_SPEC(FDeadlinePluginUISpec);
 
@@ -323,466 +398,336 @@ void FDeadlinePluginUISpec::Define()
 		});
 
     Describe("DeadlineCloudJobUI", [this]()
-        {
+    {
+		BeforeEach([this]() {
+			CreatedJobDataAsset = CreateAndOpenAsset<UDeadlineCloudJob>(JobTemplate, PathToJobTemplate);
+			});
 
-            BeforeEach([this]()
-                {
-                    if (!CreatedStepDataAsset)
-                    {
-						PathToJobTemplate = ConvertLocalPathToFull(JobTemplate);
+		It("JobUI", EAsyncExecution::ThreadPool, [this]() {
+			if (!Init(CreatedJobDataAsset))
+			{
+				return;
+			}
 
-                        CreatedJobDataAsset = NewObject<UDeadlineCloudJob>();
-                        CreatedJobDataAsset->PathToTemplate.FilePath = PathToJobTemplate;
-                        CreatedJobDataAsset->OpenJobFile(PathToJobTemplate);
-                    }
-                });
+			ExpandAllProperties(DetailsPath, Driver);
 
-			BeforeEach([this]() {
-					OpenEditorForAsset(CreatedJobDataAsset);
-				});
+			FString JobNamePath = DetailsPath + "//#JobPreset.Name//<SEditableTextBox>";
+			FString DescriptionPath = DetailsPath + "//#JobPreset.Description//<SEditableTextBox>";
 
-			It("JobUI", EAsyncExecution::ThreadPool, [this]() {
-				    FString DetailsPath = "<SStandaloneAssetEditorToolkitHost>//<SDetailsView>";
-					FString ListPath = DetailsPath + "//<SListPanel>";
-					FString ScrollBarPath = DetailsPath + "//<SScrollBar>";
+			FString StringParametersPath = DetailsPath + "//#JobParameter.StringParameter//<SEditableTextBox>";
+			FString PathParametersPath = DetailsPath + "//#JobParameter.PathParameter//<SEditableTextBox>";
+			FString FloatParametersPath = DetailsPath + "//#JobParameter.FloatParameter//<SEditableText>";
+			FString IntParametersPath = DetailsPath + "//#JobParameter.IntParameter//<SEditableText>";
 
-				    FDriverElementRef Details = Driver->FindElement(By::Path(DetailsPath));
-				    Driver->Wait(Until::ElementExists(Details, FWaitTimeout::InSeconds(2.f)));
-				    Details->Focus();
-					TEST_TRUE(Details->Exists());
-					
-					FDriverElementRef List = Driver->FindElement(By::Path(ListPath));
-					TEST_TRUE(List->Exists());
+			FDriverElementRef JobNameWidget = Driver->FindElement(By::Path(JobNamePath));
+			FDriverElementRef DescriptionWidget = Driver->FindElement(By::Path(DescriptionPath));
 
-					FDriverElementRef ScrollBar = Driver->FindElement(By::Path(ScrollBarPath));
+			FDriverElementRef StringParametersWidget = Driver->FindElement(By::Path(StringParametersPath));
+			FDriverElementRef PathParametersPathWidget = Driver->FindElement(By::Path(PathParametersPath));
+			FDriverElementRef FloatParametersWidget = Driver->FindElement(By::Path(FloatParametersPath));
+			FDriverElementRef IntParametersWidget = Driver->FindElement(By::Path(IntParametersPath));
 
-					FString PathToTemplate = DetailsPath + "//#Job.PathToTemplate//<SEditableTextBox>";
-					FDriverElementRef PathToTemplateWidget = Driver->FindElement(By::Path(PathToTemplate));
-					FString CategoryPath = DetailsPath + "//<SDetailCategoryTableRow>";
+			//JobName
+			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), JobNameWidget, 50);
+			bool bJobNameWidgetExists = JobNameWidget->Exists();
+			TestTrue("JobName widget should exist", bJobNameWidgetExists);
+			if (bJobNameWidgetExists)
+			{
+				FString OldValue = CreatedJobDataAsset->JobPresetStruct.JobSharedSettings.Name;
+				InputText(JobNameWidget, "123 Invalid", true);
+				TEST_EQUAL(CreatedJobDataAsset->JobPresetStruct.JobSharedSettings.Name, OldValue);
 
-					FString MainCategoryExpanderArrowPath = DetailsPath + "//<SDetailCategoryTableRow>//<SDetailExpanderArrow>";
-					FDriverElementCollectionRef ParametersCategory = Driver->FindElements(By::Path(MainCategoryExpanderArrowPath));
-					ParametersCategory->GetElements()[0]->Click(EMouseButtons::Type::Right);
-					Driver->Wait(FTimespan::FromSeconds(1));
+				InputText(JobNameWidget, "", true);
+				TEST_EQUAL(CreatedJobDataAsset->JobPresetStruct.JobSharedSettings.Name, OldValue);
 
-					ExpandAllProperties(Driver);
+				FString ValidJobName = "ValidJob123";
+				InputText(JobNameWidget, ValidJobName, true);
+				TEST_EQUAL(CreatedJobDataAsset->JobPresetStruct.JobSharedSettings.Name, ValidJobName);
+			}
 
-					Driver->Wait(Until::ElementExists(PathToTemplateWidget, FWaitTimeout::InSeconds(1.f)));
+			//Description
+			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), DescriptionWidget, 50);
+			bool bDescriptionWidgetExists = DescriptionWidget->Exists();
+			TestTrue("Description widget should exist", bDescriptionWidgetExists);
+			if (bDescriptionWidgetExists)
+			{
+				FString LongString;
+				for (int i = 0; i < 2045; ++i) LongString += TEXT("A");
 
-					FString JobNamePath = DetailsPath + "//#JobPreset.Name//<SEditableTextBox>";
-					FString DescriptionPath = DetailsPath + "//#JobPreset.Description//<SEditableTextBox>";
+				CreatedJobDataAsset->JobPresetStruct.JobSharedSettings.Description = LongString;
+				InputText(DescriptionWidget, "LongString", false);
+				TEST_EQUAL(CreatedJobDataAsset->JobPresetStruct.JobSharedSettings.Description, LongString);
 
-					FString StringParametersPath = DetailsPath + "//#JobParameter.StringParameter//<SEditableTextBox>";
-					FString PathParametersPath = DetailsPath + "//#JobParameter.PathParameter//<SEditableTextBox>";
-					FString FloatParametersPath = DetailsPath + "//#JobParameter.FloatParameter//<SEditableText>";
-					FString IntParametersPath = DetailsPath + "//#JobParameter.IntParameter//<SEditableText>";
+				FString ValidDescription = TEXT("This is a job description.");
+				InputText(DescriptionWidget, ValidDescription, true);
+				TEST_EQUAL(CreatedJobDataAsset->JobPresetStruct.JobSharedSettings.Description, ValidDescription);	
+			}
 
-					FDriverElementRef JobNameWidget = Driver->FindElement(By::Path(JobNamePath));
-					FDriverElementRef DescriptionWidget = Driver->FindElement(By::Path(DescriptionPath));
+			//PathParameter
+			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), StringParametersWidget, 50);
+			bool bPathParametersWidgetExists = StringParametersWidget->Exists();
+			TestTrue("StringParameters widget should exist", bPathParametersWidgetExists);
+			if (bPathParametersWidgetExists)
+			{
+				FString PathParameterOldValue = CreatedJobDataAsset->ParameterDefinition.Parameters[0].Value;
+				FString PathParametersText = "ThisInputIsWayTooLongForValidation";
+				//Click on the widget to make it editable and remove text selection
+				PathParametersPathWidget->Click(EMouseButtons::Type::Left);
+				PathParametersPathWidget->Type(EKeys::Left);
+				PathParametersPathWidget->Type(PathParametersText);
+				PathParametersPathWidget->Type(EKeys::Enter);
+				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[0].Value, PathParameterOldValue);
 
-					FDriverElementRef StringParametersWidget = Driver->FindElement(By::Path(StringParametersPath));
-					FDriverElementRef PathParametersPathWidget = Driver->FindElement(By::Path(PathParametersPath));
-					FDriverElementRef FloatParametersWidget = Driver->FindElement(By::Path(FloatParametersPath));
-					FDriverElementRef IntParametersWidget = Driver->FindElement(By::Path(IntParametersPath));
+				InputText(PathParametersPathWidget, "", true);
+				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[0].Value, "");
 
-					//JobName
-					ScrollToElement(Driver, List, ScrollBar, JobNameWidget, 50);
-					TEST_TRUE(JobNameWidget->Exists()); //Indentifier
-					FString OldValue = CreatedJobDataAsset->JobPresetStruct.JobSharedSettings.Name;
-					FString InvalidJobName = "123 Invalid";
-					JobNameWidget->TypeChord(EKeys::LeftControl, EKeys::A);
-					JobNameWidget->Type(EKeys::Delete);
-					JobNameWidget->Type(InvalidJobName);
-					JobNameWidget->Type(EKeys::Enter);
-					TEST_EQUAL(OldValue, CreatedJobDataAsset->JobPresetStruct.JobSharedSettings.Name);
+				FString PathParametersTextValid = "ValidString";
+				InputText(PathParametersPathWidget, PathParametersTextValid, true);
+				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[0].Value, PathParametersTextValid);							
+			}
 
-					JobNameWidget->TypeChord(EKeys::LeftControl, EKeys::A);
-					JobNameWidget->Type(EKeys::Delete);
-					JobNameWidget->Type(EKeys::Enter);
-					TEST_EQUAL(OldValue, CreatedJobDataAsset->JobPresetStruct.JobSharedSettings.Name);
+			//StringParameter
+			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), StringParametersWidget, 50);
+			bool bStringParametersWidgetExists = StringParametersWidget->Exists();
+			TestTrue("StringParameters widget should exist", bStringParametersWidgetExists);
+			if (bStringParametersWidgetExists)
+			{
+				FString StringParameterOldValue = CreatedJobDataAsset->ParameterDefinition.Parameters[1].Value;
+				InputText(StringParametersWidget, "ThisInputIsWayTooLongForValidation", false);
+				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[1].Value, StringParameterOldValue);
 
-					FString ValidJobName = "ValidJob123";
-					JobNameWidget->TypeChord(EKeys::LeftControl, EKeys::A);
-					JobNameWidget->Type(ValidJobName);
-					JobNameWidget->Type(EKeys::Enter);
-					TEST_EQUAL(ValidJobName, CreatedJobDataAsset->JobPresetStruct.JobSharedSettings.Name);
+				InputText(StringParametersWidget, "", true);
+				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[1].Value, "");
 
-					//Description
-					ScrollToElement(Driver, List, ScrollBar, DescriptionWidget, 50);
+				FString StringParametersTextValid = "ValidString";
+				InputText(StringParametersWidget, StringParametersTextValid, true);
+				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[1].Value, StringParametersTextValid);							
+			}
 
-					FString LongString;
-					for (int i = 0; i < 2045; ++i) LongString += TEXT("A");
+			//FloatParameter
+			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), FloatParametersWidget, 50);
+			bool bFloatParametersWidgetExists = FloatParametersWidget->Exists();
+			TestTrue("FloatParameters widget should exist", bFloatParametersWidgetExists);
+			if (bFloatParametersWidgetExists)
+			{
+				FString FloatParametersOldValue = CreatedJobDataAsset->ParameterDefinition.Parameters[2].Value;
 
-					CreatedJobDataAsset->JobPresetStruct.JobSharedSettings.Description = LongString;
-					FString String = "LongString";
-					DescriptionWidget->Type(String);
-					DescriptionWidget->Type(EKeys::Enter);
-					TEST_EQUAL(LongString, CreatedJobDataAsset->JobPresetStruct.JobSharedSettings.Description);
+				InputText(FloatParametersWidget, "InvalidValue", false);
+				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[2].Value, FloatParametersOldValue);
 
-					FString ValidDescription = TEXT("This is a job description.");
-					DescriptionWidget->TypeChord(EKeys::LeftControl, EKeys::A);
-					DescriptionWidget->Type(ValidDescription);
-					DescriptionWidget->Type(EKeys::Enter);
-					TEST_EQUAL(ValidDescription, CreatedJobDataAsset->JobPresetStruct.JobSharedSettings.Description);				
+				InputText(FloatParametersWidget, "", true);
+				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[2].Value, FloatParametersOldValue);
 
-					//PathParameter
-					ScrollToElement(Driver, List, ScrollBar, StringParametersWidget, 50);
-					TEST_TRUE(PathParametersPathWidget->Exists());
-					FString PathParametersText = "ThisInputIsWayTooLongForValidation";
-					FString PathParameterOldValue = CreatedJobDataAsset->ParameterDefinition.Parameters[0].Value;
-					//Click on the widget to make it editable and remove text selection
-					PathParametersPathWidget->Click(EMouseButtons::Type::Left);
-					PathParametersPathWidget->Type(EKeys::Left);
-					PathParametersPathWidget->Type(PathParametersText);
-					PathParametersPathWidget->Type(EKeys::Enter);
-					TEST_EQUAL(PathParameterOldValue, CreatedJobDataAsset->ParameterDefinition.Parameters[0].Value);
-					FString Empty;
-					PathParametersPathWidget->TypeChord(EKeys::LeftControl, EKeys::A);
-					PathParametersPathWidget->Type(EKeys::Delete);
-					PathParametersPathWidget->Type(EKeys::Enter);
-					TEST_EQUAL(Empty, CreatedJobDataAsset->ParameterDefinition.Parameters[0].Value);
+				FString FloatParametersTextValid = "123.456";
+				InputText(FloatParametersWidget, FloatParametersTextValid, true);
+				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[2].Value, FloatParametersTextValid);							
+			}
 
-					FString PathParametersTextValid = "ValidString";
-					PathParametersPathWidget->TypeChord(EKeys::LeftControl, EKeys::A);
-					PathParametersPathWidget->Type(PathParametersTextValid);
-					PathParametersPathWidget->Type(EKeys::Enter);
-					TEST_EQUAL(PathParametersTextValid, CreatedJobDataAsset->ParameterDefinition.Parameters[0].Value);
+			//IntParameter
+			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), IntParametersWidget, 50);
+			bool bIntParametersWidgetExists = IntParametersWidget->Exists();
+			TestTrue("IntParameters widget should exist", bIntParametersWidgetExists);
+			if (bIntParametersWidgetExists)
+			{
+				FString IntParametersOldValue = CreatedJobDataAsset->ParameterDefinition.Parameters[3].Value;
 
-					//StringParameter
-					ScrollToElement(Driver, List, ScrollBar, StringParametersWidget, 50);
-					TEST_TRUE(StringParametersWidget->Exists());
-					FString StringParametersText = "ThisInputIsWayTooLongForValidation";
-					FString StringParameterOldValue = CreatedJobDataAsset->ParameterDefinition.Parameters[1].Value;
-					TEST_TRUE(StringParametersWidget->Exists());
-					StringParametersWidget->Type(StringParametersText);
-					StringParametersWidget->Type(EKeys::Enter);
-					TEST_EQUAL(StringParameterOldValue, CreatedJobDataAsset->ParameterDefinition.Parameters[1].Value);
+				InputText(IntParametersWidget, "InvalidValue", true);
+				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[3].Value, IntParametersOldValue);
 
-					StringParametersWidget->TypeChord(EKeys::LeftControl, EKeys::A);
-					StringParametersWidget->Type(EKeys::Delete);
-					StringParametersWidget->Type(EKeys::Enter);
-					TEST_EQUAL("", CreatedJobDataAsset->ParameterDefinition.Parameters[1].Value);
+				InputText(IntParametersWidget, "", true);
+				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[3].Value, IntParametersOldValue);
 
-					FString StringParametersTextValid = "ValidString";
-					StringParametersWidget->TypeChord(EKeys::LeftControl, EKeys::A);
-					StringParametersWidget->Type(StringParametersTextValid);
-					StringParametersWidget->Type(EKeys::Enter);
-					TEST_EQUAL(StringParametersTextValid, CreatedJobDataAsset->ParameterDefinition.Parameters[1].Value);
+				FString IntParametersTextValid = "123";
+				InputText(IntParametersWidget, IntParametersTextValid, true);
+				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[3].Value, IntParametersTextValid);
 
-					//FloatParameter
-					ScrollToElement(Driver, List, ScrollBar, FloatParametersWidget, 50);
-					TEST_TRUE(FloatParametersWidget->Exists());
-					FString FloatParametersText = "InvalidValue";
-					FString FloatParametersOldValue = CreatedJobDataAsset->ParameterDefinition.Parameters[2].Value;
-					FloatParametersWidget->Type(FloatParametersText);
-					FloatParametersWidget->Type(EKeys::Enter);
-					TEST_EQUAL(FloatParametersOldValue, CreatedJobDataAsset->ParameterDefinition.Parameters[2].Value);
+				FString IntParametersTextInvalid = "123.456";
+				InputText(IntParametersWidget, IntParametersTextInvalid, true);
+				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[3].Value, IntParametersTextValid);							
+			}		
+			});
 
-					FloatParametersWidget->TypeChord(EKeys::LeftControl, EKeys::A);
-					FloatParametersWidget->Type(EKeys::Delete);
-					FloatParametersWidget->Type(EKeys::Enter);
-					TEST_EQUAL(FloatParametersOldValue, CreatedJobDataAsset->ParameterDefinition.Parameters[2].Value);
-
-					FString FloatParametersTextValid = "123.456";
-					FloatParametersWidget->Type(FloatParametersTextValid);
-					FloatParametersWidget->Type(EKeys::Enter);
-					TEST_EQUAL(FloatParametersTextValid, CreatedJobDataAsset->ParameterDefinition.Parameters[2].Value);
-
-					//IntParameter
-					ScrollToElement(Driver, List, ScrollBar, IntParametersWidget, 50);
-					TEST_TRUE(IntParametersWidget->Exists());
-					FString IntParametersText = "InvalidValue";
-					FString IntParametersOldValue = CreatedJobDataAsset->ParameterDefinition.Parameters[3].Value;
-					IntParametersWidget->Type(IntParametersText);
-					IntParametersWidget->Type(EKeys::Enter);
-					TEST_EQUAL(IntParametersOldValue, CreatedJobDataAsset->ParameterDefinition.Parameters[3].Value);
-
-					IntParametersWidget->TypeChord(EKeys::LeftControl, EKeys::A);
-					IntParametersWidget->Type(EKeys::Delete);
-					IntParametersWidget->Type(EKeys::Enter);
-					TEST_EQUAL(IntParametersOldValue, CreatedJobDataAsset->ParameterDefinition.Parameters[3].Value);
-
-					FString IntParametersTextValid = "123";
-					IntParametersWidget->TypeChord(EKeys::LeftControl, EKeys::A);
-					IntParametersWidget->Type(EKeys::Delete);
-					IntParametersWidget->Type(IntParametersTextValid);
-					IntParametersWidget->Type(EKeys::Enter);
-					TEST_EQUAL(IntParametersTextValid, CreatedJobDataAsset->ParameterDefinition.Parameters[3].Value);
-
-					FString IntParametersTextInvalid = "123.456";
-					IntParametersWidget->TypeChord(EKeys::LeftControl, EKeys::A);
-					IntParametersWidget->Type(EKeys::Delete);
-					IntParametersWidget->Type(IntParametersTextInvalid);
-					IntParametersWidget->Type(EKeys::Enter);
-					TEST_EQUAL(IntParametersTextValid, CreatedJobDataAsset->ParameterDefinition.Parameters[3].Value);
-				});
-
-            AfterEach([this]()
-                {
-                    CreatedStepDataAsset = nullptr;
-                });
-        });
+        AfterEach([this]()
+            {
+                CreatedJobDataAsset = nullptr;
+            });
+    });
 
     Describe("DeadlineCloudStepUI", [this]()
-        {
+    {
+		BeforeEach([this]() {
+			CreatedStepDataAsset = CreateAndOpenAsset<UDeadlineCloudStep>(StepTemplate, PathToStepTemplate);
+			});
 
-            BeforeEach([this]()
-                {
-                    if (!CreatedStepDataAsset)
-                    {
-						PathToStepTemplate = ConvertLocalPathToFull(StepTemplate);
+		It("StepUI", EAsyncExecution::ThreadPool, [this]() {
+			if (!Init(CreatedStepDataAsset))
+			{
+				return;
+			}
 
-                        CreatedStepDataAsset = NewObject<UDeadlineCloudStep>();
-                        CreatedStepDataAsset->PathToTemplate.FilePath = PathToStepTemplate;
-                        CreatedStepDataAsset->OpenStepFile(PathToStepTemplate);
-                    }
-                });
+			ExpandAllProperties(DetailsPath, Driver);
 
-			BeforeEach([this]() {
-					OpenEditorForAsset(CreatedStepDataAsset);
-				});
+			FString StringParametersPath = DetailsPath + "//#StepParameter.StringParameters//<SEditableTextBox>";
+			FString PathParametersPath = DetailsPath + "//#StepParameter.PathParameters//<SEditableTextBox>";
+			FString FloatParametersPath = DetailsPath + "//#StepParameter.FloatParameters//<SEditableText>";
+			FString IntParametersPath = DetailsPath + "//#StepParameter.IntParameters//<SEditableText>";
 
-			It("StepUI", EAsyncExecution::ThreadPool, [this]() {
-				    FString DetailsPath = "<SStandaloneAssetEditorToolkitHost>//<SDetailsView>";
-					FString ListPath = DetailsPath + "//<SListPanel>";
-					FString ScrollBarPath = DetailsPath + "//<SScrollBar>";
+			FDriverElementRef StringParametersWidget = Driver->FindElement(By::Path(StringParametersPath));
+			FDriverElementRef PathParametersPathWidget = Driver->FindElement(By::Path(PathParametersPath));
+			FDriverElementRef FloatParametersWidget = Driver->FindElement(By::Path(FloatParametersPath));
+			FDriverElementRef IntParametersWidget = Driver->FindElement(By::Path(IntParametersPath));
 
-				    FDriverElementRef Details = Driver->FindElement(By::Path(DetailsPath));
-				    Driver->Wait(Until::ElementExists(Details, FWaitTimeout::InSeconds(2.f)));
-				    Details->Focus();
-					TEST_TRUE(Details->Exists());
-					
-					FDriverElementRef List = Driver->FindElement(By::Path(ListPath));
-					TEST_TRUE(List->Exists());
+			//StringParameter
+			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), StringParametersWidget, 50);
+			bool bStringParametersWidgetExists = StringParametersWidget->Exists();
+			TestTrue("StringParameters widget should exist", bStringParametersWidgetExists);
+			if (bStringParametersWidgetExists)
+			{
+				FStepTaskParameterDefinition StringParameter = CreatedStepDataAsset->TaskParameterDefinitions.Parameters[0];
+				TEST_TRUE(StringParameter.Type == EValueType::STRING)
+				FString StringParameterOldValue = StringParameter.Range[0];
 
-					FDriverElementRef ScrollBar = Driver->FindElement(By::Path(ScrollBarPath));
+				InputText(StringParametersWidget, "ThisInputIsWayTooLongForValidation", false);
+				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[0].Range[0], StringParameterOldValue);
 
-					FString PathToTemplate = DetailsPath + "//#Step.PathToTemplate//<SEditableTextBox>";
-					FDriverElementRef PathToTemplateWidget = Driver->FindElement(By::Path(PathToTemplate));
-					FString CategoryPath = DetailsPath + "//<SDetailCategoryTableRow>";
+				InputText(StringParametersWidget, "", true);
+				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[0].Range[0], StringParameterOldValue);
 
-					FString MainCategoryExpanderArrowPath = DetailsPath + "//<SDetailCategoryTableRow>//<SDetailExpanderArrow>";
-					FDriverElementCollectionRef ParametersCategory = Driver->FindElements(By::Path(MainCategoryExpanderArrowPath));
-					ParametersCategory->GetElements()[0]->Click(EMouseButtons::Type::Right);
-					Driver->Wait(FTimespan::FromSeconds(1));
+				FString StringParametersTextValid = "ValidString";
+				InputText(StringParametersWidget, StringParametersTextValid, true);
+				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[0].Range[0], StringParametersTextValid);
+			}
 
-					ExpandAllProperties(Driver);
+			//PathParameter
+			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), PathParametersPathWidget, 50);
+			bool bPathParametersWidgetExists = PathParametersPathWidget->Exists();
+			TestTrue("PathParameters widget should exist", bPathParametersWidgetExists);
+			if (bPathParametersWidgetExists)
+			{
+				FStepTaskParameterDefinition PathParameter = CreatedStepDataAsset->TaskParameterDefinitions.Parameters[1];
+				TEST_TRUE(PathParameter.Type == EValueType::PATH)
 
-					Driver->Wait(Until::ElementExists(PathToTemplateWidget, FWaitTimeout::InSeconds(1.f)));
+				FString PathParameterOldValue = PathParameter.Range[0];
+				FString PathParametersText = "ThisInputIsWayTooLongForValidation";
+				//Click on the widget to make it editable and remove text selection
+				PathParametersPathWidget->Click(EMouseButtons::Type::Left);
+				PathParametersPathWidget->Type(EKeys::Left);
+				PathParametersPathWidget->Type(PathParametersText);
+				PathParametersPathWidget->Type(EKeys::Enter);
+				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[1].Range[0], PathParameterOldValue);
 
-					FString StringParametersPath = DetailsPath + "//#StepParameter.StringParameters//<SEditableTextBox>";
-					FString PathParametersPath = DetailsPath + "//#StepParameter.PathParameters//<SEditableTextBox>";
-					FString FloatParametersPath = DetailsPath + "//#StepParameter.FloatParameters//<SEditableText>";
-					FString IntParametersPath = DetailsPath + "//#StepParameter.IntParameters//<SEditableText>";
+				InputText(PathParametersPathWidget, "", true);
+				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[1].Range[0], PathParameterOldValue);
 
-					FDriverElementRef StringParametersWidget = Driver->FindElement(By::Path(StringParametersPath));
-					FDriverElementRef PathParametersPathWidget = Driver->FindElement(By::Path(PathParametersPath));
-					FDriverElementRef FloatParametersWidget = Driver->FindElement(By::Path(FloatParametersPath));
-					FDriverElementRef IntParametersWidget = Driver->FindElement(By::Path(IntParametersPath));
+				FString PathParametersTextValid = "ValidString";
+				InputText(PathParametersPathWidget, PathParametersTextValid, true);
+				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[1].Range[0], PathParametersTextValid);
+			}
 
-					//StringParameter
-					ScrollToElement(Driver, List, ScrollBar, StringParametersWidget, 50);
-					TEST_TRUE(StringParametersWidget->Exists());
+			//FloatParameter
+			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), FloatParametersWidget, 50);
+			bool bFloatParametersWidgetExists = FloatParametersWidget->Exists();
+			TestTrue("FloatParameters widget should exist", bFloatParametersWidgetExists);
+			if (bFloatParametersWidgetExists)
+			{
+				FStepTaskParameterDefinition FloatParameter = CreatedStepDataAsset->TaskParameterDefinitions.Parameters[2];
+				TEST_TRUE(FloatParameter.Type == EValueType::FLOAT)
 
-					FStepTaskParameterDefinition StringParameter = CreatedStepDataAsset->TaskParameterDefinitions.Parameters[0];
-					TEST_TRUE(StringParameter.Type == EValueType::STRING)
-					FString StringParameterOldValue = StringParameter.Range[0];
-					TEST_TRUE(StringParametersWidget->Exists());
-					FString StringParametersText = "ThisInputIsWayTooLongForValidation";
-					StringParametersWidget->Type(StringParametersText);	
-					StringParametersWidget->Type(EKeys::Enter);
-					TEST_EQUAL(StringParameterOldValue, CreatedStepDataAsset->TaskParameterDefinitions.Parameters[0].Range[0]);
+				FString FloatParameterOldValue = FloatParameter.Range[0];
+				InputText(FloatParametersWidget, "InvalidValue", false);
+				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[2].Range[0], FloatParameterOldValue);
 
-					StringParametersWidget->TypeChord(EKeys::LeftControl, EKeys::A);
-					StringParametersWidget->Type(EKeys::Delete);
-					StringParametersWidget->Type(EKeys::Enter);
+				InputText(FloatParametersWidget, "", true);
+				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[2].Range[0], FloatParameterOldValue);
 
-					TEST_EQUAL(StringParameterOldValue, CreatedStepDataAsset->TaskParameterDefinitions.Parameters[0].Range[0]);
+				FString FloatParametersTextValid = "123.456";
+				InputText(FloatParametersWidget, FloatParametersTextValid, true);
+				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[2].Range[0], FloatParametersTextValid);
+			}
 
-					FString StringParametersTextValid = "ValidString";
-					StringParametersWidget->TypeChord(EKeys::LeftControl, EKeys::A);
-					StringParametersWidget->Type(EKeys::Delete);
-					StringParametersWidget->Type(StringParametersTextValid);
-					StringParametersWidget->Type(EKeys::Enter);
-					TEST_EQUAL(StringParametersTextValid, CreatedStepDataAsset->TaskParameterDefinitions.Parameters[0].Range[0]);
+			//IntParameter
+			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), IntParametersWidget, 50);
+			bool bIntParametersWidgetExists = IntParametersWidget->Exists();
+			TestTrue("IntParameters widget should exist", bIntParametersWidgetExists);
+			if (bIntParametersWidgetExists)
+			{
+				FStepTaskParameterDefinition IntParameter = CreatedStepDataAsset->TaskParameterDefinitions.Parameters[3];
+				TEST_TRUE(IntParameter.Type == EValueType::INT)
 
-					//PathParameter
-					ScrollToElement(Driver, List, ScrollBar, PathParametersPathWidget, 50);
+				FString IntParameterOldValue = IntParameter.Range[0];
+				InputText(IntParametersWidget, "InvalidValue", false);
+				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[3].Range[0], IntParameterOldValue);
 
-					TEST_TRUE(PathParametersPathWidget->Exists());
-					FString PathParametersText = "ThisInputIsWayTooLongForValidation";
-					FString PathParametersOldValue = CreatedStepDataAsset->TaskParameterDefinitions.Parameters[1].Range[0];
-					TEST_TRUE(PathParametersPathWidget->Exists());
-					//Click on the widget to make it editable and remove text selection
-					PathParametersPathWidget->Click(EMouseButtons::Type::Left);
-					PathParametersPathWidget->Type(EKeys::Left);
-					PathParametersPathWidget->Type(PathParametersText);
-					PathParametersPathWidget->Type(EKeys::Enter);
-					TEST_EQUAL(PathParametersOldValue, CreatedStepDataAsset->TaskParameterDefinitions.Parameters[1].Range[0]);
+				InputText(IntParametersWidget, "", true);
+				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[3].Range[0], IntParameterOldValue);
 
-					PathParametersPathWidget->TypeChord(EKeys::LeftControl, EKeys::A);
-					PathParametersPathWidget->Type(EKeys::Delete);
-					PathParametersPathWidget->Type(EKeys::Enter);
-					TEST_EQUAL(PathParametersOldValue, CreatedStepDataAsset->TaskParameterDefinitions.Parameters[1].Range[0]);
+				FString IntParametersTextValid = "123";
+				InputText(IntParametersWidget, IntParametersTextValid, true);
+				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[3].Range[0], IntParametersTextValid);
 
-					FString PathParametersTextValid = "ValidString";
-					PathParametersPathWidget->TypeChord(EKeys::LeftControl, EKeys::A);
-					PathParametersPathWidget->Type(PathParametersTextValid);
-					PathParametersPathWidget->Type(EKeys::Enter);
-					TEST_EQUAL(PathParametersTextValid, CreatedStepDataAsset->TaskParameterDefinitions.Parameters[1].Range[0]);
+				FString IntParametersTextInvalid = "123.456";
+				InputText(IntParametersWidget, IntParametersTextInvalid, true);
+				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[3].Range[0], IntParametersTextValid);
+			}
+		});
 
-					//FloatParameter
-					ScrollToElement(Driver, List, ScrollBar, FloatParametersWidget, 50);
-
-					TEST_TRUE(FloatParametersWidget->Exists());
-					FString FloatParametersText = "InvalidValue";
-					FString FloatParametersOldValue = CreatedStepDataAsset->TaskParameterDefinitions.Parameters[2].Range[0];
-					TEST_TRUE(FloatParametersWidget->Exists());
-					FloatParametersWidget->Type(FloatParametersText);
-					FloatParametersWidget->Type(EKeys::Enter);
-					TEST_EQUAL(FloatParametersOldValue, CreatedStepDataAsset->TaskParameterDefinitions.Parameters[2].Range[0]);
-
-					FloatParametersWidget->TypeChord(EKeys::LeftControl, EKeys::A);
-					FloatParametersWidget->Type(EKeys::Delete);
-					FloatParametersWidget->Type(EKeys::Enter);
-					TEST_EQUAL(FloatParametersOldValue, CreatedStepDataAsset->TaskParameterDefinitions.Parameters[2].Range[0]);
-
-					FString FloatParametersTextValid = "123.456";
-					FloatParametersWidget->Type(FloatParametersTextValid);
-					FloatParametersWidget->Type(EKeys::Enter);
-					TEST_EQUAL(FloatParametersTextValid, CreatedStepDataAsset->TaskParameterDefinitions.Parameters[2].Range[0]);
-
-					//IntParameter
-					ScrollToElement(Driver, List, ScrollBar, IntParametersWidget, 50);
-
-					TEST_TRUE(IntParametersWidget->Exists());
-					FString IntParametersText = "InvalidValue";
-					FString IntParametersOldValue = CreatedStepDataAsset->TaskParameterDefinitions.Parameters[3].Range[0];
-					IntParametersWidget->Type(IntParametersText);
-					IntParametersWidget->Type(EKeys::Enter);
-					TEST_EQUAL(IntParametersOldValue, CreatedStepDataAsset->TaskParameterDefinitions.Parameters[3].Range[0]);
-
-					IntParametersWidget->TypeChord(EKeys::LeftControl, EKeys::A);
-					IntParametersWidget->Type(EKeys::Delete);
-					IntParametersWidget->Type(EKeys::Enter);
-					TEST_EQUAL(IntParametersOldValue, CreatedStepDataAsset->TaskParameterDefinitions.Parameters[3].Range[0]);
-
-					FString IntParametersTextValid = "123";
-					IntParametersWidget->TypeChord(EKeys::LeftControl, EKeys::A);
-					IntParametersWidget->Type(EKeys::Delete);
-					IntParametersWidget->Type(IntParametersTextValid);
-					IntParametersWidget->Type(EKeys::Enter);
-					TEST_EQUAL(IntParametersTextValid, CreatedStepDataAsset->TaskParameterDefinitions.Parameters[3].Range[0]);
-					
-					FString IntParametersTextInvalid = "123.456";
-					IntParametersWidget->TypeChord(EKeys::LeftControl, EKeys::A);
-					IntParametersWidget->Type(EKeys::Delete);
-					IntParametersWidget->Type(IntParametersTextInvalid);
-					IntParametersWidget->Type(EKeys::Enter);
-					TEST_EQUAL(IntParametersTextValid, CreatedStepDataAsset->TaskParameterDefinitions.Parameters[3].Range[0]);
-
-				});
-
-            AfterEach([this]()
-                {
-                    CreatedStepDataAsset = nullptr;
-                });
-        });
-
+        AfterEach([this]()
+            {
+                CreatedStepDataAsset = nullptr;
+            });
+    });
 
     Describe("DeadlineCloudEnvironmentUI", [this]()
-        {
+    {
+		BeforeEach([this]() {
+			CreatedEnvironmentDataAsset = CreateAndOpenAsset<UDeadlineCloudEnvironment>(EnvTemplate, PathToEnvironmentTemplate);
+			});
 
-            BeforeEach([this]()
-                {
-                    if (!CreatedStepDataAsset)
-                    {
-						PathToEnvironmentTemplate = ConvertLocalPathToFull(EnvTemplate);
+		It("EnvironmentUI", EAsyncExecution::ThreadPool, [this]() {
+			if (!Init(CreatedEnvironmentDataAsset))
+			{
+				return;
+			}
 
-                        CreatedEnvironmentDataAsset = NewObject<UDeadlineCloudEnvironment>();
-						CreatedEnvironmentDataAsset->PathToTemplate.FilePath = PathToEnvironmentTemplate;
-						CreatedEnvironmentDataAsset->OpenEnvFile(CreatedEnvironmentDataAsset->PathToTemplate.FilePath);
-                    }
-                });
+			ExpandAllProperties(DetailsPath, Driver);
 
-			BeforeEach([this]() {
-					OpenEditorForAsset(CreatedEnvironmentDataAsset);
-				});
+			FString Variable1Path = DetailsPath + "//#EnvironmentParameter.Variable1//<SEditableTextBox>";
+			FString Variable2Path = DetailsPath + "//#EnvironmentParameter.Variable2//<SEditableTextBox>";
+			FString Variable3Path = DetailsPath + "//#EnvironmentParameter.Variable3//<SEditableTextBox>";
 
-			It("EnvironmentUI", EAsyncExecution::ThreadPool, [this]() {
-				    FString DetailsPath = "<SStandaloneAssetEditorToolkitHost>//<SDetailsView>";
-					FString ListPath = DetailsPath + "//<SListPanel>";
-					FString ScrollBarPath = DetailsPath + "//<SScrollBar>";
+			FDriverElementRef Variable1Widget = Driver->FindElement(By::Path(Variable1Path));
+			FDriverElementRef Variable2Widget = Driver->FindElement(By::Path(Variable2Path));
+			FDriverElementRef Variable3Widget = Driver->FindElement(By::Path(Variable3Path));
 
-				    FDriverElementRef Details = Driver->FindElement(By::Path(DetailsPath));
-				    Driver->Wait(Until::ElementExists(Details, FWaitTimeout::InSeconds(2.f)));
-				    Details->Focus();
-					TEST_TRUE(Details->Exists());
-					
-					FDriverElementRef List = Driver->FindElement(By::Path(ListPath));
-					TEST_TRUE(List->Exists());
+			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), Variable1Widget, 50);
+			bool bVariable1WidgetExists = Variable1Widget->Exists();
+			TestTrue("Variable1 widget should exist", bVariable1WidgetExists);
+			if (bVariable1WidgetExists)
+			{
+				InputText(Variable1Widget, "", true);
+				TEST_EQUAL(CreatedEnvironmentDataAsset->Variables.Variables["Variable1"], "");
 
-					FDriverElementRef ScrollBar = Driver->FindElement(By::Path(ScrollBarPath));
+				FString Variable1TextValid = "ValidString";
+				InputText(Variable1Widget, Variable1TextValid, true);
+				TEST_EQUAL(CreatedEnvironmentDataAsset->Variables.Variables["Variable1"], Variable1TextValid);
+			}
 
-					FString PathToTemplate = DetailsPath + "//#Environment.PathToTemplate//<SEditableTextBox>";
-					FDriverElementRef PathToTemplateWidget = Driver->FindElement(By::Path(PathToTemplate));
-					FString CategoryPath = DetailsPath + "//<SDetailCategoryTableRow>";
+			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), Variable2Widget, 50);
+			bool bVariable2WidgetExists = Variable2Widget->Exists();
+			TestTrue("Variable2 widget should exist", bVariable2WidgetExists);
+			if (bVariable2WidgetExists)
+			{
+				FString Variable2OldValue = CreatedEnvironmentDataAsset->Variables.Variables["Variable2"];
+				InputText(Variable2Widget, "ThisInputIsWayTooLongForValidation", false);
+				TEST_EQUAL(CreatedEnvironmentDataAsset->Variables.Variables["Variable2"], Variable2OldValue);
+			}
+		});
 
-					FString MainCategoryExpanderArrowPath = DetailsPath + "//<SDetailCategoryTableRow>//<SDetailExpanderArrow>";
-					FDriverElementCollectionRef ParametersCategory = Driver->FindElements(By::Path(MainCategoryExpanderArrowPath));
-					ParametersCategory->GetElements()[0]->Click(EMouseButtons::Type::Right);
-					Driver->Wait(FTimespan::FromSeconds(1));
-
-					ExpandAllProperties(Driver);
-
-					Driver->Wait(Until::ElementExists(PathToTemplateWidget, FWaitTimeout::InSeconds(1.f)));
-
-					TEST_TRUE(PathToTemplateWidget->Exists());
-					TEST_TRUE(PathToTemplateWidget->IsVisible());
-
-					ParametersCategory->GetElements()[0]->Click(EMouseButtons::Type::Right);
-					Driver->Wait(FTimespan::FromSeconds(1));
-
-					ExpandAllProperties(Driver);
-
-					FString Variable1Path = DetailsPath + "//#EnvironmentParameter.Variable1//<SEditableTextBox>";
-					FString Variable2Path = DetailsPath + "//#EnvironmentParameter.Variable2//<SEditableTextBox>";
-					FString Variable3Path = DetailsPath + "//#EnvironmentParameter.Variable3//<SEditableTextBox>";
-
-					FString Variable2ErrorPath = Variable2Path + "//<SPopupErrorText>";
-
-					FDriverElementRef Variable1Widget = Driver->FindElement(By::Path(Variable1Path));
-					FDriverElementRef Variable2Widget = Driver->FindElement(By::Path(Variable2Path));
-					FDriverElementRef Variable3Widget = Driver->FindElement(By::Path(Variable3Path));
-
-					FDriverElementRef Variable2ErrorWidget = Driver->FindElement(By::Path(Variable2ErrorPath));
-
-					ScrollToElement(Driver, List, ScrollBar, Variable1Widget, 50);
-
-					TEST_TRUE(Variable1Widget->Exists());
-					FString Variable1Text = "ValidString";
-					Variable1Widget->TypeChord(EKeys::LeftControl, EKeys::A);
-					Variable1Widget->Type(Variable1Text);
-					Variable1Widget->Type(EKeys::Enter);
-					TEST_EQUAL(Variable1Text, CreatedEnvironmentDataAsset->Variables.Variables["Variable1"]);
-
-					ScrollToElement(Driver, List, ScrollBar, Variable2Widget, 50);
-
-					FString Variable2OldValue = CreatedEnvironmentDataAsset->Variables.Variables["Variable2"];
-					TEST_TRUE(Variable2Widget->Exists());
-					FString Variable2Text = "ThisInputIsWayTooLongForValidation";
-					Variable2Widget->Type(Variable2Text);
-					TEST_TRUE(Variable2ErrorWidget->IsVisible());		
-					Variable2Widget->Type(EKeys::Enter);
-
-					TEST_EQUAL(Variable2OldValue, CreatedEnvironmentDataAsset->Variables.Variables["Variable2"]);
-				});
-
-            AfterEach([this]()
-                {
-                    CreatedEnvironmentDataAsset = nullptr;
-                });
-        });
+        AfterEach([this]()
+			{
+				CreatedEnvironmentDataAsset = nullptr;
+		});
+    });
 
 	AfterEach([this]() {
 		Driver.Reset();

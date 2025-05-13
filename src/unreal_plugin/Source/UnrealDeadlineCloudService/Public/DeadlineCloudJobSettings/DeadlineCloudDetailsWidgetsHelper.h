@@ -89,10 +89,8 @@ public:
 	public:
 
 
-		void Construct(const FArguments& InArgs, const FName& InPropertyPath_, const bool bIsChecked_)
-	
+		void Construct(const FArguments& InArgs, const FName& InPropertyPath_, const bool bIsChecked_)	
 		{
-
 			InPropertyPath = InPropertyPath_;
 			bIsChecked = bIsChecked_;
 			

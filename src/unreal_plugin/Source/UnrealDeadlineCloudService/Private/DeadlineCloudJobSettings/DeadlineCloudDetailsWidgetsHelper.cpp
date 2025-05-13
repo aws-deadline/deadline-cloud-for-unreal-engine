@@ -24,8 +24,12 @@ public:
 		, _IsReadOnly(false)
 		, _DialogReturnsFullPath(false)
 		{}
+		/** The property handle for the file path. */
         SLATE_ARGUMENT(TSharedPtr<IPropertyHandle>, PathPropertyHandle)
+
+		/** The function to call when the text is changed. */
 		SLATE_EVENT(FOnVerifyTextChanged, IsValidInput)
+
 		/** Browse button image resource. */
 		SLATE_ATTRIBUTE(const FSlateBrush*, BrowseButtonImage)
 
@@ -471,7 +475,6 @@ void FDeadlineCloudDetailsWidgetsHelper::SEyeUpdateWidget::Construct(const FArgu
 
 TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(TSharedPtr<IPropertyHandle> ParameterHandle, EValueType Type, EValueValidationType ValidationType)
 {
-
 	switch (Type)
 	{
 		using enum EValueType;

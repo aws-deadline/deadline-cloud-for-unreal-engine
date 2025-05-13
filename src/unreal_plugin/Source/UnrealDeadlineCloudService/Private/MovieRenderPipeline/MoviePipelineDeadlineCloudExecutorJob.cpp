@@ -8,6 +8,7 @@
 #include "Misc/Paths.h"
 #include "Interfaces/IPluginManager.h"
 #include "PropertyEditorModule.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudDetailsWidgetsHelper.h"
 
 UMoviePipelineDeadlineCloudExecutorJob::UMoviePipelineDeadlineCloudExecutorJob()
 {
@@ -397,6 +398,25 @@ void FMoviePipelineDeadlineCloudExecutorJobCustomization::CustomizeDetails(IDeta
 		{
 			DetailBuilder.ForceRefreshDetails();
 		});
+
+	for (auto& Property : OutMrpCategoryProperties)
+	{
+		if (Property->GetProperty()->GetFName() == GET_MEMBER_NAME_CHECKED(UMoviePipelineDeadlineCloudExecutorJob, JobName))
+		{
+			MrpCategory.AddProperty(Property)
+				.CustomWidget()
+				.NameContent()
+				[
+					Property->CreatePropertyNameWidget()
+				]
+				.ValueContent()
+				[
+					FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(
+						Property, EValueType::STRING, EValueValidationType::JobName
+					)
+				];
+		}
+	}
 
 	TSharedPtr<IPropertyHandle> JobPropertyHandle = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UMoviePipelineDeadlineCloudExecutorJob, JobPreset));
 	if (!JobPropertyHandle.IsValid()) return;
