@@ -135,7 +135,7 @@ void FDeadlineCloudJobPresetDetailsCustomization::CustomizeStructChildrenInAsset
 void FDeadlineCloudJobPresetDetailsCustomization::CustomizeStructChildrenInMovieRenderQueue(
     IDetailPropertyRow& PropertyRow, UMoviePipelineDeadlineCloudExecutorJob* Job, TSharedPtr<SWidget> CustomValueWidget) const
 {
-    PropertyOverrideHandler->EnableInMovieRenderQueue(PropertyRow);
+    PropertyOverrideHandler->EnableInMovieRenderQueue(PropertyRow, CustomValueWidget);
 }
 
 TSharedRef<IPropertyTypeCustomization> FDeadlineCloudAttachmentDetailsCustomization::MakeInstance()
@@ -551,13 +551,19 @@ void FPropertyAvailabilityHandler::EnableInMovieRenderQueue(IDetailPropertyRow& 
     PropertyRow.GetDefaultWidgets(NameWidget, ValueWidget, Row);
 
     const FName PropertyPath = *PropertyRow.GetPropertyHandle()->GetProperty()->GetPathName();
-    ValueWidget->SetEnabled(
-        TAttribute<bool>::CreateLambda([this, PropertyPath]()
-            {
-                return Job->IsPropertyRowEnabledInMovieRenderJob(PropertyPath);
-            }
-        )
-    );
+    TAttribute<bool> IsEnabled = TAttribute<bool>::CreateLambda([this, PropertyPath]()
+        {
+            return Job->IsPropertyRowEnabledInMovieRenderJob(PropertyPath);
+        });
+
+    if (CustomValueWidget.IsValid())
+    {
+        CustomValueWidget->SetEnabled(IsEnabled);
+    }
+	else
+	{
+		ValueWidget->SetEnabled(IsEnabled);
+	}
 
     PropertyRow
         .CustomWidget(true)
