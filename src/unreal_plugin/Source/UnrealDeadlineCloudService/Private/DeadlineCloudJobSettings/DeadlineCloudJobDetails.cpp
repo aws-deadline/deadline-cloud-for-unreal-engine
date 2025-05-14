@@ -28,6 +28,8 @@
 #include "DeadlineCloudJobSettings/DeadlineCloudEnvironmentOverrideCustomization.h"
 #include "Framework/MetaData/DriverMetaData.h"
 
+#include "Framework/MetaData/DriverMetaData.h"
+
 #define LOCTEXT_NAMESPACE "JobDetails"
 
 
