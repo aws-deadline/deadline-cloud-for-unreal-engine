@@ -173,6 +173,9 @@ void UMoviePipelineDeadlineCloudExecutorJob::JobPresetChanged()
 
 void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
+	
+	if (PropertyChangedEvent.Property)
+	{
 	// Check if we changed the job Preset an update the override details
 	if (const FName PropertyName = PropertyChangedEvent.GetPropertyName(); PropertyName == "JobPreset")
 	{
@@ -187,6 +190,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyCha
 
 	UE_LOG(LogTemp, Log, TEXT("Deadline Cloud job changed: %s"),
 		*PropertyChangedEvent.Property->GetPathName());
+	}
 }
 
 void UMoviePipelineDeadlineCloudExecutorJob::CollectDependencies()
