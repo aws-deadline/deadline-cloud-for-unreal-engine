@@ -10,6 +10,7 @@ These instructions are updated along with the corresponding code and scripts fai
 
 If you’re setting up on a brand new Windows EC2 Instance as your submitter, a g5.2xlarge instance with 200 GB of storage will likely be reasonable minimum:
 
+1. Launch EC2 instance with a valid Instance Profile. This is required to download NVIDIA GRID drivers as instructed below.
 1. Download the Epic Installer and install a version of Unreal between versions 5.2 and 5.5.  Note that on version 5.5 with DirectX 11 there's a crash bug which can affect projects rendered using the Deadline Cloud plugin which has been fixed in Unreal's source and can be tracked [here](https://issues.unrealengine.com/issue/UE-276282).  Projects in Deadline Cloud should use DirectX 12 with UE 5.5.
 1. NVIDIA GRID drivers - Follow Windows instructions - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/install-nvidia-driver.html#nvidia-GRID-driver
 
@@ -36,7 +37,7 @@ Deadline Cloud Monitor is used to both manage your credentials for submitting jo
 
 ## Environment Setup
 
-1. (If not already installed) Install a recent version of Python (3.12 has been verified)
+1. (If not already installed) Install a recent version of Python for all users (3.12 has been verified)
 1. Make sure your Environment Variables are set correctly. In System Environment Variables, your PATH should include:
 
 - The path to your Python Installation (C:\Program Files\Python312 for example)
@@ -132,7 +133,10 @@ If you don't need to set up your customer managed fleet you can stop here, or sk
 
 # Create a Customer Managed Fleet
 
-If you don't yet have a CMF set up, you can complete the instructions below as part of the steps titled "Worker host setup" and "Install software for jobs" as you create the CMF with these instructions: https://docs.aws.amazon.com/deadline-cloud/latest/userguide/create-a-cmf.html, and then (If you're using EC2) create an AMI which can function as your CMF worker.
+1. Follow [Create a customer-managed fleet](https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/create-a-cmf.html) to create a Customer Managed Fleet (CMF) if you don't already have one.
+1. Follow [Worker host setup and configuration](https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/worker-host.html) to set up a worker host.  
+1. Follow [Manage access to Windows job user secrets](https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/manage-access-windows-secrets.html) to set up the Windows job user secrets for your CMF worker.  
+1. Follow [Install and configure software required for jobs](https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/install-software.html) to install the software required to run jobs.
 
 ## Create a new Windows EC2 instance to install Unreal on (Optional)
 
@@ -247,38 +251,42 @@ To verify your CMF worker is connected:
 
 On your CMF Worker:
 
-1. Open Task Manager
-1. Open the Services tab
+1. Open “Task Manager“
+1. Click on the “Services“ tab on the right
 1. Find “DeadlineWorker”
 	1. If you don’t see it listed you’ve likely missed steps (install-deadline-worker in particular) from [the CMF host setup steps](https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/worker-host.html#worker-agent-config)
-1. If the status of the service isn’t currently “Running”, right click it and select start
-1. Logs when launching the worker agent to help diagnose installation issues which can cause problems starting the service can be found in C:\ProgramData\Amazon\Deadline\Logs\worker-agent.log\* and C:\ProgramData\Amazon\Deadline\Logs\queue-<queueid>\session-<sessionid>.log
+1. If the status of the service isn’t currently “Running”, right click it and select “Start“
+1. If your “DeadlineWorker“ service isn't starting, check the worker agent launch logs in these locations:
+	1. C:\ProgramData\Amazon\Deadline\Logs\worker-agent.log
+	1. C:\ProgramData\Amazon\Deadline\Logs\queue-<queueid>\session-<sessionid>.log
 
 This example will use the Meerkat Demo from the Unreal Marketplace:
 
-1. Start the Epic Games Launcher
-1. Install the Meerkat Demo from the Unreal Marketplace
-1. Create a Project from the Meerkat Demo
-1. Open the Project
-1. From the Edit Menu, select Plugins, search for and enable UnrealDeadlineCloudService
+1. Start the “Epic Games Launcher“
+1. Install the “Meerkat Demo“ from “Samples“ tab
+1. Create a Project from the “Meerkat Demo“, then open it
+1. From the “Edit“ Menu, select “Plugins“, search for and enable “UnrealDeadlineCloudService“
 1. Restart Unreal if you've enabled the plugin for the first time
-1. Under Edit/Project Settings search for the Movie Render Pipeline section
-1. For Default Remote Executor, select MoviePipelineDeadlineCloudRemoteExecutor
-1. For Default Executor Job, select MoviePipelineDeadlineCloudExecutorJob
-1. Under Default Job Settings Classes, Click Add New, and add “DeadlineCloudRenderStepSetting”
+1. Under “Edit“/“Project Settings“ search for the “Movie Render Pipeline“ section
+	1. For “Default Remote Executor“, select “MoviePipelineDeadlineCloudRemoteExecutor“
+	1. For “Default Executor Job“, select “MoviePipelineDeadlineCloudExecutorJob“
+	1. Under “Default Job Settings Classes“, click add icon, and add “DeadlineCloudRenderStepSetting”
 1. Now search for the settings for “Deadline Cloud” and ensure that your Status says “AUTHENTICATED” and your Deadline Cloud API says “AUTHORIZED”
-1. If it does not appear, first try using the Login button. If that doesn’t work, open your Deadline Cloud Monitor and ensure you're logged in.
-1. Open “Deadline Cloud Workstation Configuration”.
-1. Under “Global Settings” ensure your AWS Profile is set correctly to your DCM Profile
-1. Under “Profile” ensure your Default Farm is set to your farm
-1. Under “Farm” ensure your Default Queue is set to your CMF you set up
-1. Under Windows/Cinematics, select Movie Render Queue
-1. Click Render, and select "Main_SEQ"
-1. Click “UnsavedConfig” in the top in the settings column 1. you should see DeadlineCloud settings on the left. This window can then be closed.
-1. On the right, drop down “Preset Overrides” (You may need to widen this dialog)
-1. Set “Name” to “Unreal Test Job”
-1. Set “Maximum retries” to 2
-1. Optionally set "Task Chunk Size" to a number higher than 1 - this will tell Deadline Cloud to render the requested number of shots in groups as part of the same task, and may slightly increase performance in some cases.
-1. In Job Attachments, under “Input Files” select “Show Auto-Detected” and the list of Auto Detected Files should populate. 
-1. Ready to Go! Hit “Render (Remote)”. 
+	1. If it does not appear, first try using the Login button. If that doesn’t work, open your Deadline Cloud Monitor and ensure you're logged in.
+	1. In “Deadline Cloud Workstation Configuration” section,
+		1. Under “Global Settings”, ensure your AWS Profile is set correctly to your DCM Profile
+		1. Under “Profile”, ensure your Default Farm is set to your farm
+		1. Under “Farm” ensure your Default Queue is set to your CMF you set up
+1. Exit the Project Settings window
+1. Click on “Windows“/“Cinematics“, select “Movie Render Queue“
+	1. Click “+Render“, and select "Main_SEQ"
+	1. Click “UnsavedConfig” in the settings column 
+		1. In the popup window, you should see DeadlineCloud settings on the left. This window can then be closed.
+	1. On the right, 
+		1. drop down “Preset Overrides” (You may need to widen this dialog)
+			1. Set “Name” to “Unreal Test Job”
+			1. Set “Maximum retries” to 2
+			1. Optionally set "Task Chunk Size" to a number higher than 1 - this will tell Deadline Cloud to render the requested number of shots in groups as part of the same task, and may slightly increase performance in some cases.
+		1. In Job Attachments, under “Input Files” select “Show Auto-Detected” and the list of Auto Detected Files should populate. 
+	1. Ready to Go! Hit “Render (Remote)”. 
 1. You can go to Deadline Cloud Monitor and watch the progress of your job. 
