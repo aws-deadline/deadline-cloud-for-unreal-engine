@@ -173,6 +173,9 @@ void UMoviePipelineDeadlineCloudExecutorJob::JobPresetChanged()
 
 void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
+	
+	if (PropertyChangedEvent.Property)
+	{
 	// Check if we changed the job Preset an update the override details
 	if (const FName PropertyName = PropertyChangedEvent.GetPropertyName(); PropertyName == "JobPreset")
 	{
@@ -187,6 +190,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyCha
 
 	UE_LOG(LogTemp, Log, TEXT("Deadline Cloud job changed: %s"),
 		*PropertyChangedEvent.Property->GetPathName());
+	}
 }
 
 void UMoviePipelineDeadlineCloudExecutorJob::CollectDependencies()
@@ -415,21 +419,6 @@ void FMoviePipelineDeadlineCloudExecutorJobCustomization::CustomizeDetails(IDeta
 						Property, EValueType::STRING, EValueValidationType::JobName
 					)
 				];
-		}
-	}
-
-	TSharedPtr<IPropertyHandle> JobPropertyHandle = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UMoviePipelineDeadlineCloudExecutorJob, JobPreset));
-	if (!JobPropertyHandle.IsValid()) return;
-
-	if (ObjectsBeingCustomized.Num() > 0)
-	{
-		UObject* CustomizedObject = ObjectsBeingCustomized[0].Get();
-		if (CustomizedObject) {
-			if (UMoviePipelineDeadlineCloudExecutorJob* MyMrq = Cast<UMoviePipelineDeadlineCloudExecutorJob>(CustomizedObject))
-			{
-				FPropertyChangedEvent PropertyChangedEvent(JobPropertyHandle->GetProperty());
-				CustomizedObject->PostEditChangeProperty(PropertyChangedEvent);
-			}
 		}
 	}
 }
