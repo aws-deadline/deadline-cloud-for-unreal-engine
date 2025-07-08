@@ -421,20 +421,4 @@ void FMoviePipelineDeadlineCloudExecutorJobCustomization::CustomizeDetails(IDeta
 				];
 		}
 	}
-	//Resets MRQ job parameters after switching to another sequence
-	/*
-	TSharedPtr<IPropertyHandle> JobPropertyHandle = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UMoviePipelineDeadlineCloudExecutorJob, JobPreset));
-	if (!JobPropertyHandle.IsValid()) return;
-
-	if (ObjectsBeingCustomized.Num() > 0)
-	{
-		UObject* CustomizedObject = ObjectsBeingCustomized[0].Get();
-		if (CustomizedObject) {
-			if (UMoviePipelineDeadlineCloudExecutorJob* MyMrq = Cast<UMoviePipelineDeadlineCloudExecutorJob>(CustomizedObject))
-			{
-				FPropertyChangedEvent PropertyChangedEvent(JobPropertyHandle->GetProperty());
-				CustomizedObject->PostEditChangeProperty(PropertyChangedEvent);
-			}
-		}
-	}*/
 }
