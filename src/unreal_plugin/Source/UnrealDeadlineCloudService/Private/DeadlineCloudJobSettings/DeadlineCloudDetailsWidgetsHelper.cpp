@@ -132,7 +132,6 @@ void SDeadlineCloudFilePathWidget::Construct(const FArguments& InArgs)
 								.ClearKeyboardFocusOnCommit(true)
 								.OnTextCommitted(this, &SDeadlineCloudFilePathWidget::HandleTextBoxTextCommitted)
 								.OnTextChanged(this, &SDeadlineCloudFilePathWidget::OnTextChanged)
-								.OnVerifyTextChanged(IsValidInput)
 								.SelectAllTextOnCommit(false)
 								.IsReadOnly(InArgs._IsReadOnly)
 						]
@@ -222,12 +221,37 @@ FText SDeadlineCloudFilePathWidget::HandleTextBoxText() const
 
 void SDeadlineCloudFilePathWidget::OnTextChanged(const FText& InText)
 {
+	if (IsValidInput.IsBound())
+	{
+		FText Error = FText::GetEmpty();
+		IsValidInput.Execute(InText, Error);
+		TextBox->SetError(Error);
+	}
+
 	TextBox->SetText(InText);
 }
 
 void SDeadlineCloudFilePathWidget::HandleTextBoxTextCommitted(const FText& NewText, ETextCommit::Type CommitInfo)
 {
-	OnPathPicked(NewText.ToString());
+	if (IsValidInput.IsBound())
+	{
+		FText Error = FText::GetEmpty();
+		IsValidInput.Execute(NewText, Error);
+
+		if (!Error.IsEmpty())
+		{
+			TextBox->SetText(HandleTextBoxText());
+		}
+		else
+		{
+			OnPathPicked(NewText.ToString());
+		}
+		TextBox->SetError(FText::GetEmpty());
+	}
+	else
+	{
+		OnPathPicked(NewText.ToString());
+	}
 }
 
 void SDeadlineCloudFilePathWidget::OnPathPickedFromDialog(const FString& PickedPath)
@@ -288,7 +312,6 @@ public:
 							.Text(this, &SDeadlineCloudStringWidget::GetText)
 							.OnTextCommitted(this, &SDeadlineCloudStringWidget::OnTextCommitted)
 							.OnTextChanged(this, &SDeadlineCloudStringWidget::OnTextChanged)
-							.OnVerifyTextChanged(IsValidInput)
 					]
 			];
 
@@ -304,11 +327,35 @@ private:
 
 	void OnTextChanged(const FText& InText)
 	{
+		if (IsValidInput.IsBound())
+		{
+			Error = FText::GetEmpty();
+			IsValidInput.Execute(InText, Error);
+			TextBox->SetError(Error);
+		}
 	}
 
 	void OnTextCommitted(const FText& InText, ETextCommit::Type InCommitType)
 	{
-		StringProperty->SetValue(InText.ToString());
+		if (IsValidInput.IsBound())
+		{
+			Error = FText::GetEmpty();
+			IsValidInput.Execute(InText, Error);
+			if (Error.IsEmpty())
+			{
+				StringProperty->SetValue(InText.ToString());
+			}
+			else
+			{
+				TextBox->SetText(GetText());
+			}
+
+			TextBox->SetError(FText::GetEmpty());
+		}
+		else
+		{
+			StringProperty->SetValue(InText.ToString());
+		}
 	}
 
 	FText GetText() const
