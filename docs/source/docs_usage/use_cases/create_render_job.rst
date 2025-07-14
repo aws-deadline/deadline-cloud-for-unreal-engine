@@ -6,15 +6,15 @@ Render Step data asset
 
 #. Select “Deadline Cloud Render Step”. Name an asset, for example “RenderStep” and open it for editing.
 
-   .. image:: /images/create_render_job_0.png
+   .. image:: ../../images/create_render_job_0.png
 
 #. Select **Content/Python/openjd_templates/render_step.yml**
 
-   .. image:: /images/create_render_job_1.png
+   .. image:: ../../images/create_render_job_1.png
 
 #. Task Parameter Definitions and Name from YAML will be loaded to data asset
 
-   .. image:: /images/create_render_job_2.png
+   .. image:: ../../images/create_render_job_2.png
 
    a. Handler - specify which UnrealAdaptor’s handler will process the script commands. Handler "render" used for usual pipeline of MRQ  render **Filled automatically during the submission**
    #. QueueManifestPath - path to the serialized MRQ manifest where render job is described. **Filled automatically during the submission**
@@ -34,12 +34,12 @@ Launch UE Environment data asset
 
 #. Select "Deadline Cloud Environment". Name an asset, for example "LaunchUnrealEnvironment" and open it for editing.
 
-   .. image:: /images/create_render_job_3.png
+   .. image:: ../../images/create_render_job_3.png
 
 #. Select **Content/Python/openjd_templates/launch_ue_environment.yml**
 #. Environment variables and Name from YAML will be loaded to data asset
 
-   .. image:: /images/create_render_job_4.png
+   .. image:: ../../images/create_render_job_4.png
 
    a. REMOTE_EXECUTION=True - indicates that Unreal will be launched on the remote machine
       and plugin should do/don’t some specific operations
@@ -50,12 +50,12 @@ Render Job data asset
 
 #. Select "Deadline Cloud Render Job". Name an asset, for example "RenderJob" and open it for editing.
 
-   .. image:: /images/create_render_job_5.png
+   .. image:: ../../images/create_render_job_5.png
 
 #. Select **Content/Python/openjd_templates/render_job.yml**
 #. Parameter Definitions from YAML will be loaded to data asset
 
-   .. image:: /images/create_render_job_6.png
+   .. image:: ../../images/create_render_job_6.png
 
    a. Executable - Unreal executable name to launch on render node
    #. ExtraCmdArgs - Additional CMD arguments to launch Unreal executable with
@@ -65,13 +65,13 @@ Render Job data asset
 
 #. Configure Job Shared Settings, Host Requirements and Job Attachments if needed
 
-   .. image:: /images/create_render_job_7.png
+   .. image:: ../../images/create_render_job_7.png
 
 #. Add “RenderStep” and “LaunchUnrealEnvironment” assets in appropriate fields
 
-   .. image:: /images/create_render_job_8.png
-   .. image:: /images/create_render_job_9.png
+   .. image:: ../../images/create_render_job_8.png
+   .. image:: ../../images/create_render_job_9.png
 
 #. Final state of the DeadlineCloud Render Job
 
-   .. image:: /images/create_render_job_10.png
+   .. image:: ../../images/create_render_job_10.png

@@ -3,11 +3,11 @@ Create DeadlineCloud data assets
 
 #. In the content browser click RMB -> Miscellaneous -> Data Asset or type “data asset” in the search bar
 
-   .. image:: /images/create_data_asset_0.png
+   .. image:: ../images/create_data_asset_0.png
 
 #. Type “deadline”. Here you can see bunch of DeadlineCloud assets:
 
-   .. image:: /images/create_data_asset_1.png
+   .. image:: ../images/create_data_asset_1.png
 
    a. Deadline Cloud Job - Basic implementation of OpenJob
    #. Deadline Cloud Render Job - OpenJob for submitting jobs from MRQ plugin
@@ -20,7 +20,7 @@ Create DeadlineCloud data assets
    Prepared in advance templates located in **Plugins/UnrealDeadlineCloudService/Content/Python/openjd_templates**
    (**src/unreal_plugin/Content/Python/openjd_templates**)
 
-   .. image:: /images/create_data_asset_2.png
+   .. image:: ../images/create_data_asset_2.png
 
    a. render_job.yml - Render Job template
    #. launch_ue_environment.yml - Environment that launch the UE on env enter and close it on env exit
