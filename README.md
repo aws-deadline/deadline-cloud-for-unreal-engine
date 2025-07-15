@@ -23,6 +23,8 @@ This library requires:
 
 This package provides a Unreal Engine plugin that creates Unreal Movie Render Queue jobs for AWS Deadline Cloud using the [AWS Deadline Cloud client library][deadline-cloud-client]. Based on the loaded scene it determines the files required, allows the user to specify render options, and builds an [OpenJD template][openjd] that defines the workflow.
 
+See [SETUP_SUBMITTER](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_SUBMITTER.md) for instructions on setting up your Unreal Submitter plugin and Deadline Cloud Service Managed Fleets (SMF) or Customer Managed Fleets (CMF).
+
 ## Adaptor
 
 The Unreal Engine Adaptor implements the [OpenJD][openjd-adaptor-runtime] interface that allows render workloads to launch Unreal Engine and feed it commands. This gives the following benefits:
@@ -30,16 +32,17 @@ The Unreal Engine Adaptor implements the [OpenJD][openjd-adaptor-runtime] interf
 - a standardized render application interface,
 - sticky rendering, where the application stays open between tasks (Shots)
 
-Jobs created by the submitter use this adaptor by default.
-
-## Getting Started
-
-AWS Deadline Cloud for Unreal Engine supports both Customer Managed Fleets (CMF) and Service Managed Fleets (SMF) for rendering workloads. 
-
-See [SETUP_SUBMITTER](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_SUBMITTER.md) for setting up your Unreal Submitter plugin and Deadline Cloud Service Managed Fleets (SMF) or Customer Managed Fleets (CMF).
-See [SETUP_CMF_WORKER](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_CMF_WORKER.md) for setting up a instance to act as a worker node.
-
 For more information on the commands the OpenJD adaptor runtime provides, see [here][openjd-adaptor-runtime-lifecycle].
+
+Jobs created by the submitter use this adaptor by default. The Unreal Engine Adaptor supports both Service Managed Fleets (SMF) and Customer Managed Fleets (CMF) for rendering workloads on Windows fleets.
+
+### Service Managed Fleets (SMF)
+
+On [Service Managed Fleets (SMF)](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/smf-manage.html) worker hosts, the Unreal Engine and adaptor are automatically available via the `deadline-cloud Conda` channel with the [default Queue Environment](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/create-queue-environment.html#conda-queue-environment).
+
+### Customer Managed Fleets (CMF)
+
+The Unreal Engine and adaptor must be manually installed on worker hosts of Customer Managed Fleets (CMF). See [SETUP_CMF_WORKER](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_CMF_WORKER.md) for instructions on setting up an instance to act as a worker node.
 
 ## Versioning
 

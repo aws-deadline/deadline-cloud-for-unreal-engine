@@ -1,10 +1,12 @@
 # Unreal CMF Worker Setup Instructions
 
+For Customer Managed Fleets (CMF), the Unreal Engine and adaptor must be manually installed on worker hosts. This differs from Service Managed Fleets (SMF), where both components are automatically available through the `deadline-cloud Conda` channel with the [default Queue Environment](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/create-queue-environment.html#conda-queue-environment).
+
 This will walk you through setting up an instance to act as a worker as part of a Customer Managed Fleet (CMF).
 
 ## Branch to use - release vs mainline
 
-These instructions are updated along with the corresponding code and scripts fairly often.  You'll later need to choose to pull down the code which corresponds to a specific branch. The usual choice is between release which is more stable, or mainline which has the latest changes.  If the version of the instructions you're currently reading doesn't come from the branch you intend to use, you should switch to the instructions from that branch now.  For example, if you're currently reading the mainline version of the instructions but intend to use the release branch, please switch to the release version [here](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/release/SETUP_SUBMITTER_CMF.md)
+These instructions are updated along with the corresponding code and scripts fairly often. You'll later need to choose to pull down the code which corresponds to a specific branch. The usual choice is between release which is more stable, or mainline which has the latest changes. If the version of the instructions you're currently reading doesn't come from the branch you intend to use, you should switch to the instructions from that branch now. For example, if you're currently reading the mainline version of the instructions but intend to use the release branch, please switch to the release version [here](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/release/SETUP_SUBMITTER_CMF.md)
 
 ## Create a new Windows EC2 instance to install Unreal on 
 
@@ -19,7 +21,7 @@ The Unreal Plugin currently must be compiled locally.
 
 1. Install Visual Studio using the Visual Studio Installer from https://visualstudio.microsoft.com/
 1. Verify your Visual Studio and build tools version are compatible with your version of Unreal by checking the table [here](https://dev.epicgames.com/documentation/en-us/unreal-engine/setting-up-visual-studio-development-environment-for-cplusplus-projects-in-unreal-engine?application_version=5.5)
-1. Under "Individual Components", ensure that the MSVC build tools version selected ("Latest" by default) matches the recommended version in the table.  Even though the compatibility guidance may suggest a version "or later", build errors sometimes occur when using a newer version than the one listed as "recommended".
+1. Under "Individual Components", ensure that the MSVC build tools version selected ("Latest" by default) matches the recommended version in the table. Even though the compatibility guidance may suggest a version "or later", build errors sometimes occur when using a newer version than the one listed as "recommended".
 1. Under “Individual Components”, select a recent .NET Framework SDK (4.6.1 and 4.8.1 have been verified)
 1. Under “Workloads” select “Desktop development with C++”
 
@@ -34,7 +36,7 @@ The Unreal Plugin currently must be compiled locally.
 
 ## Deadline Software Installation
 
-- clone or download `deadline-cloud-for-unreal-engine` either from the release branch or mainline depending on whether you'd like the most recent tested release or all of the most recent commits.  Note that you'll want to ensure your worker version of the libraries is compatible with the version being used from your submitters.
+- clone or download `deadline-cloud-for-unreal-engine` either from the release branch or mainline depending on whether you'd like the most recent tested release or all of the most recent commits. Note that you'll want to ensure your worker version of the libraries is compatible with the version being used from your submitters.
 
 ```
 git clone https://github.com/aws-deadline/deadline-cloud-for-unreal-engine.git
@@ -44,7 +46,7 @@ git switch release
 
 Optional - Build and install plugin and dependencies with script
 
-A helper script exists at scripts/build_plugin.py which will optionally automate the remaining installation steps for you.  It will attempt to find the latest version of Unreal, build your plugin and python dependencies, and install them in the correct locations.  Settings like the Unreal version to use can be overridden.  See the full help list with:
+A helper script exists at scripts/build_plugin.py which will optionally automate the remaining installation steps for you. It will attempt to find the latest version of Unreal, build your plugin and python dependencies, and install them in the correct locations. Settings like the Unreal version to use can be overridden. See the full help list with:
 
 ```
 python scripts/build_plugin.py -h
@@ -73,7 +75,7 @@ If you've installed with this script and configured worker agent successfully, y
 python -m pip install deadline-cloud-worker-agent
 ```
 
-The correct version of the adaptor must be installed depending on the version of the submitter being used.  If you are using the version of the submitter from the release branch in GitHub, you can simply install with pip:
+The correct version of the adaptor must be installed depending on the version of the submitter being used. If you are using the version of the submitter from the release branch in GitHub, you can simply install with pip:
 
 ```
 python -m pip install deadline-cloud-for-unreal-engine
