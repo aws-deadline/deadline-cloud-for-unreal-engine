@@ -13,7 +13,7 @@ To submit MRQ Job from Unreal Project under UGS repository you need to meet next
 .. note::
    Example structure of P4 Workspace
 
-   .. image:: /images/create_ugs_render_job_0.png
+   .. image:: ../../images/create_ugs_render_job_0.png
 
 UGS Render Job structure is pretty same as Default Render Job but contains extra Environments
 
@@ -42,12 +42,12 @@ CMF/SMF Sync Environment data asset
 
 #. Select "Deadline Cloud Ugs Environment". Name an asset, for example "UgsSyncCmfEnvironment" (SyncSmf) and open it for editing
 
-   .. image:: /images/create_ugs_render_job_1.png
+   .. image:: ../../images/create_ugs_render_job_1.png
 
 #. Select **Content/Python/openjd_templates/ugs/ugs_sync_cmf_environment.yml** (**ugs_sync_smf_environment.yml**)
 #. Environment variables and Name from YAML will be loaded to data asset
 
-   .. image:: /images/create_ugs_render_job_2.png
+   .. image:: ../../images/create_ugs_render_job_2.png
 
    a. P4_CLIENTS_ROOT_DIRECTORY - path where all the workspaces should be created on the render node
 
@@ -67,7 +67,7 @@ UGS Render Job data asset
 #. Select **Content/Python/openjd_templates/ugs/ugs_render_job.yml**
 #. Parameter Definitions from YAML will be loaded to data asset
 
-   .. image:: /images/create_ugs_render_job_3.png
+   .. image:: ../../images/create_ugs_render_job_3.png
 
    a. ProjectRelativePath - Local path of the current Unreal Project relative to P4 workspace root.
       **Filled automatically during the submission**
@@ -93,4 +93,4 @@ UGS Render Job data asset
 #. Add render step
 #. Final state of UGS Render Job data asset
 
-   .. image:: /images/create_ugs_render_job_4.png
+   .. image:: ../../images/create_ugs_render_job_4.png
