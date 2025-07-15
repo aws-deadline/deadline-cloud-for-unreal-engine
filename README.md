@@ -32,9 +32,12 @@ The Unreal Engine Adaptor implements the [OpenJD][openjd-adaptor-runtime] interf
 
 Jobs created by the submitter use this adaptor by default.
 
-### Getting Started
+## Getting Started
 
-See [SETUP_SUBMITTER_CMF](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_SUBMITTER_CMF.md) for full instructions on setting up to use the plugin and submitter or setting up a customer managed fleet and/or instance to act as a worker node.
+AWS Deadline Cloud for Unreal Engine supports both Customer Managed Fleets (CMF) and Service Managed Fleets (SMF) for rendering workloads. 
+
+See [SETUP_SUBMITTER](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_SUBMITTER.md) for setting up your Unreal Submitter plugin and Deadline Cloud Service Managed Fleets (SMF) or Customer Managed Fleets (CMF).
+See [SETUP_CMF_WORKER](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_CMF_WORKER.md) for setting up a instance to act as a worker node.
 
 For more information on the commands the OpenJD adaptor runtime provides, see [here][openjd-adaptor-runtime-lifecycle].
 

@@ -15,3 +15,9 @@ parameterDefinitions:
 - name: Executable
   type: STRING
   default: 'UnrealEditor-Cmd'
+- name: CondaPackages
+  type: STRING
+  default: unrealengine=5.6 unrealengine-openjd=0.5.*
+- name: CondaChannels
+  type: STRING
+  default: deadline-cloud

@@ -1,6 +1,6 @@
-# Unreal Submitter/CMF Worker Setup Instructions
+# Unreal Submitter Setup Instructions
 
-This will walk you through setting up your Unreal Submitter with optional additional instructions for setting up an instance to act as a worker as part of a Customer Managed Fleet (CMF). The Unreal Submitter in Deadline Cloud can currently only work if you've set up a CMF and have connected a worker with Unreal installed on an appropriate instance type.
+This will walk you through setting up your Unreal Submitter and Deadline Cloud Service Managed Fleets (SMF) or Customer Managed Fleets (CMF).
 
 ## Branch to use - release vs mainline
 
@@ -129,136 +129,24 @@ hatch build
 
 ## Submitter Installation Complete
 
-If you don't need to set up your customer managed fleet you can stop here, or skip down to the "Submit a Test Render" section.
+If you don't need to set up a new fleet you can stop here, or skip down to the "Submit a Test Render" section.
 
-# Create a Customer Managed Fleet
+# Create a Fleet
+
+## Create a Service Managed Fleet (SMF)
+
+1. Follow [Service-managed fleets](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/smf-manage.html) user guide to create a Service Managed Fleet (SMF) if you don't already have one.
+
+## Create a Customer Managed Fleet (CMF)
 
 1. Follow [Create a customer-managed fleet](https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/create-a-cmf.html) to create a Customer Managed Fleet (CMF) if you don't already have one.
+	1. :warning: When associating your CMF to queues, remove the default Conda queue environment if you do not use it. This will prevent the Conda environment from being used and accidentally using the default SMF specific variables for jobs submitted to your CMF. If you use Conda in your CMF, remember to update "CondaPackages" and "CondaChannels" variables in "Parameter Definition Overrides" during job submission.
 1. Follow [Worker host setup and configuration](https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/worker-host.html) to set up a worker host.  
 1. Follow [Manage access to Windows job user secrets](https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/manage-access-windows-secrets.html) to set up the Windows job user secrets for your CMF worker.  
 1. Follow [Install and configure software required for jobs](https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/install-software.html) to install the software required to run jobs.
+1. Follow [SETUP_CMF_WORKER](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_CMF_WORKER.md) to set up your worker node to run Unreal Engine jobs.
 
-## Create a new Windows EC2 instance to install Unreal on (Optional)
-
-If you’re setting up on a brand new Windows EC2 Instance as your CMF worker node, a g5.2xlarge instance with 200 GB of storage will likely be reasonable minimum:
-
-1. Download the Epic Installer and install the latest version of Unreal (5.2 or higher is required)
-1. NVIDIA GRID drivers - Follow Windows instructions - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/install-nvidia-driver.html#nvidia-GRID-driver
-
-## Install Build Tools
-
-The Unreal Plugin currently must be compiled locally.
-
-1. Install Visual Studio using the Visual Studio Installer from https://visualstudio.microsoft.com/
-1. Verify your Visual Studio and build tools version are compatible with your version of Unreal by checking the table [here](https://dev.epicgames.com/documentation/en-us/unreal-engine/setting-up-visual-studio-development-environment-for-cplusplus-projects-in-unreal-engine?application_version=5.5)
-1. Under "Individual Components", ensure that the MSVC build tools version selected ("Latest" by default) matches the recommended version in the table.  Even though the compatibility guidance may suggest a version "or later", build errors sometimes occur when using a newer version than the one listed as "recommended".
-1. Under “Individual Components”, select a recent .NET Framework SDK (4.6.1 and 4.8.1 have been verified)
-1. Under “Workloads” select “Desktop development with C++”
-
-
-## Environment Setup
-
-1. (If not already installed) Install a recent version of Python (3.12 has been verified)
-1. Make sure your Environment Variables are set correctly. In System Environment Variables, your PATH should include:
-
-- The path to your Python Installation (C:\Program Files\Python312 for example)
-- The path to your Python Scripts folder (C:\Program Files\Python312\scripts for example)
-- The path to your Unreal binaries (C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\Win64)
-
-## Deadline Software Installation
-
-- clone or download `deadline-cloud-for-unreal-engine` either from the release branch or mainline depending on whether you'd like the most recent tested release or all of the most recent commits.  Note that you'll want to ensure your worker version of the libraries is compatible with the version being used from your submitters.
-
-```
-git clone https://github.com/aws-deadline/deadline-cloud-for-unreal-engine.git
-cd deadline-cloud-for-unreal-engine
-git switch release
-```
-
-Optional - Build and install plugin and dependencies with script
-
-A helper script exists at scripts/build_plugin.py which will optionally automate the remaining installation steps for you.  It will attempt to find the latest version of Unreal, build your plugin and python dependencies, and install them in the correct locations.  Settings like the Unreal version to use can be overridden.  See the full help list with:
-
-```
-python scripts/build_plugin.py -h
-```
-
-To build and install your current copy of deadline-cloud-for-unreal-engine as a worker with the latest Unreal Engine installation, run:
-
-```
-python scripts/build_plugin.py --install --worker
-```
-
-Configure the Deadline Cloud worker agent by running:
-
-```
-install-deadline-worker ^
-  --farm-id FARM_ID ^
-  --fleet-id FLEET_ID ^
-  --region REGION ^
-  --allow-shutdown
-```
-
-If you've installed with this script and configured worker agent successfully, you can now skip to "Submit a Test Render"
-
-
-```
-python -m pip install deadline-cloud-worker-agent
-```
-
-The correct version of the adaptor must be installed depending on the version of the submitter being used.  If you are using the version of the submitter from the release branch in GitHub, you can simply install with pip:
-
-```
-python -m pip install deadline-cloud-for-unreal-engine
-```
-
-If you're using mainline or a custom/in development version of the submitter in order to avoid compatibility issues it's advised to build and install from the same version of code or transfer over the .whl file from your submitter build:
-
-```
-// Install hatch if not yet installed
-pip install hatch
-hatch build
-python -m pip install dist\my-built-wheel.whl
-```
-
-
-## Build the Plugin
-
-Adjust the first two paths below based on where your installation of Unreal lives, and where you installed deadline-cloud-for-unreal-engine.
-
-From the Unreal Install Batchfiles Folder (Note the ‘package’ parameter can be any new directory, however you’ll want it to be called “UnrealDeadlineCloudService” later):
-
-```
-cd C:\Program Files\Epic Games\UE_5.5\Engine\Build\BatchFiles
-runuat.bat BuildPlugin -plugin="C:\deadline\deadline-cloud-for-unreal-engine\src\unreal_plugin\UnrealDeadlineCloudService.uplugin" -package="C:\UnrealDeadlineCloudService"
-```
-
-- Copy the “package” folder above to your Unreal installation’s Plugins folder (C:\Program Files\Epic Games\UE_5.5\Engine\Plugins\UnrealDeadlineCloudService for example)
-
-## pywin32
-
-Unreal’s version of python will need pywin32. Pip install using copy of Unreal’s 3rd Party python installation:
-
-```
-"C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install pywin32
-```
-
-## Submit a Test Render (Optional)
-
-Assuming you’ve created a CMF and have connected at least one worker that’s had Unreal installed as above, you should be able to submit a test render at this point.
-
-To verify your CMF worker is connected:
-
-On your CMF Worker:
-
-1. Open “Task Manager“
-1. Click on the “Services“ tab on the right
-1. Find “DeadlineWorker”
-	1. If you don’t see it listed you’ve likely missed steps (install-deadline-worker in particular) from [the CMF host setup steps](https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/worker-host.html#worker-agent-config)
-1. If the status of the service isn’t currently “Running”, right click it and select “Start“
-1. If your “DeadlineWorker“ service isn't starting, check the worker agent launch logs in these locations:
-	1. C:\ProgramData\Amazon\Deadline\Logs\worker-agent.log
-	1. C:\ProgramData\Amazon\Deadline\Logs\queue-<queueid>\session-<sessionid>.log
+# Submit a Test Render
 
 This example will use the Meerkat Demo from the Unreal Marketplace:
 
@@ -283,9 +171,12 @@ This example will use the Meerkat Demo from the Unreal Marketplace:
 	1. Click “UnsavedConfig” in the settings column 
 		1. In the popup window, you should see DeadlineCloud settings on the left. This window can then be closed.
 	1. On the right, 
-		1. drop down “Preset Overrides” (You may need to widen this dialog)
+		1. In “Preset Overrides” (You may need to widen this dialog)
 			1. Set “Name” to “Unreal Test Job”
 			1. Set “Maximum retries” to 2
+		1. In "Parameter Definition Overrides"
+			1. Update the Unreal Engine version in "CondaPackages" if you are using a different version than 5.6
+		1. In "Steps Overrides"
 			1. Optionally set "Task Chunk Size" to a number higher than 1 - this will tell Deadline Cloud to render the requested number of shots in groups as part of the same task, and may slightly increase performance in some cases.
 		1. In Job Attachments, under “Input Files” select “Show Auto-Detected” and the list of Auto Detected Files should populate. 
 	1. Ready to Go! Hit “Render (Remote)”. 
