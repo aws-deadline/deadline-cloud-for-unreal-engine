@@ -11,7 +11,7 @@ from typing import Any
 
 SUPPORTED_PYTHON_VERSIONS = ["3.9", "3.10", "3.11"]
 SUPPORTED_PLATFORMS = ["win_amd64"]
-NATIVE_DEPENDENCIES = ["xxhash"]
+NATIVE_DEPENDENCIES = ["xxhash", "psutil"]
 
 
 def _get_project_dict() -> dict[str, Any]:
