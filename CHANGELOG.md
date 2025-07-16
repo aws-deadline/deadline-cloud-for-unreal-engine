@@ -1,3 +1,21 @@
+## 0.6.0 (2025-07-16)
+
+
+### Features
+* Update render_job template to include Conda variables for SMF and update related docs (#164) ([`8c73fb1`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/8c73fb144aff7ed40ae64ca54773f999b8ed7670))
+* persistent UI settings (#160) ([`f6a6530`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/f6a65301953e432824b02fd361fac4e583f7844e))
+* Input validation (#145) ([`54747db`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/54747db678b9e27a117f9e6e8df20b78c8995edf))
+* Developer Settings refactor (#142) ([`66996e6`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/66996e6f990ef8959956163fa0570d2df7d412a3))
+* Developer Settings fix. Linters compliance ([`66996e6`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/66996e6f990ef8959956163fa0570d2df7d412a3))
+* P4 Sync improvements (#144) ([`2e9800b`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/2e9800baf9702ddc081df7b474de546189ccb64d))
+* P4 sync improvements ([`2e9800b`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/2e9800baf9702ddc081df7b474de546189ccb64d))
+* P4 sync improvements. List only unique dependencies ([`2e9800b`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/2e9800baf9702ddc081df7b474de546189ccb64d))
+* Support MPQ asset as render argument (#143) ([`f66391a`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/f66391a9a72488f5d9f8ac15e44b8533caf3546e))
+
+### Bug Fixes
+* Pinning model dependency to 0.8.x to prevent minor model updates from breaking us unexpectedly (#162) ([`7a2f824`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/7a2f824d5c10ce3405440944d9ca8c3ec960b887))
+* Using parse_model to instantiate classes using default context ([`66497e1`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/66497e128fd1df79cf3ef0fd00ce835908aa052e))
+
 ## 0.5.0 (2025-03-17)
 
 
