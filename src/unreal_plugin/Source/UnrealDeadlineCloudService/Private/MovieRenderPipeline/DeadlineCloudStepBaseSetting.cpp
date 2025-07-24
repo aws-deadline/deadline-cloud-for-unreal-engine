@@ -17,11 +17,11 @@ TArray<FString> GetStepOptionsImplementation(UObject* Object)
 		for (const auto Setting : Config->GetAllSettings())
 		{
 			const auto SettingClass = Setting->GetClass();
-			if (const auto DeadlineCloudSetting = Cast<UDeadlineCloudStepBaseSetting>(SettingClass->ClassDefaultObject))
+			if (const auto DeadlineCloudSetting = Cast<UDeadlineCloudStepBaseSetting>(SettingClass->GetDefaultObject()))
 			{
 				DeadlineCloudStepOptions.Add(DeadlineCloudSetting->GetDisplayText().ToString());
 			}
-			else if (const auto _ = Cast<UDeadlineCloudCompositeStepBaseSetting>(SettingClass->ClassDefaultObject))
+			else if (const auto _ = Cast<UDeadlineCloudCompositeStepBaseSetting>(SettingClass->GetDefaultObject()))
 			{
 				// Iterate through containers to find struct properties
 				for (TFieldIterator<FArrayProperty> ItProp(SettingClass, EFieldIterationFlags::IncludeAll); ItProp; ++ItProp)
