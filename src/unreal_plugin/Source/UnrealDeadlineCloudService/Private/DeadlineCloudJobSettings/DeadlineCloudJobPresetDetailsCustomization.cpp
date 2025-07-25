@@ -161,6 +161,77 @@ void FDeadlineCloudAttachmentDetailsCustomization::CustomizeHeader(
         ];
 }
 
+TSharedRef<SWidget> FDeadlineCloudAttachmentDetailsCustomization::BuildPathsValidationWidget(
+    TSharedRef<IPropertyHandle> PathsHandle)
+{
+    return SNew(SVerticalBox)
+
+        // Empty paths
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        [
+            SNew(STextBlock)
+                .Text(LOCTEXT("EmptyPathsError", "The list contains empty elements"))
+                .Font(IDetailLayoutBuilder::GetDetailFont())
+                .ColorAndOpacity(FLinearColor(1.0f, 0.756f, 0.027f)) // #FFC107
+                .Visibility_Lambda([PathsHandle, this]() {
+                return GetPathsEmptyWidgetVisibility(PathsHandle);
+                    })
+        ]
+
+    // Too many paths
+    + SVerticalBox::Slot()
+        .AutoHeight()
+        [
+            SNew(STextBlock)
+                .Text(LOCTEXT("ExceedPathsNumberError", "The list must not contain more than 50 paths"))
+                .Font(IDetailLayoutBuilder::GetDetailFont())
+                .ColorAndOpacity(FLinearColor(1.0f, 0.756f, 0.027f))
+                .Visibility_Lambda([PathsHandle, this]() {
+                return GetPathsNumberExceededWidgetVisibility(PathsHandle);
+                    })
+        ];
+}
+
+void FDeadlineCloudAttachmentDetailsCustomization::CustomizePathsRow(
+    IDetailPropertyRow& Row,
+    TSharedRef<IPropertyHandle> PathsHandle,
+    bool bCheckPaths)
+{
+    TSharedPtr<SWidget> NameWidget;
+    TSharedPtr<SWidget> ValueWidget;
+    Row.GetDefaultWidgets(NameWidget, ValueWidget);
+
+    Row.CustomWidget(true)
+        .NameContent()
+        [
+            NameWidget.ToSharedRef()
+        ]
+        .ValueContent()
+        [
+            SNew(SHorizontalBox)
+                // Only add the validation widget if bCheckPaths is true
+                + SHorizontalBox::Slot()
+                .HAlign(HAlign_Left)
+                .VAlign(VAlign_Center)
+                .Padding(4, 0)
+                [
+                    bCheckPaths ? BuildPathsValidationWidget(PathsHandle) : SNullWidget::NullWidget
+                ]
+                + SHorizontalBox::Slot()
+                .AutoWidth()
+                .HAlign(HAlign_Left)
+                .VAlign(VAlign_Center)
+                [
+                    SNew(SOverlay)
+                        + SOverlay::Slot()
+                        [
+                            ValueWidget.ToSharedRef()
+                        ]
+                ]
+        ];
+}
+
 void FDeadlineCloudAttachmentDetailsCustomization::CustomizeChildren(
     TSharedRef<IPropertyHandle> StructHandle, IDetailChildrenBuilder& ChildBuilder,
     IPropertyTypeCustomizationUtils& CustomizationUtils)
@@ -192,86 +263,11 @@ void FDeadlineCloudAttachmentDetailsCustomization::CustomizeChildren(
                     }));
     }
     else
+    { 
         PropertyOverrideHandler->DisableRowInDataAsset(AutoDetectedPathsRow);
-
-    TSharedPtr<SWidget> PathsNameWidget;
-    TSharedPtr<SWidget> PathsValueWidget;
-    PathsRow.GetDefaultWidgets(PathsNameWidget, PathsValueWidget);
-    PathsRow.CustomWidget(true)
-        .NameContent()
-        [
-            PathsNameWidget.ToSharedRef()
-        ]
-        .ValueContent()
-        [
-            SNew(SHorizontalBox)
-                + SHorizontalBox::Slot()
-                .HAlign(HAlign_Left)
-                .VAlign(VAlign_Center)
-                .Padding(4, 0)
-                [
-                    SNew(STextBlock)
-                        .Text(LOCTEXT("PathsError", "Contains empty elements or more than 50 of them"))
-                        .Font(IDetailLayoutBuilder::GetDetailFont())
-                        .ColorAndOpacity(FLinearColor::Red)
-                        .Visibility(TAttribute<EVisibility>::Create(
-                            TAttribute<EVisibility>::FGetter::CreateSPLambda(
-                                this, [this, PathsHandle]() {
-                                    return GetPathsErrorWidgetVisibility(PathsHandle);
-                                })))
-                ]
-                + SHorizontalBox::Slot()
-                .AutoWidth()
-                .HAlign(HAlign_Left)
-                .VAlign(VAlign_Center)
-                [
-                    SNew(SOverlay)
-                        + SOverlay::Slot()
-                        [
-                            PathsValueWidget.ToSharedRef()
-                        ]
-                ]
-        ];
-
-    TSharedPtr<SWidget> AutoDetectedPathsNameWidget;
-    TSharedPtr<SWidget> AutoDetectedPathsValueWidget;
-    AutoDetectedPathsRow.GetDefaultWidgets(AutoDetectedPathsNameWidget, AutoDetectedPathsValueWidget);
-    AutoDetectedPathsRow.CustomWidget(true)
-        .NameContent()
-        [
-            AutoDetectedPathsNameWidget.ToSharedRef()
-        ]
-        .ValueContent()
-        [
-            SNew(SHorizontalBox)
-                + SHorizontalBox::Slot()
-                .HAlign(HAlign_Left)
-                .VAlign(VAlign_Center)
-                .Padding(4, 0)
-                [
-                    SNew(STextBlock)
-                        .Text(LOCTEXT("AutoDetectedPathsError", "Contains empty elements or more than 50 of them"))
-                        .Font(IDetailLayoutBuilder::GetDetailFont())
-                        .ColorAndOpacity(FLinearColor::Red)
-                        .Visibility(TAttribute<EVisibility>::Create(
-                            TAttribute<EVisibility>::FGetter::CreateSPLambda(
-                                this, [this, AutoDetectedPathsHandle]() {
-                                    return GetPathsErrorWidgetVisibility(AutoDetectedPathsHandle);
-                                })))
-                ]
-                + SHorizontalBox::Slot()
-                .AutoWidth()
-                .HAlign(HAlign_Left)
-                .VAlign(VAlign_Center)
-                [
-                    SNew(SOverlay)
-                        + SOverlay::Slot()
-                        [
-                            AutoDetectedPathsValueWidget.ToSharedRef()
-                        ]
-                ]
-        ];
-
+    }
+        CustomizePathsRow(PathsRow, PathsHandle.ToSharedRef(), true);
+        CustomizePathsRow(AutoDetectedPathsRow, AutoDetectedPathsHandle.ToSharedRef(), false);
 
     // Since we updating auto-detected files mostly to show them in the UI. We don't want to put it into job initialization methods
     if (OuterJob && StructHandle->GetProperty()->GetName() == "InputFiles")
@@ -280,7 +276,7 @@ void FDeadlineCloudAttachmentDetailsCustomization::CustomizeChildren(
     }
 }
 
-bool FDeadlineCloudAttachmentDetailsCustomization::IsPathsContainsErrors(TSharedPtr<IPropertyHandle> PropertyHandle) const
+bool FDeadlineCloudAttachmentDetailsCustomization::ExceededPathsNumber(TSharedPtr<IPropertyHandle> PropertyHandle) const
 {
 	if (!PropertyHandle.IsValid())
 	{
@@ -305,6 +301,33 @@ bool FDeadlineCloudAttachmentDetailsCustomization::IsPathsContainsErrors(TShared
         return true;
     }
 
+    return false;
+}
+
+bool FDeadlineCloudAttachmentDetailsCustomization::ContainsEmptyPaths(TSharedPtr<IPropertyHandle> PropertyHandle) const
+{
+    if (!PropertyHandle.IsValid())
+    {
+        return false;
+    }
+    auto Paths = PropertyHandle->GetChildHandle("Paths", false);
+    if (!Paths.IsValid())
+    {
+        return false;
+    }
+
+    auto ArrayHandle = Paths->AsArray();
+    if (!ArrayHandle.IsValid())
+    {
+        return false;
+    }
+
+    uint32 NumChildren = 0;
+    ArrayHandle->GetNumElements(NumChildren);
+    if (NumChildren == 0)
+    {
+        return false;
+    }
     for (uint32 ChildIndex = 0; ChildIndex < NumChildren; ++ChildIndex)
     {
         TSharedPtr<IPropertyHandle> ChildHandle = ArrayHandle->GetElement(ChildIndex);
@@ -321,11 +344,11 @@ bool FDeadlineCloudAttachmentDetailsCustomization::IsPathsContainsErrors(TShared
         }
         else
         {
-			auto Path = ChildHandle->GetChildHandle("Path", false);
-			if (Path.IsValid())
-			{
-				Path->GetValue(Value);
-			}
+            auto Path = ChildHandle->GetChildHandle("Path", false);
+            if (Path.IsValid())
+            {
+                Path->GetValue(Value);
+            }
         }
 
         if (Value.IsEmpty())
@@ -337,15 +360,17 @@ bool FDeadlineCloudAttachmentDetailsCustomization::IsPathsContainsErrors(TShared
     return false;
 }
 
-EVisibility FDeadlineCloudAttachmentDetailsCustomization::GetPathsErrorWidgetVisibility(TSharedPtr<IPropertyHandle> PropertyHandle) const
+EVisibility FDeadlineCloudAttachmentDetailsCustomization::GetPathsNumberExceededWidgetVisibility(TSharedPtr<IPropertyHandle> PropertyHandle) const
 {
-    return IsPathsContainsErrors(PropertyHandle) ? EVisibility::Visible : EVisibility::Collapsed;
+    return ExceededPathsNumber(PropertyHandle) ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
-EVisibility FDeadlineCloudAttachmentDetailsCustomization::GetPathsDefaultWidgetVisibility(TSharedPtr<IPropertyHandle> PropertyHandle) const
+EVisibility FDeadlineCloudAttachmentDetailsCustomization::GetPathsEmptyWidgetVisibility(TSharedPtr<IPropertyHandle> PropertyHandle) const
 {
-    return IsPathsContainsErrors(PropertyHandle) ? EVisibility::Collapsed : EVisibility::Visible;
+    return ContainsEmptyPaths(PropertyHandle) ? EVisibility::Visible : EVisibility::Collapsed;
 }
+
+
 
 bool FDeadlineCloudJobPresetDetailsCustomization::IsPropertyHiddenInMovieRenderQueue(const FName& InPropertyPath)
 {

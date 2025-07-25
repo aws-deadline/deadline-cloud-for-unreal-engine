@@ -105,6 +105,8 @@ public:
     TArray<FDeadlineCloudEnvironmentOverride> EnvironmentsOverrides = TArray<FDeadlineCloudEnvironmentOverride>();
 
     void JobPresetChanged();
+    static bool IsAssetFileValid(const FString& FilePath);
+
 protected:
 
 #if WITH_EDITOR

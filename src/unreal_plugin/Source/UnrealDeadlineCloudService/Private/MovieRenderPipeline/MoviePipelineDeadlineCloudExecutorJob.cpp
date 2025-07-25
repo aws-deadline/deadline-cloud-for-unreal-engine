@@ -8,6 +8,7 @@
 #include "Misc/Paths.h"
 #include "Interfaces/IPluginManager.h"
 #include "PropertyEditorModule.h"
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudDetailsWidgetsHelper.h"
 
 UMoviePipelineDeadlineCloudExecutorJob::UMoviePipelineDeadlineCloudExecutorJob()
@@ -202,8 +203,45 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyCha
 	}
 }
 
+ bool UMoviePipelineDeadlineCloudExecutorJob::IsAssetFileValid(const FString& FilePath)
+{
+	// Check file on disk
+	if (!FPaths::FileExists(FilePath))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Dependency file missing: %s"), *FilePath);
+		return false;
+	}
+
+	// Check convert to asset path
+	FString LongPackagePath;
+	if (!FPackageName::TryConvertFilenameToLongPackageName(FilePath, LongPackagePath))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Could not convert to package path: %s"), *FilePath);
+		return false;
+	}
+
+	// Check AssetRegistry
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	FAssetData AssetData = AssetRegistryModule.Get().GetAssetByObjectPath(*LongPackagePath);
+
+	if (!AssetData.IsValid())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AssetRegistry has no info about: %s (from file %s)"), *LongPackagePath, *FilePath);
+		return false;
+	}
+
+	return true;
+}
+
 void UMoviePipelineDeadlineCloudExecutorJob::CollectDependencies()
 {
+
+	if (GEngine)
+	{
+		UE_LOG(LogTemp, Log, TEXT("Running Garbage Collection before dependency update..."));
+		GEngine->ForceGarbageCollection();
+		
+	}
 	UE_LOG(LogTemp, Log, TEXT("MoviePipelineDeadlineCloudExecutorJob :: Collecting dependencies"));
 	PresetOverrides.JobAttachments.InputFiles.AutoDetected.Paths.Empty();
 	AsyncTask(ENamedThreads::GameThread, [this]()
@@ -213,31 +251,26 @@ void UMoviePipelineDeadlineCloudExecutorJob::CollectDependencies()
 			if (auto Library = UDeadlineCloudJobBundleLibrary::Get())
 			{
 				FilePaths = Library->GetJobDependencies(this);
+				for (auto FilePath : FilePaths)
+				{
+					if (!IsAssetFileValid(FilePath))
+					{
+						continue;
+					}
+					FFilePath Item;
+					Item.FilePath = FilePath;
+					DependencyFiles.Add(Item);
+				}
+				
+				UE_LOG(LogTemp, Log, TEXT("Added %d dependency files:"), DependencyFiles.Num());
 			}
 			else
 			{
 				UE_LOG(LogTemp, Error, TEXT("Error get DeadlineCloudJobBundleLibrary"));
 			}
-			for (auto FilePath : FilePaths)
-			{
-				FFilePath Item;
-				Item.FilePath = FilePath;
-				DependencyFiles.Add(Item);
-			}
+
 		});
-	UE_LOG(LogTemp, Log, TEXT("MoviePipelineDeadlineCloudExecutorJob :: Collecting dependencies"));
-	PresetOverrides.JobAttachments.InputFiles.AutoDetected.Paths.Empty();
-	AsyncTask(ENamedThreads::GameThread, [this]()
-		{
-			auto& DependencyFiles = PresetOverrides.JobAttachments.InputFiles.AutoDetected.Paths;
-			TArray<FString> FilePaths = UDeadlineCloudJobBundleLibrary::Get()->GetJobDependencies(this);
-			for (auto FilePath : FilePaths)
-			{
-				FFilePath Item;
-				Item.FilePath = FilePath;
-				DependencyFiles.Add(Item);
-			}
-		});
+
 }
 
 void UMoviePipelineDeadlineCloudExecutorJob::UpdateInputFilesProperty()

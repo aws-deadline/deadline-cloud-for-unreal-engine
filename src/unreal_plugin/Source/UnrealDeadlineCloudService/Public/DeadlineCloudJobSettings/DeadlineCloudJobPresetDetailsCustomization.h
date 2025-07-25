@@ -121,9 +121,13 @@ protected:
 	/** Handles overridden settings in UI */
 	TSharedPtr<FPropertyAvailabilityHandler> PropertyOverrideHandler;
 
-    bool IsPathsContainsErrors(TSharedPtr<IPropertyHandle> PropertyHandle) const;
-    EVisibility GetPathsErrorWidgetVisibility(TSharedPtr<IPropertyHandle> PropertyHandle) const;
-    EVisibility GetPathsDefaultWidgetVisibility(TSharedPtr<IPropertyHandle> PropertyHandle) const;
+    bool ExceededPathsNumber(TSharedPtr<IPropertyHandle> PropertyHandle) const;
+	bool ContainsEmptyPaths(TSharedPtr<IPropertyHandle> PropertyHandle) const;
+    EVisibility GetPathsNumberExceededWidgetVisibility(TSharedPtr<IPropertyHandle> PropertyHandle) const;
+    EVisibility GetPathsEmptyWidgetVisibility(TSharedPtr<IPropertyHandle> PropertyHandle) const;
+
+	TSharedRef<SWidget> BuildPathsValidationWidget(TSharedRef<IPropertyHandle> PathsHandle);
+	void CustomizePathsRow(IDetailPropertyRow& Row, TSharedRef<IPropertyHandle> PathsHandle, bool bCheckPaths);
 };
 
 /**
