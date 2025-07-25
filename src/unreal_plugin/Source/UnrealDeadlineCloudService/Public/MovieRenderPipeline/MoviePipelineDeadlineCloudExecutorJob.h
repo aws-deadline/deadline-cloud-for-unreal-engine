@@ -36,6 +36,8 @@ public:
 
     void SetPropertyRowEnabledInMovieRenderJob(const FName& InPropertyPath, bool bInEnabled);
 
+    void PostInitProperties() override;
+
     /**
      * Returns the Deadline job info with overrides applied, if enabled.
      * Skips any property not

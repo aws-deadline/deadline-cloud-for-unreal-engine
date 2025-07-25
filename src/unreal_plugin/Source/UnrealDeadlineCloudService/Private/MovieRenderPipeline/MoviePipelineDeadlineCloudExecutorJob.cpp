@@ -51,6 +51,15 @@ void UMoviePipelineDeadlineCloudExecutorJob::SetPropertyRowEnabledInMovieRenderJ
 	}
 }
 
+void UMoviePipelineDeadlineCloudExecutorJob::PostInitProperties()
+{
+	Super::PostInitProperties();
+
+#if WITH_EDITOR
+	JobPresetChanged();
+#endif // WITH_EDITOR
+}
+
 void UMoviePipelineDeadlineCloudExecutorJob::GetPresetStructWithOverrides(UStruct* InStruct, const void* InContainer, void* OutContainer) const
 {
 	for (TFieldIterator<FProperty> PropIt(InStruct, EFieldIteratorFlags::IncludeSuper); PropIt; ++PropIt)
