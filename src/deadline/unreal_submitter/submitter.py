@@ -132,6 +132,23 @@ class UnrealSubmitter:
                 submit_task.enter_progress_frame(new_progress - last_progress, self.submit_message)
                 last_progress = new_progress
 
+    def show_confirmation_dialog(self, message: str, default_prompt_response: bool):
+        """
+        Show message dialog in the Unreal Editor UI
+
+        :param message: Message to display
+        :type message: str
+        :param default_prompt_response: Default response
+        :type default_prompt_response: bool
+        """
+
+        if self._silent_mode:
+            return default_prompt_response
+
+        # TODO handle confirmation
+
+        return True
+
     def _start_submit(self, job_bundle_path):
         """
         Start the OpenJob submission
@@ -139,6 +156,7 @@ class UnrealSubmitter:
         :param job_bundle_path: Path of the Job bundle to submit
         :type job_bundle_path: str
         """
+
         try:
             job_id = create_job_from_job_bundle(
                 job_bundle_dir=job_bundle_path,
@@ -147,6 +165,8 @@ class UnrealSubmitter:
                     upload_metadata
                 ),
                 create_job_result_callback=lambda: self._create_job_result(),
+                from_gui=True,
+                interactive_confirmation_callback=self.show_confirmation_dialog,
             )
             if job_id:
                 logger.info(f"Job creation result: {job_id}")

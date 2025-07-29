@@ -18,6 +18,8 @@ def create_job_from_bundle_mock(
     hashing_progress_callback=None,
     upload_progress_callback=None,
     create_job_result_callback=None,
+    from_gui=False,
+    interactive_confirmation_callback=None,
 ):
     time.sleep(0.1)
 
