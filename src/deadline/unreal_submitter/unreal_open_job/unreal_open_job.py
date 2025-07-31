@@ -5,6 +5,7 @@ import re
 import sys
 import json
 import unreal
+
 from enum import IntEnum
 from typing import Any, Optional
 from collections import OrderedDict
@@ -15,7 +16,7 @@ from openjd.model.v2023_09 import JobTemplate
 
 from deadline.client.job_bundle.submission import AssetReferences
 from deadline.client.job_bundle import deadline_yaml_dump, create_job_history_bundle_dir
-
+from deadline.unreal_cmd_utils import merge_cmd_args_with_priority
 from deadline.unreal_submitter import common, exceptions, settings
 from deadline.unreal_submitter.unreal_dependency_collector import (
     DependencyCollector,
@@ -139,8 +140,8 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         steps: Optional[list[UnrealOpenJobStep]] = None,
         environments: Optional[list[UnrealOpenJobEnvironment]] = None,
         extra_parameters: Optional[list[UnrealOpenJobParameterDefinition]] = None,
-        job_shared_settings: JobSharedSettings = JobSharedSettings(),
-        asset_references: AssetReferences = AssetReferences(),
+        job_shared_settings: Optional[JobSharedSettings] = None,
+        asset_references: Optional[AssetReferences] = None,
     ):
         """
         :param file_path: Path to the open job template file
@@ -172,8 +173,8 @@ class UnrealOpenJob(UnrealOpenJobEntity):
 
         self._steps: list[UnrealOpenJobStep] = steps or []
         self._environments: list[UnrealOpenJobEnvironment] = environments or []
-        self._job_shared_settings = job_shared_settings
-        self._asset_references = asset_references
+        self._job_shared_settings = job_shared_settings or JobSharedSettings()
+        self._asset_references = asset_references or AssetReferences()
 
         self._transfer_files_strategy = TransferProjectFilesStrategy.S3
 
@@ -459,8 +460,8 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         steps: Optional[list[UnrealOpenJobStep]] = None,
         environments: Optional[list[UnrealOpenJobEnvironment]] = None,
         extra_parameters: Optional[list[UnrealOpenJobParameterDefinition]] = None,
-        job_shared_settings: JobSharedSettings = JobSharedSettings(),
-        asset_references: AssetReferences = AssetReferences(),
+        job_shared_settings: Optional[JobSharedSettings] = None,
+        asset_references: Optional[AssetReferences] = None,
         mrq_job: Optional[unreal.MoviePipelineExecutorJob] = None,
     ):
         """
@@ -988,7 +989,9 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         unfilled_parameter_values = [
             p
             for p in parameter_values
-            if p["value"] is None or p["name"] == OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS
+            if p["value"] is None
+            or p["name"] == OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS
+            or p["name"] == OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS_FILE
         ]
         filled_parameter_values = [
             p for p in parameter_values if p not in unfilled_parameter_values
@@ -997,19 +1000,37 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         # Unreal Engine can handle long CMD args strings and OpenJD has a limit of 1024 chars.
         # Therefore, we need to write them to file and set ExtraCmdArgs parameter as empty string.
         # Unreal Adaptor uses only ExtraCmdArgsFile parameter to read args from file.
-        cmd_args_str = " ".join(self._get_ue_cmd_args())
+        extra_cmd_args_file_value = None
+        for p in parameter_values:
+            if p["name"] == OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS_FILE:
+                extra_cmd_args_file_value = p["value"]
+                break
+
+        # Read EXTRA_CMD_ARGS_FILE file value if file exists, and append its content to user_extra_cmd_args
+        args_from_file = None
+        if extra_cmd_args_file_value:
+            args_from_file = self.get_user_extra_cmd_args_from_file(str(extra_cmd_args_file_value))
+        user_extra_cmd_args = self.get_user_extra_cmd_args()
+
+        if args_from_file:
+            user_extra_cmd_args = merge_cmd_args_with_priority(user_extra_cmd_args, args_from_file)
+        executor_cmd_args = self.get_executor_cmd_args()
+
+        merged_cmd_args = merge_cmd_args_with_priority(user_extra_cmd_args, executor_cmd_args)
+        merged_cmd_args = self.clear_cmd_args(merged_cmd_args)
 
         unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
             job_parameter_values=unfilled_parameter_values,
             job_parameter_name=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS,
             job_parameter_value="",
         )
-
+        # Write the .txt file using the original temp file logic
         extra_cmd_args_file = common.create_deadline_cloud_temp_file(
             file_prefix=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS_FILE,
-            file_data=cmd_args_str,
+            file_data=merged_cmd_args,
             file_ext=".txt",
         )
+
         unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
             job_parameter_values=unfilled_parameter_values,
             job_parameter_name=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS_FILE,
@@ -1036,44 +1057,80 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         all_parameter_values = filled_parameter_values + unfilled_parameter_values
         return all_parameter_values
 
-    def _get_ue_cmd_args(self) -> list[str]:
-        cmd_args = common.get_in_process_executor_cmd_args()
+    def get_executor_cmd_args(self) -> str:
+        """
+        Returns the cleaned list of command line arguments from the executor settings and MRQ job.
+        """
 
+        cmd_args = common.get_in_process_executor_cmd_args()
         if self._mrq_job:
-            cmd_args.extend(common.get_mrq_job_cmd_args(self.mrq_job))
+            cmd_args.extend(common.get_mrq_job_cmd_args(self._mrq_job))
+
+        return " ".join(a for a in cmd_args)
+
+    def get_user_extra_cmd_args(self) -> str:
+        """
+        Returns the cleaned list of user-specified extra command line arguments (UNREAL_EXTRA_CMD_ARGS),
+        with any -execcmds arguments removed.
+        """
 
         extra_cmd_args_param = self._find_extra_parameter(
             parameter_name=OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS,
             parameter_type="STRING",
         )
-
-        if extra_cmd_args_param:
+        if extra_cmd_args_param and extra_cmd_args_param.value:
             extra_cmd_args = str(extra_cmd_args_param.value)
-            cleared_extra_cmds_args = re.sub(
-                pattern='(-execcmds="[^"]*")', repl="", string=extra_cmd_args, flags=re.IGNORECASE
-            )
-            cleared_extra_cmds_args = re.sub(
-                pattern="(-execcmds='[^']*')",
-                repl="",
-                string=cleared_extra_cmds_args,
-                flags=re.IGNORECASE,
-            )
+            return extra_cmd_args
+
+        return ""
+
+    @staticmethod
+    def clear_cmd_args(cmd_args: str) -> str:
+        """
+        Cleans the command line arguments by removing any -execcmds arguments.
+        This is useful to ensure that no unintended execution commands are passed.
+
+        :param cmd_args: The command line arguments as a string.
+        :return: Cleaned command line arguments.
+        """
+        cleared_cmd_args = re.sub(
+            pattern='(-execcmds="[^"]*")', repl="", string=cmd_args, flags=re.IGNORECASE
+        )
+        cleared_cmd_args = re.sub(
+            pattern="(-execcmds='[^']*')",
+            repl="",
+            string=cleared_cmd_args,
+            flags=re.IGNORECASE,
+        )
+
+        if cleared_cmd_args != cmd_args:
             logger.warning(
                 "Appearance of custom '-execcmds' argument on the Render node can cause unpredictable "
                 "issues. Argument '-execcmds' of Unreal Open Job's "
                 "Extra Command Line arguments will be ignored."
             )
 
-            if cleared_extra_cmds_args:
-                cmd_args.extend(cleared_extra_cmds_args.split(" "))
+        return cleared_cmd_args
 
-        # remove duplicates
-        cmd_args = list(set(cmd_args))
+    def get_user_extra_cmd_args_from_file(self, file_path: str) -> str:
+        """
+        Reads the given EXTRA_CMD_ARGS_FILE and returns the string as-is (stripped).
+        Returns an empty string if the file is missing or empty. Logs if file is empty or error reading.
+        """
 
-        # remove empty args
-        cmd_args = [a for a in cmd_args if a != ""]
-
-        return cmd_args
+        if not file_path or not os.path.isfile(file_path):
+            logger.info(f"EXTRA_CMD_ARGS_FILE '{file_path}' does not exist or is not specified.")
+            return ""
+        try:
+            with open(file_path, "r", encoding="utf8") as f:
+                extra_data = f.read()
+            if not extra_data.strip():
+                logger.info(f"EXTRA_CMD_ARGS_FILE '{file_path}' is empty.")
+                return ""
+            return extra_data.strip()
+        except Exception as e:
+            logger.error(f"Error reading EXTRA_CMD_ARGS_FILE '{file_path}': {e}")
+            return ""
 
     def _collect_mrq_job_dependencies(self) -> list[str]:
         """
