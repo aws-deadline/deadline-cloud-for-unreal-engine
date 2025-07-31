@@ -68,6 +68,7 @@ destinations = [
   "src/deadline/unreal_submitter",
   "src/deadline/unreal_logger",
   "src/deadline/unreal_perforce_utils",
+  "src/deadline/unreal_cmd_utils",  
 ]
 
 [tool.hatch.build.targets.sdist]
@@ -117,6 +118,7 @@ addopts = [
     "--cov=src/deadline/unreal_submitter",
     "--cov=src/deadline/unreal_logger",
     "--cov=src/deadline/unreal_perforce_utils",
+    "--cov=src/deadline/unreal_cmd_utils",    
     "--color=yes",
     "--cov-report=html:build/coverage",
     "--cov-report=xml:build/coverage/coverage.xml",
@@ -139,7 +141,8 @@ source_pkgs = [
     "src/deadline/unreal_adaptor",
     "src/deadline/unreal_submitter",
     "src/deadline/unreal_logger",
-    "src/deadline/unreal_perforce_utils"
+    "src/deadline/unreal_perforce_utils",
+    "src/deadline/unreal_cmd_utils",
 ]
 branch = true
 parallel = true

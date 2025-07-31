@@ -11,6 +11,7 @@ import threading
 import jsonschema
 from typing import Callable, Optional
 
+from deadline.unreal_cmd_utils import merge_cmd_args_with_priority
 from deadline.client.api import get_deadline_cloud_library_telemetry_client, TelemetryClient
 from openjd.adaptor_runtime._version import version as openjd_adaptor_version
 from openjd.adaptor_runtime_client import Action
@@ -19,6 +20,7 @@ from openjd.adaptor_runtime.adaptors import Adaptor, SemanticVersion
 from openjd.adaptor_runtime.app_handlers import RegexCallback, RegexHandler
 from openjd.adaptor_runtime.application_ipc import ActionsQueue, AdaptorServer
 from openjd.adaptor_runtime.adaptors.configuration import AdaptorConfiguration
+
 
 from .._version import version as adaptor_version
 from .common import DataValidation, add_module_to_pythonpath
@@ -322,11 +324,12 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
 
         # Read args from file since it can be too long to pass
         # them to Job parameter (1024 chars limit)
-        extra_cmd_str = ""
+        extra_cmd_str = self.init_data.get("extra_cmd_args", "") or ""
         extra_cmd_args_file = self.init_data.get("extra_cmd_args_file", "")
         if os.path.exists(extra_cmd_args_file):
             with open(extra_cmd_args_file, "r") as f:
-                extra_cmd_str = f.read()
+                extra_cmd_file_str = f.read()
+                extra_cmd_str = merge_cmd_args_with_priority(extra_cmd_str, extra_cmd_file_str)
 
         # Everything between -execcmds=" and " is the value we want to keep
         match = re.search(r'-execcmds=["\']([^"\']*)["\']', extra_cmd_str)
