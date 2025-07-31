@@ -106,12 +106,15 @@ public:
 
     void JobPresetChanged();
     static bool IsAssetFileValid(const FString& FilePath);
+	static bool IsAssetDirectoryValid(const FString& DirectoryPath);
 
 protected:
 
 #if WITH_EDITOR
     void CollectDependencies();
+	void CollectPluginsDependencies();
     void UpdateInputFilesProperty();
+    void UpdateInputDirectoriesProperty();
 #endif
 
     /**
