@@ -1,3 +1,17 @@
+## 0.6.1 (2025-08-01)
+
+
+### Features
+* Using precache_clients in background thread for faster initial job submission (#178) ([`49870d2`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/49870d2af6dbbeac8f5cb9627db042cccdf93373))
+* MRQ Job validation error message fixes (#161) ([`b26a928`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/b26a928dd8b1f6cbdc75187b4eb9b6541ba91c92))
+
+### Bug Fixes
+* Switching to use openjd_redacted_env for potentially sensitive environment variables. (#181) ([`586ca74`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/586ca74c5c9e5d4048edd29801336a4f9728bd14))
+* Support ExtraCmdArgs several inputs (#177) ([`26548a5`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/26548a5ecc0f45913c3cf0ea4785f3602abd53b4))
+* Error message in field: Contains empty elements or more than 50 of them with UE 5.5.4 (#154) (#176) ([`d2eee55`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/d2eee55fea9394c1a0857d52653d71868fddb8be))
+* Parameters definitions are empty in MRQ UI when you first time create the job. But if you reset the data asset, then they appear (#175) ([`afd180c`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/afd180cb90c97fe52f56667cd8b1f2d031b44cc7))
+* Resolve deprecation warnings (#174) ([`9a514bf`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/9a514bf4d5a24e0656c539ff0446851b86dd26b9))
+
 ## 0.6.0 (2025-07-16)
 
 
