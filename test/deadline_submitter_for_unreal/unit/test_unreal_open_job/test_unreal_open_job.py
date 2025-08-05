@@ -2,7 +2,10 @@
 
 import sys
 import pytest
-from unittest.mock import patch, Mock, MagicMock
+import os
+import json
+from unittest.mock import patch, mock_open, Mock, MagicMock
+from pathlib import Path
 from openjd.model import parse_model
 from openjd.model.v2023_09 import (
     JobTemplate,
@@ -504,3 +507,146 @@ class TestRenderUnrealOpenJob:
         ):
             with pytest.raises(exceptions.ProjectIsNotUnderWorkspaceError):
                 RenderUnrealOpenJob._get_project_path_relative_to_workspace_root(workspace_root)
+
+    def test_get_plugins(self, monkeypatch):
+        fake_files = [
+            os.path.join("/Game/Plugins/PluginA", "PluginA.uplugin"),
+            os.path.join("/Game/Plugins/PluginB", "PluginB.uplugin"),
+            os.path.join("/Game/Plugins/Broken", "Broken.uplugin"),
+        ]
+        monkeypatch.setattr("glob.iglob", lambda pattern, recursive=True: fake_files)
+
+        monkeypatch.setattr(Path, "resolve", lambda self, strict=True: self, raising=False)
+
+        class _DummyFile:
+            def __init__(self, path):
+                self.name = path
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        monkeypatch.setattr(
+            Path, "open", lambda self, *a, **kw: _DummyFile(str(self)), raising=False
+        )
+
+        def _fake_json_load(fh):
+            if "Broken" in fh.name:
+                raise ValueError("corrupted json")
+            return {"EnabledByDefault": False} if "PluginA" in fh.name else {}
+
+        target_json_path = "deadline.unreal_submitter.unreal_open_job.unreal_open_job.json"
+        monkeypatch.setattr(f"{target_json_path}.load", _fake_json_load, raising=False)
+        monkeypatch.setattr(f"{target_json_path}.JSONDecodeError", ValueError, raising=False)
+
+        plugins = UnrealOpenJob.get_plugins("/Game")
+
+        assert sorted(p["name"] for p in plugins) == ["PluginA", "PluginB"]
+
+        expected = {
+            "PluginA": dict(enabled_by_default=False, folder="PluginA"),
+            "PluginB": dict(enabled_by_default=True, folder="PluginB"),
+        }
+        for p in plugins:
+            e = expected[p["name"]]
+            assert p["enabled_by_default"] == e["enabled_by_default"]
+            assert p["folder"] == e["folder"]
+
+    def test_parse_uproject(self, monkeypatch):
+        data = {
+            "Plugins": [
+                {"Name": "PluginA", "Enabled": False},
+                {"Name": "PluginB", "Enabled": True},
+                {"Name": "PluginC"},
+            ]
+        }
+        json_text = json.dumps(data)
+
+        monkeypatch.setattr(
+            "builtins.open",
+            mock_open(read_data=json_text),
+        )
+
+        result = UnrealOpenJob.parse_uproject("any/path/Project.uproject")
+
+        assert result == {"PluginA": False, "PluginB": True, "PluginC": True}
+
+    PROJECT_ROOT = "C:/Project"
+    PLUGINS_REL = "Plugins/"
+
+    @pytest.mark.parametrize(
+        "uproject_plugins, plugins_list, expected_dirs",
+        [
+            (
+                {"PluginA": True, "PluginB": False},  # parse_uproject
+                [  # get_plugins
+                    {"name": "PluginA", "enabled_by_default": True, "folder": "PluginA"},
+                    {"name": "PluginB", "enabled_by_default": True, "folder": "PluginB"},
+                    {"name": "PluginC", "enabled_by_default": True, "folder": "PluginC"},
+                    {
+                        "name": "UnrealDeadlineCloudService",
+                        "enabled_by_default": True,
+                        "folder": "UDCS",
+                    },
+                ],
+                {  # expected_dirs
+                    f"{PROJECT_ROOT}/Plugins/PluginA",
+                    f"{PROJECT_ROOT}/Plugins/PluginC",
+                },
+            ),
+            (
+                {"PluginA": False, "PluginB": False},  # parse_uproject
+                [  # get_plugins
+                    {"name": "PluginA", "enabled_by_default": True, "folder": "PluginA"},
+                    {"name": "PluginB", "enabled_by_default": True, "folder": "PluginB"},
+                ],
+                set(),  # expected_dirs
+            ),
+            (
+                {"PluginD": True},  # parse_uproject
+                [  # get_plugins
+                    {"name": "PluginD", "enabled_by_default": False, "folder": "PluginD"},
+                ],
+                {f"{PROJECT_ROOT}/Plugins/PluginD"},  # expected_dirs
+            ),
+            (
+                {},  # parse_uproject
+                [  # get_plugins
+                    {
+                        "name": "UnrealDeadlineCloudService",
+                        "enabled_by_default": True,
+                        "folder": "UDCS",
+                    },
+                ],
+                set(),  # expected_dirs
+            ),
+        ],
+    )
+    def test_get_plugins_references(
+        self, monkeypatch, uproject_plugins, plugins_list, expected_dirs
+    ):
+        project_root = "C:/Project"
+        plugins_rel = "Plugins/"
+
+        fake_paths = MagicMock()
+        fake_paths.get_project_file_path.return_value = f"{project_root}/MyGame.uproject"
+        fake_paths.project_plugins_dir.return_value = plugins_rel
+        fake_paths.convert_relative_path_to_full.return_value = f"{project_root}/{plugins_rel}"
+
+        monkeypatch.setattr(
+            "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.Paths", fake_paths
+        )
+
+        monkeypatch.setattr(
+            UnrealOpenJob,
+            "parse_uproject",
+            lambda _path: uproject_plugins,
+        )
+
+        monkeypatch.setattr(UnrealOpenJob, "get_plugins", lambda _dir: plugins_list)
+
+        refs: AssetReferences = UnrealOpenJob.get_plugins_references()
+
+        assert refs.input_directories == expected_dirs
