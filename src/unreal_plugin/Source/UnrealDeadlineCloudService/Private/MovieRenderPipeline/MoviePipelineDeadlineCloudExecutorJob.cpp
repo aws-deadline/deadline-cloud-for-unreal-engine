@@ -142,14 +142,8 @@ FDeadlineCloudJobParametersArray UMoviePipelineDeadlineCloudExecutorJob::GetPara
 
 void UMoviePipelineDeadlineCloudExecutorJob::UpdateAttachmentFields()
 {
-	if (PresetOverrides.JobAttachments.InputFiles.bShowAutoDetected)
-	{
-		this->CollectDependencies();
-	}
-	else
-	{
-		PresetOverrides.JobAttachments.InputFiles.AutoDetected.Paths.Empty();
-	}
+	UpdateInputFilesProperty();
+	UpdateInputDirectoriesProperty();
 }
 
 void UMoviePipelineDeadlineCloudExecutorJob::JobPresetChanged()
@@ -233,6 +227,17 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyCha
 	return true;
 }
 
+ bool UMoviePipelineDeadlineCloudExecutorJob::IsAssetDirectoryValid(const FString& DirectoryPath)
+ {
+	 // Check directory on disk
+	 if (!FPaths::DirectoryExists(DirectoryPath))
+	 {
+		 UE_LOG(LogTemp, Warning, TEXT("Dependency directory missing: %s"), *DirectoryPath);
+		 return false;
+	 }
+	 return true;
+ }
+
 void UMoviePipelineDeadlineCloudExecutorJob::CollectDependencies()
 {
 
@@ -270,7 +275,36 @@ void UMoviePipelineDeadlineCloudExecutorJob::CollectDependencies()
 			}
 
 		});
+}
 
+void UMoviePipelineDeadlineCloudExecutorJob::CollectPluginsDependencies()
+{
+	PresetOverrides.JobAttachments.InputDirectories.AutoDetectedDirectories.Paths.Empty();
+	AsyncTask(ENamedThreads::GameThread, [this]()
+		{
+			auto& Plugins = PresetOverrides.JobAttachments.InputFiles.AutoDetected.Paths;
+			TArray<FString> Paths;
+			if (auto Library = UDeadlineCloudJobBundleLibrary::Get())
+			{
+				Paths = Library->GetPluginsDependencies();
+				for (const auto& Path : Paths)
+				{
+					if (!IsAssetDirectoryValid(Path))
+					{
+						continue;
+					}
+					FDirectoryPath Item;
+					Item.Path = Path;
+					PresetOverrides.JobAttachments.InputDirectories.AutoDetectedDirectories.Paths.Add(Item);
+				}
+
+				UE_LOG(LogTemp, Log, TEXT("Added %d dependency directories:"), Plugins.Num());
+			}
+			else
+			{
+				UE_LOG(LogTemp, Error, TEXT("Error get DeadlineCloudJobBundleLibrary"));
+			}
+		});
 }
 
 void UMoviePipelineDeadlineCloudExecutorJob::UpdateInputFilesProperty()
@@ -285,6 +319,18 @@ void UMoviePipelineDeadlineCloudExecutorJob::UpdateInputFilesProperty()
 	}
 }
 
+void UMoviePipelineDeadlineCloudExecutorJob::UpdateInputDirectoriesProperty()
+{
+	if (PresetOverrides.JobAttachments.InputDirectories.bShowAutoDetected)
+	{
+		CollectPluginsDependencies();
+	}
+	else
+	{
+		PresetOverrides.JobAttachments.InputDirectories.AutoDetectedDirectories.Paths.Empty();
+	}
+}
+
 void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeChainProperty(PropertyChangedEvent);
@@ -292,13 +338,17 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeChainProperty(FProper
 	if (PropertyChangedEvent.GetPropertyName() == "bShowAutoDetected")
 	{
 		static const FName InputFilesName = GET_MEMBER_NAME_CHECKED(FDeadlineCloudAttachmentsStruct, InputFiles);
-		// static const FName InputDirectoriesName = GET_MEMBER_NAME_CHECKED(FDeadlineCloudAttachmentsStruct, InputDirectories);
+		static const FName InputDirectoriesName = GET_MEMBER_NAME_CHECKED(FDeadlineCloudAttachmentsStruct, InputDirectories);
 		// static const FName OutputDirectoriesName = GET_MEMBER_NAME_CHECKED(FDeadlineCloudAttachmentsStruct, OutputDirectories);
 
 		const FProperty* Property = PropertyChangedEvent.PropertyChain.GetActiveNode()->GetPrevNode()->GetValue();
 		if (Property->GetFName() == InputFilesName)
 		{
 			UpdateInputFilesProperty();
+		}
+		if (Property->GetFName() == InputDirectoriesName)
+		{
+			UpdateInputDirectoriesProperty();
 		}
 		return;
 	}

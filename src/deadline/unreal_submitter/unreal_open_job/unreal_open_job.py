@@ -10,7 +10,8 @@ from enum import IntEnum
 from typing import Any, Optional
 from collections import OrderedDict
 from dataclasses import dataclass, asdict
-
+from pathlib import Path
+import glob
 from openjd.model import parse_model
 from openjd.model.v2023_09 import JobTemplate, ExtensionName
 
@@ -51,7 +52,6 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step_host_require
 
 from deadline.unreal_logger import get_logger
 from deadline.unreal_perforce_utils import perforce, unreal_source_control
-
 
 logger = get_logger()
 
@@ -414,6 +414,57 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             asset_references = asset_references.union(environment.get_asset_references())
 
         return asset_references
+
+    @staticmethod
+    def get_plugins(path: str):
+        unreal_plugins: list[dict] = []
+        pattern = os.path.join(path, "**", "*.uplugin")
+
+        for uplugin in glob.iglob(pattern, recursive=True):
+            real_path = Path(uplugin).resolve(strict=True)
+            try:
+                with real_path.open(encoding="utf-8") as f:
+                    plugin_data = json.load(f)
+
+                unreal_plugins.append(
+                    {
+                        "name": real_path.stem,
+                        "enabled_by_default": plugin_data.get("EnabledByDefault", True),
+                        "folder": Path(uplugin).parent.name,
+                    }
+                )
+            except (OSError, json.JSONDecodeError):
+                continue
+
+        return unreal_plugins
+
+    @staticmethod
+    def parse_uproject(path: str) -> dict[str, bool]:
+        with open(path, encoding="utf‑8") as f:
+            data = json.load(f)
+
+        return {e["Name"]: e.get("Enabled", True) for e in data.get("Plugins", [])}
+
+    @staticmethod
+    def get_plugins_references() -> AssetReferences:
+        project_path = unreal.Paths.get_project_file_path()
+        project_plugins_info = UnrealOpenJob.parse_uproject(project_path)
+
+        result = AssetReferences()
+        plugins_dir = unreal.Paths.project_plugins_dir()
+        plugins_dir_full = unreal.Paths.convert_relative_path_to_full(plugins_dir)
+        plugins = UnrealOpenJob.get_plugins(plugins_dir_full)
+
+        for plugin in plugins:
+            if plugin["name"] == "UnrealDeadlineCloudService":
+                continue
+
+            is_enable = project_plugins_info.get(plugin["name"], plugin["enabled_by_default"])
+
+            if is_enable:
+                result.input_directories.add(os.path.join(plugins_dir_full, plugin["folder"]))
+
+        return result
 
     def create_job_bundle(self):
         """
@@ -1325,6 +1376,9 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             asset_references.input_directories.update(
                 RenderUnrealOpenJob.get_required_project_directories()
             )
+            plugins = UnrealOpenJob.get_plugins_references()
+            if plugins:
+                asset_references.input_directories.update(plugins.input_directories)
 
         # add attachments from preset overrides
         if self.mrq_job:

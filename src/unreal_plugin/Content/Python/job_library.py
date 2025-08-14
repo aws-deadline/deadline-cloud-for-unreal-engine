@@ -10,6 +10,7 @@ from deadline.unreal_submitter.unreal_dependency_collector import (
     DependencyFilters,
 )
 
+from deadline.unreal_submitter.unreal_open_job.unreal_open_job import UnrealOpenJob
 
 logger = get_logger()
 
@@ -47,6 +48,10 @@ class DeadlineCloudJobBundleLibraryImplementation(unreal.DeadlineCloudJobBundleL
         unreal_dependencies = list(set(unreal_dependencies))
 
         return [common.os_path_from_unreal_path(d, with_ext=True) for d in unreal_dependencies]
+
+    @unreal.ufunction(override=True)
+    def get_plugins_dependencies(self):
+        return [d for d in UnrealOpenJob.get_plugins_references().input_directories]
 
     @unreal.ufunction(override=True)
     def get_cpu_architectures(self):

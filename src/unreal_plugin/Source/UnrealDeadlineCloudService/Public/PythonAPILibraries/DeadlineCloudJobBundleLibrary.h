@@ -26,6 +26,13 @@ public:
     UFUNCTION(BlueprintImplementableEvent)
     TArray<FString> GetJobDependencies(const UMoviePipelineDeadlineCloudExecutorJob *MrqJob);
 
+	 /**
+	 * Collect list of required plugins for the job
+	 * @return List of the plugins dependencies
+     */
+	UFUNCTION(BlueprintImplementableEvent)
+    TArray<FString> GetPluginsDependencies();
+
 	/** @return list of CPU architectures */
 	UFUNCTION(BlueprintImplementableEvent)
 	TArray<FString> GetCpuArchitectures();

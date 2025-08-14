@@ -581,6 +581,9 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         new_job.preset_overrides.job_attachments.input_files.auto_detected = (
             unreal.DeadlineCloudFileAttachmentsArray()
         )
+        new_job.preset_overrides.job_attachments.input_directories.auto_detected_directories = (
+            unreal.DeadlineCloudDirectoryAttachmentsArray()
+        )
 
         _, manifest_path = unreal.MoviePipelineEditorLibrary.save_queue_to_manifest_file(new_queue)
         serialized_manifest = unreal.MoviePipelineEditorLibrary.convert_manifest_file_to_string(
