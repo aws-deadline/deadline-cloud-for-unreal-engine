@@ -89,7 +89,7 @@ The Deadline Cloud plugin's Unreal Automation Tests can be run from within Unrea
 To test out any significant changes it's useful to submit a test render following [this guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_SUBMITTER_CMF.md#submit-a-test-render-optional)
 
 
-### Building the docs
+## Building the docs
 
 1. Install python requirements for building Sphinx documentation
    ```
@@ -114,10 +114,53 @@ To test out any significant changes it's useful to submit a test render followin
 5. Generated documentation will be placed at *docs/build/html* folder.
    You can visit the "Home" page of the docs by opening the **index.html** file
 
+## Troubleshooting
 
+### Credential Configuration Errors
 
+Error: No valid credentials for ### available.
 
+Root Cause: Misconfigured "Run as user" in the queue
 
+Solution: 
+   - **Non-E2E tests**: Configure Windows user credentials following the [Manage access to Windows job user secrets](https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/manage-access-windows-secrets.html) guide
 
+   - **E2E tests**: Set the E2E test queue "Run as user" to "Worker agent user"
 
+### CloudWatch Logs Permission Errors
 
+Error: An error occurred (ResourceNotFoundException) when calling the PutLogEvents operation: The specified log stream does not exist. 
+
+Root Cause: The "Run as user" role lacks proper CloudWatch Logs permissions.
+
+Solution: 
+   -  **Non-E2E tests**: Ensure the "Run as user" role has the following permissions.
+   - **E2E tests**: E2E tests use `BealineTaskExecutionRole` role. Ensure the `BealineTaskExecutionRole` IAM role includes the following permissions.
+```
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "logs:DescribeLogGroups",
+        "logs:DescribeLogStreams"
+      ],
+      "Resource": "arn:aws:logs:*:*:log-group:/aws/deadline/*"
+    }
+  ]
+}
+```
+
+### Unreal Engine Version Mismatch
+
+Error: The package '/Temp/UnrealDeadlineCloudService/RenderJobManifests/###' was saved with an older version which is not backwards compatible with the current process
+
+Root Cause: Version mismatch between the Unreal Engine version used to submit the job and the version running on the worker node.
+
+Solutions:
+   - Resubmit the job using the Unreal Engine version that matches the worker node
+   - Install the correct Unreal Engine version on the worker node and update environment variables to match the job's Unreal Engine version
