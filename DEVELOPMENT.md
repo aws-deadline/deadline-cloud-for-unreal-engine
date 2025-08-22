@@ -162,5 +162,5 @@ Error: The package '/Temp/UnrealDeadlineCloudService/RenderJobManifests/###' was
 Root Cause: Version mismatch between the Unreal Engine version used to submit the job and the version running on the worker node.
 
 Solutions:
-   - Resubmit the job using the Unreal Engine version that matches the worker node
+   - Resubmit the job using the Unreal Engine version that matches the worker node. On Service Managed Fleets - Ensure the Conda package version selected matches your project's version of Unreal Engine
    - Install the correct Unreal Engine version on the worker node and update environment variables to match the job's Unreal Engine version
