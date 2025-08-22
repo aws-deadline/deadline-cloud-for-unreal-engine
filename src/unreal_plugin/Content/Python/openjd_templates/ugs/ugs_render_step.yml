@@ -10,9 +10,6 @@ parameterSpace:
   - name: QueueManifestPath
     type: PATH
     range: []
-  - name: ChunkSize
-    type: INT
-    range: [1]
   - name: OutputPath
     type: PATH
     range: []

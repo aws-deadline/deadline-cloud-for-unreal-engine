@@ -7,7 +7,7 @@
 #include "DeadlineCloudJobSettings/DeadlineCloudJobDetails.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudStepDetails.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudEnvironmentDetails.h"
-
+#include "DeadlineCloudJobSettings/DeadlineCloudEnvironmentOverrideCustomization.h"
 #include "MovieRenderPipeline/MoviePipelineDeadlineCloudExecutorJob.h"
 
 #define LOCTEXT_NAMESPACE "UnrealDeadlineCloudServiceModule"
@@ -51,7 +51,10 @@ void FUnrealDeadlineCloudServiceModule::StartupModule()
 	PropertyModule.RegisterCustomPropertyTypeLayout(
 		FDeadlineCloudJobParametersArray::StaticStruct()->GetFName(),
 		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FDeadlineCloudJobParametersArrayCustomization::MakeInstance));
-
+	
+		PropertyModule.RegisterCustomPropertyTypeLayout(
+			FJobTemplateOverrides::StaticStruct()->GetFName(),
+			FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FJobTemplateOverridesCustomization::MakeInstance));
 	//Step details arrays 
 	PropertyModule.RegisterCustomPropertyTypeLayout(
 		FDeadlineCloudStepParametersArray::StaticStruct()->GetFName(),
@@ -87,6 +90,17 @@ void FUnrealDeadlineCloudServiceModule::StartupModule()
 	PropertyModule.RegisterCustomPropertyTypeLayout(
 		FDeadlineCloudOutputDirectoryAttachmentsStruct::StaticStruct()->GetFName(),
 		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FDeadlineCloudAttachmentDetailsCustomization::MakeInstance));
+
+	PropertyModule.RegisterCustomPropertyTypeLayout(
+		FDeadlineCloudEnvironmentOverride::StaticStruct()->GetFName(),
+		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FDeadlineCloudEnvironmentOverrideCustomization::MakeInstance)
+	);
+
+	// Step override customization
+	PropertyModule.RegisterCustomPropertyTypeLayout(
+		FDeadlineCloudStepOverride::StaticStruct()->GetFName(),
+		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FDeadlineCloudStepOverrideCustomization::MakeInstance)
+	);
 
 	PropertyModule.NotifyCustomizationModuleChanged();
 }

@@ -157,6 +157,9 @@ public:
 	};
 	static TSharedRef<SWidget> CreateEyeUpdateWidget();
 	
+	/** Get the MoviePipelineDeadlineCloudExecutorJob from a property handle */
+	static UMoviePipelineDeadlineCloudExecutorJob* GetMrqJob(TSharedRef<IPropertyHandle> Handle);
+	
 private:
 
 	static TSharedRef<SWidget> CreatePathWidget(TSharedPtr<IPropertyHandle> ParameterHandle, FOnVerifyTextChanged Validation);

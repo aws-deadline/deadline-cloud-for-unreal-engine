@@ -3,6 +3,7 @@
 import sys
 import pytest
 from unittest.mock import patch, Mock, MagicMock
+
 from openjd.model.v2023_09 import StepTemplate
 from deadline.client.job_bundle.submission import AssetReferences
 
@@ -11,6 +12,11 @@ from test.deadline_submitter_for_unreal.fixtures import f_step_template_default
 
 unreal_mock = MagicMock()
 sys.modules["unreal"] = unreal_mock
+
+from deadline.unreal_submitter.unreal_open_job.unreal_open_job import (  # noqa: E402
+    UnrealOpenJob,
+    UnrealOpenJobParameterDefinition,
+)
 
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step import (  # noqa: E402
     UnrealOpenJobStep,
@@ -245,14 +251,13 @@ class TestRenderUnrealOpenJobStep:
         mrq_job_mock = MagicMock()
         mrq_job_mock.shot_info = shot_info
 
-        chunk_size_param = UnrealOpenJobStepParameterDefinition(
-            OpenJobStepParameterNames.TASK_CHUNK_SIZE, "INT", [chunk_size]
+        chunk_size_param = UnrealOpenJobParameterDefinition(
+            OpenJobStepParameterNames.TASK_CHUNK_SIZE, "INT", chunk_size
         )
+        job = UnrealOpenJob(file_path="", name="TestJob", extra_parameters=[chunk_size_param])
 
-        render_step = RenderUnrealOpenJobStep(
-            file_path="", extra_parameters=[chunk_size_param], mrq_job=mrq_job_mock
-        )
-
+        render_step = RenderUnrealOpenJobStep(file_path="", mrq_job=mrq_job_mock)
+        render_step.open_job = job
         # WHEN
         ids_count = render_step._get_chunk_ids_count()
 
@@ -268,19 +273,40 @@ class TestRenderUnrealOpenJobStep:
 
         assert str(exception_info.value) == "MRQ Job must be provided"
 
+    def test__get_chunk_ids_count_no_open_job(self):
+        # GIVEN
+        shot_info = []
+        for _ in range(2):
+            shot_info_mock = MagicMock()
+            shot_info_mock.enabled = True
+            shot_info.append(shot_info_mock)
+
+        mrq_job_mock = MagicMock()
+        mrq_job_mock.shot_info = shot_info
+
+        render_step = RenderUnrealOpenJobStep(file_path="", mrq_job=mrq_job_mock)
+
+        with pytest.raises(exceptions.OpenJobIsMissingError) as exception_info:
+            render_step._get_chunk_ids_count()
+
+        assert str(exception_info.value) == "Render Job must be provided"
+
     def test__get_chunk_ids_count_no_chunk_size_param(self):
         # GIVEN
         mrq_job_mock = MagicMock()
         mrq_job_mock.shot_info = []
-        render_step = RenderUnrealOpenJobStep(file_path="", mrq_job=mrq_job_mock)
 
+        job = UnrealOpenJob(file_path="", name="TestJob", extra_parameters=[])
+
+        render_step = RenderUnrealOpenJobStep(file_path="", mrq_job=mrq_job_mock)
+        render_step.open_job = job
         # WHEN
         with pytest.raises(ValueError) as exception_info:
             render_step._get_chunk_ids_count()
 
         # THEN
         assert (
-            f'Render Step\'s parameter "{OpenJobStepParameterNames.TASK_CHUNK_SIZE}" '
+            f'Render Job\'s parameter "{OpenJobStepParameterNames.TASK_CHUNK_SIZE}" '
             f"must be provided" in str(exception_info.value)
         )
 

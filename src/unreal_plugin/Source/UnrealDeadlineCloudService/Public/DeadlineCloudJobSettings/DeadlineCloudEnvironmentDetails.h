@@ -9,6 +9,7 @@
 
 
 class UDeadlineCloudEnvironment;
+class UMoviePipelineDeadlineCloudExecutorJob;
 
 class FDeadlineCloudEnvironmentParametersMapBuilder
     : public IDetailCustomNodeBuilder
@@ -30,6 +31,7 @@ public:
     virtual void SetOnRebuildChildren(FSimpleDelegate InOnRebuildChildren) override;
 
     FUIAction EmptyCopyPasteAction;
+    TObjectPtr<UMoviePipelineDeadlineCloudExecutorJob> MrqJob;
 
 private:
 

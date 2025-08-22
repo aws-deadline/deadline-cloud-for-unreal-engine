@@ -25,6 +25,12 @@ class MrqJobIsMissingError(DeadlineCloudSubmitterException):
     pass
 
 
+class OpenJobIsMissingError(DeadlineCloudSubmitterException):
+    """Raised when the Render step missed the required Render Job"""
+
+    pass
+
+
 class RenderArgumentsTypeNotSetError(DeadlineCloudSubmitterException):
     """Raised when the render arguments type is not set"""
 

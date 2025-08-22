@@ -42,15 +42,14 @@ public:
     TObjectPtr<UDeadlineCloudStep> Step;
     FName StepName;
 
-    static UMoviePipelineDeadlineCloudExecutorJob* GetMrqJob(TSharedRef<IPropertyHandle> Handle);
-
 
 
 private:
     void OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const;
 
-    TArray<FName> PropertiesToShow = { "ChunkSize" };
+    TArray<FName> PropertiesToShow = { };
 	TSharedPtr<IPropertyHandleArray> ArrayProperty;
+	TSharedPtr<IPropertyHandle> OriginalPropertyHandle;
 
     bool IsEyeWidgetEnabled(FName Parameter) const;
 };
@@ -82,8 +81,6 @@ public:
     /** End IPropertyTypeCustomization interface */
 
 private:
-    static UMoviePipelineDeadlineCloudExecutorJob* GetMrqJob(TSharedRef<IPropertyHandle> Handle);
-    static UDeadlineCloudStep* GetStep(TSharedRef<IPropertyHandle> Handle);
     TSharedPtr<FDeadlineCloudStepParametersArrayBuilder> ArrayBuilder;
 };
 
@@ -104,6 +101,8 @@ public:
 
     FUIAction EmptyCopyPasteAction;
     FOnIsEnabled OnIsEnabled;
+    TObjectPtr<UMoviePipelineDeadlineCloudExecutorJob> MrqJob;
+    TSharedPtr<IPropertyHandle> ParentPropertyHandle;
 
 private:
     void OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const;

@@ -23,3 +23,6 @@ parameterDefinitions:
 - name: CondaChannels
   type: STRING
   default: deadline-cloud
+- name: ChunkSize
+  type: INT
+  default: 1  

@@ -2,6 +2,7 @@
 
 #include "DeadlineCloudJobSettings/DeadlineCloudEnvironmentDetails.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudEnvironment.h"
+#include "MovieRenderPipeline/MoviePipelineDeadlineCloudExecutorJob.h"
 #include "PropertyEditorModule.h"
 #include "Modules/ModuleManager.h"
 #include "DetailLayoutBuilder.h"
@@ -19,6 +20,7 @@
 #include "EditorDirectories.h"
 #include "Widgets/Input/SFilePathPicker.h"
 #include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SCheckBox.h"
 
 #include "Framework/MetaData/DriverMetaData.h"
 #define LOCTEXT_NAMESPACE "EnvironmentDetails"
@@ -123,7 +125,7 @@ TSharedRef<FDeadlineCloudEnvironmentParametersMapBuilder> FDeadlineCloudEnvironm
 {
 	TSharedRef<FDeadlineCloudEnvironmentParametersMapBuilder> Builder =
 		MakeShared<FDeadlineCloudEnvironmentParametersMapBuilder>(InPropertyHandle);
-
+	Builder->MrqJob = FDeadlineCloudDetailsWidgetsHelper::GetMrqJob(InPropertyHandle);
 	return Builder;
 }
 
@@ -134,6 +136,8 @@ FDeadlineCloudEnvironmentParametersMapBuilder::FDeadlineCloudEnvironmentParamete
 	check(MapProperty.IsValid());
 }
 
+
+
 FName FDeadlineCloudEnvironmentParametersMapBuilder::GetName() const
 {
 	return BaseProperty->GetProperty()->GetFName();
@@ -141,6 +145,7 @@ FName FDeadlineCloudEnvironmentParametersMapBuilder::GetName() const
 
 void FDeadlineCloudEnvironmentParametersMapBuilder::GenerateChildContent(IDetailChildrenBuilder& InChildrenBuilder)
 {
+
 	uint32 NumChildren = 0;
 	BaseProperty->GetNumChildren(NumChildren);
 
@@ -157,13 +162,6 @@ void FDeadlineCloudEnvironmentParametersMapBuilder::GenerateChildContent(IDetail
 			continue;
 		}
 
-		IDetailPropertyRow& ItemRow = InChildrenBuilder.AddProperty(ItemHandle.ToSharedRef());
-		ItemRow.ShowPropertyButtons(false);
-		ItemRow.OverrideResetToDefault(FResetToDefaultOverride::Create(TAttribute<bool>(false)));
-
-		TSharedPtr<SWidget> NameWidget;
-		TSharedPtr<SWidget> ValueWidget;
-
 		TSharedPtr<SWidget> CustomValueWidget = FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(ItemHandle, EValueType::STRING, EValueValidationType::EnvParameterValue);
 		TSharedPtr<IPropertyHandle> KeyHandle = ItemHandle->GetKeyHandle();
 		FString Name;
@@ -171,30 +169,67 @@ void FDeadlineCloudEnvironmentParametersMapBuilder::GenerateChildContent(IDetail
 		FName Tag = FName("EnvironmentParameter." + Name);
 		CustomValueWidget->AddMetadata(FDriverMetaData::Id(Tag));
 
-		ItemRow.GetDefaultWidgets(NameWidget, ValueWidget);
-		ItemRow.CustomWidget(true)
-			.CopyAction(EmptyCopyPasteAction)
-			.PasteAction(EmptyCopyPasteAction)
-			.WholeRowContent()
+		const FString PropertyPathString = ItemHandle->GeneratePathToProperty();
+		const FName PropertyPath(*PropertyPathString);
+
+		FDetailWidgetRow& ItemRow = InChildrenBuilder.AddCustomRow(FText::FromString(Name));
+		
+		ItemRow.NameContent()
 			[
 				SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(4, 0)
+					[
+						MrqJob
+							? SNew(SCheckBox)
+							.IsChecked_Lambda([this, PropertyPath]()
+								{
+									if (MrqJob)
+									{
+										return MrqJob->IsPropertyRowEnabledInMovieRenderJob(PropertyPath)
+											? ECheckBoxState::Checked
+											: ECheckBoxState::Unchecked;
+									}
+									return ECheckBoxState::Unchecked;
+								})
+							.OnCheckStateChanged_Lambda([this, PropertyPath](ECheckBoxState NewState)
+								{
+									if (MrqJob)
+									{
+										const bool bEnabled = (NewState == ECheckBoxState::Checked);
+										UE_LOG(LogTemp, Warning, TEXT("Setting PropertyPath = %s, Enabled = %d"), *PropertyPath.ToString(), bEnabled);
+										MrqJob->SetPropertyRowEnabledInMovieRenderJob(PropertyPath, bEnabled);
+									}
+								})
+							: SNullWidget::NullWidget
+					]
 					+ SHorizontalBox::Slot()
 					.AutoWidth()
 					.Padding(2.0f, 0.0f)
 					.HAlign(HAlign_Left)
 					.VAlign(VAlign_Center)
 					[
-						NameWidget.ToSharedRef()
-					]
-					+ SHorizontalBox::Slot()
-					.FillWidth(1.0f)
-					.Padding(2.0f, 0.0f)
-					[
-						CustomValueWidget.ToSharedRef()
+						SNew(STextBlock)
+						.Text(FText::FromString(Name))
 					]
 			];
 
-		NameWidget->SetEnabled(false);
+		ItemRow.ValueContent()
+			[
+				CustomValueWidget.ToSharedRef()
+			];
+
+		CustomValueWidget->SetEnabled(
+			TAttribute<bool>::CreateLambda([this, PropertyPath]()
+				{
+					if (MrqJob)
+					{
+						return MrqJob->IsPropertyRowEnabledInMovieRenderJob(PropertyPath);
+					}
+					return true;
+				})
+		);
 	}
 }
 
@@ -286,6 +321,7 @@ void FDeadlineCloudEnvironmentParametersMapCustomization::CustomizeHeader(TShare
 
 void FDeadlineCloudEnvironmentParametersMapCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> InPropertyHandle, IDetailChildrenBuilder& InChildBuilder, IPropertyTypeCustomizationUtils& InCustomizationUtils)
 {
+	ArrayBuilder->MrqJob = FDeadlineCloudDetailsWidgetsHelper::GetMrqJob(InPropertyHandle);
 	InChildBuilder.AddCustomBuilder(ArrayBuilder.ToSharedRef());
 }
 

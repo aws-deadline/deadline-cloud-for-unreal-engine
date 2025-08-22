@@ -401,9 +401,10 @@ void FDeadlinePluginUISpec::Define()
     {
 		BeforeEach([this]() {
 			CreatedJobDataAsset = CreateAndOpenAsset<UDeadlineCloudJob>(JobTemplate, PathToJobTemplate);
+			CreatedJobDataAsset->AddToRoot();
 			});
 
-		It("JobUI", EAsyncExecution::ThreadPool, [this]() {
+		It("JobUI", EAsyncExecution::ThreadPool, FTimespan::FromSeconds(120), [this]() {
 			if (!Init(CreatedJobDataAsset))
 			{
 				return;
@@ -545,10 +546,13 @@ void FDeadlinePluginUISpec::Define()
 				InputText(IntParametersWidget, IntParametersTextInvalid, true);
 				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[3].Value, IntParametersTextValid);							
 			}		
+
+
 			});
 
         AfterEach([this]()
             {
+				CreatedJobDataAsset->RemoveFromRoot();
                 CreatedJobDataAsset = nullptr;
             });
     });
@@ -557,9 +561,10 @@ void FDeadlinePluginUISpec::Define()
     {
 		BeforeEach([this]() {
 			CreatedStepDataAsset = CreateAndOpenAsset<UDeadlineCloudStep>(StepTemplate, PathToStepTemplate);
+			CreatedStepDataAsset->AddToRoot();
 			});
 
-		It("StepUI", EAsyncExecution::ThreadPool, [this]() {
+		It("StepUI", EAsyncExecution::ThreadPool, FTimespan::FromSeconds(120), [this]() {
 			if (!Init(CreatedStepDataAsset))
 			{
 				return;
@@ -673,6 +678,7 @@ void FDeadlinePluginUISpec::Define()
 
         AfterEach([this]()
             {
+				CreatedStepDataAsset->RemoveFromRoot();
                 CreatedStepDataAsset = nullptr;
             });
     });
@@ -681,9 +687,10 @@ void FDeadlinePluginUISpec::Define()
     {
 		BeforeEach([this]() {
 			CreatedEnvironmentDataAsset = CreateAndOpenAsset<UDeadlineCloudEnvironment>(EnvTemplate, PathToEnvironmentTemplate);
+			CreatedEnvironmentDataAsset->AddToRoot();
 			});
 
-		It("EnvironmentUI", EAsyncExecution::ThreadPool, [this]() {
+		It("EnvironmentUI", EAsyncExecution::ThreadPool, FTimespan::FromSeconds(120), [this]() {
 			if (!Init(CreatedEnvironmentDataAsset))
 			{
 				return;
@@ -725,6 +732,7 @@ void FDeadlinePluginUISpec::Define()
 
         AfterEach([this]()
 			{
+				CreatedEnvironmentDataAsset->RemoveFromRoot();
 				CreatedEnvironmentDataAsset = nullptr;
 		});
     });
