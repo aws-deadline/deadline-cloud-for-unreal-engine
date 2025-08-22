@@ -460,8 +460,8 @@ void FDeadlineCloudStepParametersArrayBuilder::OnGenerateEntry(TSharedRef<IPrope
 	EyeWidget->SetOnCheckStateChangedDelegate(FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox::FOnCheckStateChangedDelegate::CreateSP(this, &FDeadlineCloudStepParametersArrayBuilder::OnEyeHideWidgetButtonClicked));
 	EyeWidget->SetVisibility((MrqJob) ? EVisibility::Hidden : EVisibility::Visible);
 
-	const FString PropertyPathString = ElementProperty->GeneratePathToProperty();
-	const FName PropertyPath(*PropertyPathString);
+	const FString StepParameterPropertyPathString = ElementProperty->GeneratePathToProperty();
+	const FName StepParameterPropertyPath(*StepParameterPropertyPathString);
 
 	PropertyRow.CustomWidget(true)
 		.CopyAction(EmptyCopyPasteAction)
@@ -476,23 +476,23 @@ void FDeadlineCloudStepParametersArrayBuilder::OnGenerateEntry(TSharedRef<IPrope
 				[
 					MrqJob
 						? SNew(SCheckBox)
-						.IsChecked_Lambda([this, PropertyPath]()
+						.IsChecked_Lambda([this, StepParameterPropertyPath]()
 							{
 								if (MrqJob)
 								{
-									return MrqJob->IsPropertyRowEnabledInMovieRenderJob(PropertyPath)
+									return MrqJob->IsPropertyRowEnabledInMovieRenderJob(StepParameterPropertyPath)
 										? ECheckBoxState::Checked
 										: ECheckBoxState::Unchecked;
 								}
 								return ECheckBoxState::Unchecked;
 							})
-						.OnCheckStateChanged_Lambda([this, PropertyPath](ECheckBoxState NewState)
+						.OnCheckStateChanged_Lambda([this, StepParameterPropertyPath](ECheckBoxState NewState)
 							{
 								if (MrqJob)
 								{
 									const bool bEnabled = (NewState == ECheckBoxState::Checked);
-									UE_LOG(LogTemp, Warning, TEXT("Setting PropertyPath = %s, Enabled = %d"), *PropertyPath.ToString(), bEnabled);
-									MrqJob->SetPropertyRowEnabledInMovieRenderJob(PropertyPath, bEnabled);
+									UE_LOG(LogTemp, Warning, TEXT("Setting StepParameterPropertyPath = %s, Enabled = %d"), *StepParameterPropertyPath.ToString(), bEnabled);
+									MrqJob->SetPropertyRowEnabledInMovieRenderJob(StepParameterPropertyPath, bEnabled);
 								}
 							})
 						: SNullWidget::NullWidget
@@ -517,11 +517,11 @@ void FDeadlineCloudStepParametersArrayBuilder::OnGenerateEntry(TSharedRef<IPrope
 			EyeWidget
 		];
 		ValueWidget.ToSharedRef()->SetEnabled(
-			TAttribute<bool>::CreateLambda([this, PropertyPath]()
+			TAttribute<bool>::CreateLambda([this, StepParameterPropertyPath]()
 				{
 					if (MrqJob)
 					{
-						return MrqJob->IsPropertyRowEnabledInMovieRenderJob(PropertyPath);
+						return MrqJob->IsPropertyRowEnabledInMovieRenderJob(StepParameterPropertyPath);
 					}
 					
 					if (OnIsEnabled.IsBound())
@@ -531,6 +531,7 @@ void FDeadlineCloudStepParametersArrayBuilder::OnGenerateEntry(TSharedRef<IPrope
 		);
 
 	PropertyRow.Visibility(IsPropertyHidden(FName(ParameterName)) ? EVisibility::Collapsed : EVisibility::Visible);
+	
 }
 
 bool FDeadlineCloudStepParametersArrayBuilder::IsEyeWidgetEnabled(FName Parameter) const

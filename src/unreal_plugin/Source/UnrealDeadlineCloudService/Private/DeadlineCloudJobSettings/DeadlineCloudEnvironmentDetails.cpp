@@ -21,7 +21,6 @@
 #include "Widgets/Input/SFilePathPicker.h"
 #include "Widgets/Input/SEditableTextBox.h"
 #include "Widgets/Input/SCheckBox.h"
-
 #include "Framework/MetaData/DriverMetaData.h"
 #define LOCTEXT_NAMESPACE "EnvironmentDetails"
 
@@ -169,12 +168,12 @@ void FDeadlineCloudEnvironmentParametersMapBuilder::GenerateChildContent(IDetail
 		FName Tag = FName("EnvironmentParameter." + Name);
 		CustomValueWidget->AddMetadata(FDriverMetaData::Id(Tag));
 
-		const FString PropertyPathString = ItemHandle->GeneratePathToProperty();
-		const FName PropertyPath(*PropertyPathString);
+		const FString EnvVarPropertyPathString = ItemHandle->GeneratePathToProperty();
+		const FName EnvVarPropertyPath(*EnvVarPropertyPathString);
 
-		FDetailWidgetRow& ItemRow = InChildrenBuilder.AddCustomRow(FText::FromString(Name));
+		FDetailWidgetRow& VarItemRow = InChildrenBuilder.AddCustomRow(FText::FromString(Name));
 		
-		ItemRow.NameContent()
+		VarItemRow.NameContent()
 			[
 				SNew(SHorizontalBox)
 					+ SHorizontalBox::Slot()
@@ -183,23 +182,23 @@ void FDeadlineCloudEnvironmentParametersMapBuilder::GenerateChildContent(IDetail
 					[
 						MrqJob
 							? SNew(SCheckBox)
-							.IsChecked_Lambda([this, PropertyPath]()
+							.IsChecked_Lambda([this, EnvVarPropertyPath]()
 								{
 									if (MrqJob)
 									{
-										return MrqJob->IsPropertyRowEnabledInMovieRenderJob(PropertyPath)
+										return MrqJob->IsPropertyRowEnabledInMovieRenderJob(EnvVarPropertyPath)
 											? ECheckBoxState::Checked
 											: ECheckBoxState::Unchecked;
 									}
 									return ECheckBoxState::Unchecked;
 								})
-							.OnCheckStateChanged_Lambda([this, PropertyPath](ECheckBoxState NewState)
+							.OnCheckStateChanged_Lambda([this, EnvVarPropertyPath](ECheckBoxState NewState)
 								{
 									if (MrqJob)
 									{
 										const bool bEnabled = (NewState == ECheckBoxState::Checked);
-										UE_LOG(LogTemp, Warning, TEXT("Setting PropertyPath = %s, Enabled = %d"), *PropertyPath.ToString(), bEnabled);
-										MrqJob->SetPropertyRowEnabledInMovieRenderJob(PropertyPath, bEnabled);
+										UE_LOG(LogTemp, Warning, TEXT("Setting PropertyPath = %s, Enabled = %d"), *EnvVarPropertyPath.ToString(), bEnabled);
+										MrqJob->SetPropertyRowEnabledInMovieRenderJob(EnvVarPropertyPath, bEnabled);
 									}
 								})
 							: SNullWidget::NullWidget
@@ -215,17 +214,17 @@ void FDeadlineCloudEnvironmentParametersMapBuilder::GenerateChildContent(IDetail
 					]
 			];
 
-		ItemRow.ValueContent()
+		VarItemRow.ValueContent()
 			[
 				CustomValueWidget.ToSharedRef()
 			];
 
 		CustomValueWidget->SetEnabled(
-			TAttribute<bool>::CreateLambda([this, PropertyPath]()
+			TAttribute<bool>::CreateLambda([this, EnvVarPropertyPath]()
 				{
 					if (MrqJob)
 					{
-						return MrqJob->IsPropertyRowEnabledInMovieRenderJob(PropertyPath);
+						return MrqJob->IsPropertyRowEnabledInMovieRenderJob(EnvVarPropertyPath);
 					}
 					return true;
 				})
