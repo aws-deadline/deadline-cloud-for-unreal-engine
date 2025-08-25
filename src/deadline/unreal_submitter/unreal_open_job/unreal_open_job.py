@@ -208,8 +208,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
                 step.host_requirements = host_requirements
 
         shared_settings = data_asset.job_preset_struct.job_shared_settings
-
-        return cls(
+        result_job = cls(
             file_path=data_asset.path_to_template.file_path,
             name=None if shared_settings.name in ["", "Untitled"] else shared_settings.name,
             steps=steps,
@@ -224,6 +223,11 @@ class UnrealOpenJob(UnrealOpenJobEntity):
                 shared_settings
             ),
         )
+
+        for step in result_job._steps:
+            step.open_job = result_job
+
+        return result_job
 
     @staticmethod
     def serialize_template(template: Template) -> dict[str, Any]:
