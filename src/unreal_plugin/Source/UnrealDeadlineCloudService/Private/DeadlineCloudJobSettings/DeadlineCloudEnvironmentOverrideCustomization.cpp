@@ -33,67 +33,11 @@ void FDeadlineCloudEnvironmentOverrideCustomization::CustomizeHeader(TSharedRef<
             FString StepParentPropertyName = StepParentHandle->GetProperty()->GetName();
             if (StepParentHandle.IsValid() && (StepParentPropertyName == TEXT("StepsOverrides")))
             {
-
-                 // If EnvironmentOverride is in StepOverride set custom header title
-                FString EnvironmentName;
-                 
-                 // Try to get the Name property value from the current property handle
-                 TSharedPtr<IPropertyHandle> NamePropertyHandle = InPropertyHandle->GetChildHandle("Name");
-                 if (NamePropertyHandle.IsValid())
-                 {
-                     FString NameValue;
-                     if (NamePropertyHandle->GetValue(NameValue) == FPropertyAccess::Success && !NameValue.IsEmpty())
-                     {
-                         EnvironmentName = NameValue;
-                     }
-                 }
-                 if (!EnvironmentName.IsEmpty())
-                 {
-                     FString CustomTitle = FString::Printf(TEXT("Step Environment: %s"), *EnvironmentName);
-
-                    TSharedRef<SWidget> CustomNameWidget = SNew(STextBlock)
-                        .Text(FText::FromString(CustomTitle))
-                        .Font(IDetailLayoutBuilder::GetDetailFont());
-
-                    FName Tag = FName("MRQStepEnvHeader." + EnvironmentName);
-		            CustomNameWidget->AddMetadata(FDriverMetaData::Id(Tag));
-                    InHeaderRow.NameContent()
-                        [
-                            CustomNameWidget
-                        ];
-                 }
-
+				AddDefaultEnvironmentOverrideHeaderRow(InPropertyHandle, InHeaderRow, "Step Environment: ", "MRQStepEnvHeader.");
             }
             else if (StepParentHandle.IsValid() && (StepParentPropertyName == TEXT("JobTemplateOverrides")))
             {
-                // If EnvironmentOverride is in StepOverride set custom header title
-                FString EnvironmentName;
-
-                // Try to get the Name property value from the current property handle
-                TSharedPtr<IPropertyHandle> NamePropertyHandle = InPropertyHandle->GetChildHandle("Name");
-                if (NamePropertyHandle.IsValid())
-                {
-                    FString NameValue;
-                    if (NamePropertyHandle->GetValue(NameValue) == FPropertyAccess::Success && !NameValue.IsEmpty())
-                    {
-                        EnvironmentName = NameValue;
-                    }
-                }
-                if (!EnvironmentName.IsEmpty())
-                {
-                    FString CustomTitle = FString::Printf(TEXT("Environment: %s"), *EnvironmentName);
-
-                    TSharedRef<SWidget> CustomNameWidget = SNew(STextBlock)
-                        .Text(FText::FromString(CustomTitle))
-                        .Font(IDetailLayoutBuilder::GetDetailFont());
-
-                    FName Tag = FName("MRQEnvHeader." + EnvironmentName);
-		            CustomNameWidget->AddMetadata(FDriverMetaData::Id(Tag));
-                    InHeaderRow.NameContent()
-                        [
-                            CustomNameWidget
-                        ];
-                }
+				AddDefaultEnvironmentOverrideHeaderRow(InPropertyHandle, InHeaderRow, "Environment: ", "MRQEnvHeader.");
             }
         }
     }
@@ -141,6 +85,37 @@ void FDeadlineCloudEnvironmentOverrideCustomization::CustomizeChildren(
         }
         
         StructBuilder.AddProperty(ChildHandle).IsEnabled(true);
+    }
+}
+
+void FDeadlineCloudEnvironmentOverrideCustomization::AddDefaultEnvironmentOverrideHeaderRow(TSharedRef<IPropertyHandle> InPropertyHandle, FDetailWidgetRow& InHeaderRow, const FString& TitlePrefix, const FString& TagPrefix)
+{
+    FString EnvironmentName;
+
+    // Try to get the Name property value from the current property handle
+    TSharedPtr<IPropertyHandle> NamePropertyHandle = InPropertyHandle->GetChildHandle("Name");
+    if (NamePropertyHandle.IsValid())
+    {
+        FString NameValue;
+        if (NamePropertyHandle->GetValue(NameValue) == FPropertyAccess::Success && !NameValue.IsEmpty())
+        {
+            EnvironmentName = NameValue;
+        }
+    }
+    if (!EnvironmentName.IsEmpty())
+    {
+        FString CustomTitle = TitlePrefix + EnvironmentName;
+
+        TSharedRef<SWidget> CustomNameWidget = SNew(STextBlock)
+            .Text(FText::FromString(CustomTitle))
+            .Font(IDetailLayoutBuilder::GetDetailFont());
+
+        FName Tag = FName(TagPrefix + EnvironmentName);
+		CustomNameWidget->AddMetadata(FDriverMetaData::Id(Tag));
+        InHeaderRow.NameContent()
+            [
+                CustomNameWidget
+            ];
     }
 }
 

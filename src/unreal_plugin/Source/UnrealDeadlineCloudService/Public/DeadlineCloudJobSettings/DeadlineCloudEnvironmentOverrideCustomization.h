@@ -17,6 +17,8 @@ public:
 
     virtual void CustomizeHeader(TSharedRef<IPropertyHandle> StructPropertyHandle, FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& StructCustomizationUtils) override;
     virtual void CustomizeChildren(TSharedRef<IPropertyHandle> StructPropertyHandle, IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils) override;
+private:
+	void AddDefaultEnvironmentOverrideHeaderRow(TSharedRef<IPropertyHandle> InPropertyHandle, FDetailWidgetRow& HeaderRow, const FString& TitlePrefix, const FString& TagPrefix);
 };
 
 class FDeadlineCloudEnvOverrideArrayBuilder
