@@ -16,7 +16,7 @@
 #include "DeadlineCloudJobSettings/DeadlineCloudDetailsWidgetsHelper.h"
 #include "Framework/MetaData/DriverMetaData.h"
 #include "PropertyEditorModule.h"
-
+#include "Framework/MetaData/DriverMetaData.h"
 
 #define LOCTEXT_NAMESPACE "UnrealDeadlineCloudServiceModule"
 
@@ -38,11 +38,16 @@ void FDeadlineCloudStepOverrideCustomization::CustomizeHeader(
         FString StepName;
         NameHandle->GetValue(StepName);
         
+        TSharedRef<SWidget> CustomNameWidget = SNew(STextBlock)
+            .Text(FText::FromString(FString::Printf(TEXT("Step: %s"), *StepName)))
+            .Font(IDetailLayoutBuilder::GetDetailFont());
+
+        FName Tag = FName("MRQStepHeader." + StepName);
+		CustomNameWidget->AddMetadata(FDriverMetaData::Id(Tag));
+
         HeaderRow.NameContent()
         [
-            SNew(STextBlock)
-            .Text(FText::FromString(FString::Printf(TEXT("Step: %s"), *StepName)))
-            .Font(IDetailLayoutBuilder::GetDetailFont())
+			CustomNameWidget
         ];
     }
     else

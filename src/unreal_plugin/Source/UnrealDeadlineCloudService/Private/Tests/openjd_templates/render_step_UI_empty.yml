@@ -1,0 +1,30 @@
+name: Empty
+parameterSpace:
+  taskParameterDefinitions:
+  - name: HiddenParameters
+    type: FLOAT
+    range: [
+    1.5
+    ]  
+script:
+  embeddedFiles:
+  - name: runData
+    filename: run-data.yaml
+    type: TEXT
+    data: |
+      handler: {{Task.Param.Handler}}
+      queue_manifest_path: {{Task.Param.QueueManifestPath}}
+      chunk_size: {{Task.Param.ChunkSize}}
+      chunk_id: {{Task.Param.ChunkId}}
+  actions:
+    onRun:
+      command: unreal-engine-openjd
+      args:
+      - daemon
+      - run
+      - --connection-file
+      - '{{Session.WorkingDirectory}}/connection.json'
+      - --run-data
+      - file://{{Task.File.runData}}
+      cancelation:
+        mode: NOTIFY_THEN_TERMINATE

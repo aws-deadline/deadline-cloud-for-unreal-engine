@@ -50,12 +50,17 @@ void FDeadlineCloudEnvironmentOverrideCustomization::CustomizeHeader(TSharedRef<
                  if (!EnvironmentName.IsEmpty())
                  {
                      FString CustomTitle = FString::Printf(TEXT("Step Environment: %s"), *EnvironmentName);
-                     InHeaderRow.NameContent()
-                         [
-                             SNew(STextBlock)
-                                 .Text(FText::FromString(CustomTitle))
-                                 .Font(IDetailLayoutBuilder::GetDetailFont())
-                         ];
+
+                    TSharedRef<SWidget> CustomNameWidget = SNew(STextBlock)
+                        .Text(FText::FromString(CustomTitle))
+                        .Font(IDetailLayoutBuilder::GetDetailFont());
+
+                    FName Tag = FName("MRQStepEnvHeader." + EnvironmentName);
+		            CustomNameWidget->AddMetadata(FDriverMetaData::Id(Tag));
+                    InHeaderRow.NameContent()
+                        [
+                            CustomNameWidget
+                        ];
                  }
 
             }
@@ -74,14 +79,20 @@ void FDeadlineCloudEnvironmentOverrideCustomization::CustomizeHeader(TSharedRef<
                         EnvironmentName = NameValue;
                     }
                 }
-                if (!EnvironmentName.IsEmpty()){
-                FString CustomTitle = FString::Printf(TEXT("Environment: %s"), *EnvironmentName);
-                InHeaderRow.NameContent()
-                    [
-                        SNew(STextBlock)
-                            .Text(FText::FromString(CustomTitle))
-                            .Font(IDetailLayoutBuilder::GetDetailFont())
-                    ];
+                if (!EnvironmentName.IsEmpty())
+                {
+                    FString CustomTitle = FString::Printf(TEXT("Environment: %s"), *EnvironmentName);
+
+                    TSharedRef<SWidget> CustomNameWidget = SNew(STextBlock)
+                        .Text(FText::FromString(CustomTitle))
+                        .Font(IDetailLayoutBuilder::GetDetailFont());
+
+                    FName Tag = FName("MRQEnvHeader." + EnvironmentName);
+		            CustomNameWidget->AddMetadata(FDriverMetaData::Id(Tag));
+                    InHeaderRow.NameContent()
+                        [
+                            CustomNameWidget
+                        ];
                 }
             }
         }
