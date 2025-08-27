@@ -173,8 +173,7 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
         [
             SAssignNew(HiddenParametersUpdateWidget, FDeadlineCloudDetailsWidgetsHelper::SEyeUpdateWidget)
 
-                .OnEyeUpdateButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudJobDetails::OnViewAllButtonClicked))
-                .bShowHidden_(Settings->GetDisplayHiddenParameters())
+                .OnEyeUpdateButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudJobDetails::OnResetHiddenParametersClicked))
         ];
 
 }
@@ -203,7 +202,7 @@ EVisibility FDeadlineCloudJobDetails::GetConsistencyWidgetVisibility() const
 
 EVisibility FDeadlineCloudJobDetails::GetEyeWidgetVisibility() const
 {
-    return ((Settings->AreEmptyHiddenParameters())) ? EVisibility::Collapsed : EVisibility::Visible;
+    return ((Settings->IsParametersHiddenByDefault())) ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
 
@@ -276,10 +275,9 @@ void FDeadlineCloudJobDetails::OnConsistencyButtonClicked()
     ForceRefreshDetails();
 }
 
-void FDeadlineCloudJobDetails::OnViewAllButtonClicked()
+void FDeadlineCloudJobDetails::OnResetHiddenParametersClicked()
 {
-    bool Show = Settings->GetDisplayHiddenParameters();
-    Settings->SetDisplayHiddenParameters(!Show);
+    Settings->ResetParametersHiddenToDefault();
     ForceRefreshDetails();
 }
 
@@ -302,10 +300,7 @@ void FDeadlineCloudJobParametersArrayBuilder::OnEyeHideWidgetButtonClicked(FName
 bool FDeadlineCloudJobParametersArrayBuilder::IsPropertyHidden(FName Parameter) const
 {
     bool Contains = false;
-    if (Job)
-    {
-        Contains = Job->ContainsHiddenParameters(Parameter) && (Job->GetDisplayHiddenParameters() == false);
-    }
+
     if (MrqJob)
     {
         if (MrqJob->JobPreset)
@@ -323,15 +318,29 @@ void FDeadlineCloudJobParametersArrayBuilder::GenerateStepsExtraChildren(IDetail
     if (!ParentStruct || !ParentStruct->IsValidHandle())
         return;
 
+    // Get HiddenParametersList from each StepOverride element
     TSharedPtr<IPropertyHandle> StepsHandle =
         ParentStruct->GetChildHandle(GET_MEMBER_NAME_CHECKED(FJobTemplateOverrides, StepsOverrides));
     if (StepsHandle && StepsHandle->IsValidHandle())
     {
-        // Use custom array builder to hide the header
-        TSharedRef<FDeadlineCloudStepOverrideArrayBuilder> StepsArrayBuilder = 
-            FDeadlineCloudStepOverrideArrayBuilder::MakeInstance(StepsHandle.ToSharedRef());
-        
-        ChildrenBuilder.AddCustomBuilder(StepsArrayBuilder);
+        if ( MrqJob)
+        {
+            // Access the array property of StepOverride elements
+            TArray<FDeadlineCloudStepOverride>& Steps = MrqJob->JobTemplateOverrides.StepsOverrides;
+
+            for (FDeadlineCloudStepOverride& Step : Steps)
+            {
+                // Check Steps all > Steps hidden 
+                if (Step.TaskParameterDefinitions.Parameters.Num() > Step.HiddenParametersList.Num())
+                {
+                    // Use custom array builder to hide the header
+                TSharedRef<FDeadlineCloudStepOverrideArrayBuilder> StepsArrayBuilder = 
+                FDeadlineCloudStepOverrideArrayBuilder::MakeInstance(StepsHandle.ToSharedRef());
+
+                ChildrenBuilder.AddCustomBuilder(StepsArrayBuilder);
+                }
+            }
+        }
     }
 }
 
@@ -345,13 +354,24 @@ void FDeadlineCloudJobParametersArrayBuilder::GenerateEnvironmentsExtraChildren(
         ParentStruct->GetChildHandle(GET_MEMBER_NAME_CHECKED(FJobTemplateOverrides, EnvironmentsOverrides));
     if (EnvHandle && EnvHandle->IsValidHandle())
     {
-        //EnvHandle->SetPropertyDisplayName(FText::FromString(TEXT("Environments")));
-       // ChildrenBuilder.AddProperty(EnvHandle.ToSharedRef());
-                 // Use custom array builder to hide the header
-        TSharedRef<FDeadlineCloudEnvOverrideArrayBuilder> EnvsArrayBuilder = 
-            FDeadlineCloudEnvOverrideArrayBuilder::MakeInstance(EnvHandle.ToSharedRef());
-        
-        ChildrenBuilder.AddCustomBuilder(EnvsArrayBuilder);
+        if (MrqJob)
+        {
+            // Access the array property of StepOverride elements
+            TArray<FDeadlineCloudEnvironmentOverride>& Envs = MrqJob->JobTemplateOverrides.EnvironmentsOverrides;
+
+            for (FDeadlineCloudEnvironmentOverride& Environment : Envs)
+            {
+                // Check Steps all > Steps hidden 
+                if (Environment.Variables.Variables.Num() > Environment.HiddenVarsList.Num())
+                {
+                    // Use custom array builder to hide the header
+                    TSharedRef<FDeadlineCloudEnvOverrideArrayBuilder> EnvsArrayBuilder =
+                        FDeadlineCloudEnvOverrideArrayBuilder::MakeInstance(EnvHandle.ToSharedRef());
+
+                    ChildrenBuilder.AddCustomBuilder(EnvsArrayBuilder);
+                }
+            }
+            }
     }
 }
 
@@ -475,20 +495,27 @@ void FDeadlineCloudJobParametersArrayBuilder::ResetToDefaultHandler(TSharedPtr<I
 bool FDeadlineCloudJobParametersArrayBuilder::IsEyeWidgetEnabled(FName Parameter) const
 {
     bool result = false;
+
     if (Job)
     {
         result = Job->ContainsHiddenParameters(Parameter);
     }
-    if (MrqJob)
+
+    if (MrqJob && MrqJob->JobPreset)
     {
-        if (MrqJob->JobPreset)
-        {
-            result = MrqJob->JobPreset->ContainsHiddenParameters(Parameter);
-        }
+        result = MrqJob->JobPreset->ContainsHiddenParameters(Parameter);
     }
+
     return result;
 }
 
+bool FDeadlineCloudJobParametersArrayBuilder::IsParameterVisibilityChangedFromDefault(FName Parameter) const
+{
+    if (!Job)
+        return false;
+
+    return Job->IsParameterVisibilityChangedFromDefault(Parameter);
+}
 
 void FDeadlineCloudJobParametersArrayBuilder::OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const
 {
@@ -552,7 +579,8 @@ void FDeadlineCloudJobParametersArrayBuilder::OnGenerateEntry(TSharedRef<IProper
 	ValueWidget->AddMetadata(FDriverMetaData::Id(Tag));
 
     bool Checked = !(IsEyeWidgetEnabled(FName(ParameterName)));
-    TSharedRef<FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox> EyeWidget = SNew(FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox, FName(ParameterName), Checked);
+    bool isChangedByUser = IsParameterVisibilityChangedFromDefault(FName(ParameterName));
+    TSharedRef<FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox> EyeWidget = SNew(FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox, FName(ParameterName), Checked, isChangedByUser);
 
     EyeWidget->SetOnCheckStateChangedDelegate(FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox::FOnCheckStateChangedDelegate::CreateSP(this, &FDeadlineCloudJobParametersArrayBuilder::OnEyeHideWidgetButtonClicked));
     EyeWidget->SetVisibility((MrqJob) ? EVisibility::Hidden : EVisibility::Visible);

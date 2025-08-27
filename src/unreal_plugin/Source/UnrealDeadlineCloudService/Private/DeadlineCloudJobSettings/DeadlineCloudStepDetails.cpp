@@ -37,10 +37,9 @@ bool FDeadlineCloudStepDetails::CheckConsistency(UDeadlineCloudStep* Step)
     return result.Passed;
 }
 
-void FDeadlineCloudStepDetails::OnViewAllButtonClicked()
+void FDeadlineCloudStepDetails::OnResetHiddenParametersClicked()
 {
-    bool Show = Settings->GetDisplayHiddenParameters();
-    Settings->SetDisplayHiddenParameters(!Show);
+    Settings->ResetParametersHiddenToDefault();
     ForceRefreshDetails();
 }
 
@@ -178,8 +177,7 @@ void FDeadlineCloudStepDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBui
 		[
 			SAssignNew(HiddenParametersUpdateWidget, FDeadlineCloudDetailsWidgetsHelper::SEyeUpdateWidget)
 
-				.OnEyeUpdateButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudStepDetails::OnViewAllButtonClicked))
-				.bShowHidden_(Settings->GetDisplayHiddenParameters())
+				.OnEyeUpdateButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudStepDetails::OnResetHiddenParametersClicked))
 		];
 }
 
@@ -201,7 +199,7 @@ bool FDeadlineCloudStepDetails::IsEnvironmentContainsErrors() const
 
 EVisibility FDeadlineCloudStepDetails::GetEyeWidgetVisibility() const
 {
-	return ((Settings->AreEmptyHiddenParameters())) ? EVisibility::Collapsed : EVisibility::Visible;
+	return ((Settings->IsParametersHiddenByDefault())) ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
 EVisibility FDeadlineCloudStepDetails::GetEnvironmentErrorWidgetVisibility() const
@@ -395,10 +393,7 @@ void FDeadlineCloudStepParametersArrayBuilder::OnEyeHideWidgetButtonClicked(FNam
 bool FDeadlineCloudStepParametersArrayBuilder::IsPropertyHidden(FName Parameter) const
 {
 	bool Contains = false;
-	if (Step)
-	{
-		Contains = Step->ContainsHiddenParameters(Parameter) && (Step->GetDisplayHiddenParameters() == false);
-	}
+
 	if (MrqJob)
 	{
 		for (auto StepOverride : MrqJob->JobPreset->Steps)
@@ -455,7 +450,8 @@ void FDeadlineCloudStepParametersArrayBuilder::OnGenerateEntry(TSharedRef<IPrope
 
 	PropertyRow.GetDefaultWidgets(NameWidget, ValueWidget);
 	bool Checked = !(IsEyeWidgetEnabled(FName(ParameterName)));
-	TSharedRef<FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox> EyeWidget = SNew(FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox, FName(ParameterName), Checked);
+	bool isChangedByUser = !IsParameterChangedFromDefault(FName(ParameterName));
+	TSharedRef<FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox> EyeWidget = SNew(FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox, FName(ParameterName), Checked, isChangedByUser);
 
 	EyeWidget->SetOnCheckStateChangedDelegate(FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox::FOnCheckStateChangedDelegate::CreateSP(this, &FDeadlineCloudStepParametersArrayBuilder::OnEyeHideWidgetButtonClicked));
 	EyeWidget->SetVisibility((MrqJob) ? EVisibility::Hidden : EVisibility::Visible);
@@ -563,6 +559,13 @@ bool FDeadlineCloudStepParametersArrayBuilder::IsEyeWidgetEnabled(FName Paramete
 	return result;
 }
 
+bool FDeadlineCloudStepParametersArrayBuilder::IsParameterChangedFromDefault(FName Parameter) const
+{
+	if (!Step)
+		return false;
+//for step enabled is always by user, not by default
+	return Step->ContainsHiddenParameters(Parameter);
+}
 TSharedRef<FDeadlineCloudStepParameterListBuilder> FDeadlineCloudStepParameterListBuilder::MakeInstance(TSharedRef<IPropertyHandle> InPropertyHandle, EValueType Type, FString Name)
 {
 	TSharedRef<FDeadlineCloudStepParameterListBuilder> Builder =

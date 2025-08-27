@@ -52,6 +52,7 @@ private:
 	TSharedPtr<IPropertyHandle> OriginalPropertyHandle;
 
     bool IsEyeWidgetEnabled(FName Parameter) const;
+    bool IsParameterChangedFromDefault(FName Parameter) const;
 };
 
 class FDeadlineCloudStepParametersArrayCustomization : public IPropertyTypeCustomization
@@ -149,7 +150,7 @@ public:
     static TSharedRef<IDetailCustomization> MakeInstance();
     virtual  void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
 
-    void OnViewAllButtonClicked();
+    void OnResetHiddenParametersClicked();
     void OnConsistencyButtonClicked();
     bool CheckConsistency(UDeadlineCloudStep* Step);
     bool bCheckConsistensyPassed = true;

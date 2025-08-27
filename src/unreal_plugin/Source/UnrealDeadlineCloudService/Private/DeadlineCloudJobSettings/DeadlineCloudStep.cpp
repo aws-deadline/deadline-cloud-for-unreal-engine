@@ -17,6 +17,12 @@ void UDeadlineCloudStep::OpenStepFile(const FString& Path)
         auto StepStruct = Library->OpenStepFile(Path);
         Name = StepStruct.Name;
         TaskParameterDefinitions.Parameters = StepStruct.Parameters;
+        
+        HiddenParametersList.Empty();
+        for (auto Parameter :TaskParameterDefinitions.Parameters)
+        {
+            HiddenParametersList.Add(FName(*Parameter.Name));
+        }
     }
     else
     {
@@ -125,13 +131,45 @@ FDeadlineCloudStepOverride UDeadlineCloudStep::GetStepDataToOverride()
     StepData.Name = Name;
     StepData.DependsOn = DependsOn;
 
+    // Only add step environments with non-hidden parameters
     for (int i = 0; i < Environments.Num(); i++)
     {
-        Envs.Add({ Environments[i]->GetEnvironmentData() });
+        UDeadlineCloudEnvironment* Environment = Environments[i];
+        if (Environment)
+        {
+            FDeadlineCloudEnvironmentOverride FilteredEnvData;
+            FilteredEnvData.Name = Environment->Name;
+            
+            // Filter out hidden variables
+            for (const auto& VariablePair : Environment->Variables.Variables)
+            {
+                if (!Environment->ContainsHiddenParameters(FName(VariablePair.Key)))
+                {
+                    FilteredEnvData.Variables.Variables.Add(VariablePair.Key, VariablePair.Value);
+                }
+            }           
+            // Only add visible environments
+            if (FilteredEnvData.Variables.Variables.Num() > 0)
+            {
+                Envs.Add(FilteredEnvData);
+            }
+        }
     }
 
     StepData.EnvironmentsOverrides = Envs;
-    StepData.TaskParameterDefinitions = TaskParameterDefinitions;
+
+    FDeadlineCloudStepParametersArray LocalTaskParameterDefinitions;
+
+    for (int i = 0; i < TaskParameterDefinitions.Parameters.Num(); i++)
+    {
+        if (!ContainsHiddenParameters(FName(TaskParameterDefinitions.Parameters[i].Name)))
+        {
+            // Add parameter if not hidden
+            LocalTaskParameterDefinitions.Parameters.Add(TaskParameterDefinitions.Parameters[i]);
+        }
+        
+    }
+    StepData.TaskParameterDefinitions = LocalTaskParameterDefinitions;
     return StepData;
 }
 

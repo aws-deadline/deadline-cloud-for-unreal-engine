@@ -335,6 +335,21 @@ public:
 	};
 	bool AreEmptyHiddenParameters() { return HiddenParametersList.IsEmpty(); };
 	bool ContainsHiddenParameters(FName Parameter) { return HiddenParametersList.Contains(Parameter); };
+	bool IsParameterVisibilityChangedFromDefault(FName Parameter)
+	{
+		bool isHiddenNow = ContainsHiddenParameters(Parameter);
+
+		for (auto& p : ParameterDefinition.Parameters)
+		{
+			if (p.Name == Parameter)
+			{
+				bool IsDefaultHidden = p.UserInterfaceControl == EUserInterfaceControl::HIDDEN;
+				return isHiddenNow != IsDefaultHidden;
+			}
+		}
+
+		return false;
+	}
 	void RemoveHiddenParameters(FName Parameter) {
 		HiddenParametersList.Remove(Parameter);
 		Modify();
@@ -345,16 +360,38 @@ public:
 
 	void ParameterHiddenEvent() {
 		if (OnParameterHidden.IsBound())
-
 		{
 			OnParameterHidden.Execute();
 		}
 	};
-	bool GetDisplayHiddenParameters() { return bDisplayHiddenWidgets; };
-	void SetDisplayHiddenParameters(bool ShowParameters) { bDisplayHiddenWidgets = ShowParameters; };
+
+	bool IsParametersHiddenByDefault() 
+	{ 
+		bool bParametersHiddenChanged = true;
+		for (auto Parameter : ParameterDefinition.Parameters)
+		{
+			if (IsParameterVisibilityChangedFromDefault(FName(Parameter.Name)))
+			{
+				bParametersHiddenChanged = false;
+				break;
+			}
+		}
+		return bParametersHiddenChanged;
+	};
+
+	void ResetParametersHiddenToDefault() 
+	{ 
+        HiddenParametersList.Empty();
+        for (auto Parameter : ParameterDefinition.Parameters)
+        {
+            if (Parameter.UserInterfaceControl == EUserInterfaceControl::HIDDEN)
+            {
+                HiddenParametersList.Add(FName(*Parameter.Name));
+            }
+        }
+	};
 private:
 	UPROPERTY(EditAnywhere, meta = (HideInDetailPanel, Category = "Parameters"))
 	TArray<FName> HiddenParametersList;
-	bool bDisplayHiddenWidgets = false;
 
 };

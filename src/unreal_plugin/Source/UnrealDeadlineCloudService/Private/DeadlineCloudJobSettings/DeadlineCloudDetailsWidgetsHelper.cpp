@@ -496,17 +496,17 @@ SEyeUpdateWidget makes these parameters visible/hidden to user in Deadline Job|S
 void FDeadlineCloudDetailsWidgetsHelper::SEyeUpdateWidget::Construct(const FArguments& InArgs) {
 
 	OnEyeUpdateButtonClicked = InArgs._OnEyeUpdateButtonClicked;
-	bShowHidden = InArgs._bShowHidden_;
 
 	ChildSlot
 		[
 			SNew(SHorizontalBox)
 				+ SHorizontalBox::Slot()
 				.AutoWidth()
+				.VAlign(VAlign_Center)
 				.Padding(5)
 				[
 					SNew(STextBlock)
-						.Text(FText::FromString("Some parameters will be hidden in MRQ. "))
+						.Text(FText::FromString("Visibility parameters have been changed by the user, restore default values?"))
 				]
 
 				+ SHorizontalBox::Slot()

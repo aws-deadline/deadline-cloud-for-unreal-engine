@@ -35,6 +35,12 @@ public:
 
 private:
 
+    void OnEyeHideWidgetButtonClicked(FName Property) const;
+    bool IsPropertyHidden(FName Parameter) const;
+    bool IsEyeWidgetEnabled(FName Parameter) const;
+    bool IsParameterChangedFromDefault(FName Parameter) const;
+    UDeadlineCloudEnvironment* GetOuterEnvironment() const;
+
     FSimpleDelegate OnRebuildChildren;
     TSharedPtr<IPropertyHandleMap> MapProperty;
     TSharedRef<IPropertyHandle> BaseProperty;
@@ -85,12 +91,13 @@ public:
 
     void OnConsistencyButtonClicked();
     EVisibility GetWidgetVisibility() const { return (!bCheckConsistensyPassed) ? EVisibility::Visible : EVisibility::Collapsed; }
-
-    EVisibility GetEyeWidgetVisibility() const { return (!bCheckConsistensyPassed) ? EVisibility::Visible : EVisibility::Collapsed; }
+	void OnResetHiddenParametersClicked();
+    EVisibility GetEyeWidgetVisibility() const;
 
 private:
 
     void ForceRefreshDetails();
+    void RespondToEvent();
     bool CheckConsistency(UDeadlineCloudEnvironment* Env);
     bool bCheckConsistensyPassed = true;
 };

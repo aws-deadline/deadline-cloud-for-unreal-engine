@@ -388,15 +388,18 @@ const FString StringParametersPath = "#JobParameter.StringParameter//<SEditableT
 const FString PathParametersPath = "#JobParameter.PathParameter//<SEditableTextBox>";
 const FString FloatParametersPath = "#JobParameter.FloatParameter//<SEditableText>";
 const FString IntParametersPath = "#JobParameter.IntParameter//<SEditableText>";
+const FString HiddenParametersPath = "#JobParameter.HiddenParameter//<SEditableText>";
 
 const FString Variable1Path = "#EnvironmentParameter.Variable1//<SEditableTextBox>";
 const FString Variable2Path = "#EnvironmentParameter.Variable2//<SEditableTextBox>";
 const FString Variable3Path = "#EnvironmentParameter.Variable3//<SEditableTextBox>";
+const FString HiddenVariablePath = "#EnvironmentParameter.HiddenVariable//<SEditableTextBox>";
 
 const FString StepStringParametersPath = "#StepParameter.StringParameters//<SEditableTextBox>";
 const FString StepPathParametersPath = "#StepParameter.PathParameters//<SEditableTextBox>";
 const FString StepFloatParametersPath = "#StepParameter.FloatParameters//<SEditableText>";
 const FString StepIntParametersPath = "#StepParameter.IntParameters//<SEditableText>";
+const FString StepHiddenParametersPath = "#StepParameter.HiddenParameters//<SEditableText>";
 
 FDriverElementPtr Details;
 FDriverElementPtr List;
@@ -441,6 +444,21 @@ inline bool Init(UObject* Asset, const FString& InDetailsPath, const FString& In
     return true;
 }
 
+inline void ShowTestStepParameters()
+{
+	CreatedStepDataAsset->RemoveHiddenParameters("StringParameters");
+	CreatedStepDataAsset->RemoveHiddenParameters("PathParameters");
+	CreatedStepDataAsset->RemoveHiddenParameters("FloatParameters");
+	CreatedStepDataAsset->RemoveHiddenParameters("IntParameters");
+}
+
+inline void ShowTestEnvironmentParameters()
+{
+	CreatedEnvironmentDataAsset->RemoveHiddenParameter("Variable1");
+	CreatedEnvironmentDataAsset->RemoveHiddenParameter("Variable2");
+	CreatedEnvironmentDataAsset->RemoveHiddenParameter("Variable3");
+}
+
 END_DEFINE_SPEC(FDeadlinePluginUISpec);
 
 void FDeadlinePluginUISpec::Define()
@@ -472,20 +490,14 @@ void FDeadlinePluginUISpec::Define()
 			CreatedEmptyEnvironmentDataAsset = CreateAsset<UDeadlineCloudEnvironment>(EmptyEnvTemplate, PathToEmptyEnvironmentTemplate);
 			CreatedEmptyEnvironmentDataAsset->AddToRoot();
 
-
-			CreatedStepDataAsset->AddHiddenParameter("StringParameters");
-			CreatedStepDataAsset->AddHiddenParameter("FloatParameters");
 			CreatedStepDataAsset->Environments.Add(CreatedEmptyEnvironmentDataAsset);
-
-			CreatedEmptyStepDataAsset->AddHiddenParameter("HiddenParameters");
 
 			CreatedRenderJobDataAsset->Steps.Add(CreatedStepDataAsset);
 			CreatedRenderJobDataAsset->Steps.Add(CreatedEmptyStepDataAsset);
 			CreatedRenderJobDataAsset->Environments.Add(CreatedEnvironmentDataAsset);
 
-			CreatedRenderJobDataAsset->AddHiddenParameter("PathParameter");
-			CreatedRenderJobDataAsset->AddHiddenParameter("IntParameter");
-
+			ShowTestEnvironmentParameters();
+			ShowTestStepParameters();
 
 			FModuleManager::LoadModuleChecked<IModuleInterface>("MovieRenderPipelineEditor");
 
@@ -522,6 +534,7 @@ void FDeadlinePluginUISpec::Define()
 			MRQJob->JobPreset = CreatedRenderJobDataAsset;
 			MRQJob->JobName = "TestMRQJob";
 			MRQJob->JobPresetChanged();
+			MRQJob->OnRequestDetailsRefresh.ExecuteIfBound();
 			});
 
 		It("MRQJobUI", EAsyncExecution::ThreadPool, FTimespan::FromSeconds(120), [this]() {
@@ -548,15 +561,18 @@ void FDeadlinePluginUISpec::Define()
 			FDriverElementRef PathParametersWidget = Driver->FindElement(By::Path(PathParametersPath));
 			FDriverElementRef FloatParametersWidget = Driver->FindElement(By::Path(FloatParametersPath));
 			FDriverElementRef IntParametersWidget = Driver->FindElement(By::Path(IntParametersPath));
+			FDriverElementRef HiddenParametersWidget = Driver->FindElement(By::Path(HiddenParametersPath));
 
 			FDriverElementRef StepStringParametersWidget = Driver->FindElement(By::Path(StepStringParametersPath));
 			FDriverElementRef StepPathParametersWidget = Driver->FindElement(By::Path(StepPathParametersPath));
 			FDriverElementRef StepFloatParametersWidget = Driver->FindElement(By::Path(StepFloatParametersPath));
 			FDriverElementRef StepIntParametersWidget = Driver->FindElement(By::Path(StepIntParametersPath));
+			FDriverElementRef StepHiddenParametersWidget = Driver->FindElement(By::Path(StepHiddenParametersPath));
 
 			FDriverElementRef Variable1Widget = Driver->FindElement(By::Path(Variable1Path));
 			FDriverElementRef Variable2Widget = Driver->FindElement(By::Path(Variable2Path));
 			FDriverElementRef Variable3Widget = Driver->FindElement(By::Path(Variable3Path));
+			FDriverElementRef HiddenVariableWidget = Driver->FindElement(By::Path(HiddenVariablePath));
 
 			FDriverElementRef DefaultStepCategory = Driver->FindElement(By::Path("#MRQStepHeader.Render"));
 			FDriverElementRef EmptyStepCategory = Driver->FindElement(By::Path("#MRQStepHeader.Empty"));
@@ -578,25 +594,26 @@ void FDeadlinePluginUISpec::Define()
 				};
 
 			VisibilityTest("StringParameters", StringParametersWidget, true);
-			VisibilityTest("PathParameters", PathParametersWidget, false);
+			VisibilityTest("PathParameters", PathParametersWidget, true);
 			VisibilityTest("FloatParameters", FloatParametersWidget, true);
-			VisibilityTest("IntParameters", IntParametersWidget, false);
+			VisibilityTest("IntParameters", IntParametersWidget, true);
+			VisibilityTest("HiddenParameters", HiddenParametersWidget, false);
 
-			VisibilityTest("StepStringParameters", StepStringParametersWidget, false);
+			VisibilityTest("StepStringParameters", StepStringParametersWidget, true);
 			VisibilityTest("StepPathParameters", StepPathParametersWidget, true);
-			VisibilityTest("StepFloatParameters", StepFloatParametersWidget, false);
+			VisibilityTest("StepFloatParameters", StepFloatParametersWidget, true);
 			VisibilityTest("StepIntParameters", StepIntParametersWidget, true);
+			VisibilityTest("StepHiddenParameters", StepHiddenParametersWidget, false);
 
 			VisibilityTest("Variable1", Variable1Widget, true);
 			VisibilityTest("Variable2", Variable2Widget, true);
 			VisibilityTest("Variable3", Variable3Widget, true);
+			VisibilityTest("HiddenVariable", HiddenVariableWidget, false);
 
 			VisibilityTest("Default Step category", DefaultStepCategory, true);
-			//TODO Chànge this condition after add visibility to env parameters
-			VisibilityTest("Empty Step category", EmptyStepCategory, true);
+			VisibilityTest("Empty Step category", EmptyStepCategory, false);
 			VisibilityTest("Default Environment category", DefaultEnvCategory, true);
-			//TODO Chànge this condition after add visibility to env parameters
-			VisibilityTest("Empty Step Environment category", EmptyStepEnvCategory, true);
+			VisibilityTest("Empty Step Environment category", EmptyStepEnvCategory, false);
 
 			});
 
@@ -631,6 +648,13 @@ void FDeadlinePluginUISpec::Define()
 		BeforeEach([this]() {
 			CreatedJobDataAsset = CreateAndOpenAsset<UDeadlineCloudJob>(JobTemplate, PathToJobTemplate);
 			CreatedJobDataAsset->AddToRoot();
+
+			TestTrue("HiddenParameters should contains in hidden parameters array by default", CreatedJobDataAsset->ContainsHiddenParameters("HiddenParameter"));
+			TestFalse("PathParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->ContainsHiddenParameters("PathParameter"));
+			TestFalse("IntParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->ContainsHiddenParameters("IntParameter"));
+			TestFalse("StringParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->ContainsHiddenParameters("StringParameter"));
+			TestFalse("FloatParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->ContainsHiddenParameters("FloatParameter"));
+
 			});
 
 		It("JobUI", EAsyncExecution::ThreadPool, FTimespan::FromSeconds(120), [this]() {
@@ -651,6 +675,7 @@ void FDeadlinePluginUISpec::Define()
 			FDriverElementRef PathParametersPathWidget = Driver->FindElement(By::Path(PathParametersPath));
 			FDriverElementRef FloatParametersWidget = Driver->FindElement(By::Path(FloatParametersPath));
 			FDriverElementRef IntParametersWidget = Driver->FindElement(By::Path(IntParametersPath));
+			FDriverElementRef HiddenParametersWidget = Driver->FindElement(By::Path(HiddenParametersPath));
 
 			//JobName
 			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), JobNameWidget, 50);
@@ -771,6 +796,11 @@ void FDeadlinePluginUISpec::Define()
 				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[3].Value, IntParametersTextValid);							
 			}		
 
+			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), HiddenParametersWidget, 50);
+			bool bHiddenParametersWidgetExists = HiddenParametersWidget->Exists();
+			bool bHiddenParametersWidgetVisible = HiddenParametersWidget->IsVisible();
+			TestTrue("HiddenParameters widget should exist", bHiddenParametersWidgetExists);
+			TestTrue("HiddenParameters widget should be visible", bHiddenParametersWidgetVisible);
 
 			});
 
@@ -789,6 +819,14 @@ void FDeadlinePluginUISpec::Define()
 		BeforeEach([this]() {
 			CreatedStepDataAsset = CreateAndOpenAsset<UDeadlineCloudStep>(StepTemplate, PathToStepTemplate);
 			CreatedStepDataAsset->AddToRoot();
+
+			TestTrue("HiddenParameters should contains in hidden parameters array by default", CreatedStepDataAsset->ContainsHiddenParameters("HiddenParameters"));
+			TestTrue("IntParameters should contains in hidden parameters array by default", CreatedStepDataAsset->ContainsHiddenParameters("IntParameters"));
+			TestTrue("FloatParameters should contains in hidden parameters array by default", CreatedStepDataAsset->ContainsHiddenParameters("FloatParameters"));
+			TestTrue("StringParameters should contains in hidden parameters array by default", CreatedStepDataAsset->ContainsHiddenParameters("StringParameters"));
+			TestTrue("PathParameters should contains in hidden parameters array by default", CreatedStepDataAsset->ContainsHiddenParameters("PathParameters"));
+
+			ShowTestStepParameters();
 			});
 
 		It("StepUI", EAsyncExecution::ThreadPool, FTimespan::FromSeconds(120), [this]() {
@@ -803,6 +841,7 @@ void FDeadlinePluginUISpec::Define()
 			FDriverElementRef PathParametersPathWidget = Driver->FindElement(By::Path(StepPathParametersPath));
 			FDriverElementRef FloatParametersWidget = Driver->FindElement(By::Path(StepFloatParametersPath));
 			FDriverElementRef IntParametersWidget = Driver->FindElement(By::Path(StepIntParametersPath));
+			FDriverElementRef HiddenParametersWidget = Driver->FindElement(By::Path(StepHiddenParametersPath));
 
 			//StringParameter
 			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), StringParametersWidget, 50);
@@ -896,6 +935,13 @@ void FDeadlinePluginUISpec::Define()
 				InputText(IntParametersWidget, IntParametersTextInvalid, true);
 				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[3].Range[0], IntParametersTextValid);
 			}
+
+			//HiddenParameter
+			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), HiddenParametersWidget, 50);
+			bool bHiddenParametersWidgetExists = HiddenParametersWidget->Exists();
+			bool bHiddenParametersWidgetVisible = HiddenParametersWidget->IsVisible();
+			TestTrue("HiddenParameters widget should exist", bHiddenParametersWidgetExists);
+			TestTrue("HiddenParameters widget should be visibile", bHiddenParametersWidgetVisible);
 		});
 
         AfterEach([this]()
@@ -913,6 +959,13 @@ void FDeadlinePluginUISpec::Define()
 		BeforeEach([this]() {
 			CreatedEnvironmentDataAsset = CreateAndOpenAsset<UDeadlineCloudEnvironment>(EnvTemplate, PathToEnvironmentTemplate);
 			CreatedEnvironmentDataAsset->AddToRoot();
+
+			TestTrue("HiddenVariable should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->ContainsHiddenParameters("HiddenVariable"));
+			TestTrue("Variable1 should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->ContainsHiddenParameters("Variable1"));
+			TestTrue("Variable2 should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->ContainsHiddenParameters("Variable2"));
+			TestTrue("Variable3 should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->ContainsHiddenParameters("Variable3"));
+
+			ShowTestEnvironmentParameters();
 			});
 
 		It("EnvironmentUI", EAsyncExecution::ThreadPool, FTimespan::FromSeconds(120), [this]() {
@@ -926,6 +979,7 @@ void FDeadlinePluginUISpec::Define()
 			FDriverElementRef Variable1Widget = Driver->FindElement(By::Path(Variable1Path));
 			FDriverElementRef Variable2Widget = Driver->FindElement(By::Path(Variable2Path));
 			FDriverElementRef Variable3Widget = Driver->FindElement(By::Path(Variable3Path));
+			FDriverElementRef HiddenVariableWidget = Driver->FindElement(By::Path(HiddenVariablePath));
 
 			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), Variable1Widget, 50);
 			bool bVariable1WidgetExists = Variable1Widget->Exists();
@@ -949,6 +1003,12 @@ void FDeadlinePluginUISpec::Define()
 				InputText(Variable2Widget, "ThisInputIsWayTooLongForValidation", false);
 				TEST_EQUAL(CreatedEnvironmentDataAsset->Variables.Variables["Variable2"], Variable2OldValue);
 			}
+
+			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), HiddenVariableWidget, 50);
+			bool bHiddenVariableWidgetExists = HiddenVariableWidget->Exists();
+			bool bHiddenVariableWidgetVisible = HiddenVariableWidget->IsVisible();
+			TestTrue("HiddenVariable widget should exist", bHiddenVariableWidgetExists);
+			TestTrue("HiddenVariable widget should be visibile", bHiddenVariableWidgetVisible);
 		});
 
         AfterEach([this]()

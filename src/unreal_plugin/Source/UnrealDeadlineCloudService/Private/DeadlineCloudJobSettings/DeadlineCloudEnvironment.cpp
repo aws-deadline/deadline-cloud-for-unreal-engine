@@ -15,9 +15,11 @@ void UDeadlineCloudEnvironment::OpenEnvFile(const FString& Path)
         FEnvironmentStruct EnvironmentStructure = Library->OpenEnvFile(Path);
         Name = EnvironmentStructure.Name;
         Variables.Variables.Empty();
+        UserHiddenParametersList.Empty();
         for (FEnvVariable Variable : EnvironmentStructure.Variables)
         {
             Variables.Variables.Add(Variable.Name, Variable.Value);
+            UserHiddenParametersList.Add(FName(*Variable.Name));
         }
     }
     else
@@ -53,7 +55,20 @@ void UDeadlineCloudEnvironment::FixEnvironmentVariablesConsistency(UDeadlineClou
 
 FDeadlineCloudEnvironmentOverride UDeadlineCloudEnvironment::GetEnvironmentData()
 {
-    return { this->Name, this->Variables };
+
+    FDeadlineCloudEnvironmentOverride FilteredEnvData;
+    FilteredEnvData.Name = this->Name;
+    
+    // Filter out hidden variables from the environment
+    for (const auto& VariablePair : this->Variables.Variables)
+    {
+        if (!ContainsHiddenParameters(FName(VariablePair.Key)))
+        {
+            FilteredEnvData.Variables.Variables.Add(VariablePair.Key, VariablePair.Value);
+        }
+    }
+    
+    return FilteredEnvData;
 }
 
 bool UDeadlineCloudEnvironment::IsDefaultVariables()

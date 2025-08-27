@@ -58,6 +58,8 @@ void FDeadlineCloudEnvironmentDetails::CustomizeDetails(IDetailLayoutBuilder& De
 	TSharedPtr<FDeadlineCloudDetailsWidgetsHelper::SConsistencyWidget> ConsistencyUpdateWidget;
 	FParametersConsistencyCheckResult result;
 
+	TSharedPtr<FDeadlineCloudDetailsWidgetsHelper::SEyeUpdateWidget> HiddenParametersUpdateWidget;
+
 	/* Consistency check */
 	if (Settings.IsValid() && Settings->Variables.Variables.Num() > 0)
 	{
@@ -67,6 +69,11 @@ void FDeadlineCloudEnvironmentDetails::CustomizeDetails(IDetailLayoutBuilder& De
 
 	TSharedRef<IPropertyHandle> PathToTemplate = MainDetailLayout->GetProperty("PathToTemplate");
 	IDetailPropertyRow* PathToTemplateRow = MainDetailLayout->EditDefaultProperty(PathToTemplate);
+
+	/* Collapse hidden parameters array  */
+	TSharedRef<IPropertyHandle> HideHandle = MainDetailLayout->GetProperty("UserHiddenParametersList");
+	IDetailPropertyRow* HideRow = MainDetailLayout->EditDefaultProperty(HideHandle);
+	HideRow->Visibility(EVisibility::Collapsed);
 
 	if (PathToTemplateRow)
 	{
@@ -103,6 +110,21 @@ void FDeadlineCloudEnvironmentDetails::CustomizeDetails(IDetailLayoutBuilder& De
 	{
 		Settings->OnPathChanged = FSimpleDelegate::CreateSP(this, &FDeadlineCloudEnvironmentDetails::ForceRefreshDetails);
 	};
+
+	/* Update all when one Parameters widget is checked as hidden */
+	if (Settings.IsValid())
+	{
+		Settings->OnParameterHidden.BindSP(this, &FDeadlineCloudEnvironmentDetails::RespondToEvent);
+	}
+
+	PropertiesCategory.AddCustomRow(FText::FromString("Visibility"))
+		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FDeadlineCloudEnvironmentDetails::GetEyeWidgetVisibility)))
+		.WholeRowContent()
+		[
+			SAssignNew(HiddenParametersUpdateWidget, FDeadlineCloudDetailsWidgetsHelper::SEyeUpdateWidget)
+
+				.OnEyeUpdateButtonClicked(FSimpleDelegate::CreateSP(this, &FDeadlineCloudEnvironmentDetails::OnResetHiddenParametersClicked))
+		];
 }
 
 void FDeadlineCloudEnvironmentDetails::OnConsistencyButtonClicked()
@@ -114,10 +136,26 @@ void FDeadlineCloudEnvironmentDetails::OnConsistencyButtonClicked()
 	}
 }
 
+void FDeadlineCloudEnvironmentDetails::OnResetHiddenParametersClicked()
+{
+	Settings->ResetParametersHiddenToDefault();
+    ForceRefreshDetails();
+}
+
+EVisibility FDeadlineCloudEnvironmentDetails::GetEyeWidgetVisibility() const
+{
+	return ((Settings->IsParametersHiddenByDefault())) ? EVisibility::Collapsed : EVisibility::Visible;
+}
+
 
 void FDeadlineCloudEnvironmentDetails::ForceRefreshDetails()
 {
 	MainDetailLayout->ForceRefreshDetails();
+}
+
+void FDeadlineCloudEnvironmentDetails::RespondToEvent()
+{
+	ForceRefreshDetails();
 }
 
 TSharedRef<FDeadlineCloudEnvironmentParametersMapBuilder> FDeadlineCloudEnvironmentParametersMapBuilder::MakeInstance(TSharedRef<IPropertyHandle> InPropertyHandle)
@@ -217,6 +255,18 @@ void FDeadlineCloudEnvironmentParametersMapBuilder::GenerateChildContent(IDetail
 		VarItemRow.ValueContent()
 			[
 				CustomValueWidget.ToSharedRef()
+			];
+
+		bool Checked = !(IsEyeWidgetEnabled(FName(Name)));
+		bool isChangedByUser = !IsParameterChangedFromDefault(FName(Name));
+		TSharedRef<FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox> EyeWidget = SNew(FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox, FName(Name), Checked, isChangedByUser);
+
+		EyeWidget->SetOnCheckStateChangedDelegate(FDeadlineCloudDetailsWidgetsHelper::SEyeCheckBox::FOnCheckStateChangedDelegate::CreateSP(this, &FDeadlineCloudEnvironmentParametersMapBuilder::OnEyeHideWidgetButtonClicked));
+		EyeWidget->SetVisibility((MrqJob) ? EVisibility::Hidden : EVisibility::Visible);
+
+		VarItemRow.ExtensionContent()
+			[
+				EyeWidget
 			];
 
 		CustomValueWidget->SetEnabled(
@@ -339,8 +389,93 @@ UDeadlineCloudEnvironment* FDeadlineCloudEnvironmentParametersMapCustomization::
 	{
 		return nullptr;
 	}
-	UDeadlineCloudEnvironment* OuterJob = Cast<UDeadlineCloudEnvironment>(OuterObject);
-	return OuterJob;
+	UDeadlineCloudEnvironment* OuterEnv = Cast<UDeadlineCloudEnvironment>(OuterObject);
+	return OuterEnv;
+}
+
+void FDeadlineCloudEnvironmentParametersMapBuilder::OnEyeHideWidgetButtonClicked(FName Property) const
+{
+	auto OuterEnvironment = GetOuterEnvironment();
+	if (OuterEnvironment)
+	{
+		if (OuterEnvironment->ContainsHiddenParameters(Property))
+		{
+			OuterEnvironment->RemoveHiddenParameter(Property);
+		}
+		else
+		{
+			OuterEnvironment->AddHiddenParameter(Property);
+		}
+	}
+}
+
+bool FDeadlineCloudEnvironmentParametersMapBuilder::IsPropertyHidden(FName Parameter) const
+{
+	bool Contains = false;
+	auto OuterEnvironment = GetOuterEnvironment();
+	if (OuterEnvironment)
+	{
+		Contains = OuterEnvironment->ContainsHiddenParameters(Parameter);
+	}
+	return Contains;
+}
+
+bool FDeadlineCloudEnvironmentParametersMapBuilder::IsEyeWidgetEnabled(FName Parameter) const
+{
+	bool result = false;
+	auto Env = GetOuterEnvironment();
+	if (Env)
+	{
+		result = Env->ContainsHiddenParameters(Parameter);
+	}
+
+	if (MrqJob)
+	{
+		if (MrqJob->JobPreset)
+		{
+			for (auto EnvOverride : MrqJob->JobPreset->Steps)
+			{
+				if (EnvOverride)
+				{
+					
+					{
+						result = EnvOverride->ContainsHiddenParameters(Parameter);
+
+					}
+				}
+			}
+		}
+
+	}
+	return result;
+}
+
+bool FDeadlineCloudEnvironmentParametersMapBuilder::IsParameterChangedFromDefault(FName Parameter) const
+{
+	auto Env = GetOuterEnvironment();
+	if (!Env)
+		return false;
+	//for env enabled is always by user, not by default
+	return Env->ContainsHiddenParameters(Parameter);
+}
+
+UDeadlineCloudEnvironment* FDeadlineCloudEnvironmentParametersMapBuilder::GetOuterEnvironment() const
+{
+	TArray<UObject*> OuterObjects;
+	BaseProperty->GetOuterObjects(OuterObjects);
+
+	if (OuterObjects.Num() == 0)
+	{
+		return nullptr;
+	}
+
+	const TWeakObjectPtr<UObject> OuterObject = OuterObjects[0];
+	if (!OuterObject.IsValid())
+	{
+		return nullptr;
+	}
+	UDeadlineCloudEnvironment* OuterEnvironment = Cast<UDeadlineCloudEnvironment>(OuterObject);
+	return OuterEnvironment;
 }
 
 #undef LOCTEXT_NAMESPACE

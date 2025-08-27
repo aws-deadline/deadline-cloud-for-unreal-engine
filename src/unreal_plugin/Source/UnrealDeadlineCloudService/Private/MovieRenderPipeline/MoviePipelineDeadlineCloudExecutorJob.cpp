@@ -174,9 +174,14 @@ void UMoviePipelineDeadlineCloudExecutorJob::JobPresetChanged()
 		SelectedJobPreset->JobPresetStruct.JobAttachments.OutputDirectories.Directories;
 
 	this->JobTemplateOverrides.Parameters = SelectedJobPreset->ParameterDefinition.Parameters;
-
-	this->JobTemplateOverrides.StepsOverrides = GetStepsToOverride(SelectedJobPreset);
-	this->JobTemplateOverrides.EnvironmentsOverrides = GetEnvironmentsToOverride(SelectedJobPreset);
+	//if ((SelectedJobPreset->Steps.Num()>0))
+	{
+		this->JobTemplateOverrides.StepsOverrides = GetStepsToOverride(SelectedJobPreset);
+	}
+	//if (SelectedJobPreset->Environments.Num() > 0)
+	{
+		this->JobTemplateOverrides.EnvironmentsOverrides = GetEnvironmentsToOverride(SelectedJobPreset);
+	}
 }
 
 void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
@@ -449,11 +454,18 @@ TArray<FDeadlineCloudStepOverride> UMoviePipelineDeadlineCloudExecutorJob::GetSt
 	if (Preset)
 	{
 		const TArray<UDeadlineCloudStep*> SelectedJobSteps = Preset->Steps;
-		for (auto step : SelectedJobSteps)
+		for (auto Step : SelectedJobSteps)
 		{
-			if (step)
+			if (Step)
 			{
-				DeadlineStepsOverrides.Add(step->GetStepDataToOverride());
+				auto StepData = Step->GetStepDataToOverride();
+
+				if (StepData.TaskParameterDefinitions.Parameters.IsEmpty() && StepData.EnvironmentsOverrides.IsEmpty())
+				{
+					continue;
+				}
+
+				DeadlineStepsOverrides.Add(StepData);
 			}
 		}
 	}
@@ -466,11 +478,17 @@ TArray<FDeadlineCloudEnvironmentOverride> UMoviePipelineDeadlineCloudExecutorJob
 	if (Preset)
 	{
 		const TArray<UDeadlineCloudEnvironment*> SelectedJobEnvs = Preset->Environments;
-		for (auto env : SelectedJobEnvs)
+		for (auto Env : SelectedJobEnvs)
 		{
-			if (env)
+			if (Env)
 			{
-				EnvOverrides.Add(env->GetEnvironmentData());
+				auto EnvData = Env->GetEnvironmentData();
+				if (EnvData.Variables.Variables.IsEmpty())
+				{
+					continue;
+				}
+
+				EnvOverrides.Add(EnvData);
 			}
 		}
 	}

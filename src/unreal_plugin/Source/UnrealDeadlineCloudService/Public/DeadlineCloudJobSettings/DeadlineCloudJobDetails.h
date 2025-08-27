@@ -72,6 +72,7 @@ private:
     TSharedRef<IPropertyHandle> BaseProperty;
 
     bool IsEyeWidgetEnabled(FName Parameter) const;
+    bool IsParameterVisibilityChangedFromDefault(FName Parameter) const;
 };
 
 class FDeadlineCloudJobParametersArrayCustomization : public IPropertyTypeCustomization
@@ -148,7 +149,7 @@ public:
     TWeakObjectPtr<UDeadlineCloudJob> Settings;
 
     void OnConsistencyButtonClicked();
-    void OnViewAllButtonClicked();
+    void OnResetHiddenParametersClicked();
 
     EVisibility GetConsistencyWidgetVisibility() const;
     EVisibility GetEyeWidgetVisibility() const;
