@@ -1,11 +1,12 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import os
+import re
 import yaml
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from typing import Type, Union, Literal, Optional
-
+import unreal
 from openjd.model import parse_model
 
 from openjd.model.v2023_09 import (
@@ -172,6 +173,70 @@ class UnrealOpenJobEntity(UnrealOpenJobEntityBase):
         """
         return ParametersConsistencyCheckResult(True, "Parameters are consistent")
 
+    def check_conda_package_version(self) -> bool:
+        """
+        Check if the CondaPackages parameter contains Unreal Engine version and compare with current UE version.
+        
+        :return: True if version check passes or user confirms, False if user cancels
+        :rtype: bool
+        """    
+        current_ue_version = unreal.SystemLibrary.get_engine_version()
+        logger.info(f"Current Unreal Engine version: {current_ue_version}")   
+        current_version_match = re.search(r'(\d+\.\d+)', current_ue_version)
+        if not current_version_match:
+            logger.warning(f"Could not parse current UE version: {current_ue_version}")
+            return True       
+        current_version = current_version_match.group(1)
+            
+            # Get template object to check for CondaPackages parameter
+        template_obj = self.get_mrq_template_object()
+        parameter_definitions = template_obj.get('parameterDefinitions', [])
+        conda_packages_param = None
+        for param in parameter_definitions:
+            if param.get('name') == OpenJobParameterNames.CONDA_PACKAGES:
+                conda_packages_param = param
+                break
+            
+        if not conda_packages_param:
+            logger.info("No CondaPackages parameter found in template, building with current version")
+            return True
+        
+        conda_packages_value = conda_packages_param.get('default', '')
+        if not conda_packages_value:
+            logger.info("CondaPackages parameter has no value, building with current version")
+            return True
+            
+            # Check for unrealengine=x.x pattern
+        ue_version_match = re.search(r'unrealengine=(\d+\.\d+)', conda_packages_value)
+        if not ue_version_match:
+            logger.info("No unrealengine version specified in CondaPackages, building with current version")
+            return True           
+        template_ue_version = ue_version_match.group(1)
+        logger.info(f"Template specifies Unreal Engine version: {template_ue_version}")
+            
+            # Compare versions
+        if template_ue_version == current_version:
+            logger.info("Unreal Engine versions match, continuing with submission")
+            return True
+
+                # Versions don't match, show warning dialog
+        message = (
+                    f"Unreal Engine version mismatch detected!\n\n"
+                    f"Template specifies: unrealengine={template_ue_version}\n"
+                    f"Current UE version: {current_version}\n\n"
+                    f"This may cause compatibility issues. Do you want to continue with submission?"
+            )
+                
+                # Show confirmation dialog
+        result = unreal.EditorDialog.show_message(
+                    "Unreal Engine Version Mismatch",
+                    message,
+                    unreal.AppMsgType.YES_NO
+            )
+
+        return result == unreal.AppReturnType.YES
+
+
     def build_template(self) -> Template:
         """
         Base implementation of building entity template.
@@ -279,6 +344,7 @@ class OpenJobParameterNames:
     UNREAL_EXTRA_CMD_ARGS_FILE = "ExtraCmdArgsFile"
     UNREAL_EXECUTABLE_RELATIVE_PATH = "ExecutableRelativePath"
     UNREAL_MRQ_JOB_DEPENDENCIES_DESCRIPTOR = "MrqJobDependenciesDescriptor"
+    CONDA_PACKAGES = "CondaPackages"
 
     PERFORCE_STREAM_PATH = "PerforceStreamPath"
     PERFORCE_CHANGELIST_NUMBER = "PerforceChangelistNumber"
