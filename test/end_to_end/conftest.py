@@ -945,13 +945,9 @@ DEADLINE_UNREAL_TEST_FARM_NAME: str = "deadline-unreal-test-farm"
 
 
 @pytest.fixture(scope="session")
-def reusable_farm_id(deadline_client: BaseClient, request) -> Generator[str, None, None]:
+def reusable_farm_id() -> Generator[str, None, None]:
     """
-    Fixture that provides a farm ID.
-
-    First checks for a test farm with predefined name DEADLINE_UNREAL_TEST_FARM_NAME.
-    If that doesn't exist, checks defaults.farm_id from config.
-    If that isn't set, creates a new farm with DEADLINE_UNREAL_TEST_FARM_NAME.
+    Fixture that provides a farm ID from your deadline config settings.
 
     Args:
         deadline_client: The Deadline Cloud client
@@ -961,55 +957,17 @@ def reusable_farm_id(deadline_client: BaseClient, request) -> Generator[str, Non
         The farm ID to use for tests
     """
     farm_id = None
-    created_new = False
 
-    # First check if a test farm with predefined name exists
-    try:
-        logger.info(
-            f"Checking for existing test farm with name {DEADLINE_UNREAL_TEST_FARM_NAME}..."
+    config_farm_id = config.get_setting("defaults.farm_id")
+    if config_farm_id:
+        logger.info(f"Using farm_id {config_farm_id} from defaults.farm_id")
+        farm_id = config_farm_id
+    else:
+        raise Exception(
+            "Please configure the farm you wish to use for your test in your deadline config settings"
         )
-        response = deadline_client.list_farms()
-        farms = response.get("farms", response.get("items", []))
-
-        for farm in farms:
-            if farm.get("displayName") == DEADLINE_UNREAL_TEST_FARM_NAME:
-                farm_id = farm.get("farmId")
-                logger.info(f"✓ Found existing test farm: {farm_id}")
-                break
-    except Exception as e:
-        logger.warning(f"Error checking for existing test farms: {str(e)}")
-    # If no test farm found, check defaults.farm_id
-    if not farm_id:
-        config_farm_id = config.get_setting("defaults.farm_id")
-        if config_farm_id:
-            logger.info(f"Using farm_id {config_farm_id} from defaults.farm_id")
-            farm_id = config_farm_id
-        else:
-            # If no farm_id in config, create a new test farm
-            logger.info(f"Creating new test farm with name {DEADLINE_UNREAL_TEST_FARM_NAME}...")
-            try:
-                response = deadline_client.create_farm(displayName=DEADLINE_UNREAL_TEST_FARM_NAME)
-                farm_id = response.get("farmId")
-                created_new = True
-                logger.info(f"✓ Created new test farm: {farm_id}")
-            except Exception as e:
-                logger.error(f"Failed to create test farm: {str(e)}")
-                raise
 
     yield farm_id
-
-    # Only clean up if --cleanup flag is provided AND we created a new farm
-    if request.config.getoption("--cleanup") and created_new:
-        try:
-            logger.info(f"Cleaning up farm {farm_id}")
-            deadline_client.delete_farm(farmId=farm_id)
-            logger.info(f"✓ Successfully deleted farm {farm_id}")
-        except Exception as e:
-            logger.warning(f"Exception during farm cleanup: {str(e)}")
-    elif created_new:
-        logger.info("Skipping farm cleanup (use --cleanup to clean up resources)")
-    else:
-        logger.info("Skipping farm cleanup (farm was not created by this test run)")
 
 
 @pytest.fixture(scope="session")
