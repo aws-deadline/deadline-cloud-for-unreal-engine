@@ -2,6 +2,9 @@
 
 
 #include "DeadlineCloudJobSettings/DeadlineCloudDeveloperSettings.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudRenderJob.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudJob.h"
+
 
 namespace DeadlineSettingsKeys
 {
@@ -18,6 +21,65 @@ namespace DeadlineSettingsKeys
 
 UDeadlineCloudDeveloperSettings::UDeadlineCloudDeveloperSettings()
 {
+}
+
+UDeadlineCloudRenderJob* UDeadlineCloudDeveloperSettings::GetDefaultJobPreset()
+{
+	if (auto Settings = UDeadlineCloudDeveloperSettings::Get())
+	{
+		return Settings->DefaultJobPreset.LoadSynchronous();
+	}
+
+	return nullptr;
+}
+
+void UDeadlineCloudDeveloperSettings::SetDefaultJobPreset(UDeadlineCloudRenderJob* NewJobPreset)
+{
+	if (auto Settings = UDeadlineCloudDeveloperSettings::GetMutable())
+	{
+		Settings->DefaultJobPreset = NewJobPreset;
+		Settings->SaveConfig();
+	}
+}
+
+void UDeadlineCloudDeveloperSettings::LoadMRQJobPresetCache(UMoviePipelineDeadlineCloudExecutorJob* MRQJob)
+{
+	if (auto Settings = UDeadlineCloudDeveloperSettings::GetMutable())
+	{
+		if (Settings->JobPresetCache.LastJobPreset != Settings->DefaultJobPreset)
+		{
+			Settings->JobPresetCache.LastJobPreset = Settings->DefaultJobPreset;
+			return;
+		}
+
+		if (MRQJob->JobPreset != Settings->DefaultJobPreset)
+		{
+			return;
+		}
+
+		MRQJob->PresetOverrides = Settings->JobPresetCache.LastPresetOverrides;
+		MRQJob->JobTemplateOverrides = Settings->JobPresetCache.LastJobTemplateOverrides;
+	}
+}
+
+void UDeadlineCloudDeveloperSettings::SaveMRQJobPresetCache(const UMoviePipelineDeadlineCloudExecutorJob* MRQJob)
+{
+	if (auto Settings = UDeadlineCloudDeveloperSettings::GetMutable())
+	{
+		if (Settings->JobPresetCache.LastJobPreset != Settings->DefaultJobPreset)
+		{
+			Settings->JobPresetCache.LastJobPreset = Settings->DefaultJobPreset;
+		}
+
+		if (MRQJob->JobPreset != Settings->DefaultJobPreset)
+		{
+			return;
+		}
+
+		Settings->JobPresetCache.LastPresetOverrides = MRQJob->PresetOverrides;
+		Settings->JobPresetCache.LastJobTemplateOverrides = MRQJob->JobTemplateOverrides;
+		Settings->SaveConfig();
+	}
 }
 
 TArray<FString> UDeadlineCloudDeveloperSettings::GetFarmsList()
