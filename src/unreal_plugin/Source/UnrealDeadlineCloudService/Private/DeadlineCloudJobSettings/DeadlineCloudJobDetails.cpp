@@ -334,10 +334,10 @@ void FDeadlineCloudJobParametersArrayBuilder::GenerateStepsExtraChildren(IDetail
                 if (Step.TaskParameterDefinitions.Parameters.Num() > Step.HiddenParametersList.Num())
                 {
                     // Use custom array builder to hide the header
-                TSharedRef<FDeadlineCloudStepOverrideArrayBuilder> StepsArrayBuilder = 
-                FDeadlineCloudStepOverrideArrayBuilder::MakeInstance(StepsHandle.ToSharedRef());
+                    TSharedRef<FDeadlineCloudStepOverrideArrayBuilder> StepsArrayBuilder = 
+                    FDeadlineCloudStepOverrideArrayBuilder::MakeInstance(StepsHandle.ToSharedRef());
 
-                ChildrenBuilder.AddCustomBuilder(StepsArrayBuilder);
+                    ChildrenBuilder.AddCustomBuilder(StepsArrayBuilder);
                 }
             }
         }
@@ -371,7 +371,7 @@ void FDeadlineCloudJobParametersArrayBuilder::GenerateEnvironmentsExtraChildren(
                     ChildrenBuilder.AddCustomBuilder(EnvsArrayBuilder);
                 }
             }
-            }
+        }
     }
 }
 

@@ -48,7 +48,7 @@ void FDeadlineCloudEnvironmentOverrideCustomization::CustomizeHeader(TSharedRef<
 
 	InHeaderRow.CopyAction(EmptyCopyPasteAction);
 	InHeaderRow.PasteAction(EmptyCopyPasteAction);
-};
+}
 
 void FDeadlineCloudEnvironmentOverrideCustomization::CustomizeChildren(
     TSharedRef<IPropertyHandle> StructPropertyHandle,

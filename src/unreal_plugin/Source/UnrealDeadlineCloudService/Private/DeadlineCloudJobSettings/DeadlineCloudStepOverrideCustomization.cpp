@@ -87,7 +87,7 @@ void FDeadlineCloudStepOverrideCustomization::CustomizeChildren(
         {
             continue;
         }
-      //  StructBuilder.AddProperty(ChildHandle);
+
         else if (PropertyName == "EnvironmentsOverrides")
         {
             auto EnvHandle = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FDeadlineCloudStepOverride, EnvironmentsOverrides))->AsArray();

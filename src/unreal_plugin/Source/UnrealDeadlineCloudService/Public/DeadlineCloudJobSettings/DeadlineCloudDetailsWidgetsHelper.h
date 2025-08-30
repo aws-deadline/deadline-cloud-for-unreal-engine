@@ -96,7 +96,6 @@ public:
 			FLinearColor TintColor = bIsChangedByUser
 				? FLinearColor(1.f, 1.f, 0.f, 1.f) // w
 				: FLinearColor::White; // y
-			//const FSlateBrush* IconBrush = FAppStyle::Get().GetBrush("Icons.Hidden");
 
 			DynamicStyle.CheckedImage = *FAppStyle::Get().GetBrush("Icons.Visible");
 			DynamicStyle.CheckedHoveredImage = *FAppStyle::Get().GetBrush("Icons.Hidden");
@@ -122,7 +121,6 @@ public:
 						.Padding(4, 0)
 						[
 							SAssignNew(CheckBoxPtr, SCheckBox)
-								//.Style(&FAppStyle::Get().GetWidgetStyle<FCheckBoxStyle>("ToggleButtonCheckbox"))
 								.Style(&DynamicStyle)
 								.IsChecked_Lambda([this]()
 									{
@@ -145,7 +143,7 @@ public:
 	
 	void SetOnCheckStateChangedDelegate(FOnCheckStateChangedDelegate InDelegate)
 	{
-			OnCheckStateChangedDelegate = InDelegate;
+		OnCheckStateChangedDelegate = InDelegate;
 	}
 		TSharedPtr<SCheckBox> CheckBoxPtr;
 		FCheckBoxStyle DynamicStyle;

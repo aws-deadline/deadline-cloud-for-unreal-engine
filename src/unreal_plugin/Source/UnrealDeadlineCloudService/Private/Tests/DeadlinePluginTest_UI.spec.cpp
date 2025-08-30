@@ -633,6 +633,19 @@ void FDeadlinePluginUISpec::Define()
 
 				FModuleManager::LoadModuleChecked<IModuleInterface>("MovieRenderPipelineEditor");
 
+				UMoviePipelineQueueSubsystem* QueueSubsystem = GEditor
+					? GEditor->GetEditorSubsystem<UMoviePipelineQueueSubsystem>()
+					: nullptr;
+
+				if (QueueSubsystem)
+				{
+					UMoviePipelineQueue* Queue = QueueSubsystem->GetQueue();
+					if (Queue)
+					{
+						Queue->DeleteAllJobs();
+					}
+				}
+
 				const FName MRQTabName("MoviePipelineQueue");
 				TSharedPtr<SDockTab> Tab = FGlobalTabmanager::Get()->FindExistingLiveTab(MRQTabName);
 				if (Tab.IsValid())

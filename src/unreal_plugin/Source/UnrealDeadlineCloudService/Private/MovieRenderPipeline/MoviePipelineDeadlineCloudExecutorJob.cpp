@@ -174,14 +174,9 @@ void UMoviePipelineDeadlineCloudExecutorJob::JobPresetChanged()
 		SelectedJobPreset->JobPresetStruct.JobAttachments.OutputDirectories.Directories;
 
 	this->JobTemplateOverrides.Parameters = SelectedJobPreset->ParameterDefinition.Parameters;
-	//if ((SelectedJobPreset->Steps.Num()>0))
-	{
-		this->JobTemplateOverrides.StepsOverrides = GetStepsToOverride(SelectedJobPreset);
-	}
-	//if (SelectedJobPreset->Environments.Num() > 0)
-	{
-		this->JobTemplateOverrides.EnvironmentsOverrides = GetEnvironmentsToOverride(SelectedJobPreset);
-	}
+
+	this->JobTemplateOverrides.StepsOverrides = GetStepsToOverride(SelectedJobPreset);
+	this->JobTemplateOverrides.EnvironmentsOverrides = GetEnvironmentsToOverride(SelectedJobPreset);
 }
 
 void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)

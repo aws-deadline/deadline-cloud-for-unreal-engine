@@ -98,8 +98,6 @@ public:
     
     UFUNCTION()
     bool HasEditableParameters(const FDeadlineCloudStepOverride& StepOverride) const;
-    //UFUNCTION()
-    //bool HasAnyEditableStepOverrides() const;
 
     /**
      * Reference to Deadline Cloud job preset DataAsset. Source for default job settings
