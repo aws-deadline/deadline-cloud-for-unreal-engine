@@ -339,6 +339,8 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         if self._job_shared_settings:
             parameter_values += self._job_shared_settings.serialize()
 
+        UnrealOpenJob.check_conda_package_version(parameter_values)
+
         return parameter_values
 
     def _check_parameters_consistency(self):
@@ -499,6 +501,68 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             deadline_yaml_dump(asset_references.to_dict(), f, indent=1)
 
         return job_bundle_path
+
+    @staticmethod
+    def check_conda_package_version(parameter_values: list[dict[str, Any]]):
+        """
+        Check if the CondaPackages parameter contains Unreal Engine version and compare with current UE version.
+
+        :return: True if version check passes or user confirms, False if user cancels
+        :rtype: bool
+        """
+
+        current_ue_version = unreal.SystemLibrary.get_engine_version()
+        logger.info(f"Current Unreal Engine version: {current_ue_version}")
+        current_version_match = re.search(r"(\d+\.\d+)", current_ue_version)
+        if not current_version_match:
+            logger.warning(f"Could not parse current UE version: {current_ue_version}")
+            raise exceptions.InvalidUEVersionInCondaPackageParameter(
+                f"Could not parse current UE version: {current_ue_version}"
+            )
+            return
+        current_version = current_version_match.group(1)
+
+        # Check for CondaPackages parameter
+        conda_packages_param = next(
+            (p for p in parameter_values if p["name"] == OpenJobParameterNames.CONDA_PACKAGES), None
+        )
+
+        if not conda_packages_param:
+            logger.info(
+                "No CondaPackages parameter found in template, building with current version"
+            )
+            parameter_values.append(
+                dict(
+                    name=OpenJobParameterNames.CONDA_PACKAGES,
+                    value=f"unrealengine={current_version}",
+                )
+            )
+            return
+
+        conda_packages_value = conda_packages_param.get("value", "")
+        if not conda_packages_value:
+            raise exceptions.InvalidUEVersionInCondaPackageParameter(
+                "CondaPackages parameter is empty, cannot determine Unreal Engine version"
+            )
+
+        # Check for unrealengine=x.x pattern
+        ue_version_match = re.search(r"unrealengine=(\d+\.\d+)", conda_packages_value)
+        if not ue_version_match:
+            raise exceptions.InvalidUEVersionInCondaPackageParameter(
+                f"CondaPackages parameter does not specify Unreal Engine version: {conda_packages_value}"
+            )
+
+        template_ue_version = ue_version_match.group(1)
+        logger.info(f"Template specifies Unreal Engine version: {template_ue_version}")
+
+        # Compare versions
+        if not template_ue_version == current_version:
+            # Versions don't match
+            raise exceptions.InvalidUEVersionInCondaPackageParameter(
+                "CondaPackages Unreal Engine version mismatch"
+            )
+
+        logger.info("Unreal Engine versions match, continuing with submission")
 
 
 # Render Open Job
@@ -667,14 +731,14 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         if not self._mrq_job or not self._mrq_job.job_template_overrides:
             # Fall back to base implementation if no MRQ job or template overrides
             return super().get_template_object()
-        
+
         # Build template from MRQ job template overrides
         template = {
             "specificationVersion": settings.JOB_TEMPLATE_VERSION,
             "name": self.name or "MRQ Job Template",
-            "parameterDefinitions": []
+            "parameterDefinitions": [],
         }
-        
+
         # Add parameter definitions from MRQ job template overrides
         if self._mrq_job.job_template_overrides.parameters:
             for param in self._mrq_job.job_template_overrides.parameters:
@@ -682,14 +746,14 @@ class RenderUnrealOpenJob(UnrealOpenJob):
                     "name": param.name,
                     "type": param.type.name,
                 }
-                if hasattr(param, 'value') and param.value:
+                if hasattr(param, "value") and param.value:
                     param_def["default"] = param.value
                 template["parameterDefinitions"].append(param_def)
-        
+
         # Add extensions if available
-        if hasattr(self._mrq_job.job_template_overrides, 'extensions'):
+        if hasattr(self._mrq_job.job_template_overrides, "extensions"):
             template["extensions"] = self._mrq_job.job_template_overrides.extensions
-        
+
         return template
 
     @classmethod

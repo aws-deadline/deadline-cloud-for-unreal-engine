@@ -31,6 +31,12 @@ class OpenJobIsMissingError(DeadlineCloudSubmitterException):
     pass
 
 
+class InvalidUEVersionInCondaPackageParameter(DeadlineCloudSubmitterException):
+    """Raised when Conda Package parameter is contains invalid ue version"""
+
+    pass
+
+
 class RenderArgumentsTypeNotSetError(DeadlineCloudSubmitterException):
     """Raised when the render arguments type is not set"""
 
