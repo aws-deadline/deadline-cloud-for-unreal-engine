@@ -513,14 +513,14 @@ class UnrealOpenJob(UnrealOpenJobEntity):
 
         current_ue_version = unreal.SystemLibrary.get_engine_version()
         logger.info(f"Current Unreal Engine version: {current_ue_version}")
-        current_version_match = re.search(r"(\d+\.\d+)", current_ue_version)
+        current_version_match = re.search(r"\b\d+\.\d+\b", current_ue_version)
         if not current_version_match:
             logger.warning(f"Could not parse current UE version: {current_ue_version}")
             raise exceptions.InvalidUEVersionInCondaPackageParameter(
                 f"Could not parse current UE version: {current_ue_version}"
             )
-            return
-        current_version = current_version_match.group(1)
+
+        current_version = current_version_match.group(0)
 
         # Check for CondaPackages parameter
         conda_packages_param = next(
