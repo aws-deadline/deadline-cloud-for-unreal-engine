@@ -14,6 +14,7 @@
 #include "ContentBrowserModule.h"
 #include "IContentBrowserSingleton.h"
 #include "PackageTools.h"
+#include "Framework/MetaData/DriverMetaData.h"
 
 #define LOCTEXT_NAMESPACE "DeadlineWidgets"
 
@@ -78,6 +79,30 @@ void SDeadlineCloudSavePresetWidget::Construct(const FArguments& InArgs)
 	PathCfg.OnPathSelected = FOnPathSelected::CreateSP(this, &SDeadlineCloudSavePresetWidget::OnPathTextChanged);
 	NewPath = PathCfg.DefaultPath;
 
+	TSharedRef<SWarningOrErrorBox> ErrorBox = SNew(SWarningOrErrorBox)
+		.MessageStyle_Lambda([this]() { return LastInputValidityErrorStyle; })
+		.Message(this, &SDeadlineCloudSavePresetWidget::GetErrorLabelText);
+	ErrorBox->AddMetadata(FDriverMetaData::Id(FName("DeadlineCloudSavePresetWidget.ErrorBox")));
+
+	 SAssignNew(NameEditBox, SEditableTextBox)
+		.MinDesiredWidth(420.0f)
+		.Text(this, &SDeadlineCloudSavePresetWidget::OnGetNameText)
+		.OnTextChanged(this, &SDeadlineCloudSavePresetWidget::OnNameTextChanged)
+		.OnTextCommitted(this, &SDeadlineCloudSavePresetWidget::OnNameTextCommitted);
+	NameEditBox->AddMetadata(FDriverMetaData::Id(FName("DeadlineCloudSavePresetWidget.NameEditBox")));
+
+	TSharedRef<SButton> CreateButton = SNew(SButton)
+		.ButtonStyle(FAppStyle::Get(), "PrimaryButton")
+		.Text(LOCTEXT("CreateBtn", "Create"))
+		.IsEnabled(this, &SDeadlineCloudSavePresetWidget::IsCreateButtonEnabled)
+		.OnClicked(this, &SDeadlineCloudSavePresetWidget::HandleCreateButtonClicked);
+	CreateButton->AddMetadata(FDriverMetaData::Id(FName("DeadlineCloudSavePresetWidget.CreateButton")));
+
+	TSharedRef<SButton> CancelButton = SNew(SButton)
+		.Text(LOCTEXT("CancelBtn", "Cancel"))
+		.OnClicked(this, &SDeadlineCloudSavePresetWidget::HandleCancelButtonClicked);
+	CancelButton->AddMetadata(FDriverMetaData::Id(FName("DeadlineCloudSavePresetWidget.CancelButton")));
+
 	ChildSlot
 	[
 		SNew(SBorder)
@@ -100,9 +125,7 @@ void SDeadlineCloudSavePresetWidget::Construct(const FArguments& InArgs)
 									.FillWidth(1.0f)
 									.VAlign(VAlign_Center)
 									[
-										SNew(SWarningOrErrorBox)
-										.MessageStyle_Lambda([this]() { return LastInputValidityErrorStyle; })
-										.Message(this, &SDeadlineCloudSavePresetWidget::GetErrorLabelText)
+										ErrorBox
 									]
 							]
 					]
@@ -147,11 +170,7 @@ void SDeadlineCloudSavePresetWidget::Construct(const FArguments& InArgs)
 									.VAlign(VAlign_Center)
 									.Padding(0.0f, 6.0f, 0.0f, 6.0f)
 									[
-										SAssignNew(NameEditBox, SEditableTextBox)
-										.MinDesiredWidth(420.0f)
-										.Text(this, &SDeadlineCloudSavePresetWidget::OnGetNameText)
-										.OnTextChanged(this, &SDeadlineCloudSavePresetWidget::OnNameTextChanged)
-										.OnTextCommitted(this, &SDeadlineCloudSavePresetWidget::OnNameTextCommitted)
+										NameEditBox.ToSharedRef()
 									]
 
 
@@ -225,25 +244,20 @@ void SDeadlineCloudSavePresetWidget::Construct(const FArguments& InArgs)
 							.HAlign(HAlign_Right)
 							.VAlign(VAlign_Center)
 							[
-								SNew(SButton)
-								.ButtonStyle(FAppStyle::Get(), "PrimaryButton")
-								.Text(LOCTEXT("CreateBtn", "Create"))
-								.IsEnabled(this, &SDeadlineCloudSavePresetWidget::IsCreateButtonEnabled)
-								.OnClicked(this, &SDeadlineCloudSavePresetWidget::HandleCreateButtonClicked)
-
+								CreateButton
 							]
 
 						+ SHorizontalBox::Slot()
 							.AutoWidth()
 							.HAlign(HAlign_Right)
 							[
-								SNew(SButton)
-								.Text(LOCTEXT("CancelBtn", "Cancel"))
-								.OnClicked(this, &SDeadlineCloudSavePresetWidget::HandleCancelButtonClicked)
+								CancelButton
 							]
 					]
 			]
 	];
+
+	AddMetadata(FDriverMetaData::Id(FName("DeadlineCloudSavePresetWidget")));
 }
 
 EVisibility SDeadlineCloudSavePresetWidget::GetErrorLabelVisibility() const
@@ -337,7 +351,7 @@ FReply SDeadlineCloudSavePresetWidget::HandleCreateButtonClicked()
 	{
 		// Show a warning dialog to the user
 		FText WarningTitle = LOCTEXT("CreatePresetWarningTitle", "Warning");
-		FText WarningMessage = LastInputValidityErrorText;
+		FText WarningMessage = LOCTEXT("OverrideDialog", "Override existing data assets");
 
 		EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::OkCancel, WarningMessage, WarningTitle);
 
@@ -932,12 +946,10 @@ void FDeadlineCloudDetailsWidgetsHelper::SEyeUpdateWidget::Construct(const FArgu
 };
 
 
-void FDeadlineCloudDetailsWidgetsHelper::CreateSavePresetDialogWidget(UMoviePipelineDeadlineCloudExecutorJob* MrqJob)
+void FDeadlineCloudDetailsWidgetsHelper::CreateSavePresetDialogWidget(UMoviePipelineDeadlineCloudExecutorJob* MrqJob, bool bModal)
 {
-	//FVector2D Size(600, 400);
 	TSharedRef<SWindow> SaveDialogWindow = SNew(SWindow)
 		.Title(FText::FromString("Save Job Preset"))
-		//.ClientSize(Size)
 		.SizingRule(ESizingRule::Autosized)
 		.SupportsMinimize(false)
 		.SupportsMaximize(false);
@@ -946,8 +958,6 @@ void FDeadlineCloudDetailsWidgetsHelper::CreateSavePresetDialogWidget(UMoviePipe
 
 	SaveDialogWindow->SetContent(
 		SNew(SBox)
-		//.WidthOverride(Size.X)
-		//.HeightOverride(Size.Y)
 		[
 			SNew(SDeadlineCloudSavePresetWidget)
 				.MrqJob(MrqJob)
@@ -955,9 +965,15 @@ void FDeadlineCloudDetailsWidgetsHelper::CreateSavePresetDialogWidget(UMoviePipe
 		]
 	);
 
-	TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindBestParentWindowForDialogs(nullptr);
-
-	FSlateApplication::Get().AddModalWindow(SaveDialogWindow, ParentWindow, false);
+	if (bModal)
+	{
+		TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindBestParentWindowForDialogs(nullptr);
+		FSlateApplication::Get().AddModalWindow(SaveDialogWindow, ParentWindow, false);
+	}
+	else
+	{
+		FSlateApplication::Get().AddWindow(SaveDialogWindow);
+	}
 }
 
 TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(TSharedPtr<IPropertyHandle> ParameterHandle, EValueType Type, EValueValidationType ValidationType)

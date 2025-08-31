@@ -21,6 +21,8 @@
 #include "PythonAPILibraries/DeadlineCloudJobBundleLibrary.h"
 #include "PythonAPILibraries/PythonParametersConsistencyChecker.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudInputValidationHelper.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudDetailsWidgetsHelper.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudDeveloperSettings.h"
 
 #include "Tests/AutomationCommon.h"
 #include "Subsystems/AssetEditorSubsystem.h"
@@ -33,6 +35,8 @@
 
 #include "PropertyEditorModule.h"
 #include "IDetailsView.h"
+#include "PackageTools.h"
+#include "AssetViewUtils.h"
 
 #include "MoviePipelineQueueSubsystem.h"
 
@@ -48,6 +52,118 @@
 #define EPIC_TEST_BOOLEAN_(text, expression, expected) \
 	TestEqual(text, expression, expected);
 
+static void BuildMinimalPreset(UMoviePipelineDeadlineCloudExecutorJob* ExecJob)
+{
+    const FString Path = TEXT("/UnrealDeadlineCloudService/OpenJD_DataAssets/Default/OpenJD_Default_RenderJob.OpenJD_Default_RenderJob");
+    
+    UDeadlineCloudRenderJob* DefaultJob = LoadObject<UDeadlineCloudRenderJob>(nullptr, *Path);
+    check(DefaultJob);
+
+    ExecJob->JobPreset = DefaultJob;
+	ExecJob->ReloadDataFromJobPreset();
+}
+
+static void CleanupCreatedAssets(const FString& FolderPath, FAutomationTestBase* Test)
+{
+    FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+
+    TArray<FAssetData> Assets;
+    AssetRegistryModule.Get().GetAssetsByPath(*FolderPath, Assets, true);
+
+    if (Assets.Num() == 0)
+    {
+        return;
+    }
+
+	TArray<UObject*> ObjectsToDelete;
+    for (const FAssetData& Asset : Assets)
+    {
+        UObject* AssetObj = Asset.GetAsset();
+        if (AssetObj)
+        {
+            ObjectsToDelete.Add(AssetObj);
+        }
+    }
+
+    ObjectTools::DeleteObjects(ObjectsToDelete, false);
+	AssetViewUtils::DeleteFolders({ FolderPath });
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSaveAsJobPreset_BasicCreation,
+	"DeadlineCloud.SaveAsJobPreset.BasicCreation",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FSaveAsJobPreset_BasicCreation::RunTest(const FString& Parameters)
+{
+	UMoviePipelineDeadlineCloudExecutorJob* ExecJob = NewObject<UMoviePipelineDeadlineCloudExecutorJob>();
+	TestNotNull(TEXT("ExecutorJob must be created"), ExecJob);
+
+	BuildMinimalPreset(ExecJob);
+
+	const FString FolderPath = TEXT("/Game/Automated/DeadlineCloud/") + FGuid::NewGuid().ToString(EGuidFormats::Digits);
+	FString BaseName         = TEXT("Preset_") + FGuid::NewGuid().ToString(EGuidFormats::Digits);
+
+	FString FolderCopy = FolderPath;
+	FString BaseCopy   = BaseName;
+	ExecJob->SaveAsJobPreset(FolderCopy, BaseCopy, false);
+
+	FAssetRegistryModule& ARM = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	FARFilter Filter;
+	Filter.PackagePaths.Add(*FolderPath);
+	Filter.bRecursivePaths = true;
+
+	TArray<FAssetData> FoundAssets;
+	ARM.Get().GetAssets(Filter, FoundAssets);
+	TestTrue(*FString::Printf(TEXT("Assets should be created in %s"), *FolderPath), FoundAssets.Num() > 0);
+
+	bool bAnyHasFlags = false;
+	for (const FAssetData& AD : FoundAssets)
+	{
+		if (const UObject* Obj = AD.GetAsset())
+		{
+			const EObjectFlags Flags = Obj->GetFlags();
+			if ((Flags & RF_Public) && (Flags & RF_Standalone))
+			{
+				bAnyHasFlags = true;
+				break;
+			}
+		}
+	}
+	TestTrue(TEXT("At least one created asset should have RF_Public | RF_Standalone"), bAnyHasFlags);
+
+	CleanupCreatedAssets(FolderPath, this);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSaveAsJobPreset_OverwritesExisting,
+	"DeadlineCloud.SaveAsJobPreset.OverwritesExisting",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FSaveAsJobPreset_OverwritesExisting::RunTest(const FString& Parameters)
+{
+	UMoviePipelineDeadlineCloudExecutorJob* ExecJob = NewObject<UMoviePipelineDeadlineCloudExecutorJob>();
+	ExecJob->AddToRoot();
+	TestNotNull(TEXT("ExecutorJob created"), ExecJob);
+
+	BuildMinimalPreset(ExecJob);
+	TestNotNull(TEXT("Precondition: JobPreset prepared"), ExecJob->JobPreset.Get());
+
+	const FString FolderPath = TEXT("/Game/Automated/DeadlineCloud/") + FGuid::NewGuid().ToString(EGuidFormats::Digits);
+	FString BaseName         = TEXT("PresetOverwrite_") + FGuid::NewGuid().ToString(EGuidFormats::Digits);
+
+	FString FolderCopy = FolderPath;
+	FString BaseCopy   = BaseName;
+	ExecJob->SaveAsJobPreset(FolderCopy, BaseCopy, false);
+
+	TestNotNull(TEXT("JobPreset after first save"), ExecJob->JobPreset.Get());
+	BuildMinimalPreset(ExecJob);
+	ExecJob->SaveAsJobPreset(FolderCopy, BaseCopy, false);
+
+	TestNotNull(TEXT("JobPreset after second save"), ExecJob->JobPreset.Get());
+	ExecJob->RemoveFromRoot();
+	CleanupCreatedAssets(FolderPath, this);
+	return true;
+}
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIsValidLength_RangeOK, "DeadlineCloud.Validation.IsValidLength.RangeOK", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FIsValidLength_RangeOK::RunTest(const FString& Parameters)
@@ -579,6 +695,8 @@ void FDeadlinePluginUISpec::Define()
 			FDriverElementRef DefaultEnvCategory = Driver->FindElement(By::Path("#MRQEnvHeader.LaunchUnrealEditor"));
 			FDriverElementRef EmptyStepEnvCategory = Driver->FindElement(By::Path("#MRQStepEnvHeader.Empty"));
 
+			FDriverElementRef SavePresetButton = Driver->FindElement(By::Path("#MRQJobSavePresetButton"));
+
 			auto VisibilityTest = [this](const FString& ParameterName, FDriverElementRef Widget, bool bShouldBeVisible)
 				{
 					ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), Widget, 50);
@@ -592,6 +710,8 @@ void FDeadlinePluginUISpec::Define()
 						TestFalse(ParameterName + " widget should be hidden", bIsVisible);
 					}
 				};
+
+			VisibilityTest("SavePresetButton", SavePresetButton, true);
 
 			VisibilityTest("StringParameters", StringParametersWidget, true);
 			VisibilityTest("PathParameters", PathParametersWidget, true);
@@ -1031,6 +1151,75 @@ void FDeadlinePluginUISpec::Define()
 
 				CreatedEnvironmentDataAsset->RemoveFromRoot();
 				CreatedEnvironmentDataAsset = nullptr;
+		});
+    });
+
+	Describe("DeadlineCloudSavePresetWidget", [this]()
+    {
+		BeforeEach([this]() {
+			MRQJob = NewObject<UMoviePipelineDeadlineCloudExecutorJob>();
+			MRQJob->AddToRoot();
+
+			FDeadlineCloudDetailsWidgetsHelper::CreateSavePresetDialogWidget(MRQJob, false);
+		});
+
+		It("DeadlineCloudSavePresetWidget", EAsyncExecution::ThreadPool, FTimespan::FromSeconds(120), [this]() {
+			FDriverElementRef DialogWidget = Driver->FindElement(By::Path("#DeadlineCloudSavePresetWidget"));
+			FDriverElementRef ErrorWidget = Driver->FindElement(By::Path("#DeadlineCloudSavePresetWidget.ErrorBox"));
+			FDriverElementRef NameWidget = Driver->FindElement(By::Path("#DeadlineCloudSavePresetWidget.NameEditBox"));
+			FDriverElementRef CreateButton = Driver->FindElement(By::Path("#DeadlineCloudSavePresetWidget.CreateButton"));
+			FDriverElementRef CancelButton = Driver->FindElement(By::Path("#DeadlineCloudSavePresetWidget.CancelButton"));
+
+			Driver->Wait(Until::ElementExists(DialogWidget, FWaitTimeout::InSeconds(2.f)));
+			if (!DialogWidget->Exists())
+			{
+				TestTrue(TEXT("Dialog widget should exist"), false);
+				return;
+			}
+
+			DialogWidget->Focus();
+
+			if (!NameWidget->Exists())
+			{
+				TestTrue(TEXT("Name widget should exist"), false);
+				return;
+			}
+
+			if (!CreateButton->Exists())
+			{
+				TestTrue(TEXT("CreateButton widget should exist"), false);
+				return;
+			}
+
+			InputText(NameWidget, "", true);
+			Driver->Wait(FTimespan::FromSeconds(0.5f));
+			TestTrue("Error widget should be visible when name is empty", ErrorWidget->IsVisible());
+			TestFalse("Create button widget should be disabled when name is empty", CreateButton->IsInteractable());
+
+			InputText(NameWidget, "Invalid/", true);
+			Driver->Wait(FTimespan::FromSeconds(0.5f));
+			TestTrue("Error widget should be visible when name contains invalid characters", ErrorWidget->IsVisible());
+			TestFalse("Create button widget should be disabled when name contains invalid characters", CreateButton->IsInteractable());
+
+			InputText(NameWidget, "ValidName", true);
+			Driver->Wait(FTimespan::FromSeconds(0.5f));
+			TestFalse("Error widget should be hidden when name is valid", ErrorWidget->IsVisible());
+			TestTrue("Create button widget should be enabled when name is valid", CreateButton->IsInteractable());
+
+			if (!CancelButton->Exists())
+			{
+				TestTrue(TEXT("CancelButton widget should exist"), false);
+				return;
+			}
+
+			CancelButton->Click(EMouseButtons::Type::Left);
+			Driver->Wait(FTimespan::FromSeconds(1));
+			TestFalse("Dialog widget should be closed after CancelButton click", DialogWidget->Exists());
+		});
+
+        AfterEach([this]() {
+			MRQJob->RemoveFromRoot();
+			MRQJob = nullptr;
 		});
     });
 

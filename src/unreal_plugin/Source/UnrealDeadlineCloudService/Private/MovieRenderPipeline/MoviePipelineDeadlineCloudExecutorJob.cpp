@@ -23,6 +23,7 @@
 #include "ObjectTools.h"
 #include "UObject/SavePackage.h"
 #include "Serialization/ArchiveReplaceObjectRef.h"
+#include "Framework/MetaData/DriverMetaData.h"
 
 UMoviePipelineDeadlineCloudExecutorJob::UMoviePipelineDeadlineCloudExecutorJob()
 {
@@ -110,6 +111,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::SaveAsJobPreset(FString& FolderPath
 		if (ExistingAsset.IsValid())
 		{
 			ObjectTools::DeleteAssets({ ExistingAsset }, false);
+
 		}
 		
 		UPackage* Pkg = CreatePackage(*PackageName);
@@ -758,7 +760,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::FixReferencesAfterDuplication(TMap<
         }
 
 #if WITH_EDITOR
-        NewAsset->PostEditChange();
+        FCoreUObjectDelegates::OnObjectModified.Broadcast(NewAsset);
         NewAsset->MarkPackageDirty();
 #endif
 	}
@@ -841,6 +843,25 @@ void FMoviePipelineDeadlineCloudExecutorJobCustomization::CustomizeDetails(IDeta
             FResetToDefaultHandler::CreateSP(this, &FMoviePipelineDeadlineCloudExecutorJobCustomization::ResetPresetToDefaultHandler)
 			);
 
+			TSharedRef<SWidget> SaveButtonWidget = SNew(SButton)
+				.ToolTipText(FText::FromString("Save the current job preset."))
+				.ButtonStyle(FAppStyle::Get(), "SimpleButton")
+				.ContentPadding(FMargin(2.f))
+				.IsEnabled_Lambda([this]() 
+					{ 
+						return MrqJob.IsValid() && MrqJob->JobPreset != nullptr; 
+					})
+				.OnClicked_Lambda([this]() 
+					{ 
+						FDeadlineCloudDetailsWidgetsHelper::CreateSavePresetDialogWidget(MrqJob.Get());
+						return FReply::Handled();
+					})
+					[
+						SNew(SImage)
+							.Image(FAppStyle::Get().GetBrush("Icons.Save"))
+					];
+			SaveButtonWidget->AddMetadata(FDriverMetaData::Id(FName("MRQJobSavePresetButton")));
+
 			DeadlineCategory.AddProperty(PropertyName)
 				.OverrideResetToDefault(ResetDefaultOverride)
 				.CustomWidget()
@@ -862,25 +883,8 @@ void FMoviePipelineDeadlineCloudExecutorJobCustomization::CustomizeDetails(IDeta
 						.HAlign(HAlign_Center)
 						.Padding(2.0f, 4.0f)
 						[
-							SNew(SButton)
-								.ToolTipText(FText::FromString("Save the current job preset."))
-								.ButtonStyle(FAppStyle::Get(), "SimpleButton")
-								.ContentPadding(FMargin(2.f))
-								.IsEnabled_Lambda([this]() 
-									{ 
-										return MrqJob.IsValid() && MrqJob->JobPreset != nullptr; 
-									})
-								.OnClicked_Lambda([this]() 
-									{ 
-										FDeadlineCloudDetailsWidgetsHelper::CreateSavePresetDialogWidget(MrqJob.Get());
-										return FReply::Handled();
-									})
-								[
-									SNew(SImage)
-										.Image(FAppStyle::Get().GetBrush("Icons.Save"))
-								]
+							SaveButtonWidget
 						]
-
 				];
 		}
 		else
