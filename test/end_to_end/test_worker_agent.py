@@ -1,7 +1,11 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import logging
-from conftest import extract_job_info_from_test_output, wait_for_job_state
+from conftest import (
+    extract_job_info_from_test_output,
+    wait_for_job_state,
+    get_last_session_project_plugins,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +48,22 @@ def test_create_job_with_worker_agent(
         )
 
         assert success
+
+        # Verify which project plugins were loaded by the worker
+        worker_project_plugins = get_last_session_project_plugins(
+            deadline_client=deadline_client,
+            farm_id=farm_id,
+            queue_id=queue_id,
+            job_id=job_id,
+        )
+
+        # The worker should have loaded EmptyContentPlugin2 and EmptyContentPlugin3 only
+        assert "EmptyContentPlugin1" not in worker_project_plugins
+        assert "EmptyContentPlugin2" in worker_project_plugins
+        assert "EmptyContentPlugin3" in worker_project_plugins
+        assert "EmptyContentPlugin4" not in worker_project_plugins
+
+        logger.info(f"Worker project plugins: {worker_project_plugins}")
 
         logger.info(f"Job {job_id} SUCCEEDED")
     else:
