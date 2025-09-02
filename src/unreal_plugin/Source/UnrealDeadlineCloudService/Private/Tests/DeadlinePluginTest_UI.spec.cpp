@@ -13,8 +13,10 @@
 #include "Interfaces/IPluginManager.h"
 #include "ObjectTools.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudJob.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudRenderJob.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudStep.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudEnvironment.h"
+#include "MovieRenderPipeline/MoviePipelineDeadlineCloudExecutorJob.h"
 #include "PythonAPILibraries/PythonYamlLibrary.h"
 #include "PythonAPILibraries/DeadlineCloudJobBundleLibrary.h"
 #include "PythonAPILibraries/PythonParametersConsistencyChecker.h"
@@ -31,6 +33,8 @@
 
 #include "PropertyEditorModule.h"
 #include "IDetailsView.h"
+
+#include "MoviePipelineQueueSubsystem.h"
 
 #define TEST_TRUE(expression) \
 	EPIC_TEST_BOOLEAN_(TEXT(#expression), expression, true)
@@ -287,15 +291,20 @@ static void ScrollToElement(FAutomationDriverPtr Driver, FDriverElementRef List,
 }
 
 template<typename AssetType>
-AssetType* CreateAndOpenAsset(
-    const FString& RelativeTemplatePath,
-    FString& OutFullTemplatePath)
+AssetType* CreateAsset(
+	const FString& RelativeTemplatePath,
+	FString& OutFullTemplatePath
+	)
 {
     OutFullTemplatePath = ConvertLocalPathToFull(RelativeTemplatePath);
     AssetType* Asset = NewObject<AssetType>();
     Asset->PathToTemplate.FilePath = OutFullTemplatePath;
 
-    if constexpr (std::is_same_v<AssetType, UDeadlineCloudJob>)
+    if constexpr (std::is_same_v<AssetType, UDeadlineCloudRenderJob>)
+    {
+        Asset->OpenJobFile(OutFullTemplatePath);
+    }
+    else if constexpr (std::is_same_v<AssetType, UDeadlineCloudJob>)
     {
         Asset->OpenJobFile(OutFullTemplatePath);
     }
@@ -307,10 +316,20 @@ AssetType* CreateAndOpenAsset(
     {
         Asset->OpenEnvFile(OutFullTemplatePath);
     }
+	return Asset;
+}
 
-    auto* Editor = GEditor->GetEditorSubsystem<UAssetEditorSubsystem>();
-    Editor->CloseAllAssetEditors();
-    Editor->OpenEditorForAsset(Asset);
+template<typename AssetType>
+AssetType* CreateAndOpenAsset(
+    const FString& RelativeTemplatePath,
+    FString& OutFullTemplatePath)
+{
+	AssetType* Asset = CreateAsset<AssetType>(RelativeTemplatePath, OutFullTemplatePath);
+
+	auto* Editor = GEditor->GetEditorSubsystem<UAssetEditorSubsystem>();
+	Editor->CloseAllAssetEditors();
+	Editor->OpenEditorForAsset(Asset);
+
     return Asset;
 }
 
@@ -337,12 +356,21 @@ FAutomationDriverPtr Driver;
 UDeadlineCloudStep* CreatedStepDataAsset;
 UDeadlineCloudEnvironment* CreatedEnvironmentDataAsset;
 UDeadlineCloudJob* CreatedJobDataAsset;
+UDeadlineCloudRenderJob* CreatedRenderJobDataAsset;
+UMoviePipelineDeadlineCloudExecutorJob* MRQJob;
 FParametersConsistencyCheckResult result;
+
+UDeadlineCloudStep* CreatedEmptyStepDataAsset;
+UDeadlineCloudEnvironment* CreatedEmptyEnvironmentDataAsset;
 
 FString PathToStepTemplate;
 FString StepTemplate = "/Source/UnrealDeadlineCloudService/Private/Tests/openjd_templates/render_step_UI.yml";
 FString PathToEnvironmentTemplate;
 FString EnvTemplate = "/Source/UnrealDeadlineCloudService/Private/Tests/openjd_templates/launch_ue_environment_UI.yml";
+FString PathToEmptyStepTemplate;
+FString EmptyStepTemplate = "/Source/UnrealDeadlineCloudService/Private/Tests/openjd_templates/render_step_UI_empty.yml";
+FString PathToEmptyEnvironmentTemplate;
+FString EmptyEnvTemplate = "/Source/UnrealDeadlineCloudService/Private/Tests/openjd_templates/launch_ue_environment_UI_empty.yml";
 FString PathToJobTemplate;
 FString JobTemplate = "/Source/UnrealDeadlineCloudService/Private/Tests/openjd_templates/render_job_UI.yml";
 
@@ -350,11 +378,45 @@ const FString DetailsPath = "<SStandaloneAssetEditorToolkitHost>//<SDetailsView>
 const FString ListPath = DetailsPath + "//<SListPanel>";
 const FString ScrollBarPath = DetailsPath + "//<SScrollBar>";
 
+const FString MRQDetailsPath = "<SMoviePipelineQueuePanel>//<SDetailsView>";
+const FString MRQListPath = MRQDetailsPath + "//<SListPanel>";
+const FString MRQScrollBarPath = MRQDetailsPath + "//<SScrollBar>";
+
+const FString MRQEditorPath = "<SStandaloneAssetEditorToolkitHost>//<SMoviePipelineQueueEditor>";
+
+const FString StringParametersPath = "#JobParameter.StringParameter//<SEditableTextBox>";
+const FString PathParametersPath = "#JobParameter.PathParameter//<SEditableTextBox>";
+const FString FloatParametersPath = "#JobParameter.FloatParameter//<SEditableText>";
+const FString IntParametersPath = "#JobParameter.IntParameter//<SEditableText>";
+const FString HiddenParametersPath = "#JobParameter.HiddenParameter//<SEditableText>";
+
+const FString Variable1Path = "#EnvironmentParameter.Variable1//<SEditableTextBox>";
+const FString Variable2Path = "#EnvironmentParameter.Variable2//<SEditableTextBox>";
+const FString Variable3Path = "#EnvironmentParameter.Variable3//<SEditableTextBox>";
+const FString HiddenVariablePath = "#EnvironmentParameter.HiddenVariable//<SEditableTextBox>";
+
+const FString StepStringParametersPath = "#StepParameter.StringParameters//<SEditableTextBox>";
+const FString StepPathParametersPath = "#StepParameter.PathParameters//<SEditableTextBox>";
+const FString StepFloatParametersPath = "#StepParameter.FloatParameters//<SEditableText>";
+const FString StepIntParametersPath = "#StepParameter.IntParameters//<SEditableText>";
+const FString StepHiddenParametersPath = "#StepParameter.HiddenParameters//<SEditableText>";
+
 FDriverElementPtr Details;
 FDriverElementPtr List;
 FDriverElementPtr ScrollBar;
 
-inline bool Init(UObject* Asset)
+
+inline bool InitForDataAsset(UObject* Asset)
+{
+	return Init(Asset, DetailsPath, ListPath, ScrollBarPath);
+}
+
+inline bool InitForMRQ(UObject* Asset)
+{
+	return Init(Asset, MRQDetailsPath, MRQListPath, MRQScrollBarPath);
+}
+
+inline bool Init(UObject* Asset, const FString& InDetailsPath, const FString& InListPath, const FString& InScrollBarPath)
 {
     if (!IsValid(Asset))
     {
@@ -362,7 +424,7 @@ inline bool Init(UObject* Asset)
         return false;
     }
     // Locate Details View
-    Details = Driver->FindElement(By::Path(DetailsPath));
+    Details = Driver->FindElement(By::Path(InDetailsPath));
     Driver->Wait(Until::ElementExists(Details.ToSharedRef(), FWaitTimeout::InSeconds(2.f)));
     if (!Details->Exists())
     {
@@ -372,14 +434,29 @@ inline bool Init(UObject* Asset)
     Details->Focus();
 
     // Locate List and ScrollBar
-    List = Driver->FindElement(By::Path(ListPath));
+    List = Driver->FindElement(By::Path(InListPath));
     if (!List->Exists())
     {
         TestTrue(TEXT("List widget should exist"), false);
         return false;
     }
-    ScrollBar = Driver->FindElement(By::Path(ScrollBarPath));
+    ScrollBar = Driver->FindElement(By::Path(InScrollBarPath));
     return true;
+}
+
+inline void ShowTestStepParameters()
+{
+	CreatedStepDataAsset->RemoveHiddenParameters("StringParameters");
+	CreatedStepDataAsset->RemoveHiddenParameters("PathParameters");
+	CreatedStepDataAsset->RemoveHiddenParameters("FloatParameters");
+	CreatedStepDataAsset->RemoveHiddenParameters("IntParameters");
+}
+
+inline void ShowTestEnvironmentParameters()
+{
+	CreatedEnvironmentDataAsset->RemoveHiddenParameter("Variable1");
+	CreatedEnvironmentDataAsset->RemoveHiddenParameter("Variable2");
+	CreatedEnvironmentDataAsset->RemoveHiddenParameter("Variable3");
 }
 
 END_DEFINE_SPEC(FDeadlinePluginUISpec);
@@ -397,14 +474,204 @@ void FDeadlinePluginUISpec::Define()
 		Driver = IAutomationDriverModule::Get().CreateDriver();
 		});
 
+	Describe("DeadlineCloudMRQJobUI", [this]()
+	{
+		BeforeEach([this]() {
+			CreatedRenderJobDataAsset = CreateAsset<UDeadlineCloudRenderJob>(JobTemplate, PathToJobTemplate);
+			CreatedRenderJobDataAsset->AddToRoot();
+			CreatedStepDataAsset = CreateAsset<UDeadlineCloudStep>(StepTemplate, PathToStepTemplate);
+			CreatedStepDataAsset->AddToRoot();
+			CreatedEnvironmentDataAsset = CreateAsset<UDeadlineCloudEnvironment>(EnvTemplate, PathToEnvironmentTemplate);
+			CreatedEnvironmentDataAsset->AddToRoot();
+
+			CreatedEmptyStepDataAsset = CreateAsset<UDeadlineCloudStep>(EmptyStepTemplate, PathToEmptyStepTemplate);
+			CreatedEmptyStepDataAsset->AddToRoot();
+			
+			CreatedEmptyEnvironmentDataAsset = CreateAsset<UDeadlineCloudEnvironment>(EmptyEnvTemplate, PathToEmptyEnvironmentTemplate);
+			CreatedEmptyEnvironmentDataAsset->AddToRoot();
+
+			CreatedStepDataAsset->Environments.Add(CreatedEmptyEnvironmentDataAsset);
+
+			CreatedRenderJobDataAsset->Steps.Add(CreatedStepDataAsset);
+			CreatedRenderJobDataAsset->Steps.Add(CreatedEmptyStepDataAsset);
+			CreatedRenderJobDataAsset->Environments.Add(CreatedEnvironmentDataAsset);
+
+			ShowTestEnvironmentParameters();
+			ShowTestStepParameters();
+
+			FModuleManager::LoadModuleChecked<IModuleInterface>("MovieRenderPipelineEditor");
+
+			const FName MRQTabName("MoviePipelineQueue");
+			FGlobalTabmanager::Get()->TryInvokeTab(MRQTabName);
+
+			UMoviePipelineQueueSubsystem* QueueSubsystem = GEditor
+				? GEditor->GetEditorSubsystem<UMoviePipelineQueueSubsystem>()
+				: nullptr;
+		
+
+			if (!QueueSubsystem)
+			{
+				TestTrue(TEXT("QueueSubsystem should exist"), false);
+				return;
+			}
+
+			UMoviePipelineQueue* Queue = QueueSubsystem->GetQueue();
+			if (!Queue)
+			{
+				TestTrue(TEXT("Queue should exist"), false);
+				return;
+			}
+
+			Queue->DeleteAllJobs();
+			MRQJob = CastChecked<UMoviePipelineDeadlineCloudExecutorJob>(Queue->AllocateNewJob(UMoviePipelineDeadlineCloudExecutorJob::StaticClass()));
+
+			if (!MRQJob)
+			{
+				TestTrue(TEXT("Cant create UMoviePipelineDeadlineCloudExecutorJob instance"), false);
+				return;
+			}
+
+			MRQJob->JobPreset = CreatedRenderJobDataAsset;
+			MRQJob->JobName = "TestMRQJob";
+			MRQJob->JobPresetChanged();
+			MRQJob->OnRequestDetailsRefresh.ExecuteIfBound();
+			});
+
+		It("MRQJobUI", EAsyncExecution::ThreadPool, FTimespan::FromSeconds(120), [this]() {
+			Driver->Wait(FTimespan::FromSeconds(1));
+			FDriverElementPtr MrqJobWidget = Driver->FindElement(By::Path("<SMoviePipelineQueueEditor>//<SQueueJobListRow>//<SExpanderArrow>"));
+			Driver->Wait(Until::ElementExists(MrqJobWidget.ToSharedRef(), FWaitTimeout::InSeconds(2.f)));
+
+			if (!MrqJobWidget->Exists())
+			{
+				TestTrue(TEXT("MRQ Job widget should exist"), false);
+				return;
+			}
+			MrqJobWidget->Focus();
+			MrqJobWidget->Click(EMouseButtons::Type::Left);
+
+			if (!InitForMRQ(MRQJob))
+			{
+				return;
+			}
+
+			ExpandAllProperties(MRQDetailsPath, Driver);
+
+			FDriverElementRef StringParametersWidget = Driver->FindElement(By::Path(StringParametersPath));
+			FDriverElementRef PathParametersWidget = Driver->FindElement(By::Path(PathParametersPath));
+			FDriverElementRef FloatParametersWidget = Driver->FindElement(By::Path(FloatParametersPath));
+			FDriverElementRef IntParametersWidget = Driver->FindElement(By::Path(IntParametersPath));
+			FDriverElementRef HiddenParametersWidget = Driver->FindElement(By::Path(HiddenParametersPath));
+
+			FDriverElementRef StepStringParametersWidget = Driver->FindElement(By::Path(StepStringParametersPath));
+			FDriverElementRef StepPathParametersWidget = Driver->FindElement(By::Path(StepPathParametersPath));
+			FDriverElementRef StepFloatParametersWidget = Driver->FindElement(By::Path(StepFloatParametersPath));
+			FDriverElementRef StepIntParametersWidget = Driver->FindElement(By::Path(StepIntParametersPath));
+			FDriverElementRef StepHiddenParametersWidget = Driver->FindElement(By::Path(StepHiddenParametersPath));
+
+			FDriverElementRef Variable1Widget = Driver->FindElement(By::Path(Variable1Path));
+			FDriverElementRef Variable2Widget = Driver->FindElement(By::Path(Variable2Path));
+			FDriverElementRef Variable3Widget = Driver->FindElement(By::Path(Variable3Path));
+			FDriverElementRef HiddenVariableWidget = Driver->FindElement(By::Path(HiddenVariablePath));
+
+			FDriverElementRef DefaultStepCategory = Driver->FindElement(By::Path("#MRQStepHeader.Render"));
+			FDriverElementRef EmptyStepCategory = Driver->FindElement(By::Path("#MRQStepHeader.Empty"));
+			FDriverElementRef DefaultEnvCategory = Driver->FindElement(By::Path("#MRQEnvHeader.LaunchUnrealEditor"));
+			FDriverElementRef EmptyStepEnvCategory = Driver->FindElement(By::Path("#MRQStepEnvHeader.Empty"));
+
+			auto VisibilityTest = [this](const FString& ParameterName, FDriverElementRef Widget, bool bShouldBeVisible)
+				{
+					ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), Widget, 50);
+					bool bIsVisible = Widget->IsVisible();
+					if (bShouldBeVisible)
+					{
+						TestTrue(ParameterName + " widget should be visible", bIsVisible);
+					}
+					else
+					{
+						TestFalse(ParameterName + " widget should be hidden", bIsVisible);
+					}
+				};
+
+			VisibilityTest("StringParameters", StringParametersWidget, true);
+			VisibilityTest("PathParameters", PathParametersWidget, true);
+			VisibilityTest("FloatParameters", FloatParametersWidget, true);
+			VisibilityTest("IntParameters", IntParametersWidget, true);
+			VisibilityTest("HiddenParameters", HiddenParametersWidget, false);
+
+			VisibilityTest("StepStringParameters", StepStringParametersWidget, true);
+			VisibilityTest("StepPathParameters", StepPathParametersWidget, true);
+			VisibilityTest("StepFloatParameters", StepFloatParametersWidget, true);
+			VisibilityTest("StepIntParameters", StepIntParametersWidget, true);
+			VisibilityTest("StepHiddenParameters", StepHiddenParametersWidget, false);
+
+			VisibilityTest("Variable1", Variable1Widget, true);
+			VisibilityTest("Variable2", Variable2Widget, true);
+			VisibilityTest("Variable3", Variable3Widget, true);
+			VisibilityTest("HiddenVariable", HiddenVariableWidget, false);
+
+			VisibilityTest("Default Step category", DefaultStepCategory, true);
+			VisibilityTest("Empty Step category", EmptyStepCategory, false);
+			VisibilityTest("Default Environment category", DefaultEnvCategory, true);
+			VisibilityTest("Empty Step Environment category", EmptyStepEnvCategory, false);
+
+			});
+
+		AfterEach([this]()
+			{
+				CreatedRenderJobDataAsset->RemoveFromRoot();
+				CreatedRenderJobDataAsset = nullptr;
+				CreatedStepDataAsset->RemoveFromRoot();
+				CreatedStepDataAsset = nullptr;
+				CreatedEnvironmentDataAsset->RemoveFromRoot();
+				CreatedEnvironmentDataAsset = nullptr;
+
+				CreatedEmptyStepDataAsset->RemoveFromRoot();
+				CreatedEmptyStepDataAsset = nullptr;
+				CreatedEmptyEnvironmentDataAsset->RemoveFromRoot();
+				CreatedEmptyEnvironmentDataAsset = nullptr;
+
+				FModuleManager::LoadModuleChecked<IModuleInterface>("MovieRenderPipelineEditor");
+
+				UMoviePipelineQueueSubsystem* QueueSubsystem = GEditor
+					? GEditor->GetEditorSubsystem<UMoviePipelineQueueSubsystem>()
+					: nullptr;
+
+				if (QueueSubsystem)
+				{
+					UMoviePipelineQueue* Queue = QueueSubsystem->GetQueue();
+					if (Queue)
+					{
+						Queue->DeleteAllJobs();
+					}
+				}
+
+				const FName MRQTabName("MoviePipelineQueue");
+				TSharedPtr<SDockTab> Tab = FGlobalTabmanager::Get()->FindExistingLiveTab(MRQTabName);
+				if (Tab.IsValid())
+				{
+					Tab->RequestCloseTab();
+				}
+			});
+	});
+
+
     Describe("DeadlineCloudJobUI", [this]()
     {
 		BeforeEach([this]() {
 			CreatedJobDataAsset = CreateAndOpenAsset<UDeadlineCloudJob>(JobTemplate, PathToJobTemplate);
+			CreatedJobDataAsset->AddToRoot();
+
+			TestTrue("HiddenParameters should contains in hidden parameters array by default", CreatedJobDataAsset->ContainsHiddenParameters("HiddenParameter"));
+			TestFalse("PathParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->ContainsHiddenParameters("PathParameter"));
+			TestFalse("IntParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->ContainsHiddenParameters("IntParameter"));
+			TestFalse("StringParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->ContainsHiddenParameters("StringParameter"));
+			TestFalse("FloatParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->ContainsHiddenParameters("FloatParameter"));
+
 			});
 
-		It("JobUI", EAsyncExecution::ThreadPool, [this]() {
-			if (!Init(CreatedJobDataAsset))
+		It("JobUI", EAsyncExecution::ThreadPool, FTimespan::FromSeconds(120), [this]() {
+			if (!InitForDataAsset(CreatedJobDataAsset))
 			{
 				return;
 			}
@@ -414,11 +681,6 @@ void FDeadlinePluginUISpec::Define()
 			FString JobNamePath = DetailsPath + "//#JobPreset.Name//<SEditableTextBox>";
 			FString DescriptionPath = DetailsPath + "//#JobPreset.Description//<SEditableTextBox>";
 
-			FString StringParametersPath = DetailsPath + "//#JobParameter.StringParameter//<SEditableTextBox>";
-			FString PathParametersPath = DetailsPath + "//#JobParameter.PathParameter//<SEditableTextBox>";
-			FString FloatParametersPath = DetailsPath + "//#JobParameter.FloatParameter//<SEditableText>";
-			FString IntParametersPath = DetailsPath + "//#JobParameter.IntParameter//<SEditableText>";
-
 			FDriverElementRef JobNameWidget = Driver->FindElement(By::Path(JobNamePath));
 			FDriverElementRef DescriptionWidget = Driver->FindElement(By::Path(DescriptionPath));
 
@@ -426,6 +688,7 @@ void FDeadlinePluginUISpec::Define()
 			FDriverElementRef PathParametersPathWidget = Driver->FindElement(By::Path(PathParametersPath));
 			FDriverElementRef FloatParametersWidget = Driver->FindElement(By::Path(FloatParametersPath));
 			FDriverElementRef IntParametersWidget = Driver->FindElement(By::Path(IntParametersPath));
+			FDriverElementRef HiddenParametersWidget = Driver->FindElement(By::Path(HiddenParametersPath));
 
 			//JobName
 			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), JobNameWidget, 50);
@@ -545,10 +808,21 @@ void FDeadlinePluginUISpec::Define()
 				InputText(IntParametersWidget, IntParametersTextInvalid, true);
 				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[3].Value, IntParametersTextValid);							
 			}		
+
+			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), HiddenParametersWidget, 50);
+			bool bHiddenParametersWidgetExists = HiddenParametersWidget->Exists();
+			bool bHiddenParametersWidgetVisible = HiddenParametersWidget->IsVisible();
+			TestTrue("HiddenParameters widget should exist", bHiddenParametersWidgetExists);
+			TestTrue("HiddenParameters widget should be visible", bHiddenParametersWidgetVisible);
+
 			});
 
         AfterEach([this]()
             {
+				auto* Editor = GEditor->GetEditorSubsystem<UAssetEditorSubsystem>();
+				Editor->CloseAllAssetEditors();
+
+				CreatedJobDataAsset->RemoveFromRoot();
                 CreatedJobDataAsset = nullptr;
             });
     });
@@ -557,25 +831,30 @@ void FDeadlinePluginUISpec::Define()
     {
 		BeforeEach([this]() {
 			CreatedStepDataAsset = CreateAndOpenAsset<UDeadlineCloudStep>(StepTemplate, PathToStepTemplate);
+			CreatedStepDataAsset->AddToRoot();
+
+			TestTrue("HiddenParameters should contains in hidden parameters array by default", CreatedStepDataAsset->ContainsHiddenParameters("HiddenParameters"));
+			TestTrue("IntParameters should contains in hidden parameters array by default", CreatedStepDataAsset->ContainsHiddenParameters("IntParameters"));
+			TestTrue("FloatParameters should contains in hidden parameters array by default", CreatedStepDataAsset->ContainsHiddenParameters("FloatParameters"));
+			TestTrue("StringParameters should contains in hidden parameters array by default", CreatedStepDataAsset->ContainsHiddenParameters("StringParameters"));
+			TestTrue("PathParameters should contains in hidden parameters array by default", CreatedStepDataAsset->ContainsHiddenParameters("PathParameters"));
+
+			ShowTestStepParameters();
 			});
 
-		It("StepUI", EAsyncExecution::ThreadPool, [this]() {
-			if (!Init(CreatedStepDataAsset))
+		It("StepUI", EAsyncExecution::ThreadPool, FTimespan::FromSeconds(120), [this]() {
+			if (!InitForDataAsset(CreatedStepDataAsset))
 			{
 				return;
 			}
 
 			ExpandAllProperties(DetailsPath, Driver);
 
-			FString StringParametersPath = DetailsPath + "//#StepParameter.StringParameters//<SEditableTextBox>";
-			FString PathParametersPath = DetailsPath + "//#StepParameter.PathParameters//<SEditableTextBox>";
-			FString FloatParametersPath = DetailsPath + "//#StepParameter.FloatParameters//<SEditableText>";
-			FString IntParametersPath = DetailsPath + "//#StepParameter.IntParameters//<SEditableText>";
-
-			FDriverElementRef StringParametersWidget = Driver->FindElement(By::Path(StringParametersPath));
-			FDriverElementRef PathParametersPathWidget = Driver->FindElement(By::Path(PathParametersPath));
-			FDriverElementRef FloatParametersWidget = Driver->FindElement(By::Path(FloatParametersPath));
-			FDriverElementRef IntParametersWidget = Driver->FindElement(By::Path(IntParametersPath));
+			FDriverElementRef StringParametersWidget = Driver->FindElement(By::Path(StepStringParametersPath));
+			FDriverElementRef PathParametersPathWidget = Driver->FindElement(By::Path(StepPathParametersPath));
+			FDriverElementRef FloatParametersWidget = Driver->FindElement(By::Path(StepFloatParametersPath));
+			FDriverElementRef IntParametersWidget = Driver->FindElement(By::Path(StepIntParametersPath));
+			FDriverElementRef HiddenParametersWidget = Driver->FindElement(By::Path(StepHiddenParametersPath));
 
 			//StringParameter
 			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), StringParametersWidget, 50);
@@ -669,10 +948,21 @@ void FDeadlinePluginUISpec::Define()
 				InputText(IntParametersWidget, IntParametersTextInvalid, true);
 				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[3].Range[0], IntParametersTextValid);
 			}
+
+			//HiddenParameter
+			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), HiddenParametersWidget, 50);
+			bool bHiddenParametersWidgetExists = HiddenParametersWidget->Exists();
+			bool bHiddenParametersWidgetVisible = HiddenParametersWidget->IsVisible();
+			TestTrue("HiddenParameters widget should exist", bHiddenParametersWidgetExists);
+			TestTrue("HiddenParameters widget should be visibile", bHiddenParametersWidgetVisible);
 		});
 
         AfterEach([this]()
             {
+				auto* Editor = GEditor->GetEditorSubsystem<UAssetEditorSubsystem>();
+				Editor->CloseAllAssetEditors();
+
+				CreatedStepDataAsset->RemoveFromRoot();
                 CreatedStepDataAsset = nullptr;
             });
     });
@@ -681,23 +971,28 @@ void FDeadlinePluginUISpec::Define()
     {
 		BeforeEach([this]() {
 			CreatedEnvironmentDataAsset = CreateAndOpenAsset<UDeadlineCloudEnvironment>(EnvTemplate, PathToEnvironmentTemplate);
+			CreatedEnvironmentDataAsset->AddToRoot();
+
+			TestTrue("HiddenVariable should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->ContainsHiddenParameters("HiddenVariable"));
+			TestTrue("Variable1 should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->ContainsHiddenParameters("Variable1"));
+			TestTrue("Variable2 should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->ContainsHiddenParameters("Variable2"));
+			TestTrue("Variable3 should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->ContainsHiddenParameters("Variable3"));
+
+			ShowTestEnvironmentParameters();
 			});
 
-		It("EnvironmentUI", EAsyncExecution::ThreadPool, [this]() {
-			if (!Init(CreatedEnvironmentDataAsset))
+		It("EnvironmentUI", EAsyncExecution::ThreadPool, FTimespan::FromSeconds(120), [this]() {
+			if (!InitForDataAsset(CreatedEnvironmentDataAsset))
 			{
 				return;
 			}
 
 			ExpandAllProperties(DetailsPath, Driver);
 
-			FString Variable1Path = DetailsPath + "//#EnvironmentParameter.Variable1//<SEditableTextBox>";
-			FString Variable2Path = DetailsPath + "//#EnvironmentParameter.Variable2//<SEditableTextBox>";
-			FString Variable3Path = DetailsPath + "//#EnvironmentParameter.Variable3//<SEditableTextBox>";
-
 			FDriverElementRef Variable1Widget = Driver->FindElement(By::Path(Variable1Path));
 			FDriverElementRef Variable2Widget = Driver->FindElement(By::Path(Variable2Path));
 			FDriverElementRef Variable3Widget = Driver->FindElement(By::Path(Variable3Path));
+			FDriverElementRef HiddenVariableWidget = Driver->FindElement(By::Path(HiddenVariablePath));
 
 			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), Variable1Widget, 50);
 			bool bVariable1WidgetExists = Variable1Widget->Exists();
@@ -721,10 +1016,20 @@ void FDeadlinePluginUISpec::Define()
 				InputText(Variable2Widget, "ThisInputIsWayTooLongForValidation", false);
 				TEST_EQUAL(CreatedEnvironmentDataAsset->Variables.Variables["Variable2"], Variable2OldValue);
 			}
+
+			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), HiddenVariableWidget, 50);
+			bool bHiddenVariableWidgetExists = HiddenVariableWidget->Exists();
+			bool bHiddenVariableWidgetVisible = HiddenVariableWidget->IsVisible();
+			TestTrue("HiddenVariable widget should exist", bHiddenVariableWidgetExists);
+			TestTrue("HiddenVariable widget should be visibile", bHiddenVariableWidgetVisible);
 		});
 
         AfterEach([this]()
 			{
+				auto* Editor = GEditor->GetEditorSubsystem<UAssetEditorSubsystem>();
+				Editor->CloseAllAssetEditors();
+
+				CreatedEnvironmentDataAsset->RemoveFromRoot();
 				CreatedEnvironmentDataAsset = nullptr;
 		});
     });

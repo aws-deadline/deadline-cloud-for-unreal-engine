@@ -11,6 +11,9 @@
 #include "Misc/EngineVersionComparison.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudDetailsWidgetsHelper.h"
 #include "Framework/MetaData/DriverMetaData.h"
+#include "PropertyEditorModule.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudStepOverrideCustomization.h"
+
 #define LOCTEXT_NAMESPACE "UnrealDeadlineCloudServiceModule"
 
 TSharedRef<IPropertyTypeCustomization> FDeadlineCloudJobPresetDetailsCustomization::MakeInstance()
@@ -628,5 +631,6 @@ void FPropertyAvailabilityHandler::EnableInMovieRenderQueue(IDetailPropertyRow& 
             CustomValueWidget.IsValid() ? CustomValueWidget.ToSharedRef() : ValueWidget.ToSharedRef()
         ];
 }
+
 
 #undef LOCTEXT_NAMESPACE

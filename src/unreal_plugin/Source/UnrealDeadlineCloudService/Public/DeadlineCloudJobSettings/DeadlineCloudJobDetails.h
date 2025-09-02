@@ -27,6 +27,7 @@
 #include "EditorStyleSet.h"
 #include "SourceControlOperations.h"
 #include "PropertyCustomizationHelpers.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudStepOverrideCustomization.h"
 
 
 class UDeadlineCloudJob;
@@ -50,6 +51,8 @@ public:
     void OnEyeHideWidgetButtonClicked(FName NameWidget) const;
     bool IsPropertyHidden(FName Parameter) const;
 
+    void GenerateStepsExtraChildren(IDetailChildrenBuilder& ChildrenBuilder);
+    void GenerateEnvironmentsExtraChildren(IDetailChildrenBuilder& ChildrenBuilder);
 
     FUIAction EmptyCopyPasteAction;
     FOnIsEnabled OnIsEnabled;
@@ -69,6 +72,7 @@ private:
     TSharedRef<IPropertyHandle> BaseProperty;
 
     bool IsEyeWidgetEnabled(FName Parameter) const;
+    bool IsParameterVisibilityChangedFromDefault(FName Parameter) const;
 };
 
 class FDeadlineCloudJobParametersArrayCustomization : public IPropertyTypeCustomization
@@ -95,10 +99,41 @@ public:
     /** End IPropertyTypeCustomization interface */
 
 private:
-    static UMoviePipelineDeadlineCloudExecutorJob* GetMrqJob(TSharedRef<IPropertyHandle> Handle);
     static UDeadlineCloudJob* GetJob(TSharedRef<IPropertyHandle> Handle);
 
     TSharedPtr<FDeadlineCloudJobParametersArrayBuilder> ArrayBuilder;
+
+};
+
+class FJobTemplateOverridesCustomization : public IPropertyTypeCustomization
+{
+public:
+
+    static TSharedRef<IPropertyTypeCustomization> MakeInstance()
+    {
+        return MakeShared<FJobTemplateOverridesCustomization>();
+    }
+
+    FJobTemplateOverridesCustomization() = default;
+
+    /** Begin IPropertyTypeCustomization interface */
+    virtual void CustomizeHeader(
+        TSharedRef<IPropertyHandle> InPropertyHandle,
+        FDetailWidgetRow& InHeaderRow,
+        IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
+
+    virtual void CustomizeChildren(
+        TSharedRef<IPropertyHandle> InPropertyHandle,
+        IDetailChildrenBuilder& InChildBuilder,
+        IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
+    /** End IPropertyTypeCustomization interface */
+
+private:
+    static UDeadlineCloudJob* GetJob(TSharedRef<IPropertyHandle> Handle);
+
+    TSharedPtr<FDeadlineCloudJobParametersArrayBuilder> ParametersArrayBuilder;
+    TSharedPtr<FDeadlineCloudStepOverrideArrayBuilder> StepsArrayBuilder;
+    TSharedPtr<FDetailArrayBuilder> EnvArrayBuilder;
 
 };
 
@@ -114,7 +149,7 @@ public:
     TWeakObjectPtr<UDeadlineCloudJob> Settings;
 
     void OnConsistencyButtonClicked();
-    void OnViewAllButtonClicked();
+    void OnResetHiddenParametersClicked();
 
     EVisibility GetConsistencyWidgetVisibility() const;
     EVisibility GetEyeWidgetVisibility() const;

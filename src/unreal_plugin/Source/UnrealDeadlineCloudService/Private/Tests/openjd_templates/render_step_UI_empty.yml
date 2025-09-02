@@ -1,18 +1,11 @@
-name: Render
+name: Empty
 parameterSpace:
   taskParameterDefinitions:
-  - name: ChunkId
-    type: INT
-    range: []
-  - name: Handler
-    type: STRING
-    range: []
-  - name: QueueManifestPath
-    type: PATH
-    range: []
-  - name: OutputPath
-    type: PATH
-    range: []
+  - name: HiddenParameters
+    type: FLOAT
+    range: [
+    1.5
+    ]  
 script:
   embeddedFiles:
   - name: runData
@@ -23,7 +16,6 @@ script:
       queue_manifest_path: {{Task.Param.QueueManifestPath}}
       chunk_size: {{Task.Param.ChunkSize}}
       chunk_id: {{Task.Param.ChunkId}}
-      output_path: {{Task.Param.OutputPath}}
   actions:
     onRun:
       command: unreal-engine-openjd

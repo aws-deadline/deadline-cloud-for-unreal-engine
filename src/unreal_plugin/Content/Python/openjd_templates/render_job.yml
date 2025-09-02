@@ -7,19 +7,37 @@ parameterDefinitions:
   type: PATH
   objectType: FILE
   dataFlow: IN
+  userInterface: 
+   control: HIDDEN
 - name: ExtraCmdArgs
   type: STRING
   default: '-log'
+  userInterface: 
+   control: LINE_EDIT
 - name: ExtraCmdArgsFile
   type: PATH
   objectType: FILE
   dataFlow: IN
+  userInterface: 
+   control: HIDDEN
 - name: Executable
   type: STRING
   default: 'UnrealEditor-Cmd'
+  userInterface: 
+   control: HIDDEN
 - name: CondaPackages
   type: STRING
   default: unrealengine=5.6 unrealengine-openjd=0.5.*
+  userInterface: 
+   control: LINE_EDIT
 - name: CondaChannels
   type: STRING
   default: deadline-cloud
+  userInterface: 
+   control: LINE_EDIT
+- name: ChunkSize
+  type: INT
+  default: 1
+  userInterface: 
+   control: HIDDEN
+

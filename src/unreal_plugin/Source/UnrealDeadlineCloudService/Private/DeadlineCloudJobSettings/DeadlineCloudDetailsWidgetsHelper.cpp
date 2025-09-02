@@ -2,6 +2,7 @@
 
 #include "DeadlineCloudJobSettings/DeadlineCloudDetailsWidgetsHelper.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudInputValidationHelper.h"
+#include "MovieRenderPipeline/MoviePipelineDeadlineCloudExecutorJob.h"
 #include "Widgets/Input/SFilePathPicker.h"
 #include "DetailLayoutBuilder.h"
 #include "Widgets/Input/SNumericEntryBox.h"
@@ -495,17 +496,17 @@ SEyeUpdateWidget makes these parameters visible/hidden to user in Deadline Job|S
 void FDeadlineCloudDetailsWidgetsHelper::SEyeUpdateWidget::Construct(const FArguments& InArgs) {
 
 	OnEyeUpdateButtonClicked = InArgs._OnEyeUpdateButtonClicked;
-	bShowHidden = InArgs._bShowHidden_;
 
 	ChildSlot
 		[
 			SNew(SHorizontalBox)
 				+ SHorizontalBox::Slot()
 				.AutoWidth()
+				.VAlign(VAlign_Center)
 				.Padding(5)
 				[
 					SNew(STextBlock)
-						.Text(FText::FromString("Some parameters will be hidden in MRQ. "))
+						.Text(FText::FromString("Visibility parameters have been changed by the user, restore default values?"))
 				]
 
 				+ SHorizontalBox::Slot()
@@ -655,6 +656,30 @@ TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateStringWidget(TShar
 	return SNew(SDeadlineCloudStringWidget)
 		.StringPropertyHandle(ParameterHandle)
 		.IsValidInput(Validation);
+}
+
+UMoviePipelineDeadlineCloudExecutorJob* FDeadlineCloudDetailsWidgetsHelper::GetMrqJob(TSharedRef<IPropertyHandle> Handle)
+{
+	TArray<UObject*> OuterObjects;
+	Handle->GetOuterObjects(OuterObjects);
+
+	if (OuterObjects.Num() == 0)
+	{
+		return nullptr;
+	}
+
+	const TWeakObjectPtr<UObject> OuterObject = OuterObjects[0];
+	if (!OuterObject.IsValid())
+	{
+		return nullptr;
+	}
+	
+	UMoviePipelineDeadlineCloudExecutorJob* MrqJob = Cast<UMoviePipelineDeadlineCloudExecutorJob>(OuterObject);
+	if (MrqJob)
+	{
+		return MrqJob;
+	}
+	else return nullptr;
 }
 
 

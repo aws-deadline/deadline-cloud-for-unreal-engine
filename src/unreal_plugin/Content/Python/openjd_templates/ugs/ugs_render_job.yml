@@ -23,3 +23,6 @@ parameterDefinitions:
 - name: Executable
   type: STRING
   default: 'UnrealEditor-Cmd'
+- name: ChunkSize
+  type: INT
+  default: 1

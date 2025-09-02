@@ -45,6 +45,29 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
         elif job_parameter.get("default") is not None:
             u_parameter_definition.value = str(job_parameter["default"])
 
+        # Map userInterface.control to UserInterfaceControl enum
+        if "userInterface" in job_parameter and "control" in job_parameter["userInterface"]:
+            control_value = job_parameter["userInterface"]["control"]
+            # Map YAML control values to Unreal enum values
+            control_mapping = {
+                "LINE_EDIT": unreal.UserInterfaceControl.LINE_EDIT,
+                "MULTILINE_EDIT": unreal.UserInterfaceControl.MULTILINE_EDIT,
+                "DROPDOWN_LIST": unreal.UserInterfaceControl.DROPDOWN_LIST,
+                "CHECK_BOX": unreal.UserInterfaceControl.CHECK_BOX,
+                "HIDDEN": unreal.UserInterfaceControl.HIDDEN,
+                "CHOOSE_INPUT_FILE": unreal.UserInterfaceControl.CHOOSE_INPUT_FILE,
+                "CHOOSE_OUTPUT_FILE": unreal.UserInterfaceControl.CHOOSE_OUTPUT_FILE,
+                "CHOOSE_DIRECTORY": unreal.UserInterfaceControl.CHOOSE_DIRECTORY,
+                "SPIN_BOX": unreal.UserInterfaceControl.SPIN_BOX,
+            }
+            if control_value in control_mapping:
+                u_parameter_definition.user_interface_control = control_mapping[control_value]
+            else:
+                # Default to LINE_EDIT if unknown control type
+                u_parameter_definition.user_interface_control = (
+                    unreal.UserInterfaceControl.LINE_EDIT
+                )
+
         return u_parameter_definition
 
     @staticmethod

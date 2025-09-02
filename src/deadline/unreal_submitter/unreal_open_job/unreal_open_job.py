@@ -208,8 +208,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
                 step.host_requirements = host_requirements
 
         shared_settings = data_asset.job_preset_struct.job_shared_settings
-
-        return cls(
+        result_job = cls(
             file_path=data_asset.path_to_template.file_path,
             name=None if shared_settings.name in ["", "Untitled"] else shared_settings.name,
             steps=steps,
@@ -224,6 +223,11 @@ class UnrealOpenJob(UnrealOpenJobEntity):
                 shared_settings
             ),
         )
+
+        for step in result_job._steps:
+            step.open_job = result_job
+
+        return result_job
 
     @staticmethod
     def serialize_template(template: Template) -> dict[str, Any]:
@@ -614,12 +618,12 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         if (
             self._mrq_job is not None
-            and self._mrq_job.parameter_definition_overrides is not None
-            and self._mrq_job.parameter_definition_overrides.parameters
+            and self._mrq_job.job_template_overrides is not None
+            and self._mrq_job.job_template_overrides.parameters
         ):
             self._extra_parameters = [
                 UnrealOpenJobParameterDefinition.from_unreal_param_definition(p)
-                for p in self._mrq_job.parameter_definition_overrides.parameters
+                for p in self._mrq_job.job_template_overrides.parameters
             ]
 
         if (
@@ -689,7 +693,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         shared_settings = data_asset.job_preset_struct.job_shared_settings
 
-        return cls(
+        result_job = cls(
             file_path=data_asset.path_to_template.file_path,
             name=None if shared_settings.name in ["", "Untitled"] else shared_settings.name,
             steps=steps,
@@ -702,6 +706,11 @@ class RenderUnrealOpenJob(UnrealOpenJob):
                 shared_settings
             ),
         )
+
+        for step in result_job._steps:
+            step.open_job = result_job
+
+        return result_job
 
     @classmethod
     def from_mrq_job(
@@ -782,7 +791,11 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
             # find appropriate step override
             step_override = next(
-                (override for override in mrq_job.steps_overrides if override.name == step.name),
+                (
+                    override
+                    for override in mrq_job.job_template_overrides.steps_overrides
+                    if override.name == step.name
+                ),
                 None,
             )
             if not step_override:
@@ -827,7 +840,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             override_environment = next(
                 (
                     env_override
-                    for env_override in mrq_job.environments_overrides
+                    for env_override in mrq_job.job_template_overrides.environments_overrides
                     if env_override.name == env.name
                 ),
                 None,

@@ -31,6 +31,8 @@ struct  FDeadlineCloudStepOverride
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 4))
 	FDeadlineCloudStepParametersArray TaskParameterDefinitions;
+
+	TArray<FName> HiddenParametersList;
 };
 
 UCLASS(BlueprintType, Blueprintable)
@@ -95,33 +97,58 @@ public:
 		MarkPackageDirty();
 		ParameterHiddenEvent();
 	};
+
 	void ClearHiddenParameters()
 	{
 		HiddenParametersList.Empty();
 		Modify();
 		MarkPackageDirty();
 	};
+
 	bool AreEmptyHiddenParameters() { return HiddenParametersList.IsEmpty(); };
 	bool ContainsHiddenParameters(FName Parameter) { return HiddenParametersList.Contains(Parameter); };
+
 	void RemoveHiddenParameters(FName Parameter) {
 		HiddenParametersList.Remove(Parameter);
 		Modify();
 		MarkPackageDirty();
 		ParameterHiddenEvent();
 	};
+
 	FSimpleDelegate OnParameterHidden;
 
 	void ParameterHiddenEvent() {
 		if (OnParameterHidden.IsBound())
-
 		{
 			OnParameterHidden.Execute();
 		}
 	};
-	bool GetDisplayHiddenParameters() { return bDisplayHiddenWidgets; };
-	void SetDisplayHiddenParameters(bool ShowParameters) { bDisplayHiddenWidgets = ShowParameters; };
+
+	TArray<FName> GetDisplayHiddenParametersNames() { return HiddenParametersList; };
+
+	bool IsParametersHiddenByDefault() 
+	{ 
+		bool bAllParametersHidden = true;
+		for (auto Parameter : TaskParameterDefinitions.Parameters)
+		{
+			if (!HiddenParametersList.Contains(Parameter.Name))
+			{
+				bAllParametersHidden = false;
+				break;
+			}
+		}
+		return bAllParametersHidden;
+	};
+
+	void ResetParametersHiddenToDefault() 
+	{
+		for (auto Parameter : TaskParameterDefinitions.Parameters)
+		{
+			AddHiddenParameter(FName(Parameter.Name));
+		}
+	};
 private:
 	UPROPERTY(EditAnywhere, Category = "Parameters", meta = (HideInDetailPanel))
 	TArray<FName> HiddenParametersList;
-	bool bDisplayHiddenWidgets = false;
+
 };

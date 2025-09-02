@@ -42,17 +42,17 @@ public:
     TObjectPtr<UDeadlineCloudStep> Step;
     FName StepName;
 
-    static UMoviePipelineDeadlineCloudExecutorJob* GetMrqJob(TSharedRef<IPropertyHandle> Handle);
-
 
 
 private:
     void OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const;
 
-    TArray<FName> PropertiesToShow = { "ChunkSize" };
+    TArray<FName> PropertiesToShow = { };
 	TSharedPtr<IPropertyHandleArray> ArrayProperty;
+	TSharedPtr<IPropertyHandle> OriginalPropertyHandle;
 
     bool IsEyeWidgetEnabled(FName Parameter) const;
+    bool IsParameterChangedFromDefault(FName Parameter) const;
 };
 
 class FDeadlineCloudStepParametersArrayCustomization : public IPropertyTypeCustomization
@@ -82,8 +82,6 @@ public:
     /** End IPropertyTypeCustomization interface */
 
 private:
-    static UMoviePipelineDeadlineCloudExecutorJob* GetMrqJob(TSharedRef<IPropertyHandle> Handle);
-    static UDeadlineCloudStep* GetStep(TSharedRef<IPropertyHandle> Handle);
     TSharedPtr<FDeadlineCloudStepParametersArrayBuilder> ArrayBuilder;
 };
 
@@ -104,6 +102,8 @@ public:
 
     FUIAction EmptyCopyPasteAction;
     FOnIsEnabled OnIsEnabled;
+    TObjectPtr<UMoviePipelineDeadlineCloudExecutorJob> MrqJob;
+    TSharedPtr<IPropertyHandle> ParentPropertyHandle;
 
 private:
     void OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const;
@@ -150,7 +150,7 @@ public:
     static TSharedRef<IDetailCustomization> MakeInstance();
     virtual  void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
 
-    void OnViewAllButtonClicked();
+    void OnResetHiddenParametersClicked();
     void OnConsistencyButtonClicked();
     bool CheckConsistency(UDeadlineCloudStep* Step);
     bool bCheckConsistensyPassed = true;

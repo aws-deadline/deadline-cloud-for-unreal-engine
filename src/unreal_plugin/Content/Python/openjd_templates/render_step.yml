@@ -10,9 +10,6 @@ parameterSpace:
   - name: QueueManifestPath
     type: PATH
     range: []
-  - name: ChunkSize
-    type: INT
-    range: [1]
 script:
   embeddedFiles:
   - name: runData
@@ -21,7 +18,7 @@ script:
     data: |
       handler: {{Task.Param.Handler}}
       queue_manifest_path: {{Task.Param.QueueManifestPath}}
-      chunk_size: {{Task.Param.ChunkSize}}
+      chunk_size: {{Param.ChunkSize}}
       chunk_id: {{Task.Param.ChunkId}}
   actions:
     onRun:

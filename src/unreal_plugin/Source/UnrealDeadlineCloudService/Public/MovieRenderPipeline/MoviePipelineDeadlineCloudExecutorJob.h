@@ -7,7 +7,7 @@
 #include "DeadlineCloudJobSettings/DeadlineCloudRenderStep.h"
 #include "IDetailCustomization.h"
 #include "MoviePipelineQueue.h"
-
+#include "DeadlineCloudJobSettings/DeadlineCloudJobPresetDetailsCustomization.h"
 #include "MoviePipelineDeadlineCloudExecutorJob.generated.h"
 
 /**
@@ -20,6 +20,22 @@ struct FPropertyRowEnabledInfo
 
     FName PropertyPath;
     bool bIsEnabled = false;
+};
+
+//struct like DeadlineCloudJobParametersArray with step and env overrides
+USTRUCT(BlueprintType)
+struct UNREALDEADLINECLOUDSERVICE_API FJobTemplateOverrides
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
+    TArray<FParameterDefinition> Parameters;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
+    TArray<FDeadlineCloudStepOverride> StepsOverrides;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
+    TArray<FDeadlineCloudEnvironmentOverride> EnvironmentsOverrides;
 };
 
 /**
@@ -79,6 +95,9 @@ public:
     TArray<FDeadlineCloudStepOverride> GetStepsToOverride(const UDeadlineCloudJob* Preset);
     UFUNCTION()
     TArray<FDeadlineCloudEnvironmentOverride> GetEnvironmentsToOverride(const UDeadlineCloudJob* Preset);
+    
+    UFUNCTION()
+    bool HasEditableParameters(const FDeadlineCloudStepOverride& StepOverride) const;
 
     /**
      * Reference to Deadline Cloud job preset DataAsset. Source for default job settings
@@ -96,15 +115,10 @@ public:
  * Reference to Deadline Cloud job parameters. Contains overriden job settings
  */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
-    FDeadlineCloudJobParametersArray ParameterDefinitionOverrides = FDeadlineCloudJobParametersArray();
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
-    TArray<FDeadlineCloudStepOverride> StepsOverrides = TArray<FDeadlineCloudStepOverride>();
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
-    TArray<FDeadlineCloudEnvironmentOverride> EnvironmentsOverrides = TArray<FDeadlineCloudEnvironmentOverride>();
+    FJobTemplateOverrides JobTemplateOverrides = FJobTemplateOverrides();
 
     void JobPresetChanged();
+    
     static bool IsAssetFileValid(const FString& FilePath);
 	static bool IsAssetDirectoryValid(const FString& DirectoryPath);
 

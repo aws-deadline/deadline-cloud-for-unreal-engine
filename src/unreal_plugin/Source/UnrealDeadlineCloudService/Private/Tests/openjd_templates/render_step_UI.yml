@@ -21,6 +21,11 @@ parameterSpace:
     range: [
     3
     ]
+  - name: HiddenParameters
+    type: STRING
+    range: [
+    HiddenParameter
+    ]    
 script:
   embeddedFiles:
   - name: runData

@@ -141,6 +141,8 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
 
         self._create_missing_extra_parameters_from_template()
 
+        self._open_job = None
+
     @property
     def host_requirements(self):
         return self._host_requirements
@@ -164,6 +166,14 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
     @environments.setter
     def environments(self, value: list[UnrealOpenJobEnvironment]):
         self._environments = value
+
+    @property
+    def open_job(self):
+        return self._open_job
+
+    @open_job.setter
+    def open_job(self, value):
+        self._open_job = value
 
     @classmethod
     def from_data_asset(cls, data_asset: unreal.DeadlineCloudStep) -> "UnrealOpenJobStep":
@@ -457,21 +467,24 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
 
         enabled_shots = [shot for shot in self.mrq_job.shot_info if shot.enabled]
 
-        task_chunk_size_param = self._find_extra_parameter(
+        if not self.open_job:
+            raise exceptions.OpenJobIsMissingError("Render Job must be provided")
+
+        chunk_size_parameter = self.open_job._find_extra_parameter(
             parameter_name=OpenJobStepParameterNames.TASK_CHUNK_SIZE, parameter_type="INT"
         )
-        if task_chunk_size_param is None:
+
+        if chunk_size_parameter is None:
             raise ValueError(
-                f'Render Step\'s parameter "{OpenJobStepParameterNames.TASK_CHUNK_SIZE}" '
+                f'Render Job\'s parameter "{OpenJobStepParameterNames.TASK_CHUNK_SIZE}" '
                 f"must be provided in extra parameters or template"
             )
 
-        if len(task_chunk_size_param.range) == 0 or int(task_chunk_size_param.range[0]) <= 0:
-            task_chunk_size = 1  # by default 1 chunk consist of 1 shot
-        else:
-            task_chunk_size = task_chunk_size_param.range[0]
+        chunk_size = chunk_size_parameter.value
+        if chunk_size <= 0:
+            chunk_size = 1  # by default 1 chunk consist of 1 shot
 
-        task_chunk_ids_count = math.ceil(len(enabled_shots) / task_chunk_size)
+        task_chunk_ids_count = math.ceil(len(enabled_shots) / chunk_size)
 
         return task_chunk_ids_count
 

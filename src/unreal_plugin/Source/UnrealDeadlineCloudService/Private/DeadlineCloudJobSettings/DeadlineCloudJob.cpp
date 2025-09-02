@@ -15,6 +15,7 @@ void UDeadlineCloudJob::OpenJobFile(const FString& Path)
     if (auto Library = UPythonYamlLibrary::Get())
     {
         ParameterDefinition.Parameters = Library->OpenJobFile(Path);
+        ResetParametersHiddenToDefault();
     }
     else
     {

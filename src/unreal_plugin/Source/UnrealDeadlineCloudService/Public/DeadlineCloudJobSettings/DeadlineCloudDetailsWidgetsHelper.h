@@ -47,8 +47,7 @@ public:
 	{
 	public:
 		SLATE_BEGIN_ARGS(SEyeUpdateWidget)
-			: _bShowHidden_() {}
-			SLATE_ARGUMENT(bool, bShowHidden_)
+			{}
 			SLATE_EVENT(FSimpleDelegate, OnEyeUpdateButtonClicked)
 		SLATE_END_ARGS()
 		
@@ -56,14 +55,11 @@ public:
 	
 	private:
 		FText ButtonText;
-		bool bShowHidden;
 		FSimpleDelegate OnEyeUpdateButtonClicked;
 
 		
 		FReply HandleButtonClicked()
 		{
-			bShowHidden = !bShowHidden;
-
 			if (OnEyeUpdateButtonClicked.IsBound())
 			{
 				OnEyeUpdateButtonClicked.Execute();
@@ -73,7 +69,7 @@ public:
 		}
 		FText GetButtonText() const
 		{
-			return (bShowHidden) ? FText::FromString("Hide") : FText::FromString("Show");
+			return FText::FromString("Reset to default");
 
 		}
 
@@ -89,10 +85,31 @@ public:
 	public:
 
 
-		void Construct(const FArguments& InArgs, const FName& InPropertyPath_, const bool bIsChecked_)	
+		void Construct(const FArguments& InArgs, const FName& InPropertyPath_, const bool bIsChecked_, const bool bIsChangedByUser_)
 		{
 			InPropertyPath = InPropertyPath_;
 			bIsChecked = bIsChecked_;
+			bIsChangedByUser = bIsChangedByUser_;
+
+			DynamicStyle = FAppStyle::Get().GetWidgetStyle<FCheckBoxStyle>("ToggleButtonCheckbox");
+
+			FLinearColor TintColor = bIsChangedByUser
+				? FLinearColor(1.f, 1.f, 0.f, 1.f) // w
+				: FLinearColor::White; // y
+
+			DynamicStyle.CheckedImage = *FAppStyle::Get().GetBrush("Icons.Visible");
+			DynamicStyle.CheckedHoveredImage = *FAppStyle::Get().GetBrush("Icons.Hidden");
+			DynamicStyle.CheckedPressedImage = *FAppStyle::Get().GetBrush("Icons.Hidden");
+			DynamicStyle.UncheckedImage = *FAppStyle::Get().GetBrush("Icons.Hidden");
+			DynamicStyle.UncheckedHoveredImage = *FAppStyle::Get().GetBrush("Icons.Visible");
+			DynamicStyle.UncheckedPressedImage = *FAppStyle::Get().GetBrush("Icons.Visible");
+
+			DynamicStyle.UncheckedImage.TintColor = FSlateColor(TintColor);
+			DynamicStyle.CheckedImage.TintColor = FSlateColor(TintColor);
+			DynamicStyle.CheckedHoveredImage.TintColor = FSlateColor(TintColor);
+			DynamicStyle.CheckedPressedImage.TintColor = FSlateColor(TintColor);
+			DynamicStyle.UncheckedHoveredImage.TintColor = FSlateColor(TintColor);
+			DynamicStyle.UncheckedPressedImage.TintColor = FSlateColor(TintColor);
 			
 			ChildSlot
 				[
@@ -104,24 +121,18 @@ public:
 						.Padding(4, 0)
 						[
 							SAssignNew(CheckBoxPtr, SCheckBox)
-								.Style(&FAppStyle::Get().GetWidgetStyle<FCheckBoxStyle>("ToggleButtonCheckbox"))
+								.Style(&DynamicStyle)
 								.IsChecked_Lambda([this]()
 									{
 										return bIsChecked ? ECheckBoxState::Checked  : ECheckBoxState::Unchecked;
 										
 									})
+
 								.Visibility_Lambda([this]()
 									{
 										return CheckBoxPtr.IsValid() ? EVisibility::Visible : IsHovered() ? EVisibility::Visible : EVisibility::Hidden;
 									})
-								.CheckedImage(FAppStyle::Get().GetBrush("Icons.Visible"))
-										.CheckedHoveredImage(FAppStyle::Get().GetBrush("Icons.Hidden"))
-										.CheckedPressedImage(FAppStyle::Get().GetBrush("Icons.Hidden"))
-										.UncheckedImage(FAppStyle::Get().GetBrush("Icons.Hidden"))
-										.UncheckedHoveredImage(FAppStyle::Get().GetBrush("Icons.Visible"))
-										.UncheckedPressedImage(FAppStyle::Get().GetBrush("Icons.Visible"))
-										.ToolTipText(NSLOCTEXT("FDeadlineJobPresetLibraryCustomization", "VisibleInMoveRenderQueueToolTip", "If true this property will be visible for overriding from Movie Render Queue."))
-
+									.ToolTipText(NSLOCTEXT("FDeadlineJobPresetLibraryCustomization", "VisibleInMoveRenderQueueToolTip", "If true this property will be visible for overriding from Movie Render Queue."))
 										.OnCheckStateChanged(this, &SEyeCheckBox::HandleCheckStateChanged)
 						]
 				];
@@ -129,13 +140,13 @@ public:
 
 		DECLARE_DELEGATE_OneParam(FOnCheckStateChangedDelegate, FName);
 		
-
+	
 	void SetOnCheckStateChangedDelegate(FOnCheckStateChangedDelegate InDelegate)
 	{
-			OnCheckStateChangedDelegate = InDelegate;
+		OnCheckStateChangedDelegate = InDelegate;
 	}
 		TSharedPtr<SCheckBox> CheckBoxPtr;
-
+		FCheckBoxStyle DynamicStyle;
 
 	private:
 		FOnCheckStateChangedDelegate OnCheckStateChangedDelegate;
@@ -153,9 +164,13 @@ public:
 		}
 		FName InPropertyPath;
 		bool bIsChecked;
+		bool bIsChangedByUser = false;
 
 	};
 	static TSharedRef<SWidget> CreateEyeUpdateWidget();
+	
+	/** Get the MoviePipelineDeadlineCloudExecutorJob from a property handle */
+	static UMoviePipelineDeadlineCloudExecutorJob* GetMrqJob(TSharedRef<IPropertyHandle> Handle);
 	
 private:
 
