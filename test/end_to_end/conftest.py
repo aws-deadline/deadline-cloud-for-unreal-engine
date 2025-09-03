@@ -827,15 +827,27 @@ def create_readonly_test_project(request) -> Generator[Tuple[str, str], None, No
     project_path = os.path.join(dest_path, "TP_DMXBP.uproject")
     add_plugins_to_project(
         project_path,
-        ["UnrealDeadlineCloudService", "MovieRenderPipeline", "EmptyContentPlugin2"],
+        ["UnrealDeadlineCloudService", "MovieRenderPipeline"],
         True,
     )
-    add_plugins_to_project(project_path, ["EmptyContentPlugin1"], False)
-    add_content_plugins_to_project(dest_path, ["EmptyContentPlugin1", "EmptyContentPlugin3"], True)
-    add_content_plugins_to_project(dest_path, ["EmptyContentPlugin2", "EmptyContentPlugin4"], False)
 
     yield dest_path, project_path
 
+@pytest.fixture(scope="session")
+def create_test_project_with_content_plugins(create_readonly_test_project) -> Generator[Tuple[str, str], None, None]:
+    dest_path, project_path = create_readonly_test_project
+
+    # Add content plugins
+    # 1,3 enabled by default and 2,4 disabled by default
+    add_content_plugins_to_project(dest_path, ["EmptyContentPlugin1", "EmptyContentPlugin3"], True)
+    add_content_plugins_to_project(dest_path, ["EmptyContentPlugin2", "EmptyContentPlugin4"], False)
+
+    # Disable plugin 1 and enable plugin 2 in the project
+    add_plugins_to_project(project_path, ["EmptyContentPlugin1"], False)
+    add_plugins_to_project(project_path, ["EmptyContentPlugin2"], True)
+
+    # As a result, we end up with two active plugins(2,3) and two inactive ones(1,4) via different paths
+    yield dest_path, project_path
 
 @pytest.fixture(scope="session")
 def session() -> boto3.Session:
@@ -1826,7 +1838,7 @@ def _extract_project_plugins_from_log_events(logs_client, log_group, log_stream)
         A sorted list of unique project plugin names
     """
     plugin_names = set()
-    pattern = re.compile(r"Mounting Project plugin\s+(?P<name>.+?)\s*$")
+    pattern = re.compile(r"Mounting Project plugin\s+(?P<name>[^\s]+(?:\s+[^\s]+)*)\s*$")
 
     next_token = None
     while True:

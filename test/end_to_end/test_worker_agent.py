@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 def test_create_job_with_worker_agent(
     deadline_client,
     build_plugin,
-    create_readonly_test_project,
+    create_test_project_with_content_plugins,
     run_unreal_test,
     deadline_worker_agent,
 ):
@@ -25,7 +25,7 @@ def test_create_job_with_worker_agent(
     # The deadline_worker_agent fixture will start the worker agent before this test runs
     # and will stop it after the test completes
 
-    _, uproject_file = create_readonly_test_project
+    _, uproject_file = create_test_project_with_content_plugins
 
     logger.info(f"Creating job from project {uproject_file}")
     success, output_lines = run_unreal_test("DeadlineCloud.Integration.CreateJob", uproject_file)
