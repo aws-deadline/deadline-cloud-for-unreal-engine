@@ -833,8 +833,11 @@ def create_readonly_test_project(request) -> Generator[Tuple[str, str], None, No
 
     yield dest_path, project_path
 
+
 @pytest.fixture(scope="session")
-def create_test_project_with_content_plugins(create_readonly_test_project) -> Generator[Tuple[str, str], None, None]:
+def create_test_project_with_content_plugins(
+    create_readonly_test_project,
+) -> Generator[Tuple[str, str], None, None]:
     dest_path, project_path = create_readonly_test_project
 
     # Add content plugins
@@ -848,6 +851,7 @@ def create_test_project_with_content_plugins(create_readonly_test_project) -> Ge
 
     # As a result, we end up with two active plugins(2,3) and two inactive ones(1,4) via different paths
     yield dest_path, project_path
+
 
 @pytest.fixture(scope="session")
 def session() -> boto3.Session:
