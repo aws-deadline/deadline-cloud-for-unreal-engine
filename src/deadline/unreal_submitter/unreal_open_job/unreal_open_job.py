@@ -558,9 +558,16 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         # Compare versions
         if not template_ue_version == current_version:
             # Versions don't match
-            raise exceptions.InvalidUEVersionInCondaPackageParameter(
-                "CondaPackages Unreal Engine version mismatch"
+            result = unreal.EditorDialog.show_message(
+                "Version Mismatch Warning",
+                f"You are attempting to render a UE {current_version} project using UE {template_ue_version}.Do you wish to continue?",
+                unreal.AppMsgType.YES_NO
             )
+
+            if result != unreal.AppReturnType.YES:
+                raise exceptions.InvalidUEVersionInCondaPackageParameter(
+                    "CondaPackages Unreal Engine version mismatch"
+                )
 
         logger.info("Unreal Engine versions match, continuing with submission")
 
@@ -719,42 +726,6 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         if self._name is None:
             self._name = self._mrq_job.job_name
-
-    def get_mrq_template_object(self) -> dict:
-        """
-        Get the template object from the MRQ job template overrides instead of the default YAML file.
-        This method provides template information from the MRQ job configuration.
-
-        :return: Template descriptor from MRQ job
-        :rtype: dict
-        """
-        if not self._mrq_job or not self._mrq_job.job_template_overrides:
-            # Fall back to base implementation if no MRQ job or template overrides
-            return super().get_template_object()
-
-        # Build template from MRQ job template overrides
-        template = {
-            "specificationVersion": settings.JOB_TEMPLATE_VERSION,
-            "name": self.name or "MRQ Job Template",
-            "parameterDefinitions": [],
-        }
-
-        # Add parameter definitions from MRQ job template overrides
-        if self._mrq_job.job_template_overrides.parameters:
-            for param in self._mrq_job.job_template_overrides.parameters:
-                param_def = {
-                    "name": param.name,
-                    "type": param.type.name,
-                }
-                if hasattr(param, "value") and param.value:
-                    param_def["default"] = param.value
-                template["parameterDefinitions"].append(param_def)
-
-        # Add extensions if available
-        if hasattr(self._mrq_job.job_template_overrides, "extensions"):
-            template["extensions"] = self._mrq_job.job_template_overrides.extensions
-
-        return template
 
     @classmethod
     def from_data_asset(cls, data_asset: unreal.DeadlineCloudRenderJob) -> "RenderUnrealOpenJob":
