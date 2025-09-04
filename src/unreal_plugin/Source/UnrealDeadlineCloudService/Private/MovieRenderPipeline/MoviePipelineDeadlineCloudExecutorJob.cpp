@@ -903,5 +903,9 @@ void FMoviePipelineDeadlineCloudExecutorJobCustomization::ResetPresetToDefaultHa
 	if (MrqJob.IsValid() && MrqJob->JobPreset)
 	{
 		MrqJob->ReloadDataFromJobPreset();
+		if (MrqJob->OnRequestDetailsRefresh.IsBound())
+		{
+			MrqJob->OnRequestDetailsRefresh.Execute();
+		}
 	}
 }
