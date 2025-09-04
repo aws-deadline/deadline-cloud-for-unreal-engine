@@ -34,7 +34,7 @@ class TestCheckCondaPackageVersion:
         UnrealOpenJob.check_conda_package_version(job_parameter_values)
 
         # THEN
-        assert job_parameter_values[0].get("value") == "unrealengine=5.4"
+        assert job_parameter_values == []
 
     @patch(
         "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.SystemLibrary.get_engine_version"
@@ -46,8 +46,10 @@ class TestCheckCondaPackageVersion:
         job_parameter_values = [dict(name=OpenJobParameterNames.CONDA_PACKAGES, value="")]
 
         # WHEN
-        with pytest.raises(exceptions.InvalidUEVersionInCondaPackageParameter):
-            UnrealOpenJob.check_conda_package_version(job_parameter_values)
+        UnrealOpenJob.check_conda_package_version(job_parameter_values)
+
+        # THEN
+        assert job_parameter_values[0].get("value") == "unrealengine=5.3"
 
     @patch(
         "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.SystemLibrary.get_engine_version"
@@ -61,8 +63,10 @@ class TestCheckCondaPackageVersion:
         ]
 
         # WHEN
-        with pytest.raises(exceptions.InvalidUEVersionInCondaPackageParameter):
-            UnrealOpenJob.check_conda_package_version(job_parameter_values)
+        UnrealOpenJob.check_conda_package_version(job_parameter_values)
+
+        # THEN
+        assert job_parameter_values[0].get("value") == "unrealengine=5.3 somepackage=1.0"
 
     @patch(
         "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.SystemLibrary.get_engine_version"
@@ -77,6 +81,21 @@ class TestCheckCondaPackageVersion:
 
         # WHEN
         UnrealOpenJob.check_conda_package_version(job_parameter_values)
+
+    @patch(
+        "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.SystemLibrary.get_engine_version"
+    )
+    def test_check_conda_package_version_versions_mismatch(self, get_engine_version_mock):
+        # GIVEN
+        get_engine_version_mock.return_value = "5.4"
+
+        job_parameter_values = [
+            dict(name=OpenJobParameterNames.CONDA_PACKAGES, value="unrealengine=5.3")
+        ]
+
+        # WHEN
+        with pytest.raises(exceptions.InvalidUEVersionInCondaPackageParameter):
+            UnrealOpenJob.check_conda_package_version(job_parameter_values)
 
     @patch(
         "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.SystemLibrary.get_engine_version"

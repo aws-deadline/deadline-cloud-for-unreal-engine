@@ -511,6 +511,13 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         :rtype: bool
         """
 
+        conda_packages_param = next(
+            (p for p in parameter_values if p["name"] == OpenJobParameterNames.CONDA_PACKAGES), None
+        )
+
+        if not conda_packages_param:
+            return
+
         current_ue_version = unreal.SystemLibrary.get_engine_version()
         logger.info(f"Current Unreal Engine version: {current_ue_version}")
         current_version_match = re.search(r"\b\d+\.\d+\b", current_ue_version)
@@ -522,35 +529,18 @@ class UnrealOpenJob(UnrealOpenJobEntity):
 
         current_version = current_version_match.group(0)
 
-        # Check for CondaPackages parameter
-        conda_packages_param = next(
-            (p for p in parameter_values if p["name"] == OpenJobParameterNames.CONDA_PACKAGES), None
-        )
-
-        if not conda_packages_param:
-            logger.info(
-                "No CondaPackages parameter found in template, building with current version"
-            )
-            parameter_values.append(
-                dict(
-                    name=OpenJobParameterNames.CONDA_PACKAGES,
-                    value=f"unrealengine={current_version}",
-                )
-            )
-            return
-
         conda_packages_value = conda_packages_param.get("value", "")
         if not conda_packages_value:
-            raise exceptions.InvalidUEVersionInCondaPackageParameter(
-                "CondaPackages parameter is empty, cannot determine Unreal Engine version"
-            )
+            conda_packages_param["value"] = f"unrealengine={current_version}"
+            return
 
         # Check for unrealengine=x.x pattern
         ue_version_match = re.search(r"unrealengine=(\d+\.\d+)", conda_packages_value)
         if not ue_version_match:
-            raise exceptions.InvalidUEVersionInCondaPackageParameter(
-                f"CondaPackages parameter does not specify Unreal Engine version: {conda_packages_value}"
+            conda_packages_param["value"] = (
+                f"unrealengine={current_version} " + conda_packages_value
             )
+            return
 
         template_ue_version = ue_version_match.group(1)
         logger.info(f"Template specifies Unreal Engine version: {template_ue_version}")
@@ -560,7 +550,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             # Versions don't match
             result = unreal.EditorDialog.show_message(
                 "Version Mismatch Warning",
-                f"You are attempting to render a UE {current_version} project using UE {template_ue_version}.Do you wish to continue?",
+                f"You are attempting to render a UE {current_version} project using UE {template_ue_version}. Do you wish to continue?",
                 unreal.AppMsgType.YES_NO,
             )
 

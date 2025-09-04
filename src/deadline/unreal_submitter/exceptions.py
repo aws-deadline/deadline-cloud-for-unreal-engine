@@ -32,7 +32,7 @@ class OpenJobIsMissingError(DeadlineCloudSubmitterException):
 
 
 class InvalidUEVersionInCondaPackageParameter(DeadlineCloudSubmitterException):
-    """Raised when Conda Package parameter is contains invalid ue version"""
+    """Raised when Conda Package parameter contains an invalid UE version"""
 
     pass
 
