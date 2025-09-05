@@ -83,13 +83,6 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostInitProperties()
 
 void UMoviePipelineDeadlineCloudExecutorJob::SaveAsJobPreset(FString& FolderPath, FString& BaseName, bool bSetAsDefault)
 {
-	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
-
-	if (DesktopPlatform == nullptr)
-	{
-		return;
-	}
-
 	TMap<UDataAsset*, FString> ObjectsNames;
 
 	UMoviePipelineDeadlineCloudExecutorJob::GeneratePresetObjectsNames(this, FolderPath, BaseName, ObjectsNames);
@@ -439,8 +432,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::ReloadDataFromJobPreset()
 	PresetOverrides.JobAttachments.OutputDirectories.Directories =
 		JobPreset->JobPresetStruct.JobAttachments.OutputDirectories.Directories;
 
-	JobTemplateOverrides.Parameters = JobPreset->ParameterDefinition.Parameters;
-
+	JobTemplateOverrides.Parameters = JobPreset->GetParametersDataToOverride();
 	JobTemplateOverrides.StepsOverrides = GetStepsToOverride(JobPreset);
 	JobTemplateOverrides.EnvironmentsOverrides = GetEnvironmentsToOverride(JobPreset);
 }
@@ -466,7 +458,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::GeneratePresetObjectsNames(
 
 		if (IsValid(Step))
 		{
-			FString StepName = NewName + "_" + "Step" + FString::FromInt(i + 1);
+			FString StepName = NewName + "_Step" + FString::FromInt(i + 1);
 			OutPresetPackageNames.Add(Step, StepName);
 
 			for (int j = 0; j < Step->Environments.Num(); j++)
@@ -474,7 +466,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::GeneratePresetObjectsNames(
 				auto Env = Step->Environments[j];
 				if (IsValid(Env))
 				{
-					FString EnvName = StepName + "_" + "Environment" + FString::FromInt(j + 1);
+					FString EnvName = StepName + "_Environment" + FString::FromInt(j + 1);
 					OutPresetPackageNames.Add(Env, EnvName);
 				}
 			}
@@ -486,7 +478,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::GeneratePresetObjectsNames(
 		auto Env = MrqJob->JobPreset->Environments[i];
 		if (IsValid(Env))
 		{
-			FString EnvName = NewName + "_" + "Environment" + FString::FromInt(i + 1);
+			FString EnvName = NewName + "_Environment" + FString::FromInt(i + 1);
 			OutPresetPackageNames.Add(Env, EnvName);
 		}
 	}
@@ -558,7 +550,6 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeChainProperty(FProper
 	{
 		static const FName InputFilesName = GET_MEMBER_NAME_CHECKED(FDeadlineCloudAttachmentsStruct, InputFiles);
 		static const FName InputDirectoriesName = GET_MEMBER_NAME_CHECKED(FDeadlineCloudAttachmentsStruct, InputDirectories);
-		// static const FName OutputDirectoriesName = GET_MEMBER_NAME_CHECKED(FDeadlineCloudAttachmentsStruct, OutputDirectories);
 
 		const FProperty* Property = PropertyChangedEvent.PropertyChain.GetActiveNode()->GetPrevNode()->GetValue();
 		if (Property->GetFName() == InputFilesName)
@@ -689,8 +680,8 @@ UDeadlineCloudRenderJob* UMoviePipelineDeadlineCloudExecutorJob::CreateDefaultJo
 			Preset->Environments.Add(PresetEnv);
 			UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: CreateDefaultJobPresetFromTemplates completed successfully"));
 		}
-
 	}
+
 	return Preset;
 }
 

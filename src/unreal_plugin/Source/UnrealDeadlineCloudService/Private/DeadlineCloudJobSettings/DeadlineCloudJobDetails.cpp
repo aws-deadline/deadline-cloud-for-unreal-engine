@@ -652,10 +652,7 @@ void FDeadlineCloudJobParametersArrayBuilder::OnGenerateEntry(TSharedRef<IProper
                 return true;
             })
     );
-
-    PropertyRow.Visibility(IsPropertyHidden(FName(ParameterName)) ? EVisibility::Collapsed : EVisibility::Visible);
 }
-
 
 
 void FJobTemplateOverridesCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> InPropertyHandle, FDetailWidgetRow& InHeaderRow, IPropertyTypeCustomizationUtils& InCustomizationUtils)

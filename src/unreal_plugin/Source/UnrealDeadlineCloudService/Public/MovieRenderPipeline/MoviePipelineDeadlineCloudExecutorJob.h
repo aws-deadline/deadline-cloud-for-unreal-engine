@@ -147,8 +147,8 @@ public:
     FDeadlineCloudJobPresetStruct PresetOverrides = FDeadlineCloudJobPresetStruct();
 
     /**
- * Reference to Deadline Cloud job parameters. Contains overriden job settings
- */
+     * Reference to Deadline Cloud job parameters. Contains overriden job settings
+     */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DeadlineCloud")
     FJobTemplateOverrides JobTemplateOverrides = FJobTemplateOverrides();
 
