@@ -247,13 +247,71 @@ def get_build_script_args() -> List[str]:
     return ["--install", "--test", "--worker"]
 
 
-def add_plugins_to_project(project_path: str, plugins: List[str]) -> None:
+def add_content_plugins_to_project(project_path: str, plugins: List[str], enabled: bool) -> None:
+    """
+    Add the provided list of content plugins to the uproject at the given project_path.
+
+    Args:
+        project_path: Path to .uproject file to add plugins to
+        plugins: List of string names of content plugins to add to the project
+        enabled: Whether to enable or disable the plugins
+    """
+    for plugin_name in plugins:
+        create_minimal_plugin_structure(
+            project_path, plugin_name, enabled, friendly_name=plugin_name
+        )
+
+
+def create_minimal_plugin_structure(
+    project_path: str,
+    plugin_name: str,
+    enabled: bool,
+    friendly_name: Optional[str] = None,
+    description: str = "Auto-generated plugin",
+) -> None:
+    plugins_root = os.path.join(project_path, "Plugins")
+    plugin_root = os.path.join(plugins_root, plugin_name)
+    content_dir = os.path.join(plugin_root, "Content")
+    resources_dir = os.path.join(plugin_root, "Resources")
+
+    os.makedirs(plugins_root, exist_ok=True)
+    os.makedirs(plugin_root, exist_ok=True)
+    os.makedirs(content_dir, exist_ok=True)
+    os.makedirs(resources_dir, exist_ok=True)
+
+    uplugin = {
+        "FileVersion": 3,
+        "Version": 1,
+        "VersionName": "1.0",
+        "FriendlyName": friendly_name,
+        "Description": description,
+        "Category": "Content",
+        "CreatedBy": "Auto Script",
+        "CreatedByURL": "",
+        "DocsURL": "",
+        "MarketplaceURL": "",
+        "SupportURL": "",
+        "CanContainContent": True,
+        "IsBetaVersion": False,
+        "Installed": False,
+        "EnabledByDefault": enabled,
+        "Modules": [],
+        "Plugins": [],
+    }
+
+    uplugin_path = os.path.join(plugin_root, f"{plugin_name}.uplugin")
+    with open(uplugin_path, "w", encoding="utf-8") as f:
+        json.dump(uplugin, f, indent=2)
+
+
+def add_plugins_to_project(project_path: str, plugins: List[str], enabled: bool) -> None:
     """
     Add the provided list of plugins to the uproject at the given project_path.
 
     Args:
         project_path: Path to .uproject file to add plugins to
         plugins: List of string names of plugins to add to the project
+        enabled: Whether to enable or disable the plugins
     """
     # Read the current .uproject file
     with open(project_path, "r") as f:
@@ -265,7 +323,7 @@ def add_plugins_to_project(project_path: str, plugins: List[str]) -> None:
 
     # Add each plugin if not already present
     for plugin_name in plugins:
-        plugin_entry = {"Name": plugin_name, "Enabled": True}
+        plugin_entry = {"Name": plugin_name, "Enabled": enabled}
         if plugin_entry not in project_data["Plugins"]:
             project_data["Plugins"].append(plugin_entry)
 
@@ -754,7 +812,7 @@ def create_readonly_test_project(request) -> Generator[Tuple[str, str], None, No
 
     engine_root = find_engine_root(request.config.getoption("--ueversion"))
     # Source path for the template
-    source_path = os.path.join(engine_root, "Templates\TP_DMXBP")
+    source_path = os.path.join(engine_root, r"Templates\TP_DMXBP")
     if not os.path.exists(source_path):
         pytest.fail(f"Could not find source template at {source_path}")
 
@@ -767,7 +825,11 @@ def create_readonly_test_project(request) -> Generator[Tuple[str, str], None, No
 
     # Add our plugins
     project_path = os.path.join(dest_path, "TP_DMXBP.uproject")
-    add_plugins_to_project(project_path, ["UnrealDeadlineCloudService", "MovieRenderPipeline"])
+    add_plugins_to_project(
+        project_path,
+        ["UnrealDeadlineCloudService", "MovieRenderPipeline"],
+        True,
+    )
 
     yield dest_path, project_path
 
@@ -1699,3 +1761,89 @@ def reusable_queue_fleet_association(
         logger.info(
             "Skipping queue-fleet association cleanup (use --cleanup to clean up resources)"
         )
+
+
+def get_last_session_project_plugins(
+    deadline_client: BaseClient, farm_id: str, queue_id: str, job_id: str
+) -> List[str]:
+    """
+    Fetch the last session's project plugins used by a job by parsing its log events.
+
+    Args:
+        deadline_client: The Deadline Cloud client
+        farm_id: The farm ID
+        queue_id: The queue ID
+        job_id: The job ID
+
+    Returns:
+        A sorted list of unique project plugin names used in the last session
+    """
+    try:
+        sessions_response = deadline_client.list_sessions(
+            farmId=farm_id,
+            jobId=job_id,
+            queueId=queue_id,
+        )
+        session_id = sessions_response["sessions"][0]["sessionId"]
+
+        session_response = deadline_client.get_session(
+            farmId=farm_id,
+            jobId=job_id,
+            queueId=queue_id,
+            sessionId=session_id,
+        )
+
+        log_response = session_response["log"]
+
+        # Get job details to find the log group and stream
+        cwl_client = boto3.client("logs", TEST_TARGET_REGION)
+
+        # Extract project plugins from the log events
+        plugin_names = _extract_project_plugins_from_log_events(
+            cwl_client,
+            log_response["options"]["logGroupName"],
+            log_response["options"]["logStreamName"],
+        )
+        return plugin_names
+
+    except Exception as e:
+        logger.warning(f"Error fetching job logs or extracting plugins: {str(e)}")
+        return []
+
+
+def _extract_project_plugins_from_log_events(logs_client, log_group, log_stream) -> List[str]:
+    """
+    Extract unique project plugin names from log events in the specified log group and stream.
+    Args:
+        logs_client: The CloudWatch Logs client
+        log_group: The name of the log group
+        log_stream: The name of the log stream
+
+    Returns:
+        A sorted list of unique project plugin names
+    """
+    plugin_names = set()
+    pattern = re.compile(r"Mounting Project plugin\s+(?P<name>[^\s]+(?:\s+[^\s]+)*)\s*$")
+
+    next_token = None
+    while True:
+        if next_token:
+            resp = logs_client.get_log_events(
+                logGroupName=log_group, logStreamName=log_stream, nextToken=next_token
+            )
+        else:
+            resp = logs_client.get_log_events(logGroupName=log_group, logStreamName=log_stream)
+
+        for ev in resp.get("events", []):
+            msg = ev.get("message", "")
+            for line in msg.splitlines():
+                m = pattern.search(line)
+                if m:
+                    plugin_names.add(m.group("name"))
+
+        new_token = resp.get("nextForwardToken")
+        if not new_token or new_token == next_token:
+            break
+        next_token = new_token
+
+    return sorted(plugin_names)

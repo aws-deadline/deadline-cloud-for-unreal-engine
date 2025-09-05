@@ -147,7 +147,8 @@ Solution:
         "logs:CreateLogStream",
         "logs:PutLogEvents",
         "logs:DescribeLogGroups",
-        "logs:DescribeLogStreams"
+        "logs:DescribeLogStreams",
+        "logs:GetLogEvents"
       ],
       "Resource": "arn:aws:logs:*:*:log-group:/aws/deadline/*"
     }
