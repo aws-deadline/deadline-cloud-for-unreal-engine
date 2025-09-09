@@ -405,6 +405,23 @@ void SDeadlineCloudSavePresetWidget::UpdateValidity()
 	TMap<UDataAsset*, FString> ObjectsNames;
 	UMoviePipelineDeadlineCloudExecutorJob::GeneratePresetObjectsNames(MrqJob, FolderPath, NewName, ObjectsNames);
 
+	TMap<UDataAsset*, FString> CurrentPresetObjects;
+	UMoviePipelineDeadlineCloudExecutorJob::GetPresetObjectsNames(MrqJob, CurrentPresetObjects);
+
+	for (const auto& ObjectName : ObjectsNames)
+	{
+		for (const auto& CurrentObject : CurrentPresetObjects)
+		{
+			if (ObjectName.Value == CurrentObject.Value)
+			{
+				LastInputValidityErrorText = FText::Format(LOCTEXT("AssetDialog_OverrideCurrentPreset", "You cannot override current preset asset '{0}'."), FText::FromString(ObjectName.Value));
+				bLastInputValidityCheckSuccessful = false;
+				LastInputValidityErrorStyle = EMessageStyle::Error;
+				return;
+			}
+		}
+	}
+
 	for (const auto& ObjectName : ObjectsNames)
 	{
 		const FString PackageName = UPackageTools::SanitizePackageName(ObjectName.Value);

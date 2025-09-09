@@ -103,8 +103,8 @@ void UMoviePipelineDeadlineCloudExecutorJob::SaveAsJobPreset(FString& FolderPath
 
 		if (ExistingAsset.IsValid())
 		{
+			// Delete existing asset with the same path
 			ObjectTools::DeleteAssets({ ExistingAsset }, false);
-
 		}
 		
 		UPackage* Pkg = CreatePackage(*PackageName);
@@ -112,6 +112,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::SaveAsJobPreset(FString& FolderPath
 		UDataAsset* NewObj = DuplicateObject<UDataAsset>(Asset, Pkg, *FPaths::GetBaseFilename(PackageName));
 		if (!NewObj)
 		{
+			UE_LOG(LogTemp, Error, TEXT("Could not duplicate asset: %s"), *PackageName);
 			return;
 		}
 
@@ -147,13 +148,16 @@ void UMoviePipelineDeadlineCloudExecutorJob::SaveAsJobPreset(FString& FolderPath
 		ResultAssets.Add(NewObj);
 	}
 
+	// replace old references with new ones
 	FixReferencesAfterDuplication(ObjectsNames, ResultAssets);
 
 	if (bSetAsDefault)
 	{
+		// Set as default in settings
 		UDeadlineCloudDeveloperSettings::GetMutable()->DefaultJobPreset = ResultJob;
 	}
 
+	// Update current job to use the new preset
 	Modify();
 	JobPreset = ResultJob;
 	if (OnRequestDetailsRefresh.IsBound())
@@ -437,6 +441,43 @@ void UMoviePipelineDeadlineCloudExecutorJob::ReloadDataFromJobPreset()
 	JobTemplateOverrides.EnvironmentsOverrides = GetEnvironmentsToOverride(JobPreset);
 }
 
+void UMoviePipelineDeadlineCloudExecutorJob::GetPresetObjectsNames(const UMoviePipelineDeadlineCloudExecutorJob* MrqJob, TMap<UDataAsset*, FString>& OutPresetPackageNames)
+{
+	if (!MrqJob || !MrqJob->JobPreset)
+	{
+		return;
+	}
+
+	FString PackageName = FSoftObjectPath(MrqJob->JobPreset).GetLongPackageName();
+	OutPresetPackageNames.Add(MrqJob->JobPreset, PackageName);
+	for (auto Step : MrqJob->JobPreset->Steps)
+	{
+		if (IsValid(Step))
+		{
+			PackageName = FSoftObjectPath(Step).GetLongPackageName();
+			OutPresetPackageNames.Add(Step, PackageName);
+
+			for (auto Env : Step->Environments)
+			{
+				if (IsValid(Env))
+				{
+					PackageName = FSoftObjectPath(Env).GetLongPackageName();
+					OutPresetPackageNames.Add(Env, PackageName);
+				}
+			}
+		}
+	}
+
+	for (auto Env : MrqJob->JobPreset->Environments)
+	{
+		if (IsValid(Env))
+		{
+			PackageName = FSoftObjectPath(Env).GetLongPackageName();
+			OutPresetPackageNames.Add(Env, PackageName);
+		}
+	}
+}
+
 void UMoviePipelineDeadlineCloudExecutorJob::GeneratePresetObjectsNames(
 	const UMoviePipelineDeadlineCloudExecutorJob* MrqJob,
 	const FString& FolderPath, const FString& BaseName,
@@ -452,37 +493,59 @@ void UMoviePipelineDeadlineCloudExecutorJob::GeneratePresetObjectsNames(
 
 	OutPresetPackageNames.Add(MrqJob->JobPreset, NewName);
 
-	for (int i = 0; i < MrqJob->JobPreset->Steps.Num(); i++)
+	uint32 StepIndex = 1;
+	for (const auto& Step : MrqJob->JobPreset->Steps)
 	{
-		auto Step = MrqJob->JobPreset->Steps[i];
-
 		if (IsValid(Step))
 		{
-			FString StepName = NewName + "_Step" + FString::FromInt(i + 1);
-			OutPresetPackageNames.Add(Step, StepName);
-
-			for (int j = 0; j < Step->Environments.Num(); j++)
+			if (OutPresetPackageNames.Contains(Step))
 			{
-				auto Env = Step->Environments[j];
-				if (IsValid(Env))
+				// Already added
+				continue;
+			}
+
+			FString StepName = NewName + "_Step" + FString::FromInt(StepIndex);
+			OutPresetPackageNames.Add(Step, StepName);
+			StepIndex++;
+
+			// Add step environments
+			uint32 StepEnvIndex = 1;
+			for (const auto& StepEnv : Step->Environments)
+			{
+				if (IsValid(StepEnv))
 				{
-					FString EnvName = StepName + "_Environment" + FString::FromInt(j + 1);
-					OutPresetPackageNames.Add(Env, EnvName);
+					if (OutPresetPackageNames.Contains(StepEnv))
+					{
+						// Already added
+						continue;
+					}
+					FString EnvName = StepName + "_Environment" + FString::FromInt(StepEnvIndex);
+					OutPresetPackageNames.Add(StepEnv, EnvName);
+					StepEnvIndex++;
 				}
 			}
 		}
 	}
 
-	for (int i = 0; i < MrqJob->JobPreset->Environments.Num(); i++)
+	// Add job environments
+	uint32 EnvIndex = 1;
+	for (const auto& Env : MrqJob->JobPreset->Environments)
 	{
-		auto Env = MrqJob->JobPreset->Environments[i];
 		if (IsValid(Env))
 		{
-			FString EnvName = NewName + "_Environment" + FString::FromInt(i + 1);
+			if (OutPresetPackageNames.Contains(Env))
+			{
+				// Already added
+				continue;
+			}
+
+			FString EnvName = NewName + "_Environment" + FString::FromInt(EnvIndex);
 			OutPresetPackageNames.Add(Env, EnvName);
 		}
 	}
 }
+
+
 
 void UMoviePipelineDeadlineCloudExecutorJob::CopyEnvironmentOverrides(UDeadlineCloudEnvironment* Environment)
 {
@@ -742,13 +805,11 @@ void UMoviePipelineDeadlineCloudExecutorJob::FixReferencesAfterDuplication(TMap<
 
         NewAsset->Modify(); 
 
-        {
-            FArchiveReplaceObjectRef<UObject> ReplaceAr(
-                NewAsset,
-                ReplacementMap,
-                EArchiveReplaceObjectFlags::None
-            );
-        }
+        FArchiveReplaceObjectRef<UObject> ReplaceAr(
+            NewAsset,
+            ReplacementMap,
+            EArchiveReplaceObjectFlags::None
+        );
 
 #if WITH_EDITOR
         FCoreUObjectDelegates::OnObjectModified.Broadcast(NewAsset);

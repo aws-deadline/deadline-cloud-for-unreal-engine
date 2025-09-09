@@ -621,10 +621,10 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             and self._mrq_job.job_template_overrides is not None
             and self._mrq_job.job_template_overrides.parameters
         ):
-            self._extra_parameters = [
-                UnrealOpenJobParameterDefinition.from_unreal_param_definition(p)
-                for p in self._mrq_job.job_template_overrides.parameters
-            ]
+            for p in self._mrq_job.job_template_overrides.parameters:
+                param = self._find_extra_parameter(p.name, p.type.name)
+                if param:
+                    param.value = p.value
 
         if (
             self._mrq_job is not None

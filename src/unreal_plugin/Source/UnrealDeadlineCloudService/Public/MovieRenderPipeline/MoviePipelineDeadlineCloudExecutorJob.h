@@ -83,6 +83,10 @@ public:
         const FString& FolderPath, const FString& BaseName,
         TMap<UDataAsset*, FString>& OutPresetPackageNames);
 
+	static void GetPresetObjectsNames(
+		const UMoviePipelineDeadlineCloudExecutorJob* MrqJob,
+		TMap<UDataAsset*, FString>& OutPresetPackageNames);
+
 	void ReloadDataFromJobPreset();
    
     bool IsUsingDefaultPreset() const;
