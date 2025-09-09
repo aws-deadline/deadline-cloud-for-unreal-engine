@@ -552,6 +552,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
                 "Version Mismatch Warning",
                 f"You are attempting to render a UE {current_version} project using UE {template_ue_version}. Do you wish to continue?",
                 unreal.AppMsgType.YES_NO,
+                unreal.AppReturnType.YES,
             )
 
             if result != unreal.AppReturnType.YES:
