@@ -21,7 +21,7 @@ script:
     data: |
       handler: {{Task.Param.Handler}}
       queue_manifest_path: {{Task.Param.QueueManifestPath}}
-      chunk_size: {{Task.Param.ChunkSize}}
+      chunk_size: {{Param.ChunkSize}}
       chunk_id: {{Task.Param.ChunkId}}
       output_path: {{Task.Param.OutputPath}}
   actions:
