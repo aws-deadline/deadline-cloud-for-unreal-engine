@@ -503,6 +503,26 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         return job_bundle_path
 
     @staticmethod
+    def get_current_ue_version():
+        """
+        Get current Unreal Engine version in x.y format
+
+        :return: Current Unreal Engine version
+        :rtype: str
+        """
+
+        current_ue_version = unreal.SystemLibrary.get_engine_version()
+        logger.info(f"Current Unreal Engine version: {current_ue_version}")
+        current_version_match = re.search(r"\b\d+\.\d+\b", current_ue_version)
+        if not current_version_match:
+            logger.warning(f"Could not parse current UE version: {current_ue_version}")
+            raise exceptions.InvalidUEVersionInCondaPackageParameter(
+                f"Could not parse current UE version: {current_ue_version}"
+            )
+
+        return current_version_match.group(0)
+
+    @staticmethod
     def check_conda_package_version(parameter_values: list[dict[str, Any]]):
         """
         Check if the CondaPackages parameter contains Unreal Engine version and compare with current UE version.
@@ -518,16 +538,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         if not conda_packages_param:
             return
 
-        current_ue_version = unreal.SystemLibrary.get_engine_version()
-        logger.info(f"Current Unreal Engine version: {current_ue_version}")
-        current_version_match = re.search(r"\b\d+\.\d+\b", current_ue_version)
-        if not current_version_match:
-            logger.warning(f"Could not parse current UE version: {current_ue_version}")
-            raise exceptions.InvalidUEVersionInCondaPackageParameter(
-                f"Could not parse current UE version: {current_ue_version}"
-            )
-
-        current_version = current_version_match.group(0)
+        current_version = UnrealOpenJob.get_current_ue_version()
 
         conda_packages_value = conda_packages_param.get("value", "")
         if not conda_packages_value:
