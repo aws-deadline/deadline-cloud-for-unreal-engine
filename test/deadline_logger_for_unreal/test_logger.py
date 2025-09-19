@@ -1,5 +1,6 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
+import logging
 import pytest
 from unittest.mock import Mock, MagicMock, patch
 
@@ -79,6 +80,25 @@ class TestUnrealLogger:
 
         # THEN
         assert add_unreal_handler_mock.call_count == add_handler_calls
+
+    @patch("deadline.unreal_logger.logger.UNREAL_HANDLER_ADDED", False)
+    @patch("deadline.unreal_logger.logger.UNREAL_INITIALIZED", False)
+    def test_get_logger_adds_console_handler_when_unreal_not_available(self):
+        # GIVEN
+        logger = get_logger()
+        logger.handlers.clear()  # Clear any existing handlers
+
+        # Reset the global flag
+        import deadline.unreal_logger.logger
+
+        deadline.unreal_logger.logger.UNREAL_HANDLER_ADDED = False
+
+        # WHEN
+        logger = get_logger()
+
+        # THEN
+        assert len(logger.handlers) == 1
+        assert isinstance(logger.handlers[0], logging.StreamHandler)
 
     def test_add_unreal_handler(self):
         # GIVEN

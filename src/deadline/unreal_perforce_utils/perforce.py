@@ -166,7 +166,7 @@ class PerforceClient:
         try:
             self.p4.run(sync_args)
         except Exception as e:
-            print(f"Error during p4 sync: {str(e)}")
+            logger.error(f"Error during p4 sync: {str(e)}")
 
     def where(self, depot_path: str) -> Optional[str]:
         """
@@ -184,7 +184,7 @@ class PerforceClient:
             if where_info and len(where_info) > 0:
                 return where_info[0].get("path")
         except Exception as e:
-            print(f"Error converting depot path {depot_path} to local path: {e}")
+            logger.error(f"Error converting depot path {depot_path} to local path: {e}")
         return None
 
 

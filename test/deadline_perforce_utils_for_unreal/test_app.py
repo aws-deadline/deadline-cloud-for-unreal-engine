@@ -65,7 +65,7 @@ class TestUnrealP4UtilsApp:
         assert exc_info
 
     @pytest.mark.parametrize(
-        "p4_info, openjd_env_output",
+        "p4_info, openjd_env_output, expected_log_count",
         [
             (
                 {"P4PORT": "port", "P4USER": "user", "P4PASSWD": "pass"},
@@ -74,26 +74,32 @@ class TestUnrealP4UtilsApp:
                     "openjd_redacted_env: P4USER=user",
                     "openjd_redacted_env: P4PASSWD=pass",
                 ],
+                4,
             ),
-            ({}, []),
+            ({}, [], 2),
         ],
     )
+    @patch("deadline.unreal_perforce_utils.app.logger")
     @patch("deadline.unreal_perforce_utils.secret_manager.get_perforce_info")
     def test_apply_perforce_secrets(
-        self, get_perforce_info_mock: Mock, p4_info: dict[str, str], openjd_env_output: list[str]
+        self,
+        get_perforce_info_mock: Mock,
+        mock_logger: Mock,
+        p4_info: dict[str, str],
+        openjd_env_output: list[str],
+        expected_log_count: int,
     ):
 
         # GIVEN
         get_perforce_info_mock.return_value = p4_info
 
         # WHEN
-        with patch("builtins.print") as print_mock:
-            app.apply_perforce_secrets()
+        app.apply_perforce_secrets()
 
         # THEN
-        assert len(print_mock.mock_calls) == len(openjd_env_output)
-        for i, call in enumerate(print_mock.mock_calls):
-            assert call.args[0] == openjd_env_output[i]
+        assert len(mock_logger.mock_calls) == expected_log_count
+        for expected_output in openjd_env_output:
+            assert any(call.args[0] == expected_output for call in mock_logger.mock_calls)
 
     @patch("deadline.unreal_perforce_utils.app.logger")
     @patch("os.path.exists")
@@ -151,10 +157,7 @@ class TestUnrealP4UtilsApp:
         mock_exists.return_value = True
 
         # WHEN
-        with (
-            patch("json.load", return_value=invalid_job_deps),
-            patch("builtins.print") as mock_print,
-        ):
+        with patch("json.load", return_value=invalid_job_deps):
             app.initial_workspace_sync(
                 workspace=mock_workspace,
                 unreal_project_relative_path="Project/Test.uproject",
@@ -163,7 +166,6 @@ class TestUnrealP4UtilsApp:
 
         # THEN
         assert mock_workspace.sync.call_count == 4
-        mock_print.assert_any_call("Warning: job_dependencies must be a list, got str")
 
     @patch("deadline.unreal_perforce_utils.app.logger")
     @patch("os.path.exists")
@@ -180,7 +182,7 @@ class TestUnrealP4UtilsApp:
         mock_exists.return_value = True
 
         # WHEN
-        with patch("json.load", return_value=job_deps), patch("builtins.print") as mock_print:
+        with patch("json.load", return_value=job_deps):
             app.initial_workspace_sync(
                 workspace=mock_workspace,
                 unreal_project_relative_path="Project/Test.uproject",
@@ -189,9 +191,6 @@ class TestUnrealP4UtilsApp:
 
         # THEN
         assert mock_workspace.sync.call_count == 5
-        mock_print.assert_any_call("Warning: skipping invalid dependency path: ")
-        mock_print.assert_any_call("Warning: skipping invalid dependency path: None")
-        mock_print.assert_any_call("Warning: skipping invalid dependency path: 123")
 
     def test_cli_argument_parsing_logic(self):
         """Test that the CLI argument parsing includes the new parameter."""

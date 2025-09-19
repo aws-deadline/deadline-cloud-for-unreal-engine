@@ -81,7 +81,7 @@ def create_perforce_workspace_from_template(
     :rtype: :class:`p4utilsforunreal.perforce.PerforceClient`
     """
 
-    print(
+    logger.info(
         f"Creating perforce workspace from template: \n"
         f"Specification template: {specification_template}\n"
         f"Project: {project_name}\n"
@@ -106,7 +106,7 @@ def create_perforce_workspace_from_template(
             f"{os.getenv('P4_CLIENTS_ROOT_DIRECTORY', os.getcwd())}/{workspace_name}"
         )
 
-    print(f"Specification: {specification_template}")
+    logger.info(f"Specification: {specification_template}")
 
     perforce_client = perforce.PerforceClient(
         connection=perforce.PerforceConnection(),
@@ -116,8 +116,8 @@ def create_perforce_workspace_from_template(
 
     perforce_client.save()
 
-    print("Perforce workspace created!")
-    print(pprint.pformat(perforce_client.spec))
+    logger.info("Perforce workspace created!")
+    logger.info(pprint.pformat(perforce_client.spec))
 
     return perforce_client
 
@@ -129,21 +129,23 @@ def _parse_job_dependencies(
         job_data = json.load(f)
         dependent_paths = job_data.get("job_dependencies", [])
         if not isinstance(dependent_paths, list):
-            print(f"Warning: job_dependencies must be a list, got {type(dependent_paths).__name__}")
+            logger.info(
+                f"Warning: job_dependencies must be a list, got {type(dependent_paths).__name__}"
+            )
             return []
 
         # Convert dependency paths to local workspace paths
         dependent_paths_to_sync = []
         for dependent_path in dependent_paths:
             if not isinstance(dependent_path, str) or not dependent_path.strip():
-                print(f"Warning: skipping invalid dependency path: {dependent_path}")
+                logger.warning(f"Warning: skipping invalid dependency path: {dependent_path}")
                 continue
 
             local_path = workspace.where(dependent_path)
             if local_path:
                 dependent_paths_to_sync.append(local_path.replace("\\", "/"))
             else:
-                print(f"Can't convert {dependent_path} to local path.")
+                logger.warning(f"Can't convert {dependent_path} to local path.")
     return dependent_paths_to_sync
 
 
@@ -168,7 +170,7 @@ def initial_workspace_sync(
     :param job_dependencies_descriptor_path: Path to JSON file containing job dependencies to sync
     """
 
-    print("Workspace initial synchronizing ...")
+    logger.info("Workspace initial synchronizing ...")
 
     workspace_root = workspace.spec["Root"].replace("\\", "/")
     paths_to_sync = [f"{workspace_root}/{unreal_project_relative_path}"]
@@ -184,13 +186,13 @@ def initial_workspace_sync(
         dependency_paths = _parse_job_dependencies(workspace, job_dependencies_descriptor_path)
         paths_to_sync.extend(dependency_paths)
 
-    print(f"Paths to sync: {paths_to_sync}")
+    logger.info(f"Paths to sync: {paths_to_sync}")
 
     for path in paths_to_sync:
         try:
             workspace.sync(path, changelist=changelist, force=True)
         except Exception as e:
-            print(f"Initial workspace sync exception: {str(e)}")
+            logger.error(f"Initial workspace sync exception: {str(e)}")
 
 
 def configure_project_source_control_settings(
@@ -259,7 +261,7 @@ def create_workspace(
     :param job_dependencies_descriptor_path: Path to JSON file containing job dependencies to sync
     """
 
-    print(
+    logger.info(
         "Creating workspace with the following settings:\n"
         f"Specification template: {perforce_specification_template_path}\n"
         f"Unreal project relative path: {unreal_project_relative_path}\n"
@@ -281,8 +283,6 @@ def create_workspace(
     # Required to make DeadlineCloud set this variable to Environment
     p4_client_directory = workspace.spec["Root"].replace("\\", "/")
     logger.info(f"openjd_env: P4_CLIENT_DIRECTORY={p4_client_directory}")
-    # For some reason, adaptor doesn't show logger records, need to R&D
-    print(f"openjd_env: P4_CLIENT_DIRECTORY={p4_client_directory}")
 
     initial_workspace_sync(
         workspace=workspace,
@@ -322,7 +322,7 @@ def revert_all_changes_in_workspace(
         if "file(s) not opened on this client" in str(e):
             logger.info("Nothing to revert")
         else:
-            logger.info(f"Error handled while reverting changes: {e}")
+            logger.error(f"Error handled while reverting changes: {e}")
             return e
 
     return None
@@ -354,7 +354,7 @@ def clear_workspace_files(
         if "file(s) up-to-date" in str(e):
             logger.info("Nothing to clear")
         else:
-            logger.info(f"Error handled while clearing workspace: {e}")
+            logger.error(f"Error handled while clearing workspace: {e}")
             return e
 
     return None
@@ -415,7 +415,7 @@ def delete_workspace(workspace_name: Optional[str] = None, project_name: Optiona
         logger.info(f"Deleting workspace: {workspace_name_to_delete}")
         p4.run("client", "-d", "-f", workspace_name_to_delete)
     except Exception as e:
-        logger.info(f"Error handled while deleting workspace: {e}")
+        logger.error(f"Error handled while deleting workspace: {e}")
         last_exception = e
 
     if last_exception and isinstance(last_exception, Exception):
@@ -444,4 +444,4 @@ def apply_perforce_secrets() -> None:
 
     for env_name, env_value in p4_info.items():
         # For some reason, adaptor doesn't show logger records, need to R&D
-        print(f"openjd_redacted_env: {env_name}={env_value}")
+        logger.info(f"openjd_redacted_env: {env_name}={env_value}")
