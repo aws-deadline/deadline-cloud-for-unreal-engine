@@ -5,6 +5,6 @@ pytest-xdist == 3.*
 twine == 6.*
 mypy == 1.*
 black == 25.*
-ruff == 0.12.*
+ruff == 0.13.*
 types-pyyaml == 6.*
 psutil >= 5.9.0
