@@ -81,7 +81,7 @@ def create_perforce_workspace_from_template(
     :rtype: :class:`p4utilsforunreal.perforce.PerforceClient`
     """
 
-    logger.info(
+    print(
         f"Creating perforce workspace from template: \n"
         f"Specification template: {specification_template}\n"
         f"Project: {project_name}\n"
@@ -106,7 +106,7 @@ def create_perforce_workspace_from_template(
             f"{os.getenv('P4_CLIENTS_ROOT_DIRECTORY', os.getcwd())}/{workspace_name}"
         )
 
-    logger.info(f"Specification: {specification_template}")
+    print(f"Specification: {specification_template}")
 
     perforce_client = perforce.PerforceClient(
         connection=perforce.PerforceConnection(),
@@ -116,16 +116,42 @@ def create_perforce_workspace_from_template(
 
     perforce_client.save()
 
-    logger.info("Perforce workspace created!")
-    logger.info(pprint.pformat(perforce_client.spec))
+    print("Perforce workspace created!")
+    print(pprint.pformat(perforce_client.spec))
 
     return perforce_client
+
+
+def _parse_job_dependencies(
+    workspace: perforce.PerforceClient, job_dependencies_descriptor_path: str
+) -> list[str]:
+    with open(job_dependencies_descriptor_path, "r", encoding="utf-8") as f:
+        job_data = json.load(f)
+        dependent_paths = job_data.get("job_dependencies", [])
+        if not isinstance(dependent_paths, list):
+            print(f"Warning: job_dependencies must be a list, got {type(dependent_paths).__name__}")
+            return []
+
+        # Convert dependency paths to local workspace paths
+        dependent_paths_to_sync = []
+        for dependent_path in dependent_paths:
+            if not isinstance(dependent_path, str) or not dependent_path.strip():
+                print(f"Warning: skipping invalid dependency path: {dependent_path}")
+                continue
+
+            local_path = workspace.where(dependent_path)
+            if local_path:
+                dependent_paths_to_sync.append(local_path.replace("\\", "/"))
+            else:
+                print(f"Can't convert {dependent_path} to local path.")
+    return dependent_paths_to_sync
 
 
 def initial_workspace_sync(
     workspace: perforce.PerforceClient,
     unreal_project_relative_path: str,
     changelist: Optional[str] = None,
+    job_dependencies_descriptor_path: Optional[str] = None,
 ) -> None:
     """
     Do initial workspace synchronization:
@@ -134,33 +160,37 @@ def initial_workspace_sync(
     - Binaries folder
     - Config folder
     - Plugins folder
+    - If ``job_dependencies_descriptor_path`` is provided, sync job dependencies as well.
 
     :param workspace: p4utilsforunreal.perforce.PerforceClient instance
     :param unreal_project_relative_path: path to the .uproject file relative to the workspace root
     :param changelist: Changelist number to sync workspace to
+    :param job_dependencies_descriptor_path: Path to JSON file containing job dependencies to sync
     """
 
-    logger.info("Workspace initial synchronizing ...")
+    print("Workspace initial synchronizing ...")
 
     workspace_root = workspace.spec["Root"].replace("\\", "/")
-
     paths_to_sync = [f"{workspace_root}/{unreal_project_relative_path}"]
-
     unreal_project_directory = os.path.dirname(unreal_project_relative_path)
-
     for folder in ["Binaries", "Config", "Plugins"]:
         tokens = filter(
             lambda t: t not in [None, ""], [workspace_root, unreal_project_directory, folder, "..."]
         )
         paths_to_sync.append("/".join(tokens))
 
-    logger.info(f"Paths to sync: {paths_to_sync}")
+    # Add job dependencies if provided
+    if job_dependencies_descriptor_path and os.path.exists(job_dependencies_descriptor_path):
+        dependency_paths = _parse_job_dependencies(workspace, job_dependencies_descriptor_path)
+        paths_to_sync.extend(dependency_paths)
+
+    print(f"Paths to sync: {paths_to_sync}")
 
     for path in paths_to_sync:
         try:
             workspace.sync(path, changelist=changelist, force=True)
         except Exception as e:
-            logger.info(f"Initial workspace sync exception: {str(e)}")
+            print(f"Initial workspace sync exception: {str(e)}")
 
 
 def configure_project_source_control_settings(
@@ -212,6 +242,7 @@ def create_workspace(
     unreal_project_name: Optional[str] = None,
     overridden_workspace_root: Optional[str] = None,
     changelist: Optional[str] = None,
+    job_dependencies_descriptor_path: Optional[str] = None,
 ):
     """
     Create P4 workspace and execute next steps:
@@ -225,14 +256,16 @@ def create_workspace(
     :param unreal_project_name: Name of the .uproject file
     :param overridden_workspace_root: Workspace local path root (Optional, root from template is used by default)
     :param changelist: Changelist to sync workspace to
+    :param job_dependencies_descriptor_path: Path to JSON file containing job dependencies to sync
     """
 
-    logger.info(
+    print(
         "Creating workspace with the following settings:\n"
         f"Specification template: {perforce_specification_template_path}\n"
         f"Unreal project relative path: {unreal_project_relative_path}\n"
         f"Overridden workspace root: {overridden_workspace_root}\n"
-        f"Changelist: {changelist}"
+        f"Changelist: {changelist}\n"
+        f"job_dependencies_descriptor_path: {job_dependencies_descriptor_path}"
     )
 
     workspace_specification_template = get_workspace_specification_template_from_file(
@@ -255,6 +288,7 @@ def create_workspace(
         workspace=workspace,
         unreal_project_relative_path=unreal_project_relative_path,
         changelist=changelist,
+        job_dependencies_descriptor_path=job_dependencies_descriptor_path,
     )
 
     configure_project_source_control_settings(
