@@ -24,7 +24,13 @@ def parse_args():
         "-PerforceChangelistNumber", type=str, required=False, help="Changelist number to sync to"
     ),
     argparser.add_argument(
-        "-PerforceWorkspaceName", type=int, required=False, help="Changelist number to sync to"
+        "-PerforceWorkspaceName", type=str, required=False, help="Perforce workspace name"
+    ),
+    argparser.add_argument(
+        "-MrqJobDependenciesDescriptor",
+        type=str,
+        required=False,
+        help="Job dependencies descriptor file path",
     ),
 
     return argparser.parse_args()
@@ -41,6 +47,7 @@ def main():
             unreal_project_name=args.UnrealProjectName,
             overridden_workspace_root=args.OverriddenWorkspaceRoot,
             changelist=args.PerforceChangelistNumber,
+            job_dependencies_descriptor_path=args.MrqJobDependenciesDescriptor,
         )
 
     if args.command == "delete_workspace":

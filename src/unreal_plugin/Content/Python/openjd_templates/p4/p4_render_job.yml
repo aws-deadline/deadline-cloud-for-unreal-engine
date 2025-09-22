@@ -27,6 +27,16 @@ parameterDefinitions:
 - name: Executable
   type: STRING
   default: 'UnrealEditor-Cmd'
+- name: CondaPackages
+  type: STRING
+  default: unrealengine=5.6 unrealengine-openjd=0.6.*
+  userInterface: 
+   control: LINE_EDIT
+- name: CondaChannels
+  type: STRING
+  default: deadline-cloud
+  userInterface: 
+   control: LINE_EDIT
 - name: ChunkSize
   type: INT
   default: 1

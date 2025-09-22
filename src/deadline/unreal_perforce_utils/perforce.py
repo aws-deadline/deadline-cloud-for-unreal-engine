@@ -162,9 +162,30 @@ class PerforceClient:
             sync_args.append(f"{self.spec['Stream']}/...@{changelist_to_sync}")
 
         logger.info(f"Running P4 sync with following arguments: {sync_args}")
-        print(f"Running P4 sync with following arguments: {sync_args}")
 
-        self.p4.run(sync_args)
+        try:
+            self.p4.run(sync_args)
+        except Exception as e:
+            logger.error(f"Error during p4 sync: {str(e)}")
+
+    def where(self, depot_path: str) -> Optional[str]:
+        """
+        Convert depot path to local workspace path using `p4 where`
+
+        :param depot_path: Depot path to convert
+
+        :return: Local workspace path if found, None otherwise
+        :rtype: Optional[str]
+        """
+        try:
+            # Strip revision specification (@changelist or #revision) for where command
+            clean_depot_path = depot_path.split("@")[0].split("#")[0]
+            where_info = self.p4.run("where", clean_depot_path)
+            if where_info and len(where_info) > 0:
+                return where_info[0].get("path")
+        except Exception as e:
+            logger.error(f"Error converting depot path {depot_path} to local path: {e}")
+        return None
 
 
 def get_perforce_workspace_specification(

@@ -15,5 +15,15 @@ script:
       - '{{Param.PerforceWorkspaceSpecificationTemplate}}'
       - -PerforceChangelistNumber
       - '{{Param.PerforceChangelistNumber}}'
+      - -MrqJobDependenciesDescriptor
+      - '{{Param.MrqJobDependenciesDescriptor}}'
+      cancelation:
+        mode: NOTIFY_THEN_TERMINATE
+    onExit:
+      command: unreal-engine-p4-utils
+      args:
+        - delete_workspace
+        - -UnrealProjectName
+        - '{{Param.ProjectName}}'
       cancelation:
         mode: NOTIFY_THEN_TERMINATE

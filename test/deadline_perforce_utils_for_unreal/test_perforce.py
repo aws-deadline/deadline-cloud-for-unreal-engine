@@ -151,6 +151,62 @@ class TestPerforceClient:
             f"Running P4 sync with following arguments: {expected_arguments}"
         )
 
+    @pytest.mark.parametrize(
+        "depot_path, p4_output, expected_result",
+        [
+            (
+                "//depot/file.txt",
+                [{"path": "/local/workspace/file.txt"}],
+                "/local/workspace/file.txt",
+            ),
+            (
+                "//depot/file.txt@123",
+                [{"path": "/local/workspace/file.txt"}],
+                "/local/workspace/file.txt",
+            ),
+            (
+                "//depot/file.txt#1",
+                [{"path": "/local/workspace/file.txt"}],
+                "/local/workspace/file.txt",
+            ),
+            ("//depot/file.txt", [], None),
+            ("//depot/file.txt", [{}], None),
+        ],
+    )
+    def test_where(self, depot_path, p4_output, expected_result):
+        # GIVEN
+        mock_connection = Mock()
+        mock_p4 = Mock()
+        mock_p4.run.return_value = p4_output
+        mock_connection.p4 = mock_p4
+
+        client = perforce.PerforceClient(mock_connection, name="MyP4Client")
+        client.p4 = mock_p4
+
+        # WHEN
+        result = client.where(depot_path)
+
+        # THEN
+        assert result == expected_result
+        clean_path = depot_path.split("@")[0].split("#")[0]
+        mock_p4.run.assert_called_once_with("where", clean_path)
+
+    def test_where_exception(self):
+        # GIVEN
+        mock_connection = Mock()
+        mock_p4 = Mock()
+        mock_p4.run.side_effect = Exception("P4 error")
+        mock_connection.p4 = mock_p4
+
+        client = perforce.PerforceClient(mock_connection, name="MyP4Client")
+        client.p4 = mock_p4
+
+        # WHEN
+        result = client.where("//depot/file.txt")
+
+        # THEN
+        assert result is None
+
 
 class TestPerforceWorkspaceSpecification:
 
