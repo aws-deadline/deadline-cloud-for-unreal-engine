@@ -7,6 +7,12 @@ class DeadlineCloudSubmitterException(Exception):
     pass
 
 
+class NoUINotification:
+    """Marker mixin: Exceptions that shouldn't trigger UI notifications"""
+
+    pass
+
+
 class ParametersAreNotConsistentError(DeadlineCloudSubmitterException):
     """Raised when OpenJD parameters/variables are not consistent"""
 
@@ -32,6 +38,14 @@ class OpenJobIsMissingError(DeadlineCloudSubmitterException):
 
 
 class InvalidUEVersionInCondaPackageParameter(DeadlineCloudSubmitterException):
+    """Raised when Conda Package parameter contains an invalid UE version"""
+
+    pass
+
+
+class InvalidUEVersionInCondaPackageParameterNoUI(
+    InvalidUEVersionInCondaPackageParameter, NoUINotification
+):
     """Raised when Conda Package parameter contains an invalid UE version"""
 
     pass

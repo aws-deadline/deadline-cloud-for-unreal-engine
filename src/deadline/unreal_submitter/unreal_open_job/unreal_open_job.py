@@ -567,7 +567,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             )
 
             if result != unreal.AppReturnType.YES:
-                raise exceptions.InvalidUEVersionInCondaPackageParameter(
+                raise exceptions.InvalidUEVersionInCondaPackageParameterNoUI(
                     "CondaPackages Unreal Engine version mismatch"
                 )
 
