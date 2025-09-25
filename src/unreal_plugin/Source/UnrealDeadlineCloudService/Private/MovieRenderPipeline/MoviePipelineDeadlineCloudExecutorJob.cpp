@@ -16,17 +16,13 @@
 
 UMoviePipelineDeadlineCloudExecutorJob::UMoviePipelineDeadlineCloudExecutorJob()
 {
-	UE_LOG(LogTemp, Warning, TEXT("DeadlineCloud: UMoviePipelineDeadlineCloudExecutorJob constructor called"));
-
+	UE_LOG(LogTemp, Log, TEXT("DeadlineCloud: UMoviePipelineDeadlineCloudExecutorJob constructor called"));
 	if (GEngine)
 	{
-		// // If a Job Preset is not already defined, assign the default preset
+		// If a Job Preset is not already defined, assign the default preset
 		if (!JobPreset) {
-			UE_LOG(LogTemp, Warning, TEXT("DeadlineCloud: GEngine available, checking JobPreset"));
-			// // If a Job Preset is not already defined, assign the default preset
-			if (!JobPreset) {
-				JobPreset = CreateDefaultJobPresetFromTemplates(JobPreset);
-			}
+			UE_LOG(LogTemp, Log, TEXT("DeadlineCloud: GEngine available, checking JobPreset"));
+			JobPreset = CreateDefaultJobPresetFromTemplates(JobPreset);
 		}
 	}
 }
@@ -63,15 +59,12 @@ void UMoviePipelineDeadlineCloudExecutorJob::SetPropertyRowEnabledInMovieRenderJ
 
 void UMoviePipelineDeadlineCloudExecutorJob::PostInitProperties()
 {
-	UE_LOG(LogTemp, Warning, TEXT("DeadlineCloud: PostInitProperties called"));
+	UE_LOG(LogTemp, Log, TEXT("DeadlineCloud: PostInitProperties called"));
 	Super::PostInitProperties();
 
 #if WITH_EDITOR
 	if (!HasAnyFlags(RF_ClassDefaultObject)){
-		UE_LOG(LogTemp, Warning, TEXT("DeadlineCloud: Calling JobPresetChanged"));
 		JobPresetChanged();
-	} else {
-		UE_LOG(LogTemp, Warning, TEXT("DeadlineCloud: Skipping JobPresetChanged (ClassDefaultObject)"));
 	}
 #endif // WITH_EDITOR
 }
@@ -163,16 +156,16 @@ void UMoviePipelineDeadlineCloudExecutorJob::UpdateAttachmentFields()
 
 void UMoviePipelineDeadlineCloudExecutorJob::JobPresetChanged()
 {
-	UE_LOG(LogTemp, Warning, TEXT("DeadlineCloud: JobPresetChanged called"));
+	UE_LOG(LogTemp, Log, TEXT("DeadlineCloud: JobPresetChanged called"));
 	const UDeadlineCloudJob* SelectedJobPreset = this->JobPreset;
 
 	if (!SelectedJobPreset)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("DeadlineCloud: JobPreset is null, creating default in JobPresetChanged"));
+		UE_LOG(LogTemp, Log, TEXT("DeadlineCloud: JobPreset is null, creating default in JobPresetChanged"));
 		this->JobPreset = CreateDefaultJobPresetFromTemplates(JobPreset);
 		SelectedJobPreset = this->JobPreset;
 	} else {
-		UE_LOG(LogTemp, Warning, TEXT("DeadlineCloud: JobPreset exists in JobPresetChanged"));
+		UE_LOG(LogTemp, Log, TEXT("DeadlineCloud: JobPreset exists in JobPresetChanged"));
 	}
 
 	this->PresetOverrides.HostRequirements = SelectedJobPreset->JobPresetStruct.HostRequirements;
@@ -220,7 +213,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyCha
 	// Check file on disk
 	if (!FPaths::FileExists(FilePath))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Dependency file missing: %s"), *FilePath);
+		UE_LOG(LogTemp, Log, TEXT("Dependency file missing: %s"), *FilePath);
 		return false;
 	}
 
@@ -228,7 +221,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyCha
 	FString LongPackagePath;
 	if (!FPackageName::TryConvertFilenameToLongPackageName(FilePath, LongPackagePath))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Could not convert to package path: %s"), *FilePath);
+		UE_LOG(LogTemp, Log, TEXT("Could not convert to package path: %s"), *FilePath);
 		return false;
 	}
 
@@ -238,7 +231,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyCha
 
 	if (!AssetData.IsValid())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("AssetRegistry has no info about: %s (from file %s)"), *LongPackagePath, *FilePath);
+		UE_LOG(LogTemp, Log, TEXT("AssetRegistry has no info about: %s (from file %s)"), *LongPackagePath, *FilePath);
 		return false;
 	}
 
@@ -250,7 +243,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyCha
 	 // Check directory on disk
 	 if (!FPaths::DirectoryExists(DirectoryPath))
 	 {
-		 UE_LOG(LogTemp, Warning, TEXT("Dependency directory missing: %s"), *DirectoryPath);
+		 UE_LOG(LogTemp, Log, TEXT("Dependency directory missing: %s"), *DirectoryPath);
 		 return false;
 	 }
 	 return true;
@@ -422,11 +415,11 @@ TArray<FString> UMoviePipelineDeadlineCloudExecutorJob::GetJobInitialStateOption
 
 UDeadlineCloudRenderJob* UMoviePipelineDeadlineCloudExecutorJob::CreateDefaultJobPresetFromTemplates(UDeadlineCloudRenderJob* Preset)
 {
-	UE_LOG(LogTemp, Warning, TEXT("DeadlineCloud: CreateDefaultJobPresetFromTemplates called"));
+	UE_LOG(LogTemp, Log, TEXT("DeadlineCloud: CreateDefaultJobPresetFromTemplates called"));
 
 	if (Preset == nullptr)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("DeadlineCloud: Creating new UDeadlineCloudRenderJob"));
+		UE_LOG(LogTemp, Log, TEXT("DeadlineCloud: Creating new UDeadlineCloudRenderJob"));
 
 		Preset = NewObject<UDeadlineCloudRenderJob>();
 
@@ -434,29 +427,13 @@ UDeadlineCloudRenderJob* UMoviePipelineDeadlineCloudExecutorJob::CreateDefaultJo
 		FString StepTemplate = "/Content/Python/openjd_templates/render_step.yml";
 		FString EnvTemplate = "/Content/Python/openjd_templates/launch_ue_environment.yml";
 
-		// Get plugin base directory with error checking
-        TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(TEXT("UnrealDeadlineCloudService"));
-        if (!Plugin.IsValid())
-        {
-            UE_LOG(LogTemp, Error, TEXT("DeadlineCloud: Plugin 'UnrealDeadlineCloudService' not found"));
-            return Preset;
-        }
-
-        FString PluginContentDir = Plugin->GetBaseDir();
-        UE_LOG(LogTemp, Warning, TEXT("DeadlineCloud: Plugin base directory: %s"), *PluginContentDir);
-		UE_LOG(LogTemp, Warning, TEXT("DeadlineCloud: Plugin base directory (absolute): %s"), *FPaths::ConvertRelativePathToFull(PluginContentDir));
+		FString PluginContentDir = IPluginManager::Get().FindPlugin(TEXT("UnrealDeadlineCloudService"))->GetBaseDir();
 
 		FString PathToJobTemplate = FPaths::Combine(FPaths::ConvertRelativePathToFull(PluginContentDir), DefaultTemplate);
 		FPaths::NormalizeDirectoryName(PathToJobTemplate);
-		UE_LOG(LogTemp, Warning, TEXT("DeadlineCloud: Looking for job template at: %s"), *PathToJobTemplate);
-		// Verify template file exists
-        if (!FPaths::FileExists(PathToJobTemplate))
-        {
-            UE_LOG(LogTemp, Error, TEXT("DeadlineCloud: Job template not found at: %s"), *PathToJobTemplate);
-            return Preset;
-        }
+		UE_LOG(LogTemp, Log, TEXT("DeadlineCloud: Looking for job template at: %s"), *PathToJobTemplate);
 
-		UE_LOG(LogTemp, Warning, TEXT("DeadlineCloud: Job template found, opening file"));
+		UE_LOG(LogTemp, Log, TEXT("DeadlineCloud: Job template found, opening file"));
 		Preset->PathToTemplate.FilePath = PathToJobTemplate;
 		Preset->OpenJobFile(PathToJobTemplate);
 
@@ -464,13 +441,7 @@ UDeadlineCloudRenderJob* UMoviePipelineDeadlineCloudExecutorJob::CreateDefaultJo
 		PresetStep = NewObject<UDeadlineCloudRenderStep>();
 		FString PathToStepTemplate = FPaths::Combine(FPaths::ConvertRelativePathToFull(PluginContentDir), StepTemplate);
 		FPaths::NormalizeDirectoryName(PathToStepTemplate);
-		UE_LOG(LogTemp, Warning, TEXT("DeadlineCloud: Looking for step template at: %s"), *PathToStepTemplate);
-		// Verify template file exists
-		if (!FPaths::FileExists(PathToStepTemplate))
-        {
-            UE_LOG(LogTemp, Error, TEXT("DeadlineCloud: Step template not found at: %s"), *PathToStepTemplate);
-            return Preset;
-        }
+		UE_LOG(LogTemp, Log, TEXT("DeadlineCloud: Looking for step template at: %s"), *PathToStepTemplate);
 
 		PresetStep->PathToTemplate.FilePath = PathToStepTemplate;
 		PresetStep->OpenStepFile(PathToStepTemplate);
@@ -480,7 +451,7 @@ UDeadlineCloudRenderJob* UMoviePipelineDeadlineCloudExecutorJob::CreateDefaultJo
 		PresetEnv = NewObject<UDeadlineCloudEnvironment>();
 		FString PathToEnvTemplate = FPaths::Combine(FPaths::ConvertRelativePathToFull(PluginContentDir), EnvTemplate);
 		FPaths::NormalizeDirectoryName(PathToEnvTemplate);
-		UE_LOG(LogTemp, Warning, TEXT("DeadlineCloud: Looking for env template at: %s"), *PathToEnvTemplate);
+		UE_LOG(LogTemp, Log, TEXT("DeadlineCloud: Looking for env template at: %s"), *PathToEnvTemplate);
 		// Verify template file exists
 		if (!FPaths::FileExists(PathToEnvTemplate))
         {
@@ -491,9 +462,9 @@ UDeadlineCloudRenderJob* UMoviePipelineDeadlineCloudExecutorJob::CreateDefaultJo
 		PresetEnv->PathToTemplate.FilePath = PathToEnvTemplate;
 		PresetEnv->OpenEnvFile(PathToEnvTemplate);
 		Preset->Environments.Add(PresetEnv);
-		UE_LOG(LogTemp, Warning, TEXT("DeadlineCloud: CreateDefaultJobPresetFromTemplates completed successfully"));
+		UE_LOG(LogTemp, Log, TEXT("DeadlineCloud: CreateDefaultJobPresetFromTemplates completed successfully"));
 	}
-	UE_LOG(LogTemp, Warning, TEXT("DeadlineCloud: CreateDefaultJobPresetFromTemplates returning preset"));
+	UE_LOG(LogTemp, Log, TEXT("DeadlineCloud: CreateDefaultJobPresetFromTemplates returning preset"));
 	return Preset;
 }
 
