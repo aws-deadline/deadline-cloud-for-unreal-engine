@@ -18,12 +18,9 @@ void FUnrealDeadlineCloudServiceModule::StartupModule()
 
 	// Verify the executor class is available
     UClass* ExecutorClass = UMoviePipelineDeadlineCloudExecutorJob::StaticClass();
-    if (ExecutorClass)
-    {
+    if (ExecutorClass){
         UE_LOG(LogTemp, Log, TEXT("DeadlineCloud: UMoviePipelineDeadlineCloudExecutorJob class found: %s"), *ExecutorClass->GetName());
-    }
-    else
-    {
+    } else {
         UE_LOG(LogTemp, Error, TEXT("DeadlineCloud: UMoviePipelineDeadlineCloudExecutorJob class NOT found"));
     }
 
@@ -38,7 +35,7 @@ void FUnrealDeadlineCloudServiceModule::StartupModule()
     //job step, environment object details
     PropertyModule.RegisterCustomClassLayout(
         UDeadlineCloudJob::StaticClass()->GetFName(),
-            FOnGetDetailCustomizationInstance::CreateStatic(&FDeadlineCloudJobDetails::MakeInstance));
+        FOnGetDetailCustomizationInstance::CreateStatic(&FDeadlineCloudJobDetails::MakeInstance));
 
 	PropertyModule.RegisterCustomClassLayout(
 		UDeadlineCloudStep::StaticClass()->GetFName(),
