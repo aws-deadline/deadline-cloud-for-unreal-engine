@@ -3,5 +3,5 @@
 set -e
 
 pip install --upgrade pip
-pip install --upgrade hatch "click<8.3"
+pip install --upgrade hatch
 hatch run integ:test
