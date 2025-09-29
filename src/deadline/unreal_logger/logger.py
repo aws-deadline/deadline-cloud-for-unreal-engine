@@ -45,8 +45,8 @@ def get_logger() -> logging.Logger:
     if not UNREAL_HANDLER_ADDED and UNREAL_INITIALIZED:
         add_unreal_handler(unreal_logger)
         UNREAL_HANDLER_ADDED = True
-    else:
-        # Add console handler when running outside Unreal Engine
+
+    if not UNREAL_HANDLER_ADDED:
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.DEBUG)
         unreal_logger.addHandler(console_handler)
