@@ -14,18 +14,19 @@
 
 void FUnrealDeadlineCloudServiceModule::StartupModule()
 {
-	UE_LOG(LogTemp, Log, TEXT("DeadlineCloud: UE Install Path: %s"), *FPaths::EngineDir());
+	UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: UE Install Path: %s"), *FPaths::EngineDir());
 
 	// Verify the executor class is available
     UClass* ExecutorClass = UMoviePipelineDeadlineCloudExecutorJob::StaticClass();
-    if (ExecutorClass){
-        UE_LOG(LogTemp, Log, TEXT("DeadlineCloud: UMoviePipelineDeadlineCloudExecutorJob class found: %s"), *ExecutorClass->GetName());
+    if (ExecutorClass)
+	{
+        UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: UMoviePipelineDeadlineCloudExecutorJob class found: %s"), *ExecutorClass->GetName());
     } else {
         UE_LOG(LogTemp, Error, TEXT("DeadlineCloud: UMoviePipelineDeadlineCloudExecutorJob class NOT found"));
     }
 
     FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
-    UE_LOG(LogTemp, Log, TEXT("DeadlineCloud: PropertyEditor module loaded"));
+    UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: PropertyEditor module loaded"));
     
 	PropertyModule.RegisterCustomClassLayout(
         UDeadlineCloudDeveloperSettings::StaticClass()->GetFName(),
@@ -40,19 +41,19 @@ void FUnrealDeadlineCloudServiceModule::StartupModule()
 	PropertyModule.RegisterCustomClassLayout(
 		UDeadlineCloudStep::StaticClass()->GetFName(),
 		FOnGetDetailCustomizationInstance::CreateStatic(&FDeadlineCloudStepDetails::MakeInstance));
-    UE_LOG(LogTemp, Log, TEXT("DeadlineCloud: UDeadlineCloudStep registered"));
+    UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: UDeadlineCloudStep registered"));
 
 	PropertyModule.RegisterCustomClassLayout(
 		UDeadlineCloudEnvironment::StaticClass()->GetFName(),
 		FOnGetDetailCustomizationInstance::CreateStatic(&FDeadlineCloudEnvironmentDetails::MakeInstance));
-    UE_LOG(LogTemp, Log, TEXT("DeadlineCloud: UDeadlineCloudEnvironment registered"));
+    UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: UDeadlineCloudEnvironment registered"));
 
 
 	PropertyModule.RegisterCustomClassLayout(
 		UMoviePipelineDeadlineCloudExecutorJob::StaticClass()->GetFName(),
 		FOnGetDetailCustomizationInstance::CreateStatic(&FMoviePipelineDeadlineCloudExecutorJobCustomization::MakeInstance)
 	);
-	UE_LOG(LogTemp, Log, TEXT("DeadlineCloud: Registered UMoviePipelineDeadlineCloudExecutorJob customization"));
+	UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: Registered UMoviePipelineDeadlineCloudExecutorJob customization"));
 
 	// Job details properties customization
 	PropertyModule.RegisterCustomPropertyTypeLayout(
@@ -118,7 +119,7 @@ void FUnrealDeadlineCloudServiceModule::StartupModule()
 	);
 
 	PropertyModule.NotifyCustomizationModuleChanged();
-	UE_LOG(LogTemp, Log, TEXT("DeadlineCloud: All customizations registered, module startup complete"));
+	UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: All customizations registered, module startup complete"));
 }
 
 void FUnrealDeadlineCloudServiceModule::ShutdownModule()
