@@ -57,14 +57,24 @@ def background_init_s3_client():
     Initialize cache an S3 client based on the current deadline configuration
     within the deadline cloud library
     """
-    deadline = api.get_boto3_client("deadline")
+    logger.info("INIT DEADLINE CLOUD")
+    try:
+        deadline = api.get_boto3_client("deadline")
+        logger.info("Got deadline client successfully")
+    except Exception as e:
+        logger.error(f"Failed to get deadline client: {e}")
+        return None
+
     result_container: dict[str, Tuple[BaseClient, BaseClient]] = {}
 
     def init_s3_client():
-        logger.info("INITIALIZING S3 CLIENT")
-        result = precache_clients(deadline=deadline)
-        result_container["result"] = result
-        logger.info("DONE INITIALIZING S3 CLIENT")
+        try:
+            logger.info("INITIALIZING S3 CLIENT")
+            result = precache_clients(deadline=deadline)
+            result_container["result"] = result
+            logger.info("DONE INITIALIZING S3 CLIENT")
+        except Exception as e:
+            logger.error(f"Failed to initialize S3 client: {e}")
 
     thread = threading.Thread(target=init_s3_client, daemon=True, name="S3ClientInit")
     thread.start()

@@ -16,10 +16,12 @@
 
 UMoviePipelineDeadlineCloudExecutorJob::UMoviePipelineDeadlineCloudExecutorJob()
 {
+	UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: UMoviePipelineDeadlineCloudExecutorJob constructor called"));
 	if (GEngine)
 	{
-		// // If a Job Preset is not already defined, assign the default preset
+		// If a Job Preset is not already defined, assign the default preset
 		if (!JobPreset) {
+			UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: Assigning the default JobPreset"));
 			JobPreset = CreateDefaultJobPresetFromTemplates(JobPreset);
 		}
 	}
@@ -57,11 +59,12 @@ void UMoviePipelineDeadlineCloudExecutorJob::SetPropertyRowEnabledInMovieRenderJ
 
 void UMoviePipelineDeadlineCloudExecutorJob::PostInitProperties()
 {
+	UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: PostInitProperties called"));
 	Super::PostInitProperties();
 
 #if WITH_EDITOR
 	if (!HasAnyFlags(RF_ClassDefaultObject)){
-	JobPresetChanged();
+		JobPresetChanged();
 	}
 #endif // WITH_EDITOR
 }
@@ -153,12 +156,16 @@ void UMoviePipelineDeadlineCloudExecutorJob::UpdateAttachmentFields()
 
 void UMoviePipelineDeadlineCloudExecutorJob::JobPresetChanged()
 {
+	UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: JobPresetChanged called"));
 	const UDeadlineCloudJob* SelectedJobPreset = this->JobPreset;
 
 	if (!SelectedJobPreset)
 	{
+		UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: JobPreset is null, creating default in JobPresetChanged"));
 		this->JobPreset = CreateDefaultJobPresetFromTemplates(JobPreset);
 		SelectedJobPreset = this->JobPreset;
+	} else {
+		UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: JobPreset exists in JobPresetChanged"));
 	}
 
 	this->PresetOverrides.HostRequirements = SelectedJobPreset->JobPresetStruct.HostRequirements;
@@ -196,7 +203,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyCha
 		}
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("Deadline Cloud job changed: %s"),
+	UE_LOG(LogTemp, Display, TEXT("Deadline Cloud job changed: %s"),
 		*PropertyChangedEvent.Property->GetPathName());
 	}
 }
@@ -247,11 +254,11 @@ void UMoviePipelineDeadlineCloudExecutorJob::CollectDependencies()
 
 	if (GEngine)
 	{
-		UE_LOG(LogTemp, Log, TEXT("Running Garbage Collection before dependency update..."));
+		UE_LOG(LogTemp, Display, TEXT("Running Garbage Collection before dependency update..."));
 		GEngine->ForceGarbageCollection();
 		
 	}
-	UE_LOG(LogTemp, Log, TEXT("MoviePipelineDeadlineCloudExecutorJob :: Collecting dependencies"));
+	UE_LOG(LogTemp, Display, TEXT("MoviePipelineDeadlineCloudExecutorJob :: Collecting dependencies"));
 	PresetOverrides.JobAttachments.InputFiles.AutoDetected.Paths.Empty();
 	AsyncTask(ENamedThreads::GameThread, [this]()
 		{
@@ -271,7 +278,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::CollectDependencies()
 					DependencyFiles.Add(Item);
 				}
 				
-				UE_LOG(LogTemp, Log, TEXT("Added %d dependency files:"), DependencyFiles.Num());
+				UE_LOG(LogTemp, Display, TEXT("Added %d dependency files:"), DependencyFiles.Num());
 			}
 			else
 			{
@@ -302,7 +309,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::CollectPluginsDependencies()
 					PresetOverrides.JobAttachments.InputDirectories.AutoDetectedDirectories.Paths.Add(Item);
 				}
 
-				UE_LOG(LogTemp, Log, TEXT("Added %d dependency directories:"), Plugins.Num());
+				UE_LOG(LogTemp, Display, TEXT("Added %d dependency directories:"), Plugins.Num());
 			}
 			else
 			{
@@ -338,7 +345,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::UpdateInputDirectoriesProperty()
 void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeChainProperty(PropertyChangedEvent);
-	UE_LOG(LogTemp, Log, TEXT("Show auto detected: %s"), *GET_MEMBER_NAME_CHECKED(FDeadlineCloudFileAttachmentsStruct, bShowAutoDetected).ToString());
+	UE_LOG(LogTemp, Display, TEXT("Show auto detected: %s"), *GET_MEMBER_NAME_CHECKED(FDeadlineCloudFileAttachmentsStruct, bShowAutoDetected).ToString());
 	if (PropertyChangedEvent.GetPropertyName() == "bShowAutoDetected")
 	{
 		static const FName InputFilesName = GET_MEMBER_NAME_CHECKED(FDeadlineCloudAttachmentsStruct, InputFiles);
@@ -363,7 +370,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeChainProperty(FProper
 	{
 		UpdateInputFilesProperty();
 	}
-	UE_LOG(LogTemp, Log, TEXT("Changed property name: %s"), *PropertyChangedEvent.GetPropertyName().ToString());
+	UE_LOG(LogTemp, Display, TEXT("Changed property name: %s"), *PropertyChangedEvent.GetPropertyName().ToString());
 }
 
 TArray<FString> UMoviePipelineDeadlineCloudExecutorJob::GetCpuArchitectures()
@@ -408,18 +415,25 @@ TArray<FString> UMoviePipelineDeadlineCloudExecutorJob::GetJobInitialStateOption
 
 UDeadlineCloudRenderJob* UMoviePipelineDeadlineCloudExecutorJob::CreateDefaultJobPresetFromTemplates(UDeadlineCloudRenderJob* Preset)
 {
+	UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: CreateDefaultJobPresetFromTemplates called"));
+
 	if (Preset == nullptr)
 	{
+		UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: Creating new UDeadlineCloudRenderJob"));
+
 		Preset = NewObject<UDeadlineCloudRenderJob>();
 
 		FString DefaultTemplate = "/Content/Python/openjd_templates/render_job.yml";
 		FString StepTemplate = "/Content/Python/openjd_templates/render_step.yml";
 		FString EnvTemplate = "/Content/Python/openjd_templates/launch_ue_environment.yml";
 
-		FString  PluginContentDir = IPluginManager::Get().FindPlugin(TEXT("UnrealDeadlineCloudService"))->GetBaseDir();
+		FString PluginContentDir = IPluginManager::Get().FindPlugin(TEXT("UnrealDeadlineCloudService"))->GetBaseDir();
 
 		FString PathToJobTemplate = FPaths::Combine(FPaths::ConvertRelativePathToFull(PluginContentDir), DefaultTemplate);
 		FPaths::NormalizeDirectoryName(PathToJobTemplate);
+		UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: Looking for job template at: %s"), *PathToJobTemplate);
+
+		UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: Job template found, opening file"));
 		Preset->PathToTemplate.FilePath = PathToJobTemplate;
 		Preset->OpenJobFile(PathToJobTemplate);
 
@@ -427,6 +441,8 @@ UDeadlineCloudRenderJob* UMoviePipelineDeadlineCloudExecutorJob::CreateDefaultJo
 		PresetStep = NewObject<UDeadlineCloudRenderStep>();
 		FString PathToStepTemplate = FPaths::Combine(FPaths::ConvertRelativePathToFull(PluginContentDir), StepTemplate);
 		FPaths::NormalizeDirectoryName(PathToStepTemplate);
+		UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: Looking for step template at: %s"), *PathToStepTemplate);
+
 		PresetStep->PathToTemplate.FilePath = PathToStepTemplate;
 		PresetStep->OpenStepFile(PathToStepTemplate);
 		Preset->Steps.Add(PresetStep);
@@ -435,10 +451,12 @@ UDeadlineCloudRenderJob* UMoviePipelineDeadlineCloudExecutorJob::CreateDefaultJo
 		PresetEnv = NewObject<UDeadlineCloudEnvironment>();
 		FString PathToEnvTemplate = FPaths::Combine(FPaths::ConvertRelativePathToFull(PluginContentDir), EnvTemplate);
 		FPaths::NormalizeDirectoryName(PathToEnvTemplate);
+		UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: Looking for env template at: %s"), *PathToEnvTemplate);
+
 		PresetEnv->PathToTemplate.FilePath = PathToEnvTemplate;
 		PresetEnv->OpenEnvFile(PathToEnvTemplate);
 		Preset->Environments.Add(PresetEnv);
-
+		UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: CreateDefaultJobPresetFromTemplates completed successfully"));
 	}
 	return Preset;
 }

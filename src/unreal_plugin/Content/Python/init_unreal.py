@@ -122,7 +122,10 @@ if remote_execution != "True":
     )
     import remote_executor  # noqa: F401
 
-    background_init_s3_client()
+    try:
+        background_init_s3_client()
+    except Exception as e:
+        logger.error(f"Failed to run background_init_s3_client: {e}")
 
     logger.info("DEADLINE CLOUD INITIALIZED")
 

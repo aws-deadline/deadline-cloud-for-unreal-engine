@@ -165,3 +165,15 @@ Root Cause: Version mismatch between the Unreal Engine version used to submit th
 Solutions:
    - Resubmit the job using the Unreal Engine version that matches the worker node. On Service Managed Fleets - Ensure the Conda package version selected matches your project's version of Unreal Engine
    - Install the correct Unreal Engine version on the worker node and update environment variables to match the job's Unreal Engine version
+
+### Missing Deadline Cloud Job Submission Configuration in Movie Render Queue
+
+Issue: When launching Movie Render Queue, Deadline Cloud job submission configurations are not visible.
+
+Root Cause: Movie Render Pipeline project settings were not properly configured.
+
+Solution: Configure Movie Render Pipeline settings as described in [Submit a Test Render](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_SUBMITTER.md#submit-a-test-render):
+   - Under "Edit"/"Project Settings" search for the "Movie Render Pipeline" section
+     - For "Default Remote Executor", select "MoviePipelineDeadlineCloudRemoteExecutor"
+     - For "Default Executor Job", select "MoviePipelineDeadlineCloudExecutorJob"
+     - Under "Default Job Settings Classes", click add icon, and add "DeadlineCloudRenderStepSetting"
