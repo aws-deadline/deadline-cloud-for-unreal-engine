@@ -1,3 +1,10 @@
+## 0.6.3 (2025-09-30)
+
+
+
+### Bug Fixes
+* skip a test that passes in GitHub but fail in CodeBuild (#213) ([`7721f28`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/7721f289c2f28e0626927ab9033de2ffb632c0a0))
+
 ## 0.6.2 (2025-09-30)
 
 
