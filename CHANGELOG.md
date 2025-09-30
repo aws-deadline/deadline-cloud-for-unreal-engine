@@ -1,3 +1,27 @@
+## 0.6.2 (2025-09-30)
+
+
+### Features
+* Update Perforce utils to sync dependent files (#207) ([`4a60a67`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/4a60a67566723bef9d8aa982947ac12d7237312b))
+* Update Perforce utils to sync dependent files ([`4a60a67`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/4a60a67566723bef9d8aa982947ac12d7237312b))
+* UI Simplification ([`ca11214`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/ca1121433f8da36d1b32bfec3db937c636dddc19))
+* UI Simplification ([`ca11214`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/ca1121433f8da36d1b32bfec3db937c636dddc19))
+* Visibility handling updates ([`ca11214`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/ca1121433f8da36d1b32bfec3db937c636dddc19))
+
+### Bug Fixes
+* Logging configuration issue (#210) ([`53ba947`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/53ba9477472fb65ec88e9fc207a19ad6d7ea7b6b))
+* fixed log config. Added troubleshooting guide for misconfigured MRQ. Also added more logs ([`53ba947`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/53ba9477472fb65ec88e9fc207a19ad6d7ea7b6b))
+* Caching and using our deadline client for precache_clients method due to potential race condition with underlying clients cached with lru_cache (#205) ([`1f177db`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/1f177db20b08f143e7dd10df98bbdc9d9fa47ea2))
+* Fix the problem where p4 utils is unable to log stuff ([`4a60a67`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/4a60a67566723bef9d8aa982947ac12d7237312b))
+* chunk_size parameter in runData section (#204) ([`4d79a2d`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/4d79a2d9dc4a9995c3f5695ff9cf7b069b9826c1))
+* resolve formatting issues ([`bb89146`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/bb89146549edc5ae420b84bddceed2778b109d9c))
+* sonarqube issues fix ([`ca11214`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/ca1121433f8da36d1b32bfec3db937c636dddc19))
+* Add job ref to step in UnrealOpenJob.from_data_asset ([`ca11214`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/ca1121433f8da36d1b32bfec3db937c636dddc19))
+* remove code duplication ([`ca11214`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/ca1121433f8da36d1b32bfec3db937c636dddc19))
+* remove unused code ([`ca11214`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/ca1121433f8da36d1b32bfec3db937c636dddc19))
+* Autodetect Project Plugins (#180) ([`86cb4a6`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/86cb4a60059058217b6750cf722756857fc4889c))
+* Autodetect Project Plugins ([`86cb4a6`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/86cb4a60059058217b6750cf722756857fc4889c))
+
 ## 0.6.1 (2025-08-01)
 
 
