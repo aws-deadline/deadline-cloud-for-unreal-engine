@@ -339,7 +339,10 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         if self._job_shared_settings:
             parameter_values += self._job_shared_settings.serialize()
 
-        UnrealOpenJob.check_conda_package_version(parameter_values)
+        if not UnrealOpenJob.check_conda_package_version(parameter_values):
+            raise exceptions.InvalidUEVersionInCondaPackageParameterNoUI(
+                "CondaPackages Unreal Engine version mismatch"
+            )
 
         return parameter_values
 
@@ -523,7 +526,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         return current_version_match.group(0)
 
     @staticmethod
-    def check_conda_package_version(parameter_values: list[dict[str, Any]]):
+    def check_conda_package_version(parameter_values: list[dict[str, Any]]) -> bool:
         """
         Check if the CondaPackages parameter contains Unreal Engine version and compare with current UE version.
 
@@ -536,14 +539,14 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         )
 
         if not conda_packages_param:
-            return
+            return True
 
         current_version = UnrealOpenJob.get_current_ue_version()
 
         conda_packages_value = conda_packages_param.get("value", "")
         if not conda_packages_value:
             conda_packages_param["value"] = f"unrealengine={current_version}"
-            return
+            return True
 
         # Check for unrealengine=x.x pattern
         ue_version_match = re.search(r"unrealengine=(\d+\.\d+)", conda_packages_value)
@@ -551,7 +554,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             conda_packages_param["value"] = (
                 f"unrealengine={current_version} " + conda_packages_value
             )
-            return
+            return True
 
         template_ue_version = ue_version_match.group(1)
         logger.info(f"Template specifies Unreal Engine version: {template_ue_version}")
@@ -567,11 +570,10 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             )
 
             if result != unreal.AppReturnType.YES:
-                raise exceptions.InvalidUEVersionInCondaPackageParameterNoUI(
-                    "CondaPackages Unreal Engine version mismatch"
-                )
+                return False
 
         logger.info("Unreal Engine versions match, continuing with submission")
+        return True
 
 
 # Render Open Job
