@@ -480,7 +480,7 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
                 f"must be provided in extra parameters or template"
             )
 
-        chunk_size = chunk_size_parameter.value
+        chunk_size = int(chunk_size_parameter.value)
         if chunk_size <= 0:
             chunk_size = 1  # by default 1 chunk consist of 1 shot
 

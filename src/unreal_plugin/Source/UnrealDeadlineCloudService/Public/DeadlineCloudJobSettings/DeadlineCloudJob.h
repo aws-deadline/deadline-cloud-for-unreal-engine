@@ -304,7 +304,7 @@ public:
 
 	TArray<FStepTaskParameterDefinition> GetAllStepParameters() const;
 
-
+	TArray<FParameterDefinition> GetParametersDataToOverride() const;
 public:
 
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override

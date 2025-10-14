@@ -12,7 +12,18 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudDetailsWidgetsHelper.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudJobPresetDetailsCustomization.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudDeveloperSettings.h"
+#include "DesktopPlatformModule.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Factories/DataAssetFactory.h"
+#include "AssetToolsModule.h"
+#include "PackageTools.h"
 #include "PythonAPILibraries/PythonYamlLibrary.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudDeveloperSettings.h"
+#include "ObjectTools.h"
+#include "UObject/SavePackage.h"
+#include "Serialization/ArchiveReplaceObjectRef.h"
+#include "Framework/MetaData/DriverMetaData.h"
 
 UMoviePipelineDeadlineCloudExecutorJob::UMoviePipelineDeadlineCloudExecutorJob()
 {
@@ -63,10 +74,96 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostInitProperties()
 	Super::PostInitProperties();
 
 #if WITH_EDITOR
-	if (!HasAnyFlags(RF_ClassDefaultObject)){
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+	{
 		JobPresetChanged();
 	}
 #endif // WITH_EDITOR
+}
+
+void UMoviePipelineDeadlineCloudExecutorJob::SaveAsJobPreset(FString& FolderPath, FString& BaseName, bool bSetAsDefault)
+{
+	TMap<UDataAsset*, FString> ObjectsNames;
+
+	UMoviePipelineDeadlineCloudExecutorJob::GeneratePresetObjectsNames(this, FolderPath, BaseName, ObjectsNames);
+
+	TArray<UDataAsset*> ResultAssets;
+	UDeadlineCloudRenderJob* ResultJob = nullptr;
+	for (const auto& Name : ObjectsNames)
+	{
+		FString PackageName = Name.Value;
+
+		auto Asset = Name.Key;
+
+		const FString AssetName  = FPackageName::GetLongPackageAssetName(PackageName);
+		const FString ObjectPath = PackageName + TEXT(".") + AssetName;
+
+		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+		FAssetData ExistingAsset = AssetRegistryModule.Get().GetAssetByObjectPath(FSoftObjectPath(ObjectPath));
+
+		if (ExistingAsset.IsValid())
+		{
+			// Delete existing asset with the same path
+			ObjectTools::DeleteAssets({ ExistingAsset }, false);
+		}
+		
+		UPackage* Pkg = CreatePackage(*PackageName);
+
+		UDataAsset* NewObj = DuplicateObject<UDataAsset>(Asset, Pkg, *FPaths::GetBaseFilename(PackageName));
+		if (!NewObj)
+		{
+			UE_LOG(LogTemp, Error, TEXT("Could not duplicate asset: %s"), *PackageName);
+			return;
+		}
+
+		NewObj->SetFlags(RF_Public | RF_Standalone);
+		FAssetRegistryModule::AssetCreated(NewObj);
+
+		if (auto Job = Cast<UDeadlineCloudRenderJob>(NewObj))
+		{
+			CopyJobOverrides(Job);
+			ResultJob = Job;
+		}
+		else if (auto Step = Cast<UDeadlineCloudStep>(NewObj))
+		{
+			CopyStepOverrides(Step);
+		}
+		else if (auto Env = Cast<UDeadlineCloudEnvironment>(NewObj))
+		{
+			CopyEnvironmentOverrides(Env);
+		}
+
+		Pkg->MarkPackageDirty();
+		FString FilePath = FPackageName::LongPackageNameToFilename(
+					PackageName, FPackageName::GetAssetPackageExtension());
+
+		FSavePackageArgs SaveArgs = FSavePackageArgs();
+		SaveArgs.TopLevelFlags = EObjectFlags::RF_Public | EObjectFlags::RF_Standalone;
+		SaveArgs.Error = GError;
+		SaveArgs.bWarnOfLongFilename = true;
+
+		UPackage::SavePackage(
+			Pkg, NewObj, *FilePath, SaveArgs);
+
+		ResultAssets.Add(NewObj);
+	}
+
+	// replace old references with new ones
+	FixReferencesAfterDuplication(ObjectsNames, ResultAssets);
+
+	if (bSetAsDefault)
+	{
+		// Set as default in settings
+		UDeadlineCloudDeveloperSettings::GetMutable()->DefaultJobPreset = ResultJob;
+	}
+
+	// Update current job to use the new preset
+	Modify();
+	JobPreset = ResultJob;
+	if (OnRequestDetailsRefresh.IsBound())
+	{
+		OnRequestDetailsRefresh.Execute();
+	}
 }
 
 void UMoviePipelineDeadlineCloudExecutorJob::GetPresetStructWithOverrides(UStruct* InStruct, const void* InContainer, void* OutContainer) const
@@ -144,9 +241,7 @@ FDeadlineCloudJobParametersArray UMoviePipelineDeadlineCloudExecutorJob::GetPara
 	);
 
 	return ReturnValue;
-
 }
-
 
 void UMoviePipelineDeadlineCloudExecutorJob::UpdateAttachmentFields()
 {
@@ -157,54 +252,50 @@ void UMoviePipelineDeadlineCloudExecutorJob::UpdateAttachmentFields()
 void UMoviePipelineDeadlineCloudExecutorJob::JobPresetChanged()
 {
 	UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: JobPresetChanged called"));
-	const UDeadlineCloudJob* SelectedJobPreset = this->JobPreset;
-
-	if (!SelectedJobPreset)
+	if (!IsValid(JobPreset))
 	{
 		UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: JobPreset is null, creating default in JobPresetChanged"));
-		this->JobPreset = CreateDefaultJobPresetFromTemplates(JobPreset);
-		SelectedJobPreset = this->JobPreset;
+		JobPreset = CreateDefaultJobPresetFromTemplates(JobPreset);
 	} else {
 		UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: JobPreset exists in JobPresetChanged"));
 	}
 
-	this->PresetOverrides.HostRequirements = SelectedJobPreset->JobPresetStruct.HostRequirements;
-	this->PresetOverrides.JobSharedSettings = SelectedJobPreset->JobPresetStruct.JobSharedSettings;
+	ReloadDataFromJobPreset();
 
-	this->PresetOverrides.JobAttachments.InputFiles.Files =
-		SelectedJobPreset->JobPresetStruct.JobAttachments.InputFiles.Files;
-
-	this->PresetOverrides.JobAttachments.InputDirectories.Directories =
-		SelectedJobPreset->JobPresetStruct.JobAttachments.InputDirectories.Directories;
-
-	this->PresetOverrides.JobAttachments.OutputDirectories.Directories =
-		SelectedJobPreset->JobPresetStruct.JobAttachments.OutputDirectories.Directories;
-
-	this->JobTemplateOverrides.Parameters = SelectedJobPreset->ParameterDefinition.Parameters;
-
-	this->JobTemplateOverrides.StepsOverrides = GetStepsToOverride(SelectedJobPreset);
-	this->JobTemplateOverrides.EnvironmentsOverrides = GetEnvironmentsToOverride(SelectedJobPreset);
+	if (IsUsingDefaultPreset())
+	{
+		ApplyLastUsedTo(this);
+	}
 }
 
 void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-	
-	if (PropertyChangedEvent.Property)
-	{
-	// Check if we changed the job Preset an update the override details
-	if (const FName PropertyName = PropertyChangedEvent.GetPropertyName(); PropertyName == "JobPreset")
-	{
-		JobPresetChanged();
+	Super::PostEditChangeProperty(PropertyChangedEvent);
 
-		// Update MRQ widget request
-		if (OnRequestDetailsRefresh.IsBound())
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+	{
+		if (PropertyChangedEvent.Property)
 		{
-			OnRequestDetailsRefresh.Execute();
-		}
-	}
+			// Check if we changed the job Preset an update the override details
+			if (const FName PropertyName = PropertyChangedEvent.GetPropertyName(); PropertyName == "JobPreset")
+			{
+				JobPresetChanged();
 
-	UE_LOG(LogTemp, Display, TEXT("Deadline Cloud job changed: %s"),
-		*PropertyChangedEvent.Property->GetPathName());
+				// Update MRQ widget request
+				if (OnRequestDetailsRefresh.IsBound())
+				{
+					OnRequestDetailsRefresh.Execute();
+				}
+			}
+
+			if (IsUsingDefaultPreset())
+			{
+				SaveLastUsedFrom(this);
+			}
+
+			UE_LOG(LogTemp, Display, TEXT("Deadline Cloud job changed: %s"),
+				*PropertyChangedEvent.Property->GetPathName());
+		}
 	}
 }
 
@@ -225,9 +316,12 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyCha
 		return false;
 	}
 
+	const FString AssetName  = FPackageName::GetLongPackageAssetName(LongPackagePath);
+	const FString ObjectPath = LongPackagePath + TEXT(".") + AssetName;
+
 	// Check AssetRegistry
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-	FAssetData AssetData = AssetRegistryModule.Get().GetAssetByObjectPath(*LongPackagePath);
+	FAssetData AssetData = AssetRegistryModule.Get().GetAssetByObjectPath(FSoftObjectPath(ObjectPath));
 
 	if (!AssetData.IsValid())
 	{
@@ -251,7 +345,6 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeProperty(FPropertyCha
 
 void UMoviePipelineDeadlineCloudExecutorJob::CollectDependencies()
 {
-
 	if (GEngine)
 	{
 		UE_LOG(LogTemp, Display, TEXT("Running Garbage Collection before dependency update..."));
@@ -284,7 +377,6 @@ void UMoviePipelineDeadlineCloudExecutorJob::CollectDependencies()
 			{
 				UE_LOG(LogTemp, Error, TEXT("Error get DeadlineCloudJobBundleLibrary"));
 			}
-
 		});
 }
 
@@ -330,6 +422,177 @@ void UMoviePipelineDeadlineCloudExecutorJob::UpdateInputFilesProperty()
 	}
 }
 
+void UMoviePipelineDeadlineCloudExecutorJob::ReloadDataFromJobPreset()
+{
+	PresetOverrides.HostRequirements = JobPreset->JobPresetStruct.HostRequirements;
+	PresetOverrides.JobSharedSettings = JobPreset->JobPresetStruct.JobSharedSettings;
+
+	PresetOverrides.JobAttachments.InputFiles.Files =
+		JobPreset->JobPresetStruct.JobAttachments.InputFiles.Files;
+
+	PresetOverrides.JobAttachments.InputDirectories.Directories =
+		JobPreset->JobPresetStruct.JobAttachments.InputDirectories.Directories;
+
+	PresetOverrides.JobAttachments.OutputDirectories.Directories =
+		JobPreset->JobPresetStruct.JobAttachments.OutputDirectories.Directories;
+
+	JobTemplateOverrides.Parameters = JobPreset->GetParametersDataToOverride();
+	JobTemplateOverrides.StepsOverrides = GetStepsToOverride(JobPreset);
+	JobTemplateOverrides.EnvironmentsOverrides = GetEnvironmentsToOverride(JobPreset);
+}
+
+void UMoviePipelineDeadlineCloudExecutorJob::GetPresetObjectsNames(const UMoviePipelineDeadlineCloudExecutorJob* MrqJob, TMap<UDataAsset*, FString>& OutPresetPackageNames)
+{
+	if (!MrqJob || !MrqJob->JobPreset)
+	{
+		return;
+	}
+
+	FString PackageName = FSoftObjectPath(MrqJob->JobPreset).GetLongPackageName();
+	OutPresetPackageNames.Add(MrqJob->JobPreset, PackageName);
+	for (auto Step : MrqJob->JobPreset->Steps)
+	{
+		if (IsValid(Step))
+		{
+			PackageName = FSoftObjectPath(Step).GetLongPackageName();
+			OutPresetPackageNames.Add(Step, PackageName);
+
+			for (auto Env : Step->Environments)
+			{
+				if (IsValid(Env))
+				{
+					PackageName = FSoftObjectPath(Env).GetLongPackageName();
+					OutPresetPackageNames.Add(Env, PackageName);
+				}
+			}
+		}
+	}
+
+	for (auto Env : MrqJob->JobPreset->Environments)
+	{
+		if (IsValid(Env))
+		{
+			PackageName = FSoftObjectPath(Env).GetLongPackageName();
+			OutPresetPackageNames.Add(Env, PackageName);
+		}
+	}
+}
+
+void UMoviePipelineDeadlineCloudExecutorJob::GeneratePresetObjectsNames(
+	const UMoviePipelineDeadlineCloudExecutorJob* MrqJob,
+	const FString& FolderPath, const FString& BaseName,
+	TMap<UDataAsset*, FString>& OutPresetPackageNames
+)
+{
+	if (!MrqJob || !MrqJob->JobPreset)
+	{
+		return;
+	}
+
+	FString NewName = UPackageTools::SanitizePackageName(FolderPath + TEXT("/") + BaseName);
+
+	OutPresetPackageNames.Add(MrqJob->JobPreset, NewName);
+
+	uint32 StepIndex = 1;
+	for (const auto& Step : MrqJob->JobPreset->Steps)
+	{
+		if (IsValid(Step))
+		{
+			if (OutPresetPackageNames.Contains(Step))
+			{
+				// Already added
+				continue;
+			}
+
+			FString StepName = NewName + "_Step" + FString::FromInt(StepIndex);
+			OutPresetPackageNames.Add(Step, StepName);
+			StepIndex++;
+
+			// Add step environments
+			uint32 StepEnvIndex = 1;
+			for (const auto& StepEnv : Step->Environments)
+			{
+				if (IsValid(StepEnv))
+				{
+					if (OutPresetPackageNames.Contains(StepEnv))
+					{
+						// Already added
+						continue;
+					}
+					FString EnvName = StepName + "_Environment" + FString::FromInt(StepEnvIndex);
+					OutPresetPackageNames.Add(StepEnv, EnvName);
+					StepEnvIndex++;
+				}
+			}
+		}
+	}
+
+	// Add job environments
+	uint32 EnvIndex = 1;
+	for (const auto& Env : MrqJob->JobPreset->Environments)
+	{
+		if (IsValid(Env))
+		{
+			if (OutPresetPackageNames.Contains(Env))
+			{
+				// Already added
+				continue;
+			}
+
+			FString EnvName = NewName + "_Environment" + FString::FromInt(EnvIndex);
+			OutPresetPackageNames.Add(Env, EnvName);
+		}
+	}
+}
+
+
+
+void UMoviePipelineDeadlineCloudExecutorJob::CopyEnvironmentOverrides(UDeadlineCloudEnvironment* Environment)
+{
+	for (auto& EnvOverride : JobTemplateOverrides.EnvironmentsOverrides)
+	{
+		if (EnvOverride.Name == Environment->Name)
+		{
+			Environment->Variables = EnvOverride.Variables;
+			return;
+		}
+	}
+
+	for (auto& StepOverride : JobTemplateOverrides.StepsOverrides)
+	{
+		for (auto& EnvOverride : StepOverride.EnvironmentsOverrides)
+		{
+			if (EnvOverride.Name == Environment->Name)
+			{
+				Environment->Variables = EnvOverride.Variables;
+				return;
+			}
+		}
+	}
+}
+
+void UMoviePipelineDeadlineCloudExecutorJob::CopyStepOverrides(UDeadlineCloudStep* Step)
+{
+	for (auto& StepOverride : JobTemplateOverrides.StepsOverrides)
+	{
+		if (StepOverride.Name == Step->Name)
+		{
+			Step->TaskParameterDefinitions.Parameters = StepOverride.TaskParameterDefinitions.Parameters;
+			break;
+		}
+	}
+}
+
+void UMoviePipelineDeadlineCloudExecutorJob::CopyJobOverrides(UDeadlineCloudRenderJob* Job)
+{
+	Job->JobPresetStruct.HostRequirements = PresetOverrides.HostRequirements;
+	Job->JobPresetStruct.JobSharedSettings = PresetOverrides.JobSharedSettings;
+	Job->JobPresetStruct.JobAttachments.InputFiles = PresetOverrides.JobAttachments.InputFiles;
+	Job->JobPresetStruct.JobAttachments.InputDirectories = PresetOverrides.JobAttachments.InputDirectories;
+	Job->JobPresetStruct.JobAttachments.OutputDirectories = PresetOverrides.JobAttachments.OutputDirectories;
+	Job->ParameterDefinition.Parameters = JobTemplateOverrides.Parameters;
+}
+
 void UMoviePipelineDeadlineCloudExecutorJob::UpdateInputDirectoriesProperty()
 {
 	if (PresetOverrides.JobAttachments.InputDirectories.bShowAutoDetected)
@@ -350,7 +613,6 @@ void UMoviePipelineDeadlineCloudExecutorJob::PostEditChangeChainProperty(FProper
 	{
 		static const FName InputFilesName = GET_MEMBER_NAME_CHECKED(FDeadlineCloudAttachmentsStruct, InputFiles);
 		static const FName InputDirectoriesName = GET_MEMBER_NAME_CHECKED(FDeadlineCloudAttachmentsStruct, InputDirectories);
-		// static const FName OutputDirectoriesName = GET_MEMBER_NAME_CHECKED(FDeadlineCloudAttachmentsStruct, OutputDirectories);
 
 		const FProperty* Property = PropertyChangedEvent.PropertyChain.GetActiveNode()->GetPrevNode()->GetValue();
 		if (Property->GetFName() == InputFilesName)
@@ -386,6 +648,23 @@ TArray<FString> UMoviePipelineDeadlineCloudExecutorJob::GetCpuArchitectures()
 	return {};
 }
 
+bool UMoviePipelineDeadlineCloudExecutorJob::IsUsingDefaultPreset() const
+{
+	auto DefaultJobPreset = UDeadlineCloudDeveloperSettings::GetDefaultJobPreset();
+
+    return JobPreset == DefaultJobPreset;
+}
+
+void UMoviePipelineDeadlineCloudExecutorJob::SaveLastUsedFrom(const UMoviePipelineDeadlineCloudExecutorJob* Source)
+{
+	UDeadlineCloudDeveloperSettings::SaveMRQJobPresetCache(Source);
+}
+
+void UMoviePipelineDeadlineCloudExecutorJob::ApplyLastUsedTo(UMoviePipelineDeadlineCloudExecutorJob* Target)
+{
+	UDeadlineCloudDeveloperSettings::LoadMRQJobPresetCache(Target);
+}
+
 TArray<FString> UMoviePipelineDeadlineCloudExecutorJob::GetOperatingSystems()
 {
 	if (auto Library = UDeadlineCloudJobBundleLibrary::Get())
@@ -419,45 +698,53 @@ UDeadlineCloudRenderJob* UMoviePipelineDeadlineCloudExecutorJob::CreateDefaultJo
 
 	if (Preset == nullptr)
 	{
-		UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: Creating new UDeadlineCloudRenderJob"));
+		auto DefaultPreset = UDeadlineCloudDeveloperSettings::GetDefaultJobPreset();
+		if (IsValid(DefaultPreset))
+		{
+			Preset = DefaultPreset;
+		}
+		else
+		{
+			UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: Creating new UDeadlineCloudRenderJob"));
+			Preset = NewObject<UDeadlineCloudRenderJob>();
 
-		Preset = NewObject<UDeadlineCloudRenderJob>();
+			FString DefaultTemplate = "/Content/Python/openjd_templates/render_job.yml";
+			FString StepTemplate = "/Content/Python/openjd_templates/render_step.yml";
+			FString EnvTemplate = "/Content/Python/openjd_templates/launch_ue_environment.yml";
 
-		FString DefaultTemplate = "/Content/Python/openjd_templates/render_job.yml";
-		FString StepTemplate = "/Content/Python/openjd_templates/render_step.yml";
-		FString EnvTemplate = "/Content/Python/openjd_templates/launch_ue_environment.yml";
+			FString  PluginContentDir = IPluginManager::Get().FindPlugin(TEXT("UnrealDeadlineCloudService"))->GetBaseDir();
 
-		FString PluginContentDir = IPluginManager::Get().FindPlugin(TEXT("UnrealDeadlineCloudService"))->GetBaseDir();
+			FString PathToJobTemplate = FPaths::Combine(FPaths::ConvertRelativePathToFull(PluginContentDir), DefaultTemplate);
+			FPaths::NormalizeDirectoryName(PathToJobTemplate);
+			UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: Looking for job template at: %s"), *PathToJobTemplate);
+			
+			UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: Job template found, opening file"));
+			Preset->PathToTemplate.FilePath = PathToJobTemplate;
+			Preset->OpenJobFile(PathToJobTemplate);
 
-		FString PathToJobTemplate = FPaths::Combine(FPaths::ConvertRelativePathToFull(PluginContentDir), DefaultTemplate);
-		FPaths::NormalizeDirectoryName(PathToJobTemplate);
-		UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: Looking for job template at: %s"), *PathToJobTemplate);
+			TObjectPtr <UDeadlineCloudRenderStep> PresetStep;
+			PresetStep = NewObject<UDeadlineCloudRenderStep>();
+			FString PathToStepTemplate = FPaths::Combine(FPaths::ConvertRelativePathToFull(PluginContentDir), StepTemplate);
+			FPaths::NormalizeDirectoryName(PathToStepTemplate);
+			UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: Looking for step template at: %s"), *PathToStepTemplate);
+			
+			PresetStep->PathToTemplate.FilePath = PathToStepTemplate;
+			PresetStep->OpenStepFile(PathToStepTemplate);
+			Preset->Steps.Add(PresetStep);
 
-		UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: Job template found, opening file"));
-		Preset->PathToTemplate.FilePath = PathToJobTemplate;
-		Preset->OpenJobFile(PathToJobTemplate);
-
-		TObjectPtr <UDeadlineCloudRenderStep> PresetStep;
-		PresetStep = NewObject<UDeadlineCloudRenderStep>();
-		FString PathToStepTemplate = FPaths::Combine(FPaths::ConvertRelativePathToFull(PluginContentDir), StepTemplate);
-		FPaths::NormalizeDirectoryName(PathToStepTemplate);
-		UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: Looking for step template at: %s"), *PathToStepTemplate);
-
-		PresetStep->PathToTemplate.FilePath = PathToStepTemplate;
-		PresetStep->OpenStepFile(PathToStepTemplate);
-		Preset->Steps.Add(PresetStep);
-
-		UDeadlineCloudEnvironment* PresetEnv;
-		PresetEnv = NewObject<UDeadlineCloudEnvironment>();
-		FString PathToEnvTemplate = FPaths::Combine(FPaths::ConvertRelativePathToFull(PluginContentDir), EnvTemplate);
-		FPaths::NormalizeDirectoryName(PathToEnvTemplate);
-		UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: Looking for env template at: %s"), *PathToEnvTemplate);
-
-		PresetEnv->PathToTemplate.FilePath = PathToEnvTemplate;
-		PresetEnv->OpenEnvFile(PathToEnvTemplate);
-		Preset->Environments.Add(PresetEnv);
-		UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: CreateDefaultJobPresetFromTemplates completed successfully"));
+			UDeadlineCloudEnvironment* PresetEnv;
+			PresetEnv = NewObject<UDeadlineCloudEnvironment>();
+			FString PathToEnvTemplate = FPaths::Combine(FPaths::ConvertRelativePathToFull(PluginContentDir), EnvTemplate);
+			FPaths::NormalizeDirectoryName(PathToEnvTemplate);
+			UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: Looking for env template at: %s"), *PathToEnvTemplate);
+			
+			PresetEnv->PathToTemplate.FilePath = PathToEnvTemplate;
+			PresetEnv->OpenEnvFile(PathToEnvTemplate);
+			Preset->Environments.Add(PresetEnv);
+			UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: CreateDefaultJobPresetFromTemplates completed successfully"));
+		}
 	}
+
 	return Preset;
 }
 
@@ -483,6 +770,52 @@ TArray<FDeadlineCloudStepOverride> UMoviePipelineDeadlineCloudExecutorJob::GetSt
 		}
 	}
 	return DeadlineStepsOverrides;
+}
+
+void UMoviePipelineDeadlineCloudExecutorJob::FixReferencesAfterDuplication(TMap<UDataAsset*, FString>& SourceObjects, TArray<UDataAsset*> NewObjects)
+{
+    TArray<UDataAsset*> OldObjects;
+    OldObjects.Reserve(SourceObjects.Num());
+    for (const TPair<UDataAsset*, FString>& Pair : SourceObjects)
+    {
+        OldObjects.Add(Pair.Key);
+    }
+
+    if (OldObjects.Num() != NewObjects.Num())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("FixReferencesAfterDuplication: size mismatch Old=%d New=%d"),
+            OldObjects.Num(), NewObjects.Num());
+    }
+
+    const int32 Count = FMath::Min(OldObjects.Num(), NewObjects.Num());
+
+    TMap<UObject*, UObject*> ReplacementMap;
+    ReplacementMap.Reserve(Count);
+    for (int32 i = 0; i < Count; ++i)
+    {
+        if (OldObjects[i] && NewObjects[i])
+        {
+            ReplacementMap.Add(OldObjects[i], NewObjects[i]);
+        }
+    }
+
+    for (UDataAsset* NewAsset : NewObjects)
+    {
+        if (!NewAsset) { continue; }
+
+        NewAsset->Modify(); 
+
+        FArchiveReplaceObjectRef<UObject> ReplaceAr(
+            NewAsset,
+            ReplacementMap,
+            EArchiveReplaceObjectFlags::None
+        );
+
+#if WITH_EDITOR
+        FCoreUObjectDelegates::OnObjectModified.Broadcast(NewAsset);
+        NewAsset->MarkPackageDirty();
+#endif
+	}
 }
 
 TArray<FDeadlineCloudEnvironmentOverride> UMoviePipelineDeadlineCloudExecutorJob::GetEnvironmentsToOverride(const UDeadlineCloudJob* Preset)
@@ -555,11 +888,76 @@ void FMoviePipelineDeadlineCloudExecutorJobCustomization::CustomizeDetails(IDeta
 					)
 				];
 		}
-		
+		else if (PropertyName == GET_MEMBER_NAME_CHECKED(UMoviePipelineDeadlineCloudExecutorJob, JobPreset))
+		{
+			const FResetToDefaultOverride ResetDefaultOverride = FResetToDefaultOverride::Create(
+				FIsResetToDefaultVisible::CreateLambda([](TSharedPtr<IPropertyHandle> PropertyHandle) {return true; }),
+            FResetToDefaultHandler::CreateSP(this, &FMoviePipelineDeadlineCloudExecutorJobCustomization::ResetPresetToDefaultHandler)
+			);
 
+			TSharedRef<SWidget> SaveButtonWidget = SNew(SButton)
+				.ToolTipText(FText::FromString("Save the current job preset."))
+				.ButtonStyle(FAppStyle::Get(), "SimpleButton")
+				.ContentPadding(FMargin(2.f))
+				.IsEnabled_Lambda([this]() 
+					{ 
+						return MrqJob.IsValid() && MrqJob->JobPreset != nullptr; 
+					})
+				.OnClicked_Lambda([this]() 
+					{ 
+						FDeadlineCloudDetailsWidgetsHelper::CreateSavePresetDialogWidget(MrqJob.Get());
+						return FReply::Handled();
+					})
+					[
+						SNew(SImage)
+							.Image(FAppStyle::Get().GetBrush("Icons.Save"))
+					];
+			SaveButtonWidget->AddMetadata(FDriverMetaData::Id(FName("MRQJobSavePresetButton")));
+
+			DeadlineCategory.AddProperty(PropertyName)
+				.OverrideResetToDefault(ResetDefaultOverride)
+				.CustomWidget()
+				.NameContent()
+				[
+					Property->CreatePropertyNameWidget()
+				]
+				.ValueContent()
+				[
+					SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.FillWidth(1.0f)
+						[
+							Property->CreatePropertyValueWidget()
+						]
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						.VAlign(VAlign_Top)
+						.HAlign(HAlign_Center)
+						.Padding(2.0f, 4.0f)
+						[
+							SaveButtonWidget
+						]
+				];
+		}
 		else
 		{
 			DeadlineCategory.AddProperty(Property);
+		}
+	}
+
+	IDetailCategoryBuilder& DeadlineCloudCategoryBuilder = DetailBuilder.EditCategory(
+		"DeadlineCloud"
+	);
+}
+
+void FMoviePipelineDeadlineCloudExecutorJobCustomization::ResetPresetToDefaultHandler(TSharedPtr<IPropertyHandle> PropertyHandle) const
+{
+	if (MrqJob.IsValid() && MrqJob->JobPreset)
+	{
+		MrqJob->ReloadDataFromJobPreset();
+		if (MrqJob->OnRequestDetailsRefresh.IsBound())
+		{
+			MrqJob->OnRequestDetailsRefresh.Execute();
 		}
 	}
 }

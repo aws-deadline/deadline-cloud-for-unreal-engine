@@ -18,6 +18,8 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudEnvironmentOverride
 {
     GENERATED_BODY()
 
+public:
+
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Parameters")
 	FString Name;
 
@@ -26,6 +28,8 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudEnvironmentOverride
 
 	TArray<FName> HiddenVarsList;
 
+	//copy only values for existing parameters
+	void CopyParametersValuesFrom(const FDeadlineCloudEnvironmentOverride& Other);
 };
 
 UCLASS(BlueprintType, Blueprintable)

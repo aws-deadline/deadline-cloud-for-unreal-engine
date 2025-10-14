@@ -2,6 +2,9 @@
 
 
 #include "DeadlineCloudJobSettings/DeadlineCloudDeveloperSettings.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudRenderJob.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudJob.h"
+
 
 namespace DeadlineSettingsKeys
 {
@@ -18,6 +21,103 @@ namespace DeadlineSettingsKeys
 
 UDeadlineCloudDeveloperSettings::UDeadlineCloudDeveloperSettings()
 {
+}
+
+UDeadlineCloudRenderJob* UDeadlineCloudDeveloperSettings::GetDefaultJobPreset()
+{
+	if (auto Settings = UDeadlineCloudDeveloperSettings::Get())
+	{
+		return Settings->DefaultJobPreset.LoadSynchronous();
+	}
+
+	return nullptr;
+}
+
+void UDeadlineCloudDeveloperSettings::SetDefaultJobPreset(UDeadlineCloudRenderJob* NewJobPreset)
+{
+	if (auto Settings = UDeadlineCloudDeveloperSettings::GetMutable())
+	{
+		Settings->DefaultJobPreset = NewJobPreset;
+		Settings->SaveConfig();
+	}
+}
+
+void UDeadlineCloudDeveloperSettings::LoadMRQJobPresetCache(UMoviePipelineDeadlineCloudExecutorJob* MRQJob)
+{
+	if (auto Settings = UDeadlineCloudDeveloperSettings::GetMutable())
+	{
+		// If the user changed the default preset, we don't have anything to load
+		if (Settings->JobPresetCache.LastJobPreset != Settings->DefaultJobPreset)
+		{
+			Settings->JobPresetCache.LastJobPreset = Settings->DefaultJobPreset;
+			return;
+		}
+
+		// If the MRQ job is not using the default preset, we don't load anything
+		if (MRQJob->JobPreset != Settings->DefaultJobPreset)
+		{
+			return;
+		}
+
+		MRQJob->PresetOverrides = Settings->JobPresetCache.LastPresetOverrides;
+		// copy overrides if parameter exists in current preset, maybe some parameters were removed from previous cache save
+		for (const auto& CachedParam : Settings->JobPresetCache.LastJobTemplateOverrides.Parameters)
+		{
+			for (auto& CurrentParam : MRQJob->JobTemplateOverrides.Parameters)
+			{
+				if (CachedParam.Name == CurrentParam.Name)
+				{
+					CurrentParam.Value = CachedParam.Value;
+					break;
+				}
+			}
+		}
+
+		for (const auto& CachedStepParam : Settings->JobPresetCache.LastJobTemplateOverrides.StepsOverrides)
+		{
+			for (auto& CurrentStepParam : MRQJob->JobTemplateOverrides.StepsOverrides)
+			{
+				if (CachedStepParam.Name == CurrentStepParam.Name)
+				{
+					CurrentStepParam.CopyParametersValuesFrom(CachedStepParam);
+					break;
+				}
+			}
+		}
+
+		for (const auto& CachedEnvParam : Settings->JobPresetCache.LastJobTemplateOverrides.EnvironmentsOverrides)
+		{
+			for (auto& CurrentEnvParam : MRQJob->JobTemplateOverrides.EnvironmentsOverrides)
+			{
+				if (CachedEnvParam.Name == CurrentEnvParam.Name)
+				{
+					CurrentEnvParam.CopyParametersValuesFrom(CachedEnvParam);
+					break;
+				}
+			}
+		}
+	}
+}
+
+void UDeadlineCloudDeveloperSettings::SaveMRQJobPresetCache(const UMoviePipelineDeadlineCloudExecutorJob* MRQJob)
+{
+	if (auto Settings = UDeadlineCloudDeveloperSettings::GetMutable())
+	{
+		if (Settings->JobPresetCache.LastJobPreset != Settings->DefaultJobPreset)
+		{
+			Settings->JobPresetCache.LastJobPreset = Settings->DefaultJobPreset;
+		}
+
+		// If the MRQ job is not using the default preset, we don't save anything
+		if (MRQJob->JobPreset != Settings->DefaultJobPreset)
+		{
+			return;
+		}
+
+		Settings->JobPresetCache.LastPresetOverrides = MRQJob->PresetOverrides;
+		Settings->JobPresetCache.LastJobTemplateOverrides = MRQJob->JobTemplateOverrides;
+		Settings->SaveConfig();
+	}
 }
 
 TArray<FString> UDeadlineCloudDeveloperSettings::GetFarmsList()
