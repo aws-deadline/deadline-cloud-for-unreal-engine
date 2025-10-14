@@ -38,10 +38,26 @@ struct UNREALDEADLINECLOUDSERVICE_API FJobTemplateOverrides
     TArray<FDeadlineCloudEnvironmentOverride> EnvironmentsOverrides;
 };
 
+USTRUCT()
+struct FDeadlineCloudJobPresetCache
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY()
+	TSoftObjectPtr<class UDeadlineCloudRenderJob> LastJobPreset;
+
+    UPROPERTY(Config)
+    FDeadlineCloudJobPresetStruct LastPresetOverrides;
+
+    UPROPERTY(Config)
+    FJobTemplateOverrides LastJobTemplateOverrides;
+};
+
 /**
  * Movie pipeline executor job
  */
-UCLASS(BlueprintType, config = EditorPerProjectUserSettings)
+UCLASS(BlueprintType)
 class UNREALDEADLINECLOUDSERVICE_API UMoviePipelineDeadlineCloudExecutorJob : public UMoviePipelineExecutorJob
 {
     GENERATED_BODY()
@@ -54,6 +70,28 @@ public:
 
     void PostInitProperties() override;
 
+    void SaveAsJobPreset(FString& FolderPath, FString& BaseName, bool bSetAsDefault);
+
+    void CopyJobOverrides(UDeadlineCloudRenderJob* Job);
+	void CopyStepOverrides(UDeadlineCloudStep* Step);
+    void CopyEnvironmentOverrides(UDeadlineCloudEnvironment* Environment);
+
+	void FixReferencesAfterDuplication(TMap<UDataAsset*, FString>& SourceObjects, TArray<UDataAsset*> NewObjects);
+
+	static void GeneratePresetObjectsNames(
+        const UMoviePipelineDeadlineCloudExecutorJob* MrqJob, 
+        const FString& FolderPath, const FString& BaseName,
+        TMap<UDataAsset*, FString>& OutPresetPackageNames);
+
+	static void GetPresetObjectsNames(
+		const UMoviePipelineDeadlineCloudExecutorJob* MrqJob,
+		TMap<UDataAsset*, FString>& OutPresetPackageNames);
+
+	void ReloadDataFromJobPreset();
+   
+    bool IsUsingDefaultPreset() const;
+    static void SaveLastUsedFrom(const UMoviePipelineDeadlineCloudExecutorJob* Source);
+    static void ApplyLastUsedTo(UMoviePipelineDeadlineCloudExecutorJob* Target);
     /**
      * Returns the Deadline job info with overrides applied, if enabled.
      * Skips any property not
@@ -66,7 +104,7 @@ public:
 
 #if WITH_EDITOR
     void UpdateAttachmentFields();
-   virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+    virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
     virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
 #endif
 
@@ -87,6 +125,7 @@ public:
 
     UFUNCTION()
     TArray<FString> GetJobInitialStateOptions();
+
     // End Job list options methods
     UFUNCTION()
     UDeadlineCloudRenderJob* CreateDefaultJobPresetFromTemplates(UDeadlineCloudRenderJob* Preset);
@@ -108,13 +147,13 @@ public:
     /**
      * Reference to Deadline Cloud job preset DataAsset. Contains overriden job settings
      */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DeadlineCloud")
     FDeadlineCloudJobPresetStruct PresetOverrides = FDeadlineCloudJobPresetStruct();
 
     /**
- * Reference to Deadline Cloud job parameters. Contains overriden job settings
- */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = "DeadlineCloud")
+     * Reference to Deadline Cloud job parameters. Contains overriden job settings
+     */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DeadlineCloud")
     FJobTemplateOverrides JobTemplateOverrides = FJobTemplateOverrides();
 
     void JobPresetChanged();
@@ -142,7 +181,7 @@ protected:
     /**
      * List of property "enabled" states in UI
      */
-    UPROPERTY(config)
+    UPROPERTY()
     TArray<FPropertyRowEnabledInfo> EnabledPropertyOverrides;
 public:
 
@@ -164,4 +203,6 @@ public:
     /** Begin IDetailCustomization interface */
     virtual void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
     /** End IDetailCustomization interface */
+
+    void ResetPresetToDefaultHandler(TSharedPtr<IPropertyHandle> PropertyHandle) const;
 };
