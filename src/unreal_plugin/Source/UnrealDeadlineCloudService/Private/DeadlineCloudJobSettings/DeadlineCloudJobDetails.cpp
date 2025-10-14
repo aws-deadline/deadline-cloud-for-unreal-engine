@@ -328,18 +328,11 @@ void FDeadlineCloudJobParametersArrayBuilder::GenerateStepsExtraChildren(IDetail
             // Access the array property of StepOverride elements
             TArray<FDeadlineCloudStepOverride>& Steps = MrqJob->JobTemplateOverrides.StepsOverrides;
 
-            for (FDeadlineCloudStepOverride& Step : Steps)
-            {
-                // Check Steps all > Steps hidden 
-                if (Step.TaskParameterDefinitions.Parameters.Num() > Step.HiddenParametersList.Num())
-                {
-                    // Use custom array builder to hide the header
-                    TSharedRef<FDeadlineCloudStepOverrideArrayBuilder> StepsArrayBuilder = 
-                    FDeadlineCloudStepOverrideArrayBuilder::MakeInstance(StepsHandle.ToSharedRef());
+            // Use custom array builder to hide the header
+            TSharedRef<FDeadlineCloudStepOverrideArrayBuilder> StepsArrayBuilder = 
+            FDeadlineCloudStepOverrideArrayBuilder::MakeInstance(StepsHandle.ToSharedRef());
 
-                    ChildrenBuilder.AddCustomBuilder(StepsArrayBuilder);
-                }
-            }
+            ChildrenBuilder.AddCustomBuilder(StepsArrayBuilder);
         }
     }
 }
@@ -359,18 +352,12 @@ void FDeadlineCloudJobParametersArrayBuilder::GenerateEnvironmentsExtraChildren(
             // Access the array property of StepOverride elements
             TArray<FDeadlineCloudEnvironmentOverride>& Envs = MrqJob->JobTemplateOverrides.EnvironmentsOverrides;
 
-            for (FDeadlineCloudEnvironmentOverride& Environment : Envs)
-            {
-                // Check Steps all > Steps hidden 
-                if (Environment.Variables.Variables.Num() > Environment.HiddenVarsList.Num())
-                {
-                    // Use custom array builder to hide the header
-                    TSharedRef<FDeadlineCloudEnvOverrideArrayBuilder> EnvsArrayBuilder =
-                        FDeadlineCloudEnvOverrideArrayBuilder::MakeInstance(EnvHandle.ToSharedRef());
 
-                    ChildrenBuilder.AddCustomBuilder(EnvsArrayBuilder);
-                }
-            }
+            // Use custom array builder to hide the header
+            TSharedRef<FDeadlineCloudEnvOverrideArrayBuilder> EnvsArrayBuilder =
+                FDeadlineCloudEnvOverrideArrayBuilder::MakeInstance(EnvHandle.ToSharedRef());
+
+            ChildrenBuilder.AddCustomBuilder(EnvsArrayBuilder);
         }
     }
 }
@@ -652,10 +639,7 @@ void FDeadlineCloudJobParametersArrayBuilder::OnGenerateEntry(TSharedRef<IProper
                 return true;
             })
     );
-
-    PropertyRow.Visibility(IsPropertyHidden(FName(ParameterName)) ? EVisibility::Collapsed : EVisibility::Visible);
 }
-
 
 
 void FJobTemplateOverridesCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> InPropertyHandle, FDetailWidgetRow& InHeaderRow, IPropertyTypeCustomizationUtils& InCustomizationUtils)

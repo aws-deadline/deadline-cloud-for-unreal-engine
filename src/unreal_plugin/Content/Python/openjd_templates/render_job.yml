@@ -27,7 +27,7 @@ parameterDefinitions:
    control: HIDDEN
 - name: CondaPackages
   type: STRING
-  default: unrealengine=5.6 unrealengine-openjd=0.6.*
+  default: unrealengine=5.6 unrealengine-openjd=0.5.*
   userInterface: 
    control: LINE_EDIT
 - name: CondaChannels

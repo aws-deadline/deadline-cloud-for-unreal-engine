@@ -12,6 +12,7 @@ class DeadlineCloudJobPresetDetailsCustomization;
 class FDeadlineCloudDetailsWidgetsHelper
 {
 public:
+	static void CreateSavePresetDialogWidget(class UMoviePipelineDeadlineCloudExecutorJob* MrqJob, bool bModal = true);
 
 	static TSharedRef<SWidget> CreatePropertyWidgetByType(TSharedPtr<IPropertyHandle> ParameterHandle, EValueType Type, EValueValidationType ValidationType = EValueValidationType::Default);
 	static TSharedPtr<SWidget> TryCreatePropertyWidgetFromMetadata(TSharedPtr<IPropertyHandle> ParameterHandle);
@@ -173,7 +174,6 @@ public:
 	static UMoviePipelineDeadlineCloudExecutorJob* GetMrqJob(TSharedRef<IPropertyHandle> Handle);
 	
 private:
-
 	static TSharedRef<SWidget> CreatePathWidget(TSharedPtr<IPropertyHandle> ParameterHandle, FOnVerifyTextChanged Validation);
 	static TSharedRef<SWidget> CreateIntWidget(TSharedPtr<IPropertyHandle> ParameterHandle);
 	static TSharedRef<SWidget> CreateFloatWidget(TSharedPtr<IPropertyHandle> ParameterHandle);

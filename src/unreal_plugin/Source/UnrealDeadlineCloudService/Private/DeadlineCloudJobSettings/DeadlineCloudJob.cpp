@@ -117,6 +117,20 @@ TArray<FStepTaskParameterDefinition> UDeadlineCloudJob::GetAllStepParameters() c
     return result;
 }
 
+TArray<FParameterDefinition> UDeadlineCloudJob::GetParametersDataToOverride() const
+{
+    TArray<FParameterDefinition> Result;
+	for (const FParameterDefinition& Param : ParameterDefinition.Parameters)
+    {
+        if (!HiddenParametersList.Contains(FName(*Param.Name)))
+        {
+			Result.Add(Param);
+		}
+	}
+
+	return Result;
+}
+
 
 FParametersConsistencyCheckResult UDeadlineCloudJob::CheckJobParametersConsistency(const UDeadlineCloudJob* Job)
 {
