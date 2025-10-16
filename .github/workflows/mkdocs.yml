@@ -1,0 +1,33 @@
+name: Build and Deploy MkDocs
+
+on:
+  push:
+    branches:
+      - mainline
+    paths:
+      - 'docs/user_guide/**'
+      - 'mkdocs.yml'
+      - '.github/workflows/mkdocs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: |
+          pip install mkdocs-material
+
+      - name: Build and deploy documentation
+        run: mkdocs gh-deploy --force

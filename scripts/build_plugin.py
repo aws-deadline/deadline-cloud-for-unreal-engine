@@ -3,7 +3,7 @@
 # Helper script for compiling the plugin binaries and Python code and optionally installing it to your Unreal Engine installation
 # Currently only works for Windows
 # Assumes your environment is capable of building the plugin, specifically that you have installed Unreal and the toolchain
-# dependencies as described in https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_SUBMITTER_CMF.md#install-build-tools
+# dependencies as described in https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-submitter.md#install-build-tools
 # Assumes you're running from the root of your plugin source directory
 
 import argparse
@@ -446,7 +446,7 @@ def check_configuration_warnings(engine_root: str):
     else:
         logger.warning(
             "Windows long paths are not enabled.  Please see "
-            "https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_SUBMITTER_CMF.md#windows-long-paths "
+            "https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-submitter.md#windows-long-paths"
             "for instructions on enabling."
         )
 

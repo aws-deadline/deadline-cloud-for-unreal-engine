@@ -18,7 +18,7 @@ Select the appropriate branch for your deployment:
 If you’re setting up on a brand new Windows EC2 Instance as your submitter, a g5.2xlarge instance with 200 GB of storage will likely be reasonable minimum:
 
 1. Launch EC2 instance with a valid Instance Profile. This is required to download NVIDIA GRID drivers as instructed below.
-1. Download the Epic Installer and install a version of Unreal between versions 5.2 and 5.5. Note that on version 5.5 with DirectX 11 there's a crash bug which can affect projects rendered using the Deadline Cloud plugin which has been fixed in Unreal's source and can be tracked [here](https://issues.unrealengine.com/issue/UE-276282). Projects in Deadline Cloud should use DirectX 12 with UE 5.5.
+1. Download the Epic Installer and install a version of Unreal between versions 5.4 or newer. Note that on version 5.5 with DirectX 11 there's a crash bug which can affect projects rendered using the Deadline Cloud plugin which has been fixed in Unreal's source and can be tracked [here](https://issues.unrealengine.com/issue/UE-276282). Projects in Deadline Cloud should use DirectX 12 with UE 5.5.
 1. NVIDIA GRID drivers - Follow Windows instructions - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/install-nvidia-driver.html#nvidia-GRID-driver
 
 ## Windows Long Paths
@@ -152,7 +152,7 @@ If you don't need to set up a new fleet you can stop here, or skip down to the "
 1. Follow [Worker host setup and configuration](https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/worker-host.html) to set up a worker host. 
 1. Follow [Manage access to Windows job user secrets](https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/manage-access-windows-secrets.html) to set up the Windows job user secrets for your CMF worker. 
 1. Follow [Install and configure software required for jobs](https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/install-software.html) to install the software required to run jobs.
-1. Follow [SETUP_CMF_WORKER](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_CMF_WORKER.md) to set up your worker node to run Unreal Engine jobs.
+1. Follow [CMF Worker Setup Guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-cmf-worker.md) to set up your worker node to run Unreal Engine jobs.
 
 # Submit a Test Render
 
