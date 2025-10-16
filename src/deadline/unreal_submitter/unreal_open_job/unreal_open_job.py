@@ -340,7 +340,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             parameter_values += self._job_shared_settings.serialize()
 
         if not UnrealOpenJob.check_conda_package_version(parameter_values):
-            raise exceptions.InvalidUEVersionInCondaPackageParameterNoUI(
+            raise exceptions.UserCancelledSubmissionMissMatchedUEVersion(
                 "CondaPackages Unreal Engine version mismatch"
             )
 
@@ -519,7 +519,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         current_version_match = re.search(r"\b\d+\.\d+\b", current_ue_version)
         if not current_version_match:
             logger.warning(f"Could not parse current UE version: {current_ue_version}")
-            raise exceptions.InvalidUEVersionInCondaPackageParameter(
+            raise exceptions.UEVersionParseError(
                 f"Could not parse current UE version: {current_ue_version}"
             )
 

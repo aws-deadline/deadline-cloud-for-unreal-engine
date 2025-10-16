@@ -20,7 +20,7 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job import (
     UnrealOpenJob,
     RenderUnrealOpenJob,
 )
-from deadline.unreal_submitter.exceptions import NoUINotification
+from deadline.unreal_submitter.exceptions import UserException
 
 from ._version import version
 
@@ -58,7 +58,7 @@ def error_notify(
                     from_gui=not self._silent_mode,
                 )
 
-                if isinstance(e, NoUINotification):
+                if isinstance(e, UserException):
                     return
 
                 message = notify_prefix + str(e)

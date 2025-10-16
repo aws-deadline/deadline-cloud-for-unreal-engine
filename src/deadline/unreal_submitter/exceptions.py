@@ -7,8 +7,8 @@ class DeadlineCloudSubmitterException(Exception):
     pass
 
 
-class NoUINotification:
-    """Marker mixin: Exceptions that shouldn't trigger UI notifications"""
+class UserException:
+    """Marker mixin: Exceptions that do not trigger UI notifications and are raised by user choice."""
 
     pass
 
@@ -37,15 +37,13 @@ class OpenJobIsMissingError(DeadlineCloudSubmitterException):
     pass
 
 
-class InvalidUEVersionInCondaPackageParameter(DeadlineCloudSubmitterException):
-    """Raised when Conda Package parameter contains an invalid UE version"""
+class UEVersionParseError(DeadlineCloudSubmitterException):
+    """Raised when the current Unreal Engine version string cannot be parsed (expected 'x.y')."""
 
     pass
 
 
-class InvalidUEVersionInCondaPackageParameterNoUI(
-    InvalidUEVersionInCondaPackageParameter, NoUINotification
-):
+class UserCancelledSubmissionMissMatchedUEVersion(DeadlineCloudSubmitterException, UserException):
     """Raised when Conda Package parameter contains an invalid UE version"""
 
     pass
