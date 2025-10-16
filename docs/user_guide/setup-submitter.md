@@ -1,10 +1,17 @@
-# Unreal Submitter Setup Instructions
+# Unreal Submitter Setup Guide
 
-This will walk you through setting up your Unreal Submitter and Deadline Cloud Service Managed Fleets (SMF) or Customer Managed Fleets (CMF).
+This guide walks you through installing and configuring the Unreal Engine submitter plugin for AWS Deadline Cloud, including setup for both Service Managed Fleets (SMF) and Customer Managed Fleets (CMF).
 
-## Branch to use - release vs mainline
+## Choose Your Branch
 
-These instructions are updated along with the corresponding code and scripts fairly often. You'll later need to choose to pull down the code which corresponds to a specific branch. The usual choice is between release which is more stable, or mainline which has the latest changes. If the version of the instructions you're currently reading doesn't come from the branch you intend to use, you should switch to the instructions from that branch now. For example, if you're currently reading the mainline version of the instructions but intend to use the release branch, please switch to the release version [here](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/release/SETUP_SUBMITTER_CMF.md)
+Select the appropriate branch for your deployment:
+
+| Branch | Stability | Use Case | Recommended For |
+|--------|-----------|----------|-----------------|
+| **release** | ✅ Stable | Production | Most users |
+| **mainline** | 🔄 Latest features | Development/Testing | Advanced users |
+
+> **💡 Tip**: Use the **release** branch for production environments to ensure stability.
 
 ## Create a new Windows EC2 instance to install Unreal on (Optional)
 
