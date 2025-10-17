@@ -7,14 +7,17 @@ This guide walks you through configuring Perforce-integrated render job data ass
 Before submitting a Movie Render Queue (MRQ) job from Unreal Engine in a Perforce repository:
 
 ✅ **Unreal Project Setup**
+
 - Project must be within the Perforce workspace
 - Verify Perforce connection is established and you're logged in
 
 ✅ **Deadline Cloud Setup**  
+
 - Complete [submitter setup](./setup-submitter.md)
 - Configure [Perforce credentials](./perforce-credentials-management.md) for workers
 
 ✅ **Perforce Requirements**
+
 - Valid Perforce workspace with project files
 - Appropriate Perforce permissions for sync operations
 
