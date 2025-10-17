@@ -43,7 +43,7 @@ class UEVersionParseError(DeadlineCloudSubmitterException):
     pass
 
 
-class UserCancelledSubmissionMissMatchedUEVersion(DeadlineCloudSubmitterException, UserException):
+class UserCancelledSubmissionMismatchedUEVersion(DeadlineCloudSubmitterException, UserException):
     """Raised when Conda Package parameter contains an invalid UE version"""
 
     pass

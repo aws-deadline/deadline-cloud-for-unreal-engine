@@ -340,7 +340,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             parameter_values += self._job_shared_settings.serialize()
 
         if not UnrealOpenJob.check_conda_package_version(parameter_values):
-            raise exceptions.UserCancelledSubmissionMissMatchedUEVersion(
+            raise exceptions.UserCancelledSubmissionMismatchedUEVersion(
                 "CondaPackages Unreal Engine version mismatch"
             )
 
