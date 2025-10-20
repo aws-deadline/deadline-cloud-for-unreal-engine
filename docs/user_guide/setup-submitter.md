@@ -129,10 +129,10 @@ hatch build
 
 _4._ Lastly, Python dependencies can be installed by the submitter installer. NOTE - these may be out of date with your code above from the release or mainline branch, and this method should not currently be preferred.
 
-	1. Download submitter installer from Deadline Cloud AWS Console’s Downloads Tab or from within the Deadline Cloud Monitor under Workstation Setup -> Downloads
-	1. Run, install for all users. Default install location is fine.
-	1. Enable the Unreal Engine Plugin
-	1. Make sure the Unreal Engine plugin install path matches where your plugin was copied to (In particular make sure your Unreal version matches)
+1. Download submitter installer from Deadline Cloud AWS Console’s Downloads Tab or from within the Deadline Cloud Monitor under Workstation Setup -> Downloads
+1. Run, install for all users. Default install location is fine.
+1. Enable the Unreal Engine Plugin
+1. Make sure the Unreal Engine plugin install path matches where your plugin was copied to (In particular make sure your Unreal version matches)
 
 ## Submitter Installation Complete
 
