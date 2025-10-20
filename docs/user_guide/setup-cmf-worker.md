@@ -119,18 +119,18 @@ python -m pip install dist\my-built-wheel.whl
 
 Adjust the first two paths below based on where your installation of Unreal lives, and where you installed deadline-cloud-for-unreal-engine.
 
-From the Unreal Install Batchfiles Folder (Note the "package" parameter can be any new directory, however you"ll want it to be called "UnrealDeadlineCloudService" later):
+From the Unreal Install Batchfiles Folder (Note the "package" parameter can be any new directory, however you'll want it to be called "UnrealDeadlineCloudService" later):
 
 ```
 cd C:\Program Files\Epic Games\UE_5.5\Engine\Build\BatchFiles
 runuat.bat BuildPlugin -plugin="C:\deadline\deadline-cloud-for-unreal-engine\src\unreal_plugin\UnrealDeadlineCloudService.uplugin" -package="C:\UnrealDeadlineCloudService"
 ```
 
-- Copy the "package" folder above to your Unreal installation"s Plugins folder (C:\Program Files\Epic Games\UE_5.5\Engine\Plugins\UnrealDeadlineCloudService for example)
+- Copy the "package" folder above to your Unreal installation's Plugins folder (C:\Program Files\Epic Games\UE_5.5\Engine\Plugins\UnrealDeadlineCloudService for example)
 
 ## pywin32
 
-Unreal"s version of python will need pywin32. Pip install using copy of Unreal"s 3rd Party python installation:
+Unreal's version of python will need pywin32. Pip install using copy of Unreal"s 3rd Party python installation:
 
 ```
 "C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install pywin32
@@ -143,8 +143,8 @@ On your CMF Worker instance:
 1. Open "Task Manager"
 1. Click on the "Services" tab on the right
 1. Find "DeadlineWorker"
-	1. If you don"t see it listed you"ve likely missed steps (install-deadline-worker in particular) from [the CMF host setup steps](https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/worker-host.html#worker-agent-config)
-1. If the status of the service isn"t currently "Running", right click it and select "Start"
+	1. If you don't see it listed you've likely missed steps (install-deadline-worker in particular) from [the CMF host setup steps](https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/worker-host.html#worker-agent-config)
+1. If the status of the service isn't currently "Running", right click it and select "Start"
 1. If your "DeadlineWorker" service isn't starting, check the worker agent launch logs in these locations:
 	1. C:\ProgramData\Amazon\Deadline\Logs\worker-agent.log
 	1. C:\ProgramData\Amazon\Deadline\Logs\queue-<queueid>\session-<sessionid>.log
