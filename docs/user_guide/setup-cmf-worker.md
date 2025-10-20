@@ -130,7 +130,7 @@ runuat.bat BuildPlugin -plugin="C:\deadline\deadline-cloud-for-unreal-engine\src
 
 ## pywin32
 
-Unreal's version of python will need pywin32. Pip install using copy of Unreal"s 3rd Party python installation:
+Unreal's version of python will need pywin32. Pip install using copy of Unreal's 3rd Party python installation:
 
 ```
 "C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install pywin32
