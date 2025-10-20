@@ -3,14 +3,17 @@
 import unreal
 import threading
 import traceback
+import subprocess
+import json
+import os
+import sys
+import time
 from enum import Enum
 from typing import Callable
 
 from deadline.client.api import (
-    create_job_from_job_bundle,
     get_deadline_cloud_library_telemetry_client,
 )
-from deadline.job_attachments.exceptions import AssetSyncCancelledError
 
 from deadline.unreal_logger import get_logger
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job import (
@@ -149,36 +152,91 @@ class UnrealSubmitter:
 
         return True
 
-    def _start_submit(self, job_bundle_path):
+    def _get_python_executable(self):
+        """Get Python executable from Unreal's directory structure"""
+        return unreal.get_interpreter_executable_path()
+
+    def _create_subprocess_env(self):
+        """Create environment for subprocess with proper PYTHONPATH"""
+        return dict(os.environ, PYTHONPATH=os.pathsep.join(sys.path))
+
+    def _handle_subprocess_message(self, data):
+        """Handle JSON message from subprocess"""
+        if data["type"] == "hash_progress":
+            self._hash_progress_from_subprocess(data["progress"], data["message"])
+        elif data["type"] == "upload_progress":
+            self._upload_progress_from_subprocess(data["progress"], data["message"])
+        elif data["type"] == "create_job_result":
+            self._create_job_result()
+        elif data["type"] == "job_created":
+            logger.info(f"Job creation result: {data['job_id']}")
+            self.submitted_job_ids.append(data["job_id"])
+        elif data["type"] == "error":
+            self._submission_failed_message = data["message"]
+        elif data["type"] == "debug":
+            logger.info(f"Debug: {data['message']}")
+        elif data["type"] == "api_message":
+            logger.info(f"API: {data['message']}")
+
+    def _start_submit(self, job_bundle_path, project_dir):
         """
-        Start the OpenJob submission
+        Start the OpenJob submission using wrapper subprocess
 
         :param job_bundle_path: Path of the Job bundle to submit
         :type job_bundle_path: str
+        :param project_dir: Project directory path
+        :type project_dir: str
         """
 
         try:
-            job_id = create_job_from_job_bundle(
-                job_bundle_dir=job_bundle_path,
-                hashing_progress_callback=lambda hash_metadata: self._hash_progress(hash_metadata),
-                upload_progress_callback=lambda upload_metadata: self._upload_progress(
-                    upload_metadata
-                ),
-                create_job_result_callback=lambda: self._create_job_result(),
-                from_gui=True,
-                interactive_confirmation_callback=self.show_confirmation_dialog,
-            )
-            if job_id:
-                logger.info(f"Job creation result: {job_id}")
-                self.submitted_job_ids.append(job_id)
+            wrapper_path = os.path.join(os.path.dirname(__file__), "job_submit_wrapper.py")
+            python_exe = self._get_python_executable()
+            start_time = time.time()
 
-        except AssetSyncCancelledError as e:
-            logger.warning(str(e))
+            process = subprocess.Popen(
+                [python_exe, wrapper_path, job_bundle_path, project_dir],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+                env=self._create_subprocess_env(),
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+
+            for line in iter(process.stdout.readline, ""):  # type: ignore[union-attr]
+                try:
+                    data = json.loads(line.strip())
+                    self._handle_subprocess_message(data)
+                except json.JSONDecodeError:
+                    continue
+
+            process.wait()
+            logger.info(f"Job creation result in {time.time() - start_time} seconds")
+
+            # Capture any stderr output for debugging
+            if process.returncode != 0:
+                stderr_output = process.stderr.read()  # type: ignore[union-attr]
+                if stderr_output:
+                    logger.error(f"Subprocess stderr: {stderr_output}")
+                    if not self._submission_failed_message:
+                        self._submission_failed_message = f"Subprocess failed: {stderr_output}"
 
         except Exception as e:
             logger.error(str(e))
             logger.error(traceback.format_exc())
             self._submission_failed_message = str(e)
+
+    def _hash_progress_from_subprocess(self, progress, message):
+        self.submit_status = UnrealSubmitStatus.HASHING
+        logger.info(f"Hash progress: {progress} {message}")
+        self.submit_message = message
+        self.progress_list.append(progress)
+
+    def _upload_progress_from_subprocess(self, progress, message):
+        self.submit_status = UnrealSubmitStatus.UPLOADING
+        logger.info(f"Upload progress: {progress} {message}")
+        self.submit_message = message
+        self.progress_list.append(progress)
 
     def _hash_progress(self, hash_metadata) -> bool:
         """
@@ -254,6 +312,8 @@ class UnrealSubmitter:
 
         del self.submitted_job_ids[:]
 
+        # Get project root directory as absolute path
+        project_dir = os.path.abspath(unreal.Paths.project_dir())
         for job in self._jobs:
             logger.info("Creating job from bundle...")
             self.submit_status = UnrealSubmitStatus.HASHING
@@ -262,7 +322,9 @@ class UnrealSubmitter:
             self._submission_failed_message = ""
 
             job_bundle_path = job.create_job_bundle()
-            t = threading.Thread(target=self._start_submit, args=(job_bundle_path,), daemon=True)
+            t = threading.Thread(
+                target=self._start_submit, args=(job_bundle_path, project_dir), daemon=True
+            )
             t.start()
 
             self._display_progress(
