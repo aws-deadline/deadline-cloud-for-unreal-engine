@@ -36,11 +36,11 @@ public:
 
     /** Max number of failed tasks */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Shared Settings", meta = (ClampMin = 0, DisplayPriority = 3))
-    int32 MaximumFailedTasksCount = 1;
+    int32 MaximumFailedTasksCount = 0;
 
     /** Maximum retries per task */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Shared Settings", meta = (ClampMin = 0, DisplayPriority = 4))
-    int32 MaximumRetriesPerTask = 50;
+    int32 MaximumRetriesPerTask = 2;
 
     /** Job priority */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Shared Settings", meta = (ClampMin = 0, ClampMax = 100, DisplayPriority = 5))
