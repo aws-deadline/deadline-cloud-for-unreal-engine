@@ -47,7 +47,7 @@ class TestCheckCondaPackageVersion:
         assert UnrealOpenJob.check_conda_package_version(job_parameter_values)
 
         # THEN
-        assert job_parameter_values[0].get("value") == "unrealengine=5.3"
+        assert job_parameter_values[0].get("value") == "unrealengine=5.3 unrealengine-openjd=*.*.*"
 
     @patch(
         "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.SystemLibrary.get_engine_version"
@@ -57,14 +57,20 @@ class TestCheckCondaPackageVersion:
         get_engine_version_mock.return_value = "5.3.0"
 
         job_parameter_values = [
-            dict(name=OpenJobParameterNames.CONDA_PACKAGES, value="somepackage=1.0")
+            dict(
+                name=OpenJobParameterNames.CONDA_PACKAGES,
+                value="somepackage=1.0 unrealengine-openjd=0.5.*",
+            )
         ]
 
         # WHEN
         assert UnrealOpenJob.check_conda_package_version(job_parameter_values)
 
         # THEN
-        assert job_parameter_values[0].get("value") == "unrealengine=5.3 somepackage=1.0"
+        assert (
+            job_parameter_values[0].get("value")
+            == "unrealengine=5.3 somepackage=1.0 unrealengine-openjd=0.5.*"
+        )
 
     @patch(
         "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.SystemLibrary.get_engine_version"
