@@ -1,0 +1,39 @@
+site_name: AWS Deadline Cloud for Unreal Engine User Guide
+site_url: https://aws-deadline.github.io/deadline-cloud-for-unreal-engine/
+repo_url: https://github.com/aws-deadline/deadline-cloud-for-unreal-engine
+repo_name: aws-deadline/deadline-cloud-for-unreal-engine
+edit_uri: edit/mainline/docs/user_guide/
+
+theme:
+  name: material
+  palette:
+    primary: custom
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.expand
+    - content.code.copy
+extra_css:
+  - extra.css
+
+extra:
+  generator: false # Hide mkdocs-material call out
+
+copyright: Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+markdown_extensions:
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Submitter Installation: setup-submitter.md
+  - Setup CMF Worker: setup-cmf-worker.md
+  - Perforce - Credentials Management: perforce-credentials-management.md
+  - Perforce - Submit Jobs: create-perforce-render-job.md
+
+plugins:
+  - search
+
+docs_dir: docs/user_guide
+site_dir: site

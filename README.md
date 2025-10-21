@@ -12,18 +12,20 @@
 
 AWS Deadline Cloud for Unreal Engine is a C++ and python package for Unreal that allows users to create Unreal Movie Render Queue jobs for [AWS Deadline Cloud][deadline-cloud] from within Unreal Engine. Using the [Open Job Description (OpenJD) Adaptor Runtime][openjd-adaptor-runtime] this package also provides a command line application on the worker side to that adapts Unreal's command line interface to support the [OpenJD specification][openjd] and allows efficient rendering of multiple shots from a sequence without restarting Unreal.
 
+For instructions on installing and using this integration, visit the [user guide](https://aws-deadline.github.io/deadline-cloud-for-unreal-engine).
+
 ## Compatibility
 
 This library requires:
 
-1. Python 3.9 or higher; and Unreal Engine 5.2.1 or higher.
+1. Python 3.9 or higher; and Unreal Engine 5.4 or higher.
 2. Windows operating system.
 
 ## Submitter
 
 This package provides a Unreal Engine plugin that creates Unreal Movie Render Queue jobs for AWS Deadline Cloud using the [AWS Deadline Cloud client library][deadline-cloud-client]. Based on the loaded scene it determines the files required, allows the user to specify render options, and builds an [OpenJD template][openjd] that defines the workflow.
 
-See [SETUP_SUBMITTER](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_SUBMITTER.md) for instructions on setting up your Unreal Submitter plugin and Deadline Cloud Service Managed Fleets (SMF) or Customer Managed Fleets (CMF).
+See [Submitter Setup Guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-submitter.md) for instructions on setting up your Unreal Submitter plugin and Deadline Cloud Service Managed Fleets (SMF) or Customer Managed Fleets (CMF).
 
 ## Adaptor
 
@@ -44,7 +46,7 @@ Perforce is not currently supported on SMF.
 
 ### Customer Managed Fleets (CMF)
 
-The Unreal Engine and adaptor must be manually installed on worker hosts of Customer Managed Fleets (CMF). See [SETUP_CMF_WORKER](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_CMF_WORKER.md) for instructions on setting up an instance to act as a worker node.
+The Unreal Engine and adaptor must be manually installed on worker hosts of Customer Managed Fleets (CMF). See [CMF Worker Setup Guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-cmf-worker.md) for instructions on setting up an instance to act as a worker node.
 
 ## Versioning
 
