@@ -6,18 +6,19 @@ This guide provides step-by-step instructions for using AWS Deadline Cloud with 
 
 ## Getting Started
 
-Follow these guides in order to set up and use AWS Deadline Cloud with Unreal Engine:
+Follow these guides to set up and use AWS Deadline Cloud with Unreal Engine:
 
-### 1. Submitter Plugin
-- **[Setup submitter and submit a job](./setup-submitter.md)** - Install the Unreal Engine submitter plugin and submit your first job
+1. **[Set up submitter plugin](./setup-submitter.md)** - Install the Unreal Engine submitter plugin.
+2. **[Submit a render](./setup-submitter.md/#submit-a-test-render)** - Submit your render to Deadline Cloud.
+3. **[Monitor your renders](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/working-with-deadline-monitor.html)** - Track your renders in real-time with the Deadline Cloud monitor.
+4. **[Download results](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/download-finished-output.html)** - Completed frames are available for download.
 
-### 2. Customer Managed Fleet (CMF) 
-- **[Setup CMF worker](./setup-cmf-worker.md)** - Configure an EC2 instance as a Customer Managed Fleet (CMF) worker
-
-### 3. Advanced Workflows
-- **Perforce Integration**
-    - **[Perforce Credentials Management](./perforce-credentials-management.md)** - Secure credential management for Perforce integration
-    - **[Submit jobs with Perforce](./create-perforce-render-job.md)** - Create and submit Perforce-integrated render jobs
+## Advanced Workflows
+- Perforce Integration
+    - **[Perforce Credentials Management](./perforce-credentials-management.md)** - Secure credential management for Perforce integration.
+    - **[Submit jobs with Perforce](./create-perforce-render-job.md)** - Create and submit Perforce-integrated render jobs.
+- Customer Managed Fleet (CMF)
+    - **[Set up CMF worker](./setup-cmf-worker.md)** - Configure an EC2 instance as a CMF worker.
 
 ## Support
 
