@@ -40,4 +40,9 @@ parameterDefinitions:
   default: 1
   userInterface: 
    control: HIDDEN
-
+- name: OCIO_DIR
+  type: PATH
+  objectType: DIRECTORY
+  dataFlow: IN
+  userInterface: 
+   control: CHOOSE_DIRECTORY
