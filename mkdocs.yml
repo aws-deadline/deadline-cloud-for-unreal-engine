@@ -28,9 +28,9 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Submitter Installation: setup-submitter.md
-  - Setup CMF Worker: setup-cmf-worker.md
   - Perforce - Credentials Management: perforce-credentials-management.md
   - Perforce - Submit Jobs: create-perforce-render-job.md
+  - Set up CMF Worker: setup-cmf-worker.md
 
 plugins:
   - search
