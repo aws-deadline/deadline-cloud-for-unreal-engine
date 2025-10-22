@@ -10,8 +10,8 @@ Follow these guides to set up and use AWS Deadline Cloud with Unreal Engine:
 
 1. **[Set up submitter plugin](./setup-submitter.md)** - Install the Unreal Engine submitter plugin.
 2. **[Submit a render](./setup-submitter.md/#submit-a-test-render)** - Submit your render to Deadline Cloud.
-3. **[Monitor your renders](https://aws-deadline.github.io/cinema-4d/user-guide/getting-started/#step-3-monitor-your-renders)** - Track your renders in real-time with the Deadline Cloud monitor.
-4. **[Download results](https://aws-deadline.github.io/cinema-4d/user-guide/getting-started/#step-4-download-your-results)** - Completed frames are available for download.
+3. **[Monitor your renders](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/working-with-deadline-monitor.html)** - Track your renders in real-time with the Deadline Cloud monitor.
+4. **[Download results](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/download-finished-output.html)** - Completed frames are available for download.
 
 ## Advanced Workflows
 - Perforce Integration
