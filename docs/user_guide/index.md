@@ -20,6 +20,8 @@ Follow these guides to set up and use AWS Deadline Cloud with Unreal Engine:
 - Customer Managed Fleet (CMF)
     - **[Set up CMF worker](./setup-cmf-worker.md)** - Configure an EC2 instance as a CMF worker.
 
+**Note:** We're currently migrating our documentation to this site. In the meantime, you can find additional user guides in the [deadline-cloud-for-unreal-engine GitHub repository](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine). To view these guides locally, follow the [Building the docs](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/DEVELOPMENT.md#building-the-docs) instructions in our development guide.
+
 ## Support
 
 For additional help and resources:
