@@ -172,7 +172,7 @@ This example will use the Meerkat Demo from the Unreal Marketplace:
 	1. In "Deadline Cloud Workstation Configuration" section,
 		1. Under "Global Settings", ensure your AWS Profile is set correctly to your DCM Profile
 		1. Under "Profile", ensure your Default Farm is set to your farm
-		1. Under "Farm" ensure your Default Queue is set to your CMF you set up
+		1. Under "Farm", ensure your Default Queue is set to a queue that is associated with the fleet you set up above.
 1. Exit the Project Settings window
 1. Click on "Windows"/"Cinematics", select "Movie Render Queue"
 	1. Click "+Render", and select "Main_SEQ"
