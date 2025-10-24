@@ -180,6 +180,7 @@ Set up an OpenJD Render Job that orchestrates the entire rendering workflow.
 ### Performance Optimization
 
 **Chunk Size Configuration:**
+
 | Chunk Size | Use Case | Performance Impact |
 |------------|----------|-------------------|
 | 1-2 shots | Complex shots, detailed review needed | Lower throughput, higher quality control |
