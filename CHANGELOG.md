@@ -1,3 +1,30 @@
+## 0.7.0 (2025-10-29)
+
+
+### Features
+* Adding support for FramesPerTask to set how many frames of rendering each task should aim to do. Takes precedence over ChunkSize. (#229) ([`d06d700`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/d06d700db7c7cd1b3340b7ecd4b60c7753f0b74e))
+* Set right UE version to CondaPackages parameter (#196) ([`a201554`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/a20155474536e6126f84b0d8944e0b7d522b4ca3))
+* add update ue package version in Mrq window ([`a201554`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/a20155474536e6126f84b0d8944e0b7d522b4ca3))
+* Persistent Data Asset (#195) ([`5e6d1cc`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/5e6d1cc00287a9c6761b0f70859b208f89f2e70a))
+* Persistent data asset ([`5e6d1cc`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/5e6d1cc00287a9c6761b0f70859b208f89f2e70a))
+
+### Bug Fixes
+* Adding a temporary patch to fix pydantic StringConstraints in Unreal 5.3's default Python (3.9.7). See https://github.com/pydantic/pydantic/issues/7745 (#233) ([`5a0d010`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/5a0d0102b559c43ef4566c27f1cc0f8105b63b88))
+* Fixing include paths to support Unreal 5.3 (#231) ([`76d5d8e`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/76d5d8e447659ca1b75468da83d2081fceec6e8b))
+* move ue version check to UnrealOpenJob ([`a201554`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/a20155474536e6126f84b0d8944e0b7d522b4ca3))
+* sonar cube issues ([`a201554`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/a20155474536e6126f84b0d8944e0b7d522b4ca3))
+* Add EditorDialog on Version Mismatch ([`a201554`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/a20155474536e6126f84b0d8944e0b7d522b4ca3))
+* resolve formatting issues ([`a201554`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/a20155474536e6126f84b0d8944e0b7d522b4ca3))
+* rework ue version check conditions ([`a201554`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/a20155474536e6126f84b0d8944e0b7d522b4ca3))
+* add dialog default return value for unattended ue mode ([`a201554`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/a20155474536e6126f84b0d8944e0b7d522b4ca3))
+* Suppress error message after the “Conda packages mismatch” dialog is dismissed ([`a201554`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/a20155474536e6126f84b0d8944e0b7d522b4ca3))
+* update check_conda_package_version to return boolean ([`a201554`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/a20155474536e6126f84b0d8944e0b7d522b4ca3))
+* rename exceptions ([`a201554`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/a20155474536e6126f84b0d8944e0b7d522b4ca3))
+* spelling issue ([`a201554`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/a20155474536e6126f84b0d8944e0b7d522b4ca3))
+* add normalize_openjd_version_param ([`a201554`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/a20155474536e6126f84b0d8944e0b7d522b4ca3))
+* Switching job submission to run through a subprocess which is handled by a wrapper script which feeds status updates back to Unreal through stdout/prints for improved performance (#222) ([`6a6af2e`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/6a6af2ee69f587ccdb947e68eabea87f2b0b5e3e))
+
+
 ## 0.6.4 (2025-10-08)
 
 
