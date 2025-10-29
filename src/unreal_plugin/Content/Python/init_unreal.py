@@ -77,6 +77,62 @@ def sync_mrq_dependencies(dependencies_descriptor_path: str) -> None:
     asset_registry.scan_paths_synchronous(ue_paths, True, True)
 
 
+def _check_patch_pydantic_py397():
+    """
+    Fix Pydantic's StringConstraints for Python 3.9.7 compatibility to work with
+    default Python in Unreal 5.3 (3.9.7)
+
+    In Python 3.9.7, when a dataclass with frozen=True inherits from a Protocol,
+    the dataclass decorator fails to generate the __init__ method. This function
+    manually generates the proper __init__ for StringConstraints.
+
+    See https://github.com/pydantic/pydantic/issues/7745
+    """
+
+    # Only apply on Python 3.9.7
+    if sys.version_info[:3] != (3, 9, 7):
+        print(f"Skipping Python 3.9.7 patch: Python version is {sys.version_info[:3]}")
+        return
+
+    try:
+        import pydantic.types
+    except ImportError:
+        print("Skipping Python 3.9.7 patch: pydantic not found")
+        # Pydantic not installed, nothing to fix
+        return
+
+    from typing import Pattern, Union
+
+    StringConstraints = pydantic.types.StringConstraints
+
+    # Generate the proper __init__ method with correct type hints
+    def __init__(
+        self: "pydantic.types.StringConstraints",
+        *,
+        strip_whitespace: Optional[bool] = None,
+        to_upper: Optional[bool] = None,
+        to_lower: Optional[bool] = None,
+        strict: Optional[bool] = None,
+        min_length: Optional[int] = None,
+        max_length: Optional[int] = None,
+        pattern: Union[str, Pattern[str], None] = None,
+    ) -> None:
+        """Initialize StringConstraints with the given parameters."""
+        # Use object.__setattr__ because frozen=True prevents normal attribute assignment
+        object.__setattr__(self, "strip_whitespace", strip_whitespace)
+        object.__setattr__(self, "to_upper", to_upper)
+        object.__setattr__(self, "to_lower", to_lower)
+        object.__setattr__(self, "strict", strict)
+        object.__setattr__(self, "min_length", min_length)
+        object.__setattr__(self, "max_length", max_length)
+        object.__setattr__(self, "pattern", pattern)
+
+    # Apply the fix - type checkers will complain but this is intentional monkey-patching
+    StringConstraints.__init__ = __init__  # type: ignore
+
+    print("Applied Python 3.9.7 compatibility fix for pydantic.types.StringConstraints")
+
+
 remote_execution = os.getenv("REMOTE_EXECUTION", "False")
 if remote_execution != "True":
 
@@ -115,6 +171,11 @@ if remote_execution != "True":
         DeadlineCloudSettingsLibraryImplementation,  # noqa: F401
         background_init_s3_client,
     )
+
+    # UNREAL 5.3 PATCH - Temp fix to maintain support for system default python
+    # in Unreal 5.3 (3.9.7)
+    _check_patch_pydantic_py397()
+
     from job_library import DeadlineCloudJobBundleLibraryImplementation  # noqa: F401
     from open_job_template_api import (  # noqa: F401
         PythonYamlLibraryImplementation,
