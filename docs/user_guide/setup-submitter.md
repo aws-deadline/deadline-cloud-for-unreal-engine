@@ -167,7 +167,8 @@ This example will use the Meerkat Demo from the Unreal Marketplace:
 	1. For "Default Remote Executor", select "MoviePipelineDeadlineCloudRemoteExecutor"
 	1. For "Default Executor Job", select "MoviePipelineDeadlineCloudExecutorJob"
 	1. Under "Default Job Settings Classes", click add icon, and add "DeadlineCloudRenderStepSetting"
-1. Now search for the settings for "Deadline Cloud" and ensure that your Status says "AUTHENTICATED" and your Deadline Cloud API says "AUTHORIZED"
+1. Search for "Deadline Cloud" settings and verify authentication:
+	1. Ensure your Status shows "AUTHENTICATED" and Deadline Cloud API shows "AUTHORIZED"
 	1. If it does not appear, first try using the Login button. If that doesn’t work, open your Deadline Cloud Monitor and ensure you're logged in.
 	1. In "Deadline Cloud Workstation Configuration" section,
 		1. Under "Global Settings", ensure your AWS Profile is set correctly to your DCM Profile
@@ -178,14 +179,17 @@ This example will use the Meerkat Demo from the Unreal Marketplace:
 	1. Click "+Render", and select "Main_SEQ"
 	1. Click "UnsavedConfig" in the settings column 
 		1. In the popup window, you should see DeadlineCloud settings on the left. This window can then be closed.
-	1. On the right, 
-		1. In "Preset Overrides" (You may need to widen this dialog)
-			1. Set "Name" to "Unreal Test Job"
-			1. Set "Maximum retries" to 2
-		1. In "Parameter Definition Overrides"
+	1. On the right side of the dialog, configure the job settings:
+		1. Under "Preset Overrides" (you may need to widen this dialog):
+			1. Expand "Job Shared Settings":
+				1. Set "Name" to "Unreal Test Job"
+				1. Set "Maximum retries" to 2
+			1. Expand "Job Attachments":
+				1. Under "Input Files", select "Show Auto-Detected" 
+				1. Verify that the list of Auto Detected Files populates correctly
+		1. Under "Job Template Overrides":
 			1. Update the Unreal Engine version in "CondaPackages" if you are using a different version than 5.6
-		1. In "Steps Overrides"
-			1. Optionally set "Task Chunk Size" to a number higher than 1 - this will tell Deadline Cloud to render the requested number of shots in groups as part of the same task, and may slightly increase performance in some cases.
-		1. In Job Attachments, under "Input Files" select "Show Auto-Detected" and the list of Auto Detected Files should populate. 
+				1. Note: Unreal Engine version autodetection is coming in a future release
+		
 	1. Ready to Go! Hit "Render (Remote)". 
 1. You can go to Deadline Cloud Monitor and watch the progress of your job. 
