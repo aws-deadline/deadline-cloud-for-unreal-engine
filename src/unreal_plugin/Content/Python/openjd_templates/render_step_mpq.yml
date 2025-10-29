@@ -10,6 +10,9 @@ parameterSpace:
   - name: MoviePipelineQueuePath
     type: PATH
     range: []
+  - name: FramesPerTask
+    type: INT
+    range: [0]
   - name: ChunkSize
     type: INT
     range: [1]

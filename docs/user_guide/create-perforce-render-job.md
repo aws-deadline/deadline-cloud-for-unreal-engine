@@ -140,6 +140,7 @@ Set up an OpenJD Render Job that orchestrates the entire rendering workflow.
 | `PerforceWorkspaceSpecificationTemplate` | Perforce client spec with `{workspace_name}` token | ✅ | **Leave empty** - Auto-populated |
 | `MrqJobDependenciesDescriptor` | JSON file with MRQ dependencies for sync | ✅ | **Leave empty** - Auto-populated |
 | `ExtraCmdArgsFile` | File for extra args (avoids 1024 char limit) | ❌ | **Optional** - Use default for standard setups |
+| `FramesPerTask` | Number of frames to render per task | ❌ | **Optional** - Use default (0) to divide tasks by shots |
 | `ExtraCmdArgs` | Additional Unreal launch arguments | ❌ | **Optional** - Use default for standard setups |
 | `Executable` | Unreal executable name for render node | ❌ | **Configure** - Use default for standard setups |
 | `CondaPackages` | Conda packages needed to render the job | ❌ | **Configure** - Use default for standard setups |

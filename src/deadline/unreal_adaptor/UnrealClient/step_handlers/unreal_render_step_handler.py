@@ -115,6 +115,9 @@ if unreal:
 
 
 class UnrealRenderStepHandler(BaseStepHandler):
+    cached_frame_range_start = None
+    cached_frame_range_end = None
+
     @staticmethod
     def regex_pattern_progress() -> list[re.Pattern]:
         """
@@ -300,6 +303,32 @@ class UnrealRenderStepHandler(BaseStepHandler):
                 shot.enabled = False
         logger.info(f"Shots in task: {[shot.outer_name for shot in shots_chunk]}")
 
+    @staticmethod
+    def get_frame_range(output_settings, level_sequence):
+        if UnrealRenderStepHandler.cached_frame_range_start is None:
+            if output_settings.use_custom_playback_range:
+                UnrealRenderStepHandler.cached_frame_range_start = (
+                    output_settings.custom_start_frame
+                )
+                UnrealRenderStepHandler.cached_frame_range_end = output_settings.custom_end_frame
+                logger.info(
+                    f"Cached custom frame range from {UnrealRenderStepHandler.cached_frame_range_start} to {UnrealRenderStepHandler.cached_frame_range_end}"
+                )
+            else:
+                UnrealRenderStepHandler.cached_frame_range_start = (
+                    level_sequence.get_playback_range().get_start_frame()
+                )
+                UnrealRenderStepHandler.cached_frame_range_end = (
+                    level_sequence.get_playback_range().get_end_frame()
+                )
+                logger.info(
+                    f"Cached level sequence frame range from {UnrealRenderStepHandler.cached_frame_range_start} to {UnrealRenderStepHandler.cached_frame_range_end}"
+                )
+        return (
+            UnrealRenderStepHandler.cached_frame_range_start,
+            UnrealRenderStepHandler.cached_frame_range_end,
+        )
+
     def run_script(self, args: dict) -> bool:
         """
         Create the unreal.MoviePipelineQueue object and render it with the render executor
@@ -311,7 +340,6 @@ class UnrealRenderStepHandler(BaseStepHandler):
         logger.info(
             f"{UnrealRenderStepHandler.run_script.__name__} executing with args: {args} ..."
         )
-
         asset_registry = unreal.AssetRegistryHelpers.get_asset_registry()
         asset_registry.wait_for_completion()
 
@@ -335,10 +363,38 @@ class UnrealRenderStepHandler(BaseStepHandler):
                 job_configuration_path=args.get("job_configuration_path", ""),
             )
 
+        output_settings = None
+        if "chunk_id" in args:
+            chunk_id: int = args["chunk_id"]
         for job in subsystem.get_queue().get_jobs():
-            if "chunk_size" in args and "chunk_id" in args:
+            if args.get("frames_per_task") and "chunk_id" in args:
+                frames_per_task: int = args["frames_per_task"]
+                if not output_settings:
+                    output_settings = job.get_configuration().find_or_add_setting_by_class(
+                        unreal.MoviePipelineOutputSetting
+                    )
+                level_sequence = unreal.EditorAssetLibrary.load_asset(
+                    unreal.SystemLibrary.conv_soft_object_reference_to_string(
+                        unreal.SystemLibrary.conv_soft_obj_path_to_soft_obj_ref(job.sequence)
+                    )
+                )
+                frame_range_start, frame_range_end = self.get_frame_range(
+                    output_settings, level_sequence
+                )
+
+                output_settings.custom_start_frame = frame_range_start + (
+                    chunk_id * frames_per_task
+                )
+                output_settings.custom_end_frame = min(
+                    output_settings.custom_start_frame + frames_per_task, frame_range_end
+                )
+                level_sequence.set_playback_start(output_settings.custom_start_frame)
+                level_sequence.set_playback_end(output_settings.custom_end_frame)
+                logger.info(
+                    f"Rendering custom frame range from {output_settings.custom_start_frame} to {output_settings.custom_end_frame} with sequence playback start {level_sequence.get_playback_start()} end {level_sequence.get_playback_end()}"
+                )
+            elif "chunk_size" in args and "chunk_id" in args:
                 chunk_size: int = args["chunk_size"]
-                chunk_id: int = args["chunk_id"]
                 UnrealRenderStepHandler.enable_shots_by_chunk(
                     render_job=job,
                     task_chunk_size=chunk_size,
