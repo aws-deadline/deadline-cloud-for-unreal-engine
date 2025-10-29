@@ -7,6 +7,12 @@ class DeadlineCloudSubmitterException(Exception):
     pass
 
 
+class UserException:
+    """Marker mixin: Exceptions that do not trigger UI notifications and are raised by user choice."""
+
+    pass
+
+
 class ParametersAreNotConsistentError(DeadlineCloudSubmitterException):
     """Raised when OpenJD parameters/variables are not consistent"""
 
@@ -27,6 +33,18 @@ class MrqJobIsMissingError(DeadlineCloudSubmitterException):
 
 class OpenJobIsMissingError(DeadlineCloudSubmitterException):
     """Raised when the Render step missed the required Render Job"""
+
+    pass
+
+
+class UEVersionParseError(DeadlineCloudSubmitterException):
+    """Raised when the current Unreal Engine version string cannot be parsed (expected 'x.y')."""
+
+    pass
+
+
+class UserCancelledSubmissionMismatchedUEVersion(DeadlineCloudSubmitterException, UserException):
+    """Raised when Conda Package parameter contains an invalid UE version"""
 
     pass
 
