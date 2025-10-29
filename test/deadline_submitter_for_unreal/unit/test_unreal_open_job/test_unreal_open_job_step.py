@@ -306,7 +306,8 @@ class TestRenderUnrealOpenJobStep:
 
         # THEN
         assert (
-            f'Render Job\'s parameter "{OpenJobStepParameterNames.TASK_CHUNK_SIZE}" '
+            f'Render Job\'s parameter "{OpenJobStepParameterNames.TASK_CHUNK_SIZE}" or '
+            f'"{OpenJobStepParameterNames.FRAMES_PER_TASK}" '
             f"must be provided" in str(exception_info.value)
         )
 
