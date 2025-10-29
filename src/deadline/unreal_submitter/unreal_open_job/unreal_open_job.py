@@ -339,6 +339,11 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         if self._job_shared_settings:
             parameter_values += self._job_shared_settings.serialize()
 
+        if not UnrealOpenJob.check_conda_package_version(parameter_values):
+            raise exceptions.UserCancelledSubmissionMismatchedUEVersion(
+                "CondaPackages Unreal Engine version mismatch"
+            )
+
         return parameter_values
 
     def _check_parameters_consistency(self):
@@ -499,6 +504,99 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             deadline_yaml_dump(asset_references.to_dict(), f, indent=1)
 
         return job_bundle_path
+
+    @staticmethod
+    def get_current_ue_version():
+        """
+        Get current Unreal Engine version in x.y format
+
+        :return: Current Unreal Engine version
+        :rtype: str
+        """
+
+        current_ue_version = unreal.SystemLibrary.get_engine_version()
+        logger.info(f"Current Unreal Engine version: {current_ue_version}")
+        current_version_match = re.search(r"\b\d+\.\d+\b", current_ue_version)
+        if not current_version_match:
+            logger.warning(f"Could not parse current UE version: {current_ue_version}")
+            raise exceptions.UEVersionParseError(
+                f"Could not parse current UE version: {current_ue_version}"
+            )
+
+        return current_version_match.group(0)
+
+    @staticmethod
+    def normalize_openjd_version_param(param_value: str) -> str:
+        """
+        Check if the given CondaPackages parameter value contains openjd version.
+        If not, append "unrealengine-openjd=*.*.*" to the value.
+        :param param_value: CondaPackages parameter value
+        :return: Updated CondaPackages parameter value
+        :rtype: str
+        """
+        match = re.search(r"unrealengine-openjd=(?:\d+|\*)\.(?:\d+|\*)\.(?:\d+|\*)", param_value)
+        if match:
+            return param_value
+
+        if re.search(r"unrealengine-openjd=[^\s]+", param_value):
+            return re.sub(r"unrealengine-openjd=[^\s]+", "unrealengine-openjd=*.*.*", param_value)
+
+        return param_value + " unrealengine-openjd=*.*.*"
+
+    @staticmethod
+    def check_conda_package_version(parameter_values: list[dict[str, Any]]) -> bool:
+        """
+        Check if the CondaPackages parameter contains Unreal Engine version and compare with current UE version.
+
+        :return: True if version check passes or user confirms, False if user cancels
+        :rtype: bool
+        """
+
+        conda_packages_param = next(
+            (p for p in parameter_values if p["name"] == OpenJobParameterNames.CONDA_PACKAGES), None
+        )
+
+        if not conda_packages_param:
+            return True
+
+        current_version = UnrealOpenJob.get_current_ue_version()
+
+        conda_packages_value = conda_packages_param.get("value", "")
+        if not conda_packages_value:
+            conda_packages_param["value"] = UnrealOpenJob.normalize_openjd_version_param(
+                f"unrealengine={current_version}"
+            )
+            return True
+
+        # Check for unrealengine=x.x pattern
+        ue_version_match = re.search(r"unrealengine=(\d+\.\d+)", conda_packages_value)
+        if not ue_version_match:
+            conda_packages_param["value"] = UnrealOpenJob.normalize_openjd_version_param(
+                f"unrealengine={current_version} " + conda_packages_value
+            )
+            return True
+
+        template_ue_version = ue_version_match.group(1)
+        logger.info(f"Template specifies Unreal Engine version: {template_ue_version}")
+
+        # Compare versions
+        if not template_ue_version == current_version:
+            # Versions don't match
+            result = unreal.EditorDialog.show_message(
+                "Version Mismatch Warning",
+                f"You are attempting to render a UE {current_version} project using UE {template_ue_version}. Do you wish to continue?",
+                unreal.AppMsgType.YES_NO,
+                unreal.AppReturnType.YES,
+            )
+
+            if result != unreal.AppReturnType.YES:
+                return False
+
+        conda_packages_param["value"] = UnrealOpenJob.normalize_openjd_version_param(
+            conda_packages_value
+        )
+        logger.info("Unreal Engine versions match, continuing with submission")
+        return True
 
 
 # Render Open Job

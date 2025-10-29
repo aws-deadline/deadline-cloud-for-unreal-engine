@@ -5,7 +5,6 @@ import yaml
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from typing import Type, Union, Literal, Optional
-
 from openjd.model import parse_model
 
 from openjd.model.v2023_09 import (
@@ -279,6 +278,7 @@ class OpenJobParameterNames:
     UNREAL_EXTRA_CMD_ARGS_FILE = "ExtraCmdArgsFile"
     UNREAL_EXECUTABLE_RELATIVE_PATH = "ExecutableRelativePath"
     UNREAL_MRQ_JOB_DEPENDENCIES_DESCRIPTOR = "MrqJobDependenciesDescriptor"
+    CONDA_PACKAGES = "CondaPackages"
 
     PERFORCE_STREAM_PATH = "PerforceStreamPath"
     PERFORCE_CHANGELIST_NUMBER = "PerforceChangelistNumber"

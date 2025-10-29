@@ -126,11 +126,17 @@ class TestUnrealOpenJob:
         assert isinstance(param, UnrealOpenJobParameterDefinition) == found
 
     @patch(
+        "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.SystemLibrary.get_engine_version",
+        return_value="5.4",
+    )
+    @patch(
         "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
         "UnrealOpenJobEntity.get_template_object",
         return_value=fixtures.f_job_template_default(),
     )
-    def test__build_parameter_values(self, get_template_object_mock: Mock):
+    def test__build_parameter_values(
+        self, get_engine_version: Mock, get_template_object_mock: Mock
+    ):
         # GIVEN
         yaml_parameters = fixtures.f_job_template_default()["parameterDefinitions"]
         open_job = UnrealOpenJob(
