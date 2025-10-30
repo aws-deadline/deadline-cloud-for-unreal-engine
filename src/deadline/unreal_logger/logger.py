@@ -52,10 +52,4 @@ def get_logger() -> logging.Logger:
         unreal_logger.addHandler(console_handler)
         UNREAL_HANDLER_ADDED = True
 
-    if not UNREAL_HANDLER_ADDED:
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.DEBUG)
-        unreal_logger.addHandler(console_handler)
-        UNREAL_HANDLER_ADDED = True
-
     return unreal_logger

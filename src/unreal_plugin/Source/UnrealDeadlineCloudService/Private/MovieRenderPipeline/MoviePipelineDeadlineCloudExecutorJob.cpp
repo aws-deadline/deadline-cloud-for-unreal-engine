@@ -408,35 +408,6 @@ void UMoviePipelineDeadlineCloudExecutorJob::CollectPluginsDependencies()
 				UE_LOG(LogTemp, Error, TEXT("Error get DeadlineCloudJobBundleLibrary"));
 			}
 		});
-
-void UMoviePipelineDeadlineCloudExecutorJob::CollectPluginsDependencies()
-{
-	PresetOverrides.JobAttachments.InputDirectories.AutoDetectedDirectories.Paths.Empty();
-	AsyncTask(ENamedThreads::GameThread, [this]()
-		{
-			auto& Plugins = PresetOverrides.JobAttachments.InputFiles.AutoDetected.Paths;
-			TArray<FString> Paths;
-			if (auto Library = UDeadlineCloudJobBundleLibrary::Get())
-			{
-				Paths = Library->GetPluginsDependencies();
-				for (const auto& Path : Paths)
-				{
-					if (!IsAssetDirectoryValid(Path))
-					{
-						continue;
-					}
-					FDirectoryPath Item;
-					Item.Path = Path;
-					PresetOverrides.JobAttachments.InputDirectories.AutoDetectedDirectories.Paths.Add(Item);
-				}
-
-				UE_LOG(LogTemp, Log, TEXT("Added %d dependency directories:"), Plugins.Num());
-			}
-			else
-			{
-				UE_LOG(LogTemp, Error, TEXT("Error get DeadlineCloudJobBundleLibrary"));
-			}
-		});
 }
 
 void UMoviePipelineDeadlineCloudExecutorJob::UpdateInputFilesProperty()
