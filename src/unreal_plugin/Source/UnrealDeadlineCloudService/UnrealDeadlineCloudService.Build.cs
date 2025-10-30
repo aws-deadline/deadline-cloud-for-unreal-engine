@@ -29,6 +29,10 @@ public class UnrealDeadlineCloudService : ModuleRules
                  "EditorSubsystem",
                  "Slate",
                  "SlateCore",
+<<<<<<< HEAD
+=======
+                 "ToolWidgets",
+>>>>>>> mainline
                  "EditorWidgets",
                  "Core",
                  "CoreUObject",

@@ -68,9 +68,16 @@ void FUnrealDeadlineCloudServiceModule::StartupModule()
 		FDeadlineCloudJobParametersArray::StaticStruct()->GetFName(),
 		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FDeadlineCloudJobParametersArrayCustomization::MakeInstance));
 	
+<<<<<<< HEAD
 		PropertyModule.RegisterCustomPropertyTypeLayout(
 			FJobTemplateOverrides::StaticStruct()->GetFName(),
 			FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FJobTemplateOverridesCustomization::MakeInstance));
+=======
+	PropertyModule.RegisterCustomPropertyTypeLayout(
+		FJobTemplateOverrides::StaticStruct()->GetFName(),
+		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FJobTemplateOverridesCustomization::MakeInstance));
+
+>>>>>>> mainline
 	//Step details arrays 
 	PropertyModule.RegisterCustomPropertyTypeLayout(
 		FDeadlineCloudStepParametersArray::StaticStruct()->GetFName(),

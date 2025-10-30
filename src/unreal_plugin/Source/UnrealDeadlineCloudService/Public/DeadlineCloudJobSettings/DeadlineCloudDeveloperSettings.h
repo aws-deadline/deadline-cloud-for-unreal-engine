@@ -4,12 +4,20 @@
 #include "CoreMinimal.h"
 #include "Engine/DeveloperSettings.h"
 #include "PythonAPILibraries/DeadlineCloudSettingsLibrary.h"
+<<<<<<< HEAD
+=======
+#include "MovieRenderPipeline/MoviePipelineDeadlineCloudExecutorJob.h"
+>>>>>>> mainline
 #include "DeadlineCloudDeveloperSettings.generated.h"
 
 /**
  * Deadline Cloud Workstation Configuration settings located in Project -> Settings.
  */
+<<<<<<< HEAD
 UCLASS(BlueprintType, HideCategories="cache")
+=======
+UCLASS(config = EditorPerProjectUserSettings, BlueprintType, HideCategories="cache")
+>>>>>>> mainline
 class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudDeveloperSettings : public UDeveloperSettings
 {
 	GENERATED_BODY()
@@ -33,6 +41,23 @@ public:
 	*/
 	static UDeadlineCloudDeveloperSettings* GetMutable() { return GetMutableDefault<UDeadlineCloudDeveloperSettings>(); }
 
+<<<<<<< HEAD
+=======
+	static class UDeadlineCloudRenderJob* GetDefaultJobPreset();
+	static void SetDefaultJobPreset(class UDeadlineCloudRenderJob* NewJobPreset);
+
+	static void LoadMRQJobPresetCache(class UMoviePipelineDeadlineCloudExecutorJob* MRQJob);
+	static void SaveMRQJobPresetCache(const class UMoviePipelineDeadlineCloudExecutorJob* MRQJob);
+	/** 
+	* Deadline Cloud Default MRQ job preset
+	*/
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, meta = (Category = "Deadline Cloud Job Presets", DisplayPriority = 3))
+	TSoftObjectPtr<class UDeadlineCloudRenderJob> DefaultJobPreset;
+
+	UPROPERTY(Config)
+	FDeadlineCloudJobPresetCache JobPresetCache;
+
+>>>>>>> mainline
 	/** 
 	* Deadline Cloud Workstation Configuration settings container.
 	*/

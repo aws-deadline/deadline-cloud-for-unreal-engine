@@ -26,6 +26,16 @@ public:
     UFUNCTION(BlueprintImplementableEvent)
     TArray<FString> GetJobDependencies(const UMoviePipelineDeadlineCloudExecutorJob *MrqJob);
 
+<<<<<<< HEAD
+=======
+	/**
+	* Validate MRQ job parameters
+	* @param MrqJob Unreal MRQ job
+	*/
+	UFUNCTION(BlueprintImplementableEvent)
+	TArray<FParameterDefinition> ValidateMrqJobParameters(const TArray<FParameterDefinition>& Parameters);
+
+>>>>>>> mainline
 	 /**
 	 * Collect list of required plugins for the job
 	 * @return List of the plugins dependencies

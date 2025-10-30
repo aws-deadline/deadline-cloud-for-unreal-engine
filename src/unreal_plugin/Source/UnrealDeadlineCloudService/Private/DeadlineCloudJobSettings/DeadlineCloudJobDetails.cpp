@@ -328,6 +328,7 @@ void FDeadlineCloudJobParametersArrayBuilder::GenerateStepsExtraChildren(IDetail
             // Access the array property of StepOverride elements
             TArray<FDeadlineCloudStepOverride>& Steps = MrqJob->JobTemplateOverrides.StepsOverrides;
 
+<<<<<<< HEAD
             for (FDeadlineCloudStepOverride& Step : Steps)
             {
                 // Check Steps all > Steps hidden 
@@ -340,6 +341,13 @@ void FDeadlineCloudJobParametersArrayBuilder::GenerateStepsExtraChildren(IDetail
                     ChildrenBuilder.AddCustomBuilder(StepsArrayBuilder);
                 }
             }
+=======
+            // Use custom array builder to hide the header
+            TSharedRef<FDeadlineCloudStepOverrideArrayBuilder> StepsArrayBuilder = 
+            FDeadlineCloudStepOverrideArrayBuilder::MakeInstance(StepsHandle.ToSharedRef());
+
+            ChildrenBuilder.AddCustomBuilder(StepsArrayBuilder);
+>>>>>>> mainline
         }
     }
 }
@@ -359,6 +367,7 @@ void FDeadlineCloudJobParametersArrayBuilder::GenerateEnvironmentsExtraChildren(
             // Access the array property of StepOverride elements
             TArray<FDeadlineCloudEnvironmentOverride>& Envs = MrqJob->JobTemplateOverrides.EnvironmentsOverrides;
 
+<<<<<<< HEAD
             for (FDeadlineCloudEnvironmentOverride& Environment : Envs)
             {
                 // Check Steps all > Steps hidden 
@@ -371,6 +380,14 @@ void FDeadlineCloudJobParametersArrayBuilder::GenerateEnvironmentsExtraChildren(
                     ChildrenBuilder.AddCustomBuilder(EnvsArrayBuilder);
                 }
             }
+=======
+
+            // Use custom array builder to hide the header
+            TSharedRef<FDeadlineCloudEnvOverrideArrayBuilder> EnvsArrayBuilder =
+                FDeadlineCloudEnvOverrideArrayBuilder::MakeInstance(EnvHandle.ToSharedRef());
+
+            ChildrenBuilder.AddCustomBuilder(EnvsArrayBuilder);
+>>>>>>> mainline
         }
     }
 }
@@ -652,12 +669,13 @@ void FDeadlineCloudJobParametersArrayBuilder::OnGenerateEntry(TSharedRef<IProper
                 return true;
             })
     );
-
-    PropertyRow.Visibility(IsPropertyHidden(FName(ParameterName)) ? EVisibility::Collapsed : EVisibility::Visible);
 }
 
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> mainline
 void FJobTemplateOverridesCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> InPropertyHandle, FDetailWidgetRow& InHeaderRow, IPropertyTypeCustomizationUtils& InCustomizationUtils)
 {
     TSharedPtr<IPropertyHandle> ArrayHandle = InPropertyHandle->GetChildHandle("Parameters", false);

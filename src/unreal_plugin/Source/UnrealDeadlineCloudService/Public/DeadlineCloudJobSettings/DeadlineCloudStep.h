@@ -16,9 +16,11 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudStepParametersArray
 };
 
 USTRUCT(BlueprintType)
-struct  FDeadlineCloudStepOverride
+struct FDeadlineCloudStepOverride
 {
     GENERATED_BODY()
+
+public:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 1))
     FString Name;
@@ -33,6 +35,12 @@ struct  FDeadlineCloudStepOverride
 	FDeadlineCloudStepParametersArray TaskParameterDefinitions;
 
 	TArray<FName> HiddenParametersList;
+<<<<<<< HEAD
+=======
+
+
+	void CopyParametersValuesFrom(const FDeadlineCloudStepOverride& Other);
+>>>>>>> mainline
 };
 
 UCLASS(BlueprintType, Blueprintable)

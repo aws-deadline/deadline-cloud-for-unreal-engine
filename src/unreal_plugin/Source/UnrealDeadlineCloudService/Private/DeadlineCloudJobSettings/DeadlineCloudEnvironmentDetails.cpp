@@ -437,11 +437,15 @@ bool FDeadlineCloudEnvironmentParametersMapBuilder::IsEyeWidgetEnabled(FName Par
 			{
 				if (EnvOverride)
 				{
+<<<<<<< HEAD
 					
 					{
 						result = EnvOverride->ContainsHiddenParameters(Parameter);
 
 					}
+=======
+						result = EnvOverride->ContainsHiddenParameters(Parameter);
+>>>>>>> mainline
 				}
 			}
 		}

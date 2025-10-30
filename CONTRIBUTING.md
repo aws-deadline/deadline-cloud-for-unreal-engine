@@ -72,7 +72,7 @@ To send us a pull request, please:
    If you also reformat all the code, it will be hard for us to focus on your change.
    Please see [DEVELOPMENT.md](./DEVELOPMENT.md) for tips.
 3. Ensure tests pass. Please see the [Testing](./DEVELOPMENT.md#testing) section for information on tests.
-4. Ensure you can still run a test render successfully when making significant code or data changes.  See [this guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_SUBMITTER_CMF.md#submit-a-test-render-optional)
+4. Ensure you can still run a test render successfully when making significant code or data changes.  See [this guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/create-perforce-render-job.md#submit-a-test-render)
 5. **IMPORTANT**: Commit to your fork using clear commit messages. Note that all AWS Deadline Cloud GitHub repositories require the use
    of [conventional commit](#conventional-commits) syntax for the title of your commit.
 6. **IMPORTANT**: Ensure that your commit is signed for [Developer Certificate of Origin](https://github.com/apps/dco) (`git commit --amend -s`).
@@ -106,6 +106,7 @@ We ask that you use these commit types in your commit titles:
 * `refactor` - When the pull request is implementing only a refactor of existing code;
 * `ci` - When the pull request is implementing a change to the CI infrastructure of the packge;
 * `chore` - When the pull request is a generic maintenance task.
+* `perf` - When the pull request is a performance improvement.
 
 We also require that the type in your conventional commit title end in an exclaimation point (e.g. `feat!` or `fix!`)
 if the pull request should be considered to be a breaking change in some way. Please also include a "BREAKING CHANGE" footer

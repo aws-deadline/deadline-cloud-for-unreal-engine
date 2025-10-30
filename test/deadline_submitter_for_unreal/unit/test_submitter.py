@@ -46,89 +46,149 @@ def create_job_from_bundle_mock(
 class TestUnrealSubmitter:
 
     @patch("deadline.unreal_submitter.submitter.get_deadline_cloud_library_telemetry_client")
-    @patch(
-        "deadline.unreal_submitter.submitter.create_job_from_job_bundle",
-        side_effect=create_job_from_bundle_mock,
-    )
+    @patch("subprocess.Popen")
     @patch("deadline.unreal_submitter.submitter.UnrealOpenJob")
-    @patch("deadline.unreal_submitter.submitter.UnrealSubmitter._hash_progress")
-    @patch("deadline.unreal_submitter.submitter.UnrealSubmitter._upload_progress")
     def test_submit_jobs(
         self,
-        upload_progress_mock: Mock,
-        hash_progress_mock: Mock,
         open_job_mock: Mock,
-        create_job_from_bundle_mock: Mock,
+        popen_mock: Mock,
         mock_telemetry_client: Mock,
     ):
         # GIVEN
+        open_job_mock.create_job_bundle = MagicMock(return_value="/path/to/bundle")
+        open_job_mock.name = "TestJob"
 
-        open_job_mock.create_job_bundle = MagicMock()
+        # Mock subprocess output
+        process_mock = Mock()
+        process_mock.stdout.readline.side_effect = [
+            '{"type": "hash_progress", "progress": 50.0, "message": "Hashing"}\n',
+            '{"type": "upload_progress", "progress": 100.0, "message": "Uploading"}\n',
+            '{"type": "job_created", "job_id": "job_id_1"}\n',
+            "",  # End of output
+        ]
+        process_mock.returncode = 0
+        process_mock.stderr.read.return_value = ""
+        popen_mock.return_value = process_mock
+
         submitter = UnrealSubmitter()
         submitter._jobs.append(open_job_mock)
 
         # WHEN
-        submitted_job_ids = submitter.submit_jobs()
+        with patch("unreal.Paths.project_dir", return_value="/project/path"):
+            submitted_job_ids = submitter.submit_jobs()
 
         # THEN
-        create_job_from_bundle_mock.assert_called_once()
-        upload_progress_mock.assert_called_once()
-        hash_progress_mock.assert_called_once()
         assert len(submitted_job_ids) == 1
+        assert "job_id_1" in submitted_job_ids
+        popen_mock.assert_called_once()
 
     @patch("deadline.unreal_submitter.submitter.UnrealSubmitter.show_message_dialog")
     @patch("deadline.unreal_submitter.submitter.get_deadline_cloud_library_telemetry_client")
-    @patch(
-        "deadline.unreal_submitter.submitter.create_job_from_job_bundle",
-        side_effect=create_job_from_bundle_mock,
-    )
+    @patch("subprocess.Popen")
     @patch("deadline.unreal_submitter.submitter.UnrealOpenJob")
     def test_cancel_submit_jobs(
         self,
         open_job_mock: Mock,
-        create_job_from_bundle_mock: Mock,
+        popen_mock: Mock,
         mock_telemetry_client: Mock,
         show_message_dialog_mock: Mock,
     ):
         # GIVEN
-        open_job_mock.create_job_bundle = MagicMock()
+        open_job_mock.create_job_bundle = MagicMock(return_value="/path/to/bundle")
+        open_job_mock.name = "TestJob"
+
+        process_mock = Mock()
+        process_mock.stdout.readline.return_value = ""
+        process_mock.returncode = 0
+        popen_mock.return_value = process_mock
+
         submitter = UnrealSubmitter()
         submitter._jobs.append(open_job_mock)
 
         # WHEN
         with patch.object(submitter, "continue_submission", False):
-            submitter.submit_jobs()
+            with patch("unreal.Paths.project_dir", return_value="/project/path"):
+                submitter.submit_jobs()
 
         # THEN
         assert "Jobs submission canceled" in show_message_dialog_mock.mock_calls[0].args[0]
 
     @patch("deadline.unreal_submitter.submitter.UnrealSubmitter.show_message_dialog")
-    @patch(
-        "deadline.unreal_submitter.submitter.create_job_from_job_bundle",
-        side_effect=create_job_from_bundle_mock,
-    )
     @patch("deadline.unreal_submitter.submitter.get_deadline_cloud_library_telemetry_client")
+    @patch("subprocess.Popen")
     @patch("deadline.unreal_submitter.submitter.UnrealOpenJob")
     def test_fail_submit_jobs(
         self,
         open_job_mock: Mock,
+        popen_mock: Mock,
         mock_telemetry_client: Mock,
-        create_job_from_bundle_mock: Mock,
         show_message_dialog_mock: Mock,
     ):
         # GIVEN
-        open_job_mock.create_job_bundle = MagicMock()
+        open_job_mock.create_job_bundle = MagicMock(return_value="/path/to/bundle")
+        open_job_mock.name = "TestJob"
+
+        fail_message = "Test subprocess failure"
+        process_mock = Mock()
+        process_mock.stdout.readline.side_effect = [
+            f'{{"type": "error", "message": "{fail_message}"}}\n',
+            "",
+        ]
+        process_mock.returncode = 1
+        process_mock.stderr.read.return_value = "Subprocess error"
+        popen_mock.return_value = process_mock
+
         submitter = UnrealSubmitter()
         submitter._jobs.append(open_job_mock)
 
-        fail_message = "Test interrupt submission"
-        create_job_from_bundle_mock.side_effect = ValueError(fail_message)
-
         # WHEN
-        submitter.submit_jobs()
+        with patch("unreal.Paths.project_dir", return_value="/project/path"):
+            submitter.submit_jobs()
 
         # THEN
         assert fail_message in show_message_dialog_mock.mock_calls[0].args[0]
+
+    @patch("deadline.unreal_submitter.submitter.get_deadline_cloud_library_telemetry_client")
+    def test_create_subprocess_env(self, mock_telemetry_client: Mock):
+        """Test subprocess environment creation"""
+        submitter = UnrealSubmitter()
+
+        with patch("sys.path", ["/path1", "/path2"]):
+            with patch("os.environ", {"EXISTING": "value"}):
+                env = submitter._create_subprocess_env()
+                assert env["EXISTING"] == "value"
+                assert "PYTHONPATH" in env
+
+    @patch("deadline.unreal_submitter.submitter.get_deadline_cloud_library_telemetry_client")
+    def test_handle_subprocess_message_hash_progress(self, mock_telemetry_client: Mock):
+        """Test handling hash progress message"""
+        submitter = UnrealSubmitter()
+
+        with patch.object(submitter, "_hash_progress_from_subprocess") as mock_hash:
+            data = {"type": "hash_progress", "progress": 50.0, "message": "Hashing files"}
+            submitter._handle_subprocess_message(data)
+
+            mock_hash.assert_called_once_with(50.0, "Hashing files")
+
+    @patch("deadline.unreal_submitter.submitter.get_deadline_cloud_library_telemetry_client")
+    def test_handle_subprocess_message_job_created(self, mock_telemetry_client: Mock):
+        """Test handling job created message"""
+        submitter = UnrealSubmitter()
+
+        data = {"type": "job_created", "job_id": "job-123"}
+        submitter._handle_subprocess_message(data)
+
+        assert "job-123" in submitter.submitted_job_ids
+
+    @patch("deadline.unreal_submitter.submitter.get_deadline_cloud_library_telemetry_client")
+    def test_handle_subprocess_message_error(self, mock_telemetry_client: Mock):
+        """Test handling error message"""
+        submitter = UnrealSubmitter()
+
+        data = {"type": "error", "message": "Test error"}
+        submitter._handle_subprocess_message(data)
+
+        assert submitter._submission_failed_message == "Test error"
 
     @pytest.mark.parametrize("silent_mode, show_message_call_count", [(True, 0), (False, 1)])
     @patch("deadline.unreal_submitter.submitter.get_deadline_cloud_library_telemetry_client")

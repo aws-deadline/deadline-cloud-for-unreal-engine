@@ -24,6 +24,18 @@ TSharedRef<IPropertyTypeCustomization> FDeadlineCloudJobPresetDetailsCustomizati
 void FDeadlineCloudJobPresetDetailsCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> PropertyHandle, FDetailWidgetRow& HeaderRow,
     IPropertyTypeCustomizationUtils& CustomizationUtils)
 {
+	const auto NameWidget = PropertyHandle->CreatePropertyNameWidget();
+	const auto ValueWidget = PropertyHandle->CreatePropertyValueWidget();
+
+	HeaderRow
+		.NameContent()
+		[
+			NameWidget
+		]
+		.ValueContent()
+		[
+			ValueWidget
+		];
 }
 
 void FDeadlineCloudJobPresetDetailsCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> StructHandle,
@@ -34,12 +46,6 @@ void FDeadlineCloudJobPresetDetailsCustomization::CustomizeChildren(TSharedRef<I
 
     TMap<FName, IDetailGroup*> CreatedCategories;
     const FName StructName(StructHandle->GetProperty()->GetFName());
-
-    if (OuterJob)
-    {
-        IDetailGroup& BaseCategoryGroup = ChildBuilder.AddGroup(StructName, StructHandle->GetPropertyDisplayName());
-        CreatedCategories.Add(StructName, &BaseCategoryGroup);
-    }
 
     // For each map member and each struct member in the map member value
     uint32 NumChildren;
@@ -56,30 +62,18 @@ void FDeadlineCloudJobPresetDetailsCustomization::CustomizeChildren(TSharedRef<I
             continue;
         }
 
-        IDetailGroup* GroupToUse = nullptr;
-        if (const FString* PropertyCategoryString = ChildHandle->GetProperty()->FindMetaData(TEXT("Category")))
-        {
-            FName PropertyCategoryName(*PropertyCategoryString);
 
-            if (IDetailGroup** FoundCategory = CreatedCategories.Find(PropertyCategoryName))
-            {
-                GroupToUse = *FoundCategory;
-            }
-            else
-            {
-                if (OuterJob)
-                {
-                    GroupToUse = CreatedCategories.FindChecked(StructName);
-                }
-                else
-                {
-                    IDetailGroup& NewGroup = ChildBuilder.AddGroup(StructName, StructHandle->GetPropertyDisplayName());
-                    NewGroup.ToggleExpansion(true);
-                    GroupToUse = CreatedCategories.Add(PropertyCategoryName, &NewGroup);
-                }
-            }
+        IDetailPropertyRow& PropertyRow = ChildBuilder.AddProperty(ChildHandle);
+
+        TSharedPtr<SWidget> CustomValueWidget = FDeadlineCloudDetailsWidgetsHelper::TryCreatePropertyWidgetFromMetadata(ChildHandle);
+        if (CustomValueWidget.IsValid())
+        {
+            FString ParameterName = ChildHandle->GetProperty()->GetName();
+            FName Tag = FName("JobPreset." + ParameterName);
+            CustomValueWidget->AddMetadata(FDriverMetaData::Id(Tag));
         }
 
+<<<<<<< HEAD
         IDetailPropertyRow& PropertyRow = GroupToUse->AddPropertyRow(ChildHandle);
 
         TSharedPtr<SWidget> CustomValueWidget = FDeadlineCloudDetailsWidgetsHelper::TryCreatePropertyWidgetFromMetadata(ChildHandle);
@@ -90,6 +84,8 @@ void FDeadlineCloudJobPresetDetailsCustomization::CustomizeChildren(TSharedRef<I
             CustomValueWidget->AddMetadata(FDriverMetaData::Id(Tag));
         }
 
+=======
+>>>>>>> mainline
         if (OuterJob)
         {
             CustomizeStructChildrenInMovieRenderQueue(PropertyRow, OuterJob, CustomValueWidget);
@@ -97,6 +93,7 @@ void FDeadlineCloudJobPresetDetailsCustomization::CustomizeChildren(TSharedRef<I
         else
         {
             CustomizeStructChildrenInAssetDetails(PropertyRow, CustomValueWidget);
+<<<<<<< HEAD
         }
     }
 
@@ -106,6 +103,8 @@ void FDeadlineCloudJobPresetDetailsCustomization::CustomizeChildren(TSharedRef<I
         if (Pair.Value)
         {
             Pair.Value->ToggleExpansion(true);
+=======
+>>>>>>> mainline
         }
     }
 }

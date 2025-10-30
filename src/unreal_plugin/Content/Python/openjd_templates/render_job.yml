@@ -25,9 +25,18 @@ parameterDefinitions:
   default: 'UnrealEditor-Cmd'
   userInterface: 
    control: HIDDEN
+<<<<<<< HEAD
 - name: CondaPackages
   type: STRING
   default: unrealengine=5.6 unrealengine-openjd=0.5.*
+=======
+- name: FramesPerTask
+  type: INT
+  default: 0
+- name: CondaPackages
+  type: STRING
+  default: unrealengine=5.6 unrealengine-openjd=0.6.*
+>>>>>>> mainline
   userInterface: 
    control: LINE_EDIT
 - name: CondaChannels
