@@ -57,7 +57,7 @@ def background_init_s3_client():
     Initialize cache an S3 client based on the current deadline configuration
     within the deadline cloud library
     """
-    logger.info("INIT DEADLINE CLOUD")
+    logger.info("Beginning background_init_s3_client")
     try:
         deadline = api.get_boto3_client("deadline")
         logger.info("Got deadline client successfully")

@@ -257,3 +257,36 @@ void UDeadlineCloudStep::ResetParameterArray(FString ParameterName)
         }
     }
 }
+
+void FDeadlineCloudStepOverride::CopyParametersValuesFrom(const FDeadlineCloudStepOverride& Other)
+{
+	// Copy EnvironmentsOverrides
+	for (const FDeadlineCloudEnvironmentOverride& OtherEnv : Other.EnvironmentsOverrides)
+	{
+		bool bFound = false;
+		for (FDeadlineCloudEnvironmentOverride& ThisEnv : EnvironmentsOverrides)
+		{
+			if (ThisEnv.Name == OtherEnv.Name)
+			{
+				bFound = true;
+				ThisEnv.CopyParametersValuesFrom(OtherEnv);
+				break;
+			}
+		}
+	}
+
+	// Copy TaskParameterDefinitions values
+	for (const FStepTaskParameterDefinition& OtherParam : Other.TaskParameterDefinitions.Parameters)
+	{
+		bool bFound = false;
+		for (FStepTaskParameterDefinition& ThisParam : TaskParameterDefinitions.Parameters)
+		{
+			if (ThisParam.Name == OtherParam.Name)
+			{
+				bFound = true;
+				ThisParam.Range = OtherParam.Range;
+				break;
+			}
+		}
+	}
+}

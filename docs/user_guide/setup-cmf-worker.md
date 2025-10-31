@@ -1,19 +1,43 @@
-# Unreal CMF Worker Setup Instructions
+# Customer Managed Fleet (CMF) Worker Setup
 
-For Customer Managed Fleets (CMF), the Unreal Engine and adaptor must be manually installed on worker hosts. This differs from Service Managed Fleets (SMF), where both components are automatically available through the `deadline-cloud Conda` channel with the [default Queue Environment](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/create-queue-environment.html#conda-queue-environment).
+This guide walks you through setting up an EC2 instance as a CMF worker for AWS Deadline Cloud with Unreal Engine.
 
-This will walk you through setting up an instance to act as a worker as part of a Customer Managed Fleet (CMF).
+## Overview
 
-## Branch to use - release vs mainline
+**CMF vs SMF Differences:**
+- **CMF**: Manual installation of Unreal Engine and adaptor on worker hosts
+- **SMF**: Automatic availability through `deadline-cloud Conda` channel
 
-These instructions are updated along with the corresponding code and scripts fairly often. You'll later need to choose to pull down the code which corresponds to a specific branch. The usual choice is between release which is more stable, or mainline which has the latest changes. If the version of the instructions you're currently reading doesn't come from the branch you intend to use, you should switch to the instructions from that branch now. For example, if you're currently reading the mainline version of the instructions but intend to use the release branch, please switch to the release version [here](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/release/SETUP_SUBMITTER_CMF.md)
+## Choose Your Branch
 
-## Create a new Windows EC2 instance to install Unreal on 
+Select the appropriate branch for your deployment:
 
-If youíre setting up on a brand new Windows EC2 Instance as your CMF worker node, a g5.2xlarge instance with 200 GB of storage will likely be reasonable minimum:
+| Branch | Stability | Use Case |
+|--------|-----------|----------|
+| **release** | ‚úÖ Stable | Production deployments |
+| **mainline** | üîÑ Latest | Development/testing |
 
-1. Download the Epic Installer and install the latest version of Unreal (5.2 or higher is required)
-1. NVIDIA GRID drivers - Follow Windows instructions - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/install-nvidia-driver.html#nvidia-GRID-driver
+> **‚ö†Ô∏è Compatibility**: Ensure your worker version matches your submitter version to avoid compatibility issues.
+
+## EC2 Instance Setup
+
+### Recommended Instance Configuration
+
+**Minimum Specifications:**
+- **Instance Type**: g5.2xlarge or higher
+- **Storage**: 200 GB minimum
+- **OS**: Windows Server 2019/2022
+
+### Software Installation
+
+**1. Install Unreal Engine**
+1. Download the Epic Games Launcher
+2. Install Unreal Engine 5.3 or higher
+   > **üìù Note**: Unreal Engine 5.3+ is required for Deadline Cloud compatibility
+
+**2. Install NVIDIA GRID Drivers**
+- Follow the [AWS NVIDIA GRID driver installation guide](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/install-nvidia-driver.html#nvidia-GRID-driver)
+- Required for GPU-accelerated rendering on EC2 instances
 
 ## Install Build Tools
 
@@ -22,8 +46,8 @@ The Unreal Plugin currently must be compiled locally.
 1. Install Visual Studio using the Visual Studio Installer from https://visualstudio.microsoft.com/
 1. Verify your Visual Studio and build tools version are compatible with your version of Unreal by checking the table [here](https://dev.epicgames.com/documentation/en-us/unreal-engine/setting-up-visual-studio-development-environment-for-cplusplus-projects-in-unreal-engine?application_version=5.5)
 1. Under "Individual Components", ensure that the MSVC build tools version selected ("Latest" by default) matches the recommended version in the table. Even though the compatibility guidance may suggest a version "or later", build errors sometimes occur when using a newer version than the one listed as "recommended".
-1. Under ìIndividual Componentsî, select a recent .NET Framework SDK (4.6.1 and 4.8.1 have been verified)
-1. Under ìWorkloadsî select ìDesktop development with C++î
+1. Under "Individual Components", select a recent .NET Framework SDK (4.6.1 and 4.8.1 have been verified)
+1. Under "Workloads" select "Desktop development with C++"
 
 ## Environment Setup
 
@@ -95,18 +119,18 @@ python -m pip install dist\my-built-wheel.whl
 
 Adjust the first two paths below based on where your installation of Unreal lives, and where you installed deadline-cloud-for-unreal-engine.
 
-From the Unreal Install Batchfiles Folder (Note the ëpackageí parameter can be any new directory, however youíll want it to be called ìUnrealDeadlineCloudServiceî later):
+From the Unreal Install Batchfiles Folder (Note the "package" parameter can be any new directory, however you'll want it to be called "UnrealDeadlineCloudService" later):
 
 ```
 cd C:\Program Files\Epic Games\UE_5.5\Engine\Build\BatchFiles
 runuat.bat BuildPlugin -plugin="C:\deadline\deadline-cloud-for-unreal-engine\src\unreal_plugin\UnrealDeadlineCloudService.uplugin" -package="C:\UnrealDeadlineCloudService"
 ```
 
-- Copy the ìpackageî folder above to your Unreal installationís Plugins folder (C:\Program Files\Epic Games\UE_5.5\Engine\Plugins\UnrealDeadlineCloudService for example)
+- Copy the "package" folder above to your Unreal installation's Plugins folder (C:\Program Files\Epic Games\UE_5.5\Engine\Plugins\UnrealDeadlineCloudService for example)
 
 ## pywin32
 
-Unrealís version of python will need pywin32. Pip install using copy of Unrealís 3rd Party python installation:
+Unreal's version of python will need pywin32. Pip install using copy of Unreal's 3rd Party python installation:
 
 ```
 "C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install pywin32
@@ -116,11 +140,11 @@ Unrealís version of python will need pywin32. Pip install using copy of Unrealís
 
 On your CMF Worker instance:
 
-1. Open ìTask Managerì
-1. Click on the ìServicesì tab on the right
-1. Find ìDeadlineWorkerî
-	1. If you donít see it listed youíve likely missed steps (install-deadline-worker in particular) from [the CMF host setup steps](https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/worker-host.html#worker-agent-config)
-1. If the status of the service isnít currently ìRunningî, right click it and select ìStartì
-1. If your ìDeadlineWorkerì service isn't starting, check the worker agent launch logs in these locations:
+1. Open "Task Manager"
+1. Click on the "Services" tab on the right
+1. Find "DeadlineWorker"
+	1. If you don't see it listed you've likely missed steps (install-deadline-worker in particular) from [the CMF host setup steps](https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/worker-host.html#worker-agent-config)
+1. If the status of the service isn't currently "Running", right click it and select "Start"
+1. If your "DeadlineWorker" service isn't starting, check the worker agent launch logs in these locations:
 	1. C:\ProgramData\Amazon\Deadline\Logs\worker-agent.log
 	1. C:\ProgramData\Amazon\Deadline\Logs\queue-<queueid>\session-<sessionid>.log

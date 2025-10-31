@@ -1,3 +1,18 @@
+## 0.6.5 (2025-10-29)
+
+
+### Features
+* Adding support for FramesPerTask to set how many frames of rendering each task should aim to do. Takes precedence over ChunkSize. (#229) ([`d06d700`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/d06d700db7c7cd1b3340b7ecd4b60c7753f0b74e))
+* Autodetect UE version in CondaPackages parameter (#196) ([`a201554`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/a20155474536e6126f84b0d8944e0b7d522b4ca3))
+* Persistent Data Asset (#195) ([`5e6d1cc`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/5e6d1cc00287a9c6761b0f70859b208f89f2e70a))
+* Reorganized user guides (#220) ([`72e53b6`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/72e53b6ae68ead19c51ba60d9c1aa84655ce9986))
+
+### Bug Fixes
+* Adding a temporary patch to fix pydantic StringConstraints in Unreal 5.3's default Python (3.9.7). See https://github.com/pydantic/pydantic/issues/7745 (#233) ([`5a0d010`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/5a0d0102b559c43ef4566c27f1cc0f8105b63b88))
+* Fixing include paths to support Unreal 5.3 (#231) ([`76d5d8e`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/76d5d8e447659ca1b75468da83d2081fceec6e8b))
+* Switching job submission to run through a subprocess which is handled by a wrapper script which feeds status updates back to Unreal through stdout/prints for improved performance (#222) ([`6a6af2e`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/6a6af2ee69f587ccdb947e68eabea87f2b0b5e3e))
+
+
 ## 0.6.4 (2025-10-08)
 
 

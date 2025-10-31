@@ -6,7 +6,7 @@ This package has two active branches:
 
 ## Build and Install the Plugin, Submitter, and Adapter
 
-Full instructions for building and installing these packages and the necessary dependencies to act as a submitter and/or worker can be found in [this guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_SUBMITTER_CMF.md).  Use the "mainline" branch for development rather than "release", and if you plan on submitting pull requests work out of [a fork](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/CONTRIBUTING.md#contributing-via-pull-requests).
+Full instructions for building and installing these packages and the necessary dependencies to act as a submitter and/or worker can be found in [Submitter Setup Guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-submitter.md) and [CMF Worker Setup Guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-cmf-worker.md).  Use the "mainline" branch for development rather than "release", and if you plan on submitting pull requests work out of [a fork](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/CONTRIBUTING.md#contributing-via-pull-requests).
 
 
 ## Build / Test / Release
@@ -51,7 +51,7 @@ hatch run all:test
 
 ### Testing C++ Changes
 
-When making C++ changes before testing you'll need to rebuild and copy your modified plugin to your Unreal plugins folder following [these steps](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_SUBMITTER_CMF.md#build-the-plugin) OR run the end to end tests (hatch run e2e -s) which builds and install both the C++ and python code.
+When making C++ changes before testing you'll need to rebuild and copy your modified plugin to your Unreal plugins folder following [these steps](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-submitter.md#build-the-plugin) OR run the end to end tests (hatch run e2e -s) which builds and install both the C++ and python code.
 
 
 ### Testing Python Changes
@@ -86,8 +86,11 @@ The Deadline Cloud plugin's Unreal Automation Tests can be run from within Unrea
 
 ## Submit a test render
 
-To test out any significant changes it's useful to submit a test render following [this guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_SUBMITTER_CMF.md#submit-a-test-render-optional)
+To test out any significant changes it's useful to submit a test render following [Submit a Test Render](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-submitter.md#submit-a-test-render)
 
+## Building user guide
+
+The user guide is generated from the markdown files in `docs/user_guide` and published to GitHub pages. To view the renderd user guide locally, run `hatch run docs:serve` which will open the user guide in your browser.
 
 ## Building the docs
 
@@ -172,7 +175,7 @@ Issue: When launching Movie Render Queue, Deadline Cloud job submission configur
 
 Root Cause: Movie Render Pipeline project settings were not properly configured.
 
-Solution: Configure Movie Render Pipeline settings as described in [Submit a Test Render](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_SUBMITTER.md#submit-a-test-render):
+Solution: Configure Movie Render Pipeline settings as described in [Submit a Test Render](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-submitter.md#submit-a-test-render):
    - Under "Edit"/"Project Settings" search for the "Movie Render Pipeline" section
      - For "Default Remote Executor", select "MoviePipelineDeadlineCloudRemoteExecutor"
      - For "Default Executor Job", select "MoviePipelineDeadlineCloudExecutorJob"

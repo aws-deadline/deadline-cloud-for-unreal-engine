@@ -28,7 +28,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "deadline >= 0.51,< 0.53",
+    "deadline >= 0.51,< 0.54",
     "openjd-adaptor-runtime >= 0.8.1,< 0.10",
     "openjd-model >= 0.8.1, < 0.9",
     "p4python == 2025.1.2767466",
@@ -184,6 +184,7 @@ patch_tags = [
   "feat",
   "fix",
   "refactor",
+  "perf",
 ]
 
 [tool.semantic_release.publish]

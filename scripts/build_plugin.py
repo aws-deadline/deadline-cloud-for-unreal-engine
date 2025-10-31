@@ -3,7 +3,7 @@
 # Helper script for compiling the plugin binaries and Python code and optionally installing it to your Unreal Engine installation
 # Currently only works for Windows
 # Assumes your environment is capable of building the plugin, specifically that you have installed Unreal and the toolchain
-# dependencies as described in https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_SUBMITTER_CMF.md#install-build-tools
+# dependencies as described in https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-submitter.md#install-build-tools
 # Assumes you're running from the root of your plugin source directory
 
 import argparse
@@ -36,7 +36,7 @@ def find_unreal_engine(folder: str, version: Optional[str] = None) -> str:
     version strings which come after the underscore, or checking against a specified version
 
     :param folder: Root UE install folder to list for UE_<version> Unreal Engine version installations
-    :param version: Specific version string to check for, e.g. 5.2
+    :param version: Specific version string to check for, e.g. 5.5
 
     :return: Path to root of latest Unreal Engine installation in folder
     """
@@ -48,8 +48,8 @@ def find_unreal_engine(folder: str, version: Optional[str] = None) -> str:
     if version:
         check_version = version
     else:
-        # Default to 5.2 if no other versions are found
-        check_version = "5.2"
+        # Default to 5.3 if no other versions are found
+        check_version = "5.3"
         for subfolder in os.listdir(folder):
             if subfolder.startswith("UE_"):
                 version = subfolder.split("_")[1]
@@ -446,7 +446,7 @@ def check_configuration_warnings(engine_root: str):
     else:
         logger.warning(
             "Windows long paths are not enabled.  Please see "
-            "https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_SUBMITTER_CMF.md#windows-long-paths "
+            "https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-submitter.md#windows-long-paths"
             "for instructions on enabling."
         )
 

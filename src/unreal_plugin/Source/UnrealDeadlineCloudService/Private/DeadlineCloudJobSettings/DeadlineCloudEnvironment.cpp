@@ -142,3 +142,15 @@ void UDeadlineCloudEnvironment::PostEditChangeProperty(FPropertyChangedEvent& Pr
         UE_LOG(LogTemp, Error, TEXT("Changed property is nullptr"));
     }
 }
+
+void FDeadlineCloudEnvironmentOverride::CopyParametersValuesFrom(const FDeadlineCloudEnvironmentOverride& Other)
+{
+	for (auto& VarPair : Other.Variables.Variables)
+	{
+		auto FoundVar = Variables.Variables.Find(VarPair.Key);
+		if (FoundVar)
+		{
+			*FoundVar = VarPair.Value;
+		}
+	}
+}

@@ -6,10 +6,10 @@
 
 #include "MoviePipelineQueue.h"
 #include "MoviePipelinePrimaryConfig.h"
-#include "MovieRenderPipelineEditor/Public/MoviePipelineQueueSubsystem.h"
-#include "MovieRenderPipelineEditor/Public/MovieRenderPipelineSettings.h"
-#include "MovieRenderPipelineCore/Public/MoviePipelineExecutor.h"
-#include "MovieRenderPipelineCore/Public/MoviePipelineQueue.h"
+#include "MoviePipelineExecutor.h"
+#include "MoviePipelineQueueSubsystem.h"
+#include "MovieRenderPipelineSettings.h"
+
 
 #include "Editor.h"
 #include "EditorSubsystem.h"

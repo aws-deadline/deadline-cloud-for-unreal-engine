@@ -94,7 +94,8 @@ DerivedDataCache/*
 .vs/
 .vsconfig
 
-
-
 # Doxygen documentation
 gen
+
+# Kiro IDE files
+.kiro/

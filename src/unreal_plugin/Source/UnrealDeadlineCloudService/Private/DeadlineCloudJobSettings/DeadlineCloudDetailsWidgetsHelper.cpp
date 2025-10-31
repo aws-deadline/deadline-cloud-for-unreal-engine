@@ -9,8 +9,450 @@
 #include "EditorDirectories.h"
 #include "Widgets/Notifications/SPopUpErrorText.h"
 #include "DesktopPlatformModule.h"
+#include "SWarningOrErrorBox.h"
+#include "AssetRegistry/AssetRegistryModule.h"
+#include "ContentBrowserModule.h"
+#include "IContentBrowserSingleton.h"
+#include "PackageTools.h"
+#include "Framework/MetaData/DriverMetaData.h"
 
 #define LOCTEXT_NAMESPACE "DeadlineWidgets"
+
+class SDeadlineCloudSavePresetWidget : public SCompoundWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SDeadlineCloudSavePresetWidget)
+		: _MrqJob(nullptr)
+		{}
+		/** The MRQ job to save the preset for. */
+		SLATE_ARGUMENT(UMoviePipelineDeadlineCloudExecutorJob*, MrqJob)
+		SLATE_ARGUMENT(FString, Name)
+
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs);
+protected:
+	EVisibility GetErrorLabelVisibility() const;
+	FText GetErrorLabelText() const;
+	FText OnGetNameText() const;
+	void OnNameTextChanged(const FText& NewText);
+	void OnNameTextCommitted(const FText& NewText, ETextCommit::Type CommitType);
+	FText OnGetPathText() const;
+	void OnPathTextChanged(const FString& NewText);
+	FReply HandleChooseFolderButtonClicked();
+	FReply HandleCreateButtonClicked();
+	//is create button enabled
+	bool IsCreateButtonEnabled() const
+	{
+		return bLastInputValidityCheckSuccessful || LastInputValidityErrorStyle == EMessageStyle::Warning;
+	}
+
+	void OnSetAsDefaultChanged(ECheckBoxState NewState)
+	{
+		bSetAsDefault = (NewState == ECheckBoxState::Checked);
+	}
+
+	void CloseWindow();
+	FReply HandleCancelButtonClicked();
+	FText GetJobResultPath() const;
+	void UpdateValidity();
+private:
+	UMoviePipelineDeadlineCloudExecutorJob* MrqJob;
+	FString NewName;
+	TSharedPtr<SEditableTextBox> NameEditBox;
+	FString NewPath;
+	bool bSetAsDefault = false;
+
+	EMessageStyle LastInputValidityErrorStyle = EMessageStyle::Error;
+	FText LastInputValidityErrorText;
+	bool bLastInputValidityCheckSuccessful = true;
+};
+
+void SDeadlineCloudSavePresetWidget::Construct(const FArguments& InArgs)
+{
+	MrqJob = InArgs._MrqJob;
+	NewName = InArgs._Name;
+
+	FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+	FPathPickerConfig PathCfg;
+    PathCfg.DefaultPath = TEXT("/Game");
+	PathCfg.OnPathSelected = FOnPathSelected::CreateSP(this, &SDeadlineCloudSavePresetWidget::OnPathTextChanged);
+	NewPath = PathCfg.DefaultPath;
+
+	TSharedRef<SWarningOrErrorBox> ErrorBox = SNew(SWarningOrErrorBox)
+		.MessageStyle_Lambda([this]() { return LastInputValidityErrorStyle; })
+		.Message(this, &SDeadlineCloudSavePresetWidget::GetErrorLabelText);
+	ErrorBox->AddMetadata(FDriverMetaData::Id(FName("DeadlineCloudSavePresetWidget.ErrorBox")));
+
+	 SAssignNew(NameEditBox, SEditableTextBox)
+		.MinDesiredWidth(420.0f)
+		.Text(this, &SDeadlineCloudSavePresetWidget::OnGetNameText)
+		.OnTextChanged(this, &SDeadlineCloudSavePresetWidget::OnNameTextChanged)
+		.OnTextCommitted(this, &SDeadlineCloudSavePresetWidget::OnNameTextCommitted);
+	NameEditBox->AddMetadata(FDriverMetaData::Id(FName("DeadlineCloudSavePresetWidget.NameEditBox")));
+
+	TSharedRef<SButton> CreateButton = SNew(SButton)
+		.ButtonStyle(FAppStyle::Get(), "PrimaryButton")
+		.Text(LOCTEXT("CreateBtn", "Create"))
+		.IsEnabled(this, &SDeadlineCloudSavePresetWidget::IsCreateButtonEnabled)
+		.OnClicked(this, &SDeadlineCloudSavePresetWidget::HandleCreateButtonClicked);
+	CreateButton->AddMetadata(FDriverMetaData::Id(FName("DeadlineCloudSavePresetWidget.CreateButton")));
+
+	TSharedRef<SButton> CancelButton = SNew(SButton)
+		.Text(LOCTEXT("CancelBtn", "Cancel"))
+		.OnClicked(this, &SDeadlineCloudSavePresetWidget::HandleCancelButtonClicked);
+	CancelButton->AddMetadata(FDriverMetaData::Id(FName("DeadlineCloudSavePresetWidget.CancelButton")));
+
+	ChildSlot
+	[
+		SNew(SBorder)
+			.Padding(0)
+			.BorderImage(FAppStyle::GetBrush("Brushes.Panel"))
+			[
+				SNew(SVerticalBox)
+
+				+ SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew(SBorder)
+							.Visibility(this, &SDeadlineCloudSavePresetWidget::GetErrorLabelVisibility)
+							.Padding(FMargin(12.0f, 8.0f))
+							.BorderBackgroundColor(FLinearColor(0.24f, 0.05f, 0.05f)) 
+							.BorderImage(FAppStyle::GetBrush("DetailsView.CategoryTop"))
+							[
+								SNew(SHorizontalBox)
+								+ SHorizontalBox::Slot()
+									.FillWidth(1.0f)
+									.VAlign(VAlign_Center)
+									[
+										ErrorBox
+									]
+							]
+					]
+
+
+				+ SVerticalBox::Slot()
+				.FillHeight(1.0f)
+				.Padding(FMargin(10.0f)) 
+					[
+						SNew(SBorder)
+							.Padding(10.0f)
+							.BorderImage(FAppStyle::GetBrush("ToolPanel.GroupBorder")) 
+							[
+								SNew(SGridPanel)
+								.FillColumn(1, 1.0f)      
+
+								+ SGridPanel::Slot(0, 0)
+									.VAlign(VAlign_Center)
+									.HAlign(HAlign_Left)
+									.Padding(0.0f, 0.0f, 12.0f, 0.0f)
+									[
+										SNew(STextBlock)
+										.Text(LOCTEXT("PathLabel", "Folder"))
+									]
+
+								+ SGridPanel::Slot(1, 0)
+									.VAlign(VAlign_Center)
+									[
+										ContentBrowserModule.Get().CreatePathPicker(PathCfg)
+									]
+
+								+ SGridPanel::Slot(0, 1)
+									.VAlign(VAlign_Center)
+									.HAlign(HAlign_Left)
+									.Padding(0.0f, 6.0f, 12.0f, 6.0f)
+									[
+										SNew(STextBlock)
+										.Text(LOCTEXT("NameLabel", "Name"))
+									]
+
+								+ SGridPanel::Slot(1, 1)
+									.VAlign(VAlign_Center)
+									.Padding(0.0f, 6.0f, 0.0f, 6.0f)
+									[
+										NameEditBox.ToSharedRef()
+									]
+
+
+								+ SGridPanel::Slot(0, 2)
+									.VAlign(VAlign_Center)
+									.HAlign(HAlign_Left)
+									.Padding(0.0f, 10.0f, 0.0f, 0.0f)
+									[
+										SNew(STextBlock)
+											.Text(LOCTEXT("JobLabel", "Job Path"))
+									]
+
+								+ SGridPanel::Slot(1, 2)
+									.VAlign(VAlign_Center)
+									.Padding(6.0f, 10.0f, 6.0f, 0.0f)
+									[
+										SNew(STextBlock)
+											.Text(this, &SDeadlineCloudSavePresetWidget::GetJobResultPath)
+									]
+							]
+					]
+
+			+ SVerticalBox::Slot()
+				.AutoHeight()
+				.HAlign(HAlign_Fill)
+				.VAlign(VAlign_Center)
+				.Padding(FMargin(10.0f, 6.0f))
+					[
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+							.AutoWidth()
+							.Padding(0.0f, 0.0f, 8.0f, 0.0f)
+							.HAlign(HAlign_Left)
+							.VAlign(VAlign_Center)
+							[
+									SNew(SHorizontalBox)
+									+ SHorizontalBox::Slot()
+										.AutoWidth()
+										.Padding(0.0f, 0.0f, 8.0f, 0.0f)
+										.HAlign(HAlign_Left)
+										.VAlign(VAlign_Center)
+										[
+											SNew(SCheckBox)
+												.OnCheckStateChanged(this, &SDeadlineCloudSavePresetWidget::OnSetAsDefaultChanged)
+												.IsChecked_Lambda([this]() { return bSetAsDefault ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; })
+													
+										]
+									+ SHorizontalBox::Slot()
+										.AutoWidth()
+										.HAlign(HAlign_Left)
+										.VAlign(VAlign_Center)
+										.Padding(0.0f, 0.0f, 8.0f, 0.0f)
+										[
+											SNew(STextBlock)
+												.Text(LOCTEXT("SetDefaultPreset", "Set as default preset"))
+												.Justification(ETextJustify::Center)
+										]
+							]
+						+ SHorizontalBox::Slot()
+							.FillWidth(1.0f)
+							.HAlign(HAlign_Fill)
+							.VAlign(VAlign_Center)
+							.Padding(0.0f, 0.0f, 0.0f, 0.0f)
+							[
+								SNew(SSpacer)
+							]
+
+						+ SHorizontalBox::Slot()
+							.AutoWidth()
+							.Padding(0.0f, 0.0f, 8.0f, 0.0f)
+							.HAlign(HAlign_Right)
+							.VAlign(VAlign_Center)
+							[
+								CreateButton
+							]
+
+						+ SHorizontalBox::Slot()
+							.AutoWidth()
+							.HAlign(HAlign_Right)
+							[
+								CancelButton
+							]
+					]
+			]
+	];
+
+	AddMetadata(FDriverMetaData::Id(FName("DeadlineCloudSavePresetWidget")));
+}
+
+EVisibility SDeadlineCloudSavePresetWidget::GetErrorLabelVisibility() const
+{
+	return GetErrorLabelText().IsEmpty() ? EVisibility::Collapsed : EVisibility::Visible;
+}
+
+FText SDeadlineCloudSavePresetWidget::GetErrorLabelText() const
+{
+	if (bLastInputValidityCheckSuccessful)
+	{
+		return FText::GetEmpty();
+	}
+	return LastInputValidityErrorText;
+}
+
+
+FText SDeadlineCloudSavePresetWidget::OnGetNameText() const
+{
+	return FText::FromString(NewName);
+}
+
+void SDeadlineCloudSavePresetWidget::OnNameTextChanged(const FText& NewText)
+{
+	NewName = NewText.ToString();
+	UpdateValidity();
+}
+
+void SDeadlineCloudSavePresetWidget::OnNameTextCommitted(const FText& NewText, ETextCommit::Type CommitType)
+{
+	UpdateValidity();
+}
+
+FText SDeadlineCloudSavePresetWidget::OnGetPathText() const
+{
+	return FText::FromString(NewPath);
+}
+
+void SDeadlineCloudSavePresetWidget::OnPathTextChanged(const FString& NewText)
+{
+	NewPath = NewText;
+
+	UpdateValidity();
+}
+
+FReply SDeadlineCloudSavePresetWidget::HandleChooseFolderButtonClicked()
+{
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+	if ( DesktopPlatform )
+	{
+		TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
+		void* ParentWindowWindowHandle = (ParentWindow.IsValid()) ? ParentWindow->GetNativeWindow()->GetOSWindowHandle() : nullptr;
+
+		FString FolderName;
+		const FString Title = LOCTEXT("NewClassBrowseTitle", "Choose a source location").ToString();
+		const bool bFolderSelected = DesktopPlatform->OpenDirectoryDialog(
+			ParentWindowWindowHandle,
+			Title,
+			NewPath,
+			FolderName
+			);
+
+		if ( bFolderSelected )
+		{
+			if ( !FolderName.EndsWith(TEXT("/")) )
+			{
+				FolderName += TEXT("/");
+			}
+
+			NewPath = FolderName;
+
+			UpdateValidity();
+		}
+	}
+
+	return FReply::Handled();
+}
+
+void SDeadlineCloudSavePresetWidget::CloseWindow()
+{
+	TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
+	if (ParentWindow.IsValid())
+	{
+		ParentWindow->RequestDestroyWindow();
+	}
+}
+
+FReply SDeadlineCloudSavePresetWidget::HandleCreateButtonClicked()
+{
+	if (!bLastInputValidityCheckSuccessful && LastInputValidityErrorStyle == EMessageStyle::Warning)
+	{
+		// Show a warning dialog to the user
+		FText WarningTitle = LOCTEXT("CreatePresetWarningTitle", "Warning");
+		FText WarningMessage = LOCTEXT("OverrideDialog", "Override existing data assets");
+
+		EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::OkCancel, WarningMessage, WarningTitle);
+
+		if (Result != EAppReturnType::Ok)
+		{
+			return FReply::Handled();
+		}
+	}
+
+	FString FolderPath = UPackageTools::SanitizePackageName(NewPath + TEXT("/") + NewName);
+	MrqJob->SaveAsJobPreset(FolderPath, NewName, bSetAsDefault);
+
+	CloseWindow();
+
+	return FReply::Handled();
+}
+
+FReply SDeadlineCloudSavePresetWidget::HandleCancelButtonClicked()
+{
+	CloseWindow();
+
+	return FReply::Handled();
+}
+
+FText SDeadlineCloudSavePresetWidget::GetJobResultPath() const
+{
+	return FText::FromString(FPaths::Combine(NewPath, NewName));
+}
+
+void SDeadlineCloudSavePresetWidget::UpdateValidity()
+{
+	bLastInputValidityCheckSuccessful = true;
+
+	if (NewName.IsEmpty())
+	{
+		LastInputValidityErrorText = LOCTEXT("AssetDialog_NoNameSelected", "You must select a name.");
+		LastInputValidityErrorStyle = EMessageStyle::Error;
+		bLastInputValidityCheckSuccessful = false;
+		return;
+	}
+
+	if ( NewPath.IsEmpty() )
+	{
+		LastInputValidityErrorText = LOCTEXT("AssetDialog_NoPathSelected", "You must select a path.");
+		LastInputValidityErrorStyle = EMessageStyle::Error;
+		bLastInputValidityCheckSuccessful = false;
+		return;
+	}
+	FString FolderPath = UPackageTools::SanitizePackageName(NewPath + TEXT("/") + NewName);
+
+	TMap<UDataAsset*, FString> ObjectsNames;
+	UMoviePipelineDeadlineCloudExecutorJob::GeneratePresetObjectsNames(MrqJob, FolderPath, NewName, ObjectsNames);
+
+	TMap<UDataAsset*, FString> CurrentPresetObjects;
+	UMoviePipelineDeadlineCloudExecutorJob::GetPresetObjectsNames(MrqJob, CurrentPresetObjects);
+
+	for (const auto& ObjectName : ObjectsNames)
+	{
+		for (const auto& CurrentObject : CurrentPresetObjects)
+		{
+			if (ObjectName.Value == CurrentObject.Value)
+			{
+				LastInputValidityErrorText = FText::Format(LOCTEXT("AssetDialog_OverrideCurrentPreset", "You cannot override current preset asset '{0}'."), FText::FromString(ObjectName.Value));
+				bLastInputValidityCheckSuccessful = false;
+				LastInputValidityErrorStyle = EMessageStyle::Error;
+				return;
+			}
+		}
+	}
+
+	for (const auto& ObjectName : ObjectsNames)
+	{
+		const FString PackageName = UPackageTools::SanitizePackageName(ObjectName.Value);
+
+		FText Reason;
+		if (!FPackageName::IsValidLongPackageName(PackageName, true, &Reason))
+		{
+			LastInputValidityErrorText = Reason;
+			bLastInputValidityCheckSuccessful = false;
+			LastInputValidityErrorStyle = EMessageStyle::Error;
+			return;
+		}
+
+		const FString AssetName  = FPackageName::GetLongPackageAssetName(PackageName);
+		const FString ObjectPath = PackageName + TEXT(".") + AssetName;
+
+		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+		FAssetData ExistingAsset = AssetRegistryModule.Get().GetAssetByObjectPath(FSoftObjectPath(ObjectPath));
+		if (ExistingAsset.IsValid())
+		{
+			const FString ObjectPathName = FPackageName::ObjectPathToObjectName(ObjectName.Value);
+			LastInputValidityErrorText = 
+				FText::Format(LOCTEXT("AssetDialog_AssetAlreadyExists", "An asset of type '{0}' already exists at this location with the name '{1}'."), 
+					FText::FromString(ExistingAsset.AssetClassPath.ToString()), 
+					FText::FromString(AssetName));
+			bLastInputValidityCheckSuccessful = false;
+			LastInputValidityErrorStyle = EMessageStyle::Warning;
+			return;
+		}		
+	}
+}
 
 /*
 SDeadlineCloudFilePathWidget is a custom Slate widget class that implements a file path picker interface.
@@ -521,6 +963,36 @@ void FDeadlineCloudDetailsWidgetsHelper::SEyeUpdateWidget::Construct(const FArgu
 };
 
 
+void FDeadlineCloudDetailsWidgetsHelper::CreateSavePresetDialogWidget(UMoviePipelineDeadlineCloudExecutorJob* MrqJob, bool bModal)
+{
+	TSharedRef<SWindow> SaveDialogWindow = SNew(SWindow)
+		.Title(FText::FromString("Save Job Preset"))
+		.SizingRule(ESizingRule::Autosized)
+		.SupportsMinimize(false)
+		.SupportsMaximize(false);
+
+	FString PresetName = MrqJob->JobPreset->JobPresetStruct.JobSharedSettings.Name;
+
+	SaveDialogWindow->SetContent(
+		SNew(SBox)
+		[
+			SNew(SDeadlineCloudSavePresetWidget)
+				.MrqJob(MrqJob)
+				.Name(PresetName)
+		]
+	);
+
+	if (bModal)
+	{
+		TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindBestParentWindowForDialogs(nullptr);
+		FSlateApplication::Get().AddModalWindow(SaveDialogWindow, ParentWindow, false);
+	}
+	else
+	{
+		FSlateApplication::Get().AddWindow(SaveDialogWindow);
+	}
+}
+
 TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(TSharedPtr<IPropertyHandle> ParameterHandle, EValueType Type, EValueValidationType ValidationType)
 {
 	switch (Type)
@@ -681,6 +1153,8 @@ UMoviePipelineDeadlineCloudExecutorJob* FDeadlineCloudDetailsWidgetsHelper::GetM
 	}
 	else return nullptr;
 }
+
+
 
 
 #undef LOCTEXT_NAMESPACE

@@ -1,17 +1,24 @@
-# Unreal Submitter Setup Instructions
+# Unreal Submitter Setup Guide
 
-This will walk you through setting up your Unreal Submitter and Deadline Cloud Service Managed Fleets (SMF) or Customer Managed Fleets (CMF).
+This guide walks you through installing and configuring the Unreal Engine submitter plugin for AWS Deadline Cloud, including setup for both Service Managed Fleets (SMF) and Customer Managed Fleets (CMF).
 
-## Branch to use - release vs mainline
+## Choose Your Branch
 
-These instructions are updated along with the corresponding code and scripts fairly often. You'll later need to choose to pull down the code which corresponds to a specific branch. The usual choice is between release which is more stable, or mainline which has the latest changes. If the version of the instructions you're currently reading doesn't come from the branch you intend to use, you should switch to the instructions from that branch now. For example, if you're currently reading the mainline version of the instructions but intend to use the release branch, please switch to the release version [here](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/release/SETUP_SUBMITTER_CMF.md)
+Select the appropriate branch for your deployment:
+
+| Branch | Stability | Use Case | Recommended For |
+|--------|-----------|----------|-----------------|
+| **release** | ✅ Stable | Production | Most users |
+| **mainline** | 🔄 Latest features | Development/Testing | Advanced users |
+
+> **💡 Tip**: Use the **release** branch for production environments to ensure stability.
 
 ## Create a new Windows EC2 instance to install Unreal on (Optional)
 
 If you’re setting up on a brand new Windows EC2 Instance as your submitter, a g5.2xlarge instance with 200 GB of storage will likely be reasonable minimum:
 
 1. Launch EC2 instance with a valid Instance Profile. This is required to download NVIDIA GRID drivers as instructed below.
-1. Download the Epic Installer and install a version of Unreal between versions 5.2 and 5.5. Note that on version 5.5 with DirectX 11 there's a crash bug which can affect projects rendered using the Deadline Cloud plugin which has been fixed in Unreal's source and can be tracked [here](https://issues.unrealengine.com/issue/UE-276282). Projects in Deadline Cloud should use DirectX 12 with UE 5.5.
+1. Download the Epic Installer and install a version of Unreal between versions 5.3 or newer. Note that on version 5.5 with DirectX 11 there's a crash bug which can affect projects rendered using the Deadline Cloud plugin which has been fixed in Unreal's source and can be tracked [here](https://issues.unrealengine.com/issue/UE-276282). Projects in Deadline Cloud should use DirectX 12 with UE 5.5.
 1. NVIDIA GRID drivers - Follow Windows instructions - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/install-nvidia-driver.html#nvidia-GRID-driver
 
 ## Windows Long Paths
@@ -87,13 +94,13 @@ runuat.bat BuildPlugin -plugin="C:\deadline\deadline-cloud-for-unreal-engine\src
 
 There are 4 ways to install the required Python dependencies.
 
-1. If you've built and installed the plugin from the release branch above, you can simply install from pip. Use the following install command, adjusting the paths to your Unreal installation:
+_1._ If you've built and installed the plugin from the release branch above, you can simply install from pip. Use the following install command, adjusting the paths to your Unreal installation:
 
 ```
 "C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install deadline-cloud-for-unreal-engine --target "C:\Program Files\Epic Games\UE_5.5\Engine\Plugins\UnrealDeadlineCloudService\Content\Python\libraries"
 ```
 
-2. Alternatively in your .uplugin file (In the above steps this would live at C:\Program Files\Epic Games\UE_5.5\Engine\Plugins\UnrealDeadlineCloudService\UnrealDeadlineCloudService.uplugin) you can add a "PythonRequirements" section which matches the latest release of deadline-cloud-for-unreal-engine in GitHub/PyPi, for example:
+_2._ Alternatively in your .uplugin file (In the above steps this would live at C:\Program Files\Epic Games\UE_5.5\Engine\Plugins\UnrealDeadlineCloudService\UnrealDeadlineCloudService.uplugin) you can add a "PythonRequirements" section which matches the latest release of deadline-cloud-for-unreal-engine in GitHub/PyPi, for example:
 
 ```
 	"PythonRequirements":
@@ -111,7 +118,7 @@ There are 4 ways to install the required Python dependencies.
 
 Note that you may wish to disable the "strict hash" feature in Unreal's Python settings, or add hash settings for specific library and dependency versions you wish to consume.
 
-3. If you're pulling from mainline you may have python dependencies which are not yet released to PyPi - you'll need to build and install your local copy which can be done with hatch. Note that the .whl file will need to be changed to reflect the version which is output by hatch build:
+_3._ If you're pulling from mainline you may have python dependencies which are not yet released to PyPi - you'll need to build and install your local copy which can be done with hatch. Note that the .whl file will need to be changed to reflect the version which is output by hatch build:
 
 ```
 // Install hatch if not yet installed
@@ -120,12 +127,12 @@ hatch build
 "C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install dist\deadline_cloud_for_unreal_engine-0.2.2.post21-py3-none-any.whl --target "C:\Program Files\Epic Games\UE_5.5\Engine\Plugins\UnrealDeadlineCloudService\Content\Python\libraries"
 ```
 
-4. Lastly, Python dependencies can be installed by the submitter installer. NOTE - these may be out of date with your code above from the release or mainline branch, and this method should not currently be preferred.
+_4._ Lastly, Python dependencies can be installed by the submitter installer. NOTE - these may be out of date with your code above from the release or mainline branch, and this method should not currently be preferred.
 
-	1. Download submitter installer from Deadline Cloud AWS Console’s Downloads Tab or from within the Deadline Cloud Monitor under Workstation Setup -> Downloads
-	1. Run, install for all users. Default install location is fine.
-	1. Enable the Unreal Engine Plugin
-	1. Make sure the Unreal Engine plugin install path matches where your plugin was copied to (In particular make sure your Unreal version matches)
+1. Download submitter installer from Deadline Cloud AWS Console’s Downloads Tab or from within the Deadline Cloud Monitor under Workstation Setup -> Downloads
+1. Run, install for all users. Default install location is fine.
+1. Enable the Unreal Engine Plugin
+1. Make sure the Unreal Engine plugin install path matches where your plugin was copied to (In particular make sure your Unreal version matches)
 
 ## Submitter Installation Complete
 
@@ -145,7 +152,7 @@ If you don't need to set up a new fleet you can stop here, or skip down to the "
 1. Follow [Worker host setup and configuration](https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/worker-host.html) to set up a worker host. 
 1. Follow [Manage access to Windows job user secrets](https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/manage-access-windows-secrets.html) to set up the Windows job user secrets for your CMF worker. 
 1. Follow [Install and configure software required for jobs](https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/install-software.html) to install the software required to run jobs.
-1. Follow [SETUP_CMF_WORKER](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/SETUP_CMF_WORKER.md) to set up your worker node to run Unreal Engine jobs.
+1. Follow [CMF Worker Setup Guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-cmf-worker.md) to set up your worker node to run Unreal Engine jobs.
 
 # Submit a Test Render
 
@@ -160,25 +167,29 @@ This example will use the Meerkat Demo from the Unreal Marketplace:
 	1. For "Default Remote Executor", select "MoviePipelineDeadlineCloudRemoteExecutor"
 	1. For "Default Executor Job", select "MoviePipelineDeadlineCloudExecutorJob"
 	1. Under "Default Job Settings Classes", click add icon, and add "DeadlineCloudRenderStepSetting"
-1. Now search for the settings for "Deadline Cloud" and ensure that your Status says "AUTHENTICATED" and your Deadline Cloud API says "AUTHORIZED"
+1. Search for "Deadline Cloud" settings and verify authentication:
+	1. Ensure your Status shows "AUTHENTICATED" and Deadline Cloud API shows "AUTHORIZED"
 	1. If it does not appear, first try using the Login button. If that doesn’t work, open your Deadline Cloud Monitor and ensure you're logged in.
 	1. In "Deadline Cloud Workstation Configuration" section,
 		1. Under "Global Settings", ensure your AWS Profile is set correctly to your DCM Profile
 		1. Under "Profile", ensure your Default Farm is set to your farm
-		1. Under "Farm" ensure your Default Queue is set to your CMF you set up
+		1. Under "Farm", ensure your Default Queue is set to a queue that is associated with the fleet you set up above.
 1. Exit the Project Settings window
 1. Click on "Windows"/"Cinematics", select "Movie Render Queue"
 	1. Click "+Render", and select "Main_SEQ"
 	1. Click "UnsavedConfig" in the settings column 
 		1. In the popup window, you should see DeadlineCloud settings on the left. This window can then be closed.
-	1. On the right, 
-		1. In "Preset Overrides" (You may need to widen this dialog)
-			1. Set "Name" to "Unreal Test Job"
-			1. Set "Maximum retries" to 2
-		1. In "Parameter Definition Overrides"
+	1. On the right side of the dialog, configure the job settings:
+		1. Under "Preset Overrides" (you may need to widen this dialog):
+			1. Expand "Job Shared Settings":
+				1. Set "Name" to "Unreal Test Job"
+				1. Set "Maximum retries" to 2
+			1. Expand "Job Attachments":
+				1. Under "Input Files", select "Show Auto-Detected" 
+				1. Verify that the list of Auto Detected Files populates correctly
+		1. Under "Job Template Overrides":
 			1. Update the Unreal Engine version in "CondaPackages" if you are using a different version than 5.6
-		1. In "Steps Overrides"
-			1. Optionally set "Task Chunk Size" to a number higher than 1 - this will tell Deadline Cloud to render the requested number of shots in groups as part of the same task, and may slightly increase performance in some cases.
-		1. In Job Attachments, under "Input Files" select "Show Auto-Detected" and the list of Auto Detected Files should populate. 
+				1. Note: Unreal Engine version autodetection is coming in a future release
+		
 	1. Ready to Go! Hit "Render (Remote)". 
 1. You can go to Deadline Cloud Monitor and watch the progress of your job. 

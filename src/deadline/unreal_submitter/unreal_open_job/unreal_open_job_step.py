@@ -448,6 +448,7 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
     def _get_chunk_ids_count(self) -> int:
         """
         Get number of shot chunks
+        as count of total number of frames divided by FramesPerTask if set, or
         as count of enabled shots in level sequence divided by chuck size parameter value.
         If no chunk size parameter value is 0, return 1
 
@@ -473,20 +474,58 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         chunk_size_parameter = self.open_job._find_extra_parameter(
             parameter_name=OpenJobStepParameterNames.TASK_CHUNK_SIZE, parameter_type="INT"
         )
+        frames_per_task_parameter = self.open_job._find_extra_parameter(
+            parameter_name=OpenJobStepParameterNames.FRAMES_PER_TASK, parameter_type="INT"
+        )
+        if frames_per_task_parameter and frames_per_task_parameter.value > 0:
+            logger.info(f"Rendering shots of frame range {frames_per_task_parameter.value}")
+            level_sequence = self._load_level_sequence(self.mrq_job)
+            output_settings = self._load_output_settings(self.mrq_job)
 
+            if output_settings.use_custom_playback_range:
+                total_frame_range = (
+                    output_settings.custom_end_frame - output_settings.custom_start_frame
+                )
+                logger.info(
+                    f"Output settings at submission has range {output_settings.custom_start_frame} - {output_settings.custom_end_frame} ({total_frame_range} frames)"
+                )
+            else:
+
+                total_frame_range = (
+                    level_sequence.get_playback_range().get_end_frame()
+                    - level_sequence.get_playback_range().get_start_frame()
+                )
+                logger.info(
+                    f"Level sequence at submission has range {level_sequence.get_playback_range()} ({total_frame_range} frames)"
+                )
+            task_chunk_ids_count = math.ceil(total_frame_range / frames_per_task_parameter.value)
+            return task_chunk_ids_count
         if chunk_size_parameter is None:
             raise ValueError(
-                f'Render Job\'s parameter "{OpenJobStepParameterNames.TASK_CHUNK_SIZE}" '
+                f'Render Job\'s parameter "{OpenJobStepParameterNames.TASK_CHUNK_SIZE}"'
+                f' or "{OpenJobStepParameterNames.FRAMES_PER_TASK}" '
                 f"must be provided in extra parameters or template"
             )
 
-        chunk_size = chunk_size_parameter.value
+        chunk_size = int(chunk_size_parameter.value)
         if chunk_size <= 0:
             chunk_size = 1  # by default 1 chunk consist of 1 shot
 
         task_chunk_ids_count = math.ceil(len(enabled_shots) / chunk_size)
 
         return task_chunk_ids_count
+
+    def _load_level_sequence(self, mrq_job):
+        """Load the level sequence asset from the MRQ job."""
+        return unreal.EditorAssetLibrary.load_asset(
+            unreal.SystemLibrary.conv_soft_object_reference_to_string(
+                unreal.SystemLibrary.conv_soft_obj_path_to_soft_obj_ref(mrq_job.sequence)
+            )
+        )
+
+    def _load_output_settings(self, mrq_job):
+        """Load the output settings from the MRQ job configuration."""
+        return mrq_job.get_configuration().find_setting_by_class(unreal.MoviePipelineOutputSetting)
 
     def _get_render_arguments_type(self) -> Optional["RenderUnrealOpenJobStep.RenderArgsType"]:
         """
