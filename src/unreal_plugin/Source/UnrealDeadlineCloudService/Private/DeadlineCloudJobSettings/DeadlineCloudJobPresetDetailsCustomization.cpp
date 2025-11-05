@@ -474,8 +474,6 @@ void FDeadlineCloudAttachmentArrayCustomization::CustomizeHeader(
 
     UMoviePipelineDeadlineCloudExecutorJob* OuterJob = FPropertyAvailabilityHandler::GetOuterJob(InPropertyHandle);
 
-    const FName PropertyPath = *InPropertyHandle->GetProperty()->GetPathName();
-
     ArrayBuilder = FDeadlineCloudAttachmentArrayBuilder::MakeInstance(ArrayHandle.ToSharedRef());
     ArrayBuilder->GenerateWrapperStructHeaderRowContent(InHeaderRow, InPropertyHandle->CreatePropertyNameWidget());
 }
