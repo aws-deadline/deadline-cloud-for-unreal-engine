@@ -3,6 +3,8 @@
 #pragma once
 
 #include "DeadlineCloudEnvironment.h"
+#include "DeadlineCloudHostRequirements.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudHiddenParameters.h"
 #include "DeadlineCloudStep.generated.h"
 
 USTRUCT(BlueprintType)
@@ -31,11 +33,16 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 4))
 	TArray<FDeadlineCloudEnvironmentOverride> EnvironmentsOverrides;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 4))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 5))
+	FDeadlineCloudHostRequirementsOverrides HostRequirementsOverride;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 6))
 	FDeadlineCloudStepParametersArray TaskParameterDefinitions;
 
 	TArray<FName> HiddenParametersList;
 
+	UPROPERTY() 
+	FSoftObjectPath SourceObjectPath;
 
 	void CopyParametersValuesFrom(const FDeadlineCloudStepOverride& Other);
 };
@@ -64,6 +71,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 4))
 	FDeadlineCloudStepParametersArray TaskParameterDefinitions;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters", meta = (DisplayPriority = 6))
+	TObjectPtr<UDeadlineCloudHostRequirements> HostRequirements;
 
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 
@@ -95,31 +105,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Parameters")
 	void SetStepParameters(TArray<FStepTaskParameterDefinition> InStepParameters);
 
-	void AddHiddenParameter(FName Parameter)
-	{
-		HiddenParametersList.Add(Parameter);
-		Modify();
-		MarkPackageDirty();
-		ParameterHiddenEvent();
-	};
-
-	void ClearHiddenParameters()
-	{
-		HiddenParametersList.Empty();
-		Modify();
-		MarkPackageDirty();
-	};
-
-	bool AreEmptyHiddenParameters() { return HiddenParametersList.IsEmpty(); };
-	bool ContainsHiddenParameters(FName Parameter) { return HiddenParametersList.Contains(Parameter); };
-
-	void RemoveHiddenParameters(FName Parameter) {
-		HiddenParametersList.Remove(Parameter);
-		Modify();
-		MarkPackageDirty();
-		ParameterHiddenEvent();
-	};
-
 	FSimpleDelegate OnParameterHidden;
 
 	void ParameterHiddenEvent() {
@@ -129,31 +114,9 @@ public:
 		}
 	};
 
-	TArray<FName> GetDisplayHiddenParametersNames() { return HiddenParametersList; };
-
-	bool IsParametersHiddenByDefault() 
-	{ 
-		bool bAllParametersHidden = true;
-		for (auto Parameter : TaskParameterDefinitions.Parameters)
-		{
-			if (!HiddenParametersList.Contains(Parameter.Name))
-			{
-				bAllParametersHidden = false;
-				break;
-			}
-		}
-		return bAllParametersHidden;
-	};
-
-	void ResetParametersHiddenToDefault() 
-	{
-		for (auto Parameter : TaskParameterDefinitions.Parameters)
-		{
-			AddHiddenParameter(FName(Parameter.Name));
-		}
-	};
+	FHiddenItemsManager& GetHiddenManager() { return HiddenParamsManager; }
 private:
-	UPROPERTY(EditAnywhere, Category = "Parameters", meta = (HideInDetailPanel))
-	TArray<FName> HiddenParametersList;
+	UPROPERTY()
+	FHiddenItemsManager HiddenParamsManager;
 
 };

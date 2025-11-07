@@ -562,17 +562,17 @@ inline bool Init(UObject* Asset, const FString& InDetailsPath, const FString& In
 
 inline void ShowTestStepParameters()
 {
-	CreatedStepDataAsset->RemoveHiddenParameters("StringParameters");
-	CreatedStepDataAsset->RemoveHiddenParameters("PathParameters");
-	CreatedStepDataAsset->RemoveHiddenParameters("FloatParameters");
-	CreatedStepDataAsset->RemoveHiddenParameters("IntParameters");
+	CreatedStepDataAsset->GetHiddenManager().Remove("StringParameters");
+	CreatedStepDataAsset->GetHiddenManager().Remove("PathParameters");
+	CreatedStepDataAsset->GetHiddenManager().Remove("FloatParameters");
+	CreatedStepDataAsset->GetHiddenManager().Remove("IntParameters");
 }
 
 inline void ShowTestEnvironmentParameters()
 {
-	CreatedEnvironmentDataAsset->RemoveHiddenParameter("Variable1");
-	CreatedEnvironmentDataAsset->RemoveHiddenParameter("Variable2");
-	CreatedEnvironmentDataAsset->RemoveHiddenParameter("Variable3");
+	CreatedEnvironmentDataAsset->GetHiddenManager().Remove("Variable1");
+	CreatedEnvironmentDataAsset->GetHiddenManager().Remove("Variable2");
+	CreatedEnvironmentDataAsset->GetHiddenManager().Remove("Variable3");
 }
 
 END_DEFINE_SPEC(FDeadlinePluginUISpec);
@@ -751,8 +751,9 @@ void FDeadlinePluginUISpec::Define()
 			VisibilityTest("Variable3", Variable3Widget, true);
 			VisibilityTest("HiddenVariable", HiddenVariableWidget, false);
 
-			VisibilityTest("Default Step category", DefaultStepCategory, true);
-			VisibilityTest("Empty Step category", EmptyStepCategory, false);
+			// always visible with host reqs
+			//VisibilityTest("Default Step category", DefaultStepCategory, true);
+			//VisibilityTest("Empty Step category", EmptyStepCategory, false);
 			VisibilityTest("Default Environment category", DefaultEnvCategory, true);
 			VisibilityTest("Empty Step Environment category", EmptyStepEnvCategory, false);
 
@@ -804,11 +805,11 @@ void FDeadlinePluginUISpec::Define()
 			CreatedJobDataAsset = CreateAndOpenAsset<UDeadlineCloudJob>(JobTemplate, PathToJobTemplate);
 			CreatedJobDataAsset->AddToRoot();
 
-			TestTrue("HiddenParameters should contains in hidden parameters array by default", CreatedJobDataAsset->ContainsHiddenParameters("HiddenParameter"));
-			TestFalse("PathParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->ContainsHiddenParameters("PathParameter"));
-			TestFalse("IntParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->ContainsHiddenParameters("IntParameter"));
-			TestFalse("StringParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->ContainsHiddenParameters("StringParameter"));
-			TestFalse("FloatParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->ContainsHiddenParameters("FloatParameter"));
+			TestTrue("HiddenParameters should contains in hidden parameters array by default", CreatedJobDataAsset->GetHiddenManager().Contains("HiddenParameter"));
+			TestFalse("PathParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->GetHiddenManager().Contains("PathParameter"));
+			TestFalse("IntParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->GetHiddenManager().Contains("IntParameter"));
+			TestFalse("StringParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->GetHiddenManager().Contains("StringParameter"));
+			TestFalse("FloatParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->GetHiddenManager().Contains("FloatParameter"));
 
 			});
 
@@ -975,11 +976,11 @@ void FDeadlinePluginUISpec::Define()
 			CreatedStepDataAsset = CreateAndOpenAsset<UDeadlineCloudStep>(StepTemplate, PathToStepTemplate);
 			CreatedStepDataAsset->AddToRoot();
 
-			TestTrue("HiddenParameters should contains in hidden parameters array by default", CreatedStepDataAsset->ContainsHiddenParameters("HiddenParameters"));
-			TestTrue("IntParameters should contains in hidden parameters array by default", CreatedStepDataAsset->ContainsHiddenParameters("IntParameters"));
-			TestTrue("FloatParameters should contains in hidden parameters array by default", CreatedStepDataAsset->ContainsHiddenParameters("FloatParameters"));
-			TestTrue("StringParameters should contains in hidden parameters array by default", CreatedStepDataAsset->ContainsHiddenParameters("StringParameters"));
-			TestTrue("PathParameters should contains in hidden parameters array by default", CreatedStepDataAsset->ContainsHiddenParameters("PathParameters"));
+			TestTrue("HiddenParameters should contains in hidden parameters array by default", CreatedStepDataAsset->GetHiddenManager().Contains("HiddenParameters"));
+			TestTrue("IntParameters should contains in hidden parameters array by default", CreatedStepDataAsset->GetHiddenManager().Contains("IntParameters"));
+			TestTrue("FloatParameters should contains in hidden parameters array by default", CreatedStepDataAsset->GetHiddenManager().Contains("FloatParameters"));
+			TestTrue("StringParameters should contains in hidden parameters array by default", CreatedStepDataAsset->GetHiddenManager().Contains("StringParameters"));
+			TestTrue("PathParameters should contains in hidden parameters array by default", CreatedStepDataAsset->GetHiddenManager().Contains("PathParameters"));
 
 			ShowTestStepParameters();
 			});
@@ -1115,10 +1116,10 @@ void FDeadlinePluginUISpec::Define()
 			CreatedEnvironmentDataAsset = CreateAndOpenAsset<UDeadlineCloudEnvironment>(EnvTemplate, PathToEnvironmentTemplate);
 			CreatedEnvironmentDataAsset->AddToRoot();
 
-			TestTrue("HiddenVariable should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->ContainsHiddenParameters("HiddenVariable"));
-			TestTrue("Variable1 should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->ContainsHiddenParameters("Variable1"));
-			TestTrue("Variable2 should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->ContainsHiddenParameters("Variable2"));
-			TestTrue("Variable3 should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->ContainsHiddenParameters("Variable3"));
+			TestTrue("HiddenVariable should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->GetHiddenManager().Contains("HiddenVariable"));
+			TestTrue("Variable1 should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->GetHiddenManager().Contains("Variable1"));
+			TestTrue("Variable2 should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->GetHiddenManager().Contains("Variable2"));
+			TestTrue("Variable3 should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->GetHiddenManager().Contains("Variable3"));
 
 			ShowTestEnvironmentParameters();
 			});

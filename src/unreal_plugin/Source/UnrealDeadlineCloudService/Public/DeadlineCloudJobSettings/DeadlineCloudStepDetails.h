@@ -30,8 +30,6 @@ public:
 
     void ResetToDefaultHandler(TSharedPtr<IPropertyHandle> PropertyHandle, FString InParameterName) const;
 
-    static UDeadlineCloudStep* GetOuterStep(TSharedRef<IPropertyHandle> Handle);
-
     FUIAction EmptyCopyPasteAction;
     FOnIsEnabled OnIsEnabled;
 
@@ -41,8 +39,6 @@ public:
     TObjectPtr<UMoviePipelineDeadlineCloudExecutorJob> MrqJob;
     TObjectPtr<UDeadlineCloudStep> Step;
     FName StepName;
-
-
 
 private:
     void OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const;
@@ -63,7 +59,6 @@ public:
     {
         return MakeShared<FDeadlineCloudStepParametersArrayCustomization>();
     }
-
 
     bool IsEnabled(TSharedRef<IPropertyHandle> InPropertyHandle) const;
 

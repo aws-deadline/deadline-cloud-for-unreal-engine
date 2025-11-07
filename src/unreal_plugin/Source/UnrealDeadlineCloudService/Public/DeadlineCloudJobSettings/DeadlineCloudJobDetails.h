@@ -61,8 +61,6 @@ public:
     TObjectPtr<UDeadlineCloudJob> Job;
 
 private:
-    //
-    static UDeadlineCloudJob* GetOuterJob(TSharedRef<IPropertyHandle> Handle);
 
     void OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const;
     bool IsResetToDefaultVisible(TSharedPtr<IPropertyHandle> PropertyHandle, FString InParameterName) const;
@@ -99,7 +97,6 @@ public:
     /** End IPropertyTypeCustomization interface */
 
 private:
-    static UDeadlineCloudJob* GetJob(TSharedRef<IPropertyHandle> Handle);
 
     TSharedPtr<FDeadlineCloudJobParametersArrayBuilder> ArrayBuilder;
 

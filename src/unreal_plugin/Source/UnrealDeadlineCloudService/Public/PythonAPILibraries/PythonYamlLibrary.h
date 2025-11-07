@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "PythonAPILibrary.h"
 #include "UObject/Object.h"
+//#include "DeadlineCloudJobSettings/DeadlineCloudHostRequirements.h"
 #include "PythonYamlLibrary.generated.h"
 
 /*
@@ -93,9 +94,8 @@ struct FStepTaskParameterDefinition
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Step")
 	TArray <FString> Range;
-
-
 };
+
 /**/
 USTRUCT(BlueprintType)
 struct FEnvVariable
@@ -145,8 +145,52 @@ struct FEnvironmentStruct
 };
 
 
+USTRUCT(BlueprintType)
+struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudAttributeRequirements
+{
+	GENERATED_BODY()
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Options")
+	TArray<FString> AllOf;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Options")
+	TArray<FString> AnyOf;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Options")
+	bool bIsEnabled = false;
+
+	//only for default attributes
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Options")
+	FString SelectedValue;
+
+};
+
+USTRUCT(BlueprintType)
+struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudAmountRequirement
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AmountRequirement)
+	FFloatRange AmountRequirement = FFloatRange(
+		FFloatRangeBound::Inclusive(0.0f),
+		FFloatRangeBound::Open()
+	);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AmountRequirement)
+	bool bIsEnabled = false;
+};
+
+USTRUCT(BlueprintType)
+struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudHostRequirement
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AttributeRequirements)
+	TMap<FString, FDeadlineCloudAmountRequirement> Amounts;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AttributeRequirements)
+	TMap<FString, FDeadlineCloudAttributeRequirements> Attributes;
+};
 
 UCLASS()
 class UNREALDEADLINECLOUDSERVICE_API UPythonYamlLibrary: public UObject, public TPythonAPILibraryBase<UPythonYamlLibrary>
@@ -169,5 +213,10 @@ public:
 	// env
 	UFUNCTION(BlueprintImplementableEvent)
 	FEnvironmentStruct OpenEnvFile(const FString& Path);
+
+
+	// host requirements
+	UFUNCTION(BlueprintImplementableEvent)
+	FDeadlineCloudHostRequirement OpenHostRequirementsFile(const FString& Path);
 };
 	
