@@ -23,6 +23,10 @@ parameterDefinitions:
 - name: Executable
   type: STRING
   default: 'UnrealEditor-Cmd'
+- name: FramesPerTask
+  type: INT
+  default: 0
 - name: ChunkSize
   type: INT
   default: 1
+

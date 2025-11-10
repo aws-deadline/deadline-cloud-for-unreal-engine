@@ -5,7 +5,7 @@
 
 
 ## Requirements
-- Unreal Engine 5.4+
+- Unreal Engine 5.3+
 
 
 ## Installation

@@ -5,7 +5,6 @@ import yaml
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from typing import Type, Union, Literal, Optional
-
 from openjd.model import parse_model
 
 from openjd.model.v2023_09 import (
@@ -279,6 +278,7 @@ class OpenJobParameterNames:
     UNREAL_EXTRA_CMD_ARGS_FILE = "ExtraCmdArgsFile"
     UNREAL_EXECUTABLE_RELATIVE_PATH = "ExecutableRelativePath"
     UNREAL_MRQ_JOB_DEPENDENCIES_DESCRIPTOR = "MrqJobDependenciesDescriptor"
+    CONDA_PACKAGES = "CondaPackages"
 
     PERFORCE_STREAM_PATH = "PerforceStreamPath"
     PERFORCE_CHANGELIST_NUMBER = "PerforceChangelistNumber"
@@ -298,7 +298,8 @@ class OpenJobStepParameterNames:
     :cvar OUTPUT_PATH: Local path where Unreal Render Executor will place output files
 
     :cvar ADAPTOR_HANDLER: Handler name to run the jobs on Adaptor (render/custom)
-    :cvar TASK_CHUNK_SIZE: Count of the shots per OpenJD Step's Task
+    :cvar FRAMES_PER_TASK: If set, each task will render this number of frames
+    :cvar TASK_CHUNK_SIZE: Count of the shots per OpenJD Step's Task unless FRAMES_PER_TASK set
     :cvar TASK_CHUNK_ID: Chunk number that should be rendered at OpenJD Step's Task
     """
 
@@ -310,5 +311,6 @@ class OpenJobStepParameterNames:
     OUTPUT_PATH = "OutputPath"
 
     ADAPTOR_HANDLER = "Handler"
+    FRAMES_PER_TASK = "FramesPerTask"
     TASK_CHUNK_SIZE = "ChunkSize"
     TASK_CHUNK_ID = "ChunkId"

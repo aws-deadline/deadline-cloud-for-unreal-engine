@@ -58,6 +58,9 @@ Render Job data asset
    .. image:: ../../images/create_render_job_6.png
 
    a. Executable - Unreal executable name to launch on render node
+   #. FramesPerTask - Divide up the total number of frames to be rendered in the sequence by this value to
+      determine the total number of Deadline Cloud tasks to create, with each task aiming to render this number
+      of frames.
    #. ExtraCmdArgs - Additional CMD arguments to launch Unreal executable with
    #. ExtraCmdArgsFile - Specific file parameter where **ExtraCmdArgs** will be stored.
       Need to avoid **1024 chars limit** on **STRING** parameter. **Filled automatically during the submission**
