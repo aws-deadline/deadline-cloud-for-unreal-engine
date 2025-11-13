@@ -165,7 +165,12 @@ TSharedRef<SWidget> FDeadlineCloudAttributeBuilder::CreateNameWidget(TSharedPtr<
     }
     else
     {
-        NameWidget = FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(NameHandle, EValueType::STRING);
+        NameWidget = FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(
+            NameHandle, 
+            EValueType::STRING, 
+            EValueValidationType::Default, 
+            FText::FromString("attr.[.]*")
+        );
         NameWidget->SetEnabled(IsEnabledAttr);
     }
 
@@ -274,7 +279,12 @@ TSharedRef<SWidget> FDeadlineCloudAmountBuilder::CreateNameWidget(TSharedPtr<IPr
     }
     else
     {
-        NameWidget = FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(NameHandle, EValueType::STRING);
+        NameWidget = FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(
+            NameHandle, 
+            EValueType::STRING,
+			EValueValidationType::Default,
+			FText::FromString("amount.[.]*")
+        );
         NameWidget->SetEnabled(IsEnabledAttr);
     }
 

@@ -207,12 +207,6 @@ void FDeadlineCloudEnvironmentParametersMapBuilder::GenerateChildContent(IDetail
 				SNew(SHorizontalBox)
 					+ SHorizontalBox::Slot()
 					.AutoWidth()
-					.Padding(4, 0)
-					[
-						FDeadlineCloudDetailsWidgetsHelper::CreateMrqCheckBoxWidget(MrqJob, EnvVarPropertyPath, true)
-					]
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
 					.Padding(2.0f, 0.0f)
 					.HAlign(HAlign_Left)
 					.VAlign(VAlign_Center)
@@ -238,17 +232,6 @@ void FDeadlineCloudEnvironmentParametersMapBuilder::GenerateChildContent(IDetail
 			[
 				EyeWidget
 			];
-
-		CustomValueWidget->SetEnabled(
-			TAttribute<bool>::CreateLambda([this, EnvVarPropertyPath]()
-				{
-					if (MrqJob)
-					{
-						return MrqJob->IsPropertyRowEnabledInMovieRenderJob(EnvVarPropertyPath);
-					}
-					return true;
-				})
-		);
 	}
 }
 

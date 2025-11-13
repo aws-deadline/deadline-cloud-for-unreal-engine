@@ -14,7 +14,12 @@ class FDeadlineCloudDetailsWidgetsHelper
 public:
 	static void CreateSavePresetDialogWidget(class UMoviePipelineDeadlineCloudExecutorJob* MrqJob, bool bModal = true);
 
-	static TSharedRef<SWidget> CreatePropertyWidgetByType(TSharedPtr<IPropertyHandle> ParameterHandle, EValueType Type, EValueValidationType ValidationType = EValueValidationType::Default);
+	static TSharedRef<SWidget> CreatePropertyWidgetByType(
+		TSharedPtr<IPropertyHandle> ParameterHandle, 
+		EValueType Type, 
+		EValueValidationType ValidationType = EValueValidationType::Default, 
+		FText Tooltip = FText::GetEmpty()
+	);
 	static TSharedPtr<SWidget> TryCreatePropertyWidgetFromMetadata(TSharedPtr<IPropertyHandle> ParameterHandle);
 	static TSharedRef<SWidget> CreateNameWidget(FString Parameter);
 
@@ -212,7 +217,7 @@ private:
 	static TSharedRef<SWidget> CreatePathWidget(TSharedPtr<IPropertyHandle> ParameterHandle, FOnVerifyTextChanged Validation);
 	static TSharedRef<SWidget> CreateIntWidget(TSharedPtr<IPropertyHandle> ParameterHandle);
 	static TSharedRef<SWidget> CreateFloatWidget(TSharedPtr<IPropertyHandle> ParameterHandle);
-	static TSharedRef<SWidget> CreateStringWidget(TSharedPtr<IPropertyHandle> ParameterHandle, FOnVerifyTextChanged Validation);
+	static TSharedRef<SWidget> CreateStringWidget(TSharedPtr<IPropertyHandle> ParameterHandle, FOnVerifyTextChanged Validation, FText Tooltip);
 };
 
 template<typename TOuterClass>

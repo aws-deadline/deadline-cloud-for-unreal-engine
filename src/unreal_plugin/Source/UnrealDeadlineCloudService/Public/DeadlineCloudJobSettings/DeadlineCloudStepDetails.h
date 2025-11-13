@@ -31,8 +31,6 @@ public:
     void ResetToDefaultHandler(TSharedPtr<IPropertyHandle> PropertyHandle, FString InParameterName) const;
 
     FUIAction EmptyCopyPasteAction;
-    FOnIsEnabled OnIsEnabled;
-
 
     void OnEyeHideWidgetButtonClicked(FName NameWidget) const;
     bool IsPropertyHidden(FName Parameter) const;

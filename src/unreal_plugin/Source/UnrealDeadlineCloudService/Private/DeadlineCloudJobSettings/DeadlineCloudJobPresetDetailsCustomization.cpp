@@ -527,19 +527,6 @@ void FPropertyAvailabilityHandler::EnableInMovieRenderQueue(IDetailPropertyRow& 
     PropertyRow.GetDefaultWidgets(NameWidget, ValueWidget, Row);
 
     const FName PropertyPath = *PropertyRow.GetPropertyHandle()->GetProperty()->GetPathName();
-    TAttribute<bool> IsEnabled = TAttribute<bool>::CreateLambda([this, PropertyPath]()
-        {
-            return Job->IsPropertyRowEnabledInMovieRenderJob(PropertyPath);
-        });
-
-    if (CustomValueWidget.IsValid())
-    {
-        CustomValueWidget->SetEnabled(IsEnabled);
-    }
-	else
-	{
-		ValueWidget->SetEnabled(IsEnabled);
-	}
 
     PropertyRow
         .CustomWidget(true)
@@ -549,16 +536,6 @@ void FPropertyAvailabilityHandler::EnableInMovieRenderQueue(IDetailPropertyRow& 
         .HAlign(HAlign_Fill)
         [
             SNew(SHorizontalBox)
-                + SHorizontalBox::Slot()
-                .AutoWidth()
-                .Padding(4, 0)
-                [
-                    FDeadlineCloudDetailsWidgetsHelper::CreateMrqCheckBoxWidget(
-                        Job,
-                        PropertyPath,
-                        true
-					)
-                ]
                 + SHorizontalBox::Slot()
                 [
                     NameWidget.ToSharedRef()

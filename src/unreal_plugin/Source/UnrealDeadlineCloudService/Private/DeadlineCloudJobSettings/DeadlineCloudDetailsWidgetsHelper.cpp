@@ -870,6 +870,7 @@ public:
 	SLATE_BEGIN_ARGS(SDeadlineCloudStringWidget) {}
 		SLATE_ARGUMENT(TSharedPtr<IPropertyHandle>, StringPropertyHandle)
 		SLATE_EVENT(FOnVerifyTextChanged, IsValidInput)
+		SLATE_ATTRIBUTE(FText, ToolTip)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs)
@@ -889,6 +890,7 @@ public:
 							.Text(this, &SDeadlineCloudStringWidget::GetText)
 							.OnTextCommitted(this, &SDeadlineCloudStringWidget::OnTextCommitted)
 							.OnTextChanged(this, &SDeadlineCloudStringWidget::OnTextChanged)
+							.ToolTipText(InArgs._ToolTip)
 					]
 			];
 
@@ -1130,7 +1132,11 @@ void FDeadlineCloudDetailsWidgetsHelper::CreateSavePresetDialogWidget(UMoviePipe
 	}
 }
 
-TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(TSharedPtr<IPropertyHandle> ParameterHandle, EValueType Type, EValueValidationType ValidationType)
+TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(
+	TSharedPtr<IPropertyHandle> ParameterHandle, 
+	EValueType Type, 
+	EValueValidationType ValidationType, 
+	FText Tooltip)
 {
 	switch (Type)
 	{
@@ -1138,7 +1144,7 @@ TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByTy
 	case EValueType::STRING:
 	{
 		FOnVerifyTextChanged Validation = FDeadlineCloudInputValidationHelper::GetStringValidationFunction(ValidationType);
-		return CreateStringWidget(ParameterHandle, Validation);
+		return CreateStringWidget(ParameterHandle, Validation, Tooltip);
 	}
 	case EValueType::PATH:
 	{
@@ -1530,6 +1536,7 @@ TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateCustomAttributeVal
 		.HAlign(HAlign_Fill)
 		[
 			SNew(SEditableTextBox)
+				.ToolTipText(LOCTEXT("CustomAttributeValueTooltip", "Space delimited items"))
 				.IsEnabled(IsEnabledAttr)
 				.Font(IDetailLayoutBuilder::GetDetailFont())
 				.Text_Lambda([GetActiveArray, ReadArrayAsStrings]()
@@ -1670,11 +1677,12 @@ TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateFloatWidget(TShare
 		.PropertyHandle(ParameterHandle);
 }
 
-TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateStringWidget(TSharedPtr<IPropertyHandle> ParameterHandle, FOnVerifyTextChanged Validation)
+TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateStringWidget(TSharedPtr<IPropertyHandle> ParameterHandle, FOnVerifyTextChanged Validation, FText ToolTip)
 {
 	return SNew(SDeadlineCloudStringWidget)
 		.StringPropertyHandle(ParameterHandle)
-		.IsValidInput(Validation);
+		.IsValidInput(Validation)
+		.ToolTip(ToolTip);
 }
 
 UMoviePipelineDeadlineCloudExecutorJob* FDeadlineCloudDetailsWidgetsHelper::GetMrqJob(TSharedRef<IPropertyHandle> Handle)

@@ -54,16 +54,6 @@ void FUnrealDeadlineCloudServiceModule::StartupModule()
 		FOnGetDetailCustomizationInstance::CreateStatic(&FDeadlineCloudHostRequirementsDetails::MakeInstance));
 	UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: UDeadlineCloudHostRequirements registered"));
 
-	//PropertyModule.RegisterCustomPropertyTypeLayout(
-	//	FDeadlineCloudAmountsStruct::StaticStruct()->GetFName(),
-	//	FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FDeadlineCloudAmountRequirementCustomization::MakeInstance)
-	//);
-
-	//PropertyModule.RegisterCustomPropertyTypeLayout(
-	//	FDeadlineCloudAttributesStruct::StaticStruct()->GetFName(),
-	//	FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FDeadlineCloudAttributeRequirementCustomization::MakeInstance)
-	//);
-
 	PropertyModule.RegisterCustomPropertyTypeLayout(
 		FDeadlineCloudHostRequirement::StaticStruct()->GetFName(),
 		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FDeadlineCloudHostRequirementCustomization::MakeInstance)

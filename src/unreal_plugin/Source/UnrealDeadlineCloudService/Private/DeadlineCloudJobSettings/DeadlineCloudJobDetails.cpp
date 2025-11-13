@@ -393,18 +393,6 @@ void FDeadlineCloudJobParametersArrayBuilder::GenerateWrapperStructHeaderRowCont
         [
             NameContent
         ];
-    
-    TWeakPtr<FDeadlineCloudJobParametersArrayBuilder> LocalWeakThis = SharedThis(this);
-
-    NodeRow.IsEnabled(TAttribute<bool>::CreateLambda([LocalWeakThis]()
-        {
-            if (auto Pinned = LocalWeakThis.Pin())
-            {
-                if (Pinned->OnIsEnabled.IsBound())
-                    return Pinned->OnIsEnabled.Execute();
-            }
-            return true;
-        }));
 }
 
 bool FDeadlineCloudJobParametersArrayBuilder::IsResetToDefaultVisible(TSharedPtr<IPropertyHandle> PropertyHandle, FString InParameterName) const
@@ -549,12 +537,6 @@ void FDeadlineCloudJobParametersArrayBuilder::OnGenerateEntry(TSharedRef<IProper
         [
             SNew(SHorizontalBox)
                 + SHorizontalBox::Slot()
-                .AutoWidth()
-                .Padding(4, 0)
-                [
-                    FDeadlineCloudDetailsWidgetsHelper::CreateMrqCheckBoxWidget(MrqJob, Tag, true)
-                ]
-                + SHorizontalBox::Slot()
                 .Padding(FMargin(0.0f, 1.0f, 0.0f, 1.0f))
                 .FillWidth(1)
                 [
@@ -573,20 +555,6 @@ void FDeadlineCloudJobParametersArrayBuilder::OnGenerateEntry(TSharedRef<IProper
         [
             EyeWidget
         ];
-
-    ValueWidget->SetEnabled(
-        TAttribute<bool>::CreateLambda([this, Tag]()
-            {
-                if (MrqJob)
-                {
-                    return MrqJob->IsPropertyRowEnabledInMovieRenderJob(Tag);
-                }
-                
-                if (OnIsEnabled.IsBound())
-                    return OnIsEnabled.Execute();
-                return true;
-            })
-    );
 }
 
 

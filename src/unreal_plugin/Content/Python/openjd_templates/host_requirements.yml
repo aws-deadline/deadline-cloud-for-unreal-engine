@@ -1,4 +1,3 @@
-runOnAllWorkerNodes: true #true/false. If true, host requirements are not added to the Step template
 hostRequirements:
   amounts:
     - name: amount.worker.vcpu

@@ -55,7 +55,6 @@ public:
     void GenerateEnvironmentsExtraChildren(IDetailChildrenBuilder& ChildrenBuilder);
 
     FUIAction EmptyCopyPasteAction;
-    FOnIsEnabled OnIsEnabled;
 
     TObjectPtr<UMoviePipelineDeadlineCloudExecutorJob> MrqJob;
     TObjectPtr<UDeadlineCloudJob> Job;

@@ -230,10 +230,6 @@ void FDeadlineCloudStepParametersArrayCustomization::CustomizeHeader(TSharedRef<
 	ArrayBuilder = FDeadlineCloudStepParametersArrayBuilder::MakeInstance(ArrayHandle.ToSharedRef());
 
 	auto OuterJob = FDeadlineCloudDetailsWidgetsHelper::GetMrqJob(InPropertyHandle);
-	if (IsValid(OuterJob))
-	{
-		ArrayBuilder->OnIsEnabled.BindSP(this, &FDeadlineCloudStepParametersArrayCustomization::IsEnabled, InPropertyHandle);
-	}
 
 	//Get StepsOverride handle from TaskParametersDefinition handle and get name of RenderStep
 	TSharedPtr<IPropertyHandle> ParentHandle = InPropertyHandle->GetParentHandle();
@@ -303,14 +299,6 @@ void FDeadlineCloudStepParametersArrayBuilder::GenerateWrapperStructHeaderRowCon
 		[
 			NameContent
 		];
-
-	NodeRow.IsEnabled(TAttribute<bool>::CreateLambda([this]()
-		{
-			if (OnIsEnabled.IsBound())
-				return OnIsEnabled.Execute();
-			return true;
-		})
-	);
 }
 
 bool FDeadlineCloudStepParametersArrayBuilder::IsResetToDefaultVisible(TSharedPtr<IPropertyHandle> PropertyHandle, FString InParameterName) const
@@ -436,12 +424,6 @@ void FDeadlineCloudStepParametersArrayBuilder::OnGenerateEntry(TSharedRef<IPrope
 		[
 			SNew(SHorizontalBox)
 				+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(4, 0)
-				[
-					FDeadlineCloudDetailsWidgetsHelper::CreateMrqCheckBoxWidget(MrqJob, StepParameterPropertyPath, true)
-				]
-				+ SHorizontalBox::Slot()
 				.Padding(FMargin(0.0f, 1.0f, 0.0f, 1.0f))
 				.FillWidth(1)
 				[
@@ -460,19 +442,6 @@ void FDeadlineCloudStepParametersArrayBuilder::OnGenerateEntry(TSharedRef<IPrope
 		[
 			EyeWidget
 		];
-		ValueWidget.ToSharedRef()->SetEnabled(
-			TAttribute<bool>::CreateLambda([this, StepParameterPropertyPath]()
-				{
-					if (MrqJob)
-					{
-						return MrqJob->IsPropertyRowEnabledInMovieRenderJob(StepParameterPropertyPath);
-					}
-					
-					if (OnIsEnabled.IsBound())
-						return OnIsEnabled.Execute();
-					return true;
-				})
-		);
 
 	PropertyRow.Visibility(IsPropertyHidden(FName(ParameterName)) ? EVisibility::Collapsed : EVisibility::Visible);
 	
