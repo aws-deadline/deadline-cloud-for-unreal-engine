@@ -94,7 +94,7 @@ Once the required plugins are enabled, follow the steps below to run the tests:
 2. Launch Unreal Engine and click on "Tools" on the menu bar
 3. Click on "Test Automation" under the AUTOMATION category
 4. In the "Session Frontend" popup window, open the "Automation" tab
-5. Search for "Deadline" and select all tests under it
+5. Search for "Deadline" and select all tests under "DeadlineCloud"
 6. Click the ">" button to run the tests
 
 
