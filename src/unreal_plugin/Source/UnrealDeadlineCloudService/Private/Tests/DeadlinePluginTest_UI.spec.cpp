@@ -612,6 +612,8 @@ void FDeadlinePluginUISpec::Define()
 			CreatedRenderJobDataAsset->Steps.Add(CreatedEmptyStepDataAsset);
 			CreatedRenderJobDataAsset->Environments.Add(CreatedEnvironmentDataAsset);
 
+			CreatedRenderJobDataAsset->JobPresetStruct.JobAttachments.InputFiles.Files.Paths.Add(FFilePath("C:/Temp/InputFile1.txt"));
+
 			ShowTestEnvironmentParameters();
 			ShowTestStepParameters();
 
@@ -696,6 +698,8 @@ void FDeadlinePluginUISpec::Define()
 			FDriverElementRef EmptyStepEnvCategory = Driver->FindElement(By::Path("#MRQStepEnvHeader.Empty"));
 
 			FDriverElementRef SavePresetButton = Driver->FindElement(By::Path("#MRQJobSavePresetButton"));
+			
+			FDriverElementRef FileArrayElementText = Driver->FindElement(By::Path("#AttachmentArrayElement.Value//<SEditableTextBox>"));
 
 			auto VisibilityTest = [this](const FString& ParameterName, FDriverElementRef Widget, bool bShouldBeVisible)
 				{
@@ -710,6 +714,17 @@ void FDeadlinePluginUISpec::Define()
 						TestFalse(ParameterName + " widget should be hidden", bIsVisible);
 					}
 				};
+
+			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), FileArrayElementText, 50);
+			if (FileArrayElementText->IsVisible())
+			{
+				InputText(FileArrayElementText, "Test", true);
+				TestTrue("File Array Element Text shoud be editable", "Test" == MRQJob->PresetOverrides.JobAttachments.InputFiles.Files.Paths[0].FilePath);
+			}
+			else
+			{
+				TestTrue("File Array Element Text widget should be visible", false);
+			}
 
 			VisibilityTest("SavePresetButton", SavePresetButton, true);
 

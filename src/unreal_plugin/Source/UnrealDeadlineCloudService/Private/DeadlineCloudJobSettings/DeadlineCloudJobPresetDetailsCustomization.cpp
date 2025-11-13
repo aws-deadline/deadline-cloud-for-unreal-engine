@@ -444,6 +444,11 @@ void FDeadlineCloudAttachmentArrayBuilder::OnGenerateEntry(
     TSharedPtr<SWidget> NameWidget;
     TSharedPtr<SWidget> ValueWidget;
     PropertyRow.GetDefaultWidgets(NameWidget, ValueWidget);
+
+	FString PropertyName = ElementProperty->GetProperty()->GetName();
+    FName Tag = FName("AttachmentArrayElement.Value");
+    ValueWidget->AddMetadata(FDriverMetaData::Id(Tag));
+
     PropertyRow.CustomWidget(true)
         .NameContent()
         .HAlign(HAlign_Fill)
