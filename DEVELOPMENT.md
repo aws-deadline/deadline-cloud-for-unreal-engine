@@ -75,13 +75,27 @@ pip install ./path/to/my-file.whl
 
 ### Running Unreal Spec Tests
 
-The Deadline Cloud plugin's Unreal Automation Tests can be run from within Unreal.
+The Deadline Cloud plugin's Unreal Automation Tests can be run from within Unreal Engine.
 
-1. Open the Tools menu
-2. Select "Session Frontend"
-3. Open the Automation tab
-4. Select "Deadline"
-5. Hit the Go button
+#### One-Time Setup
+Before running the Deadline Cloud plugin's Unreal Automation Tests for the first time, you need to enable the following plugins in your Unreal Engine project:
+
+- Automation Driver Tests
+- Automation Utilities
+- Python Automation Tests
+
+#### Running the Tests
+Once the required plugins are enabled, follow the steps below to run the tests:
+
+1. Install the deadline-cloud-for-unreal-engine plugin with --test to include test content:
+   
+   `python scripts/build_plugin.py --install --test`
+   
+2. Launch Unreal Engine and click on "Tools" on the menu bar
+3. Click on "Test Automation" under the AUTOMATION category
+4. In the "Session Frontend" popup window, open the "Automation" tab
+5. Search for "Deadline" and select all tests under "DeadlineCloud"
+6. Click the ">" button to run the tests
 
 
 ## Submit a test render
