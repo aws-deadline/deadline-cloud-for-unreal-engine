@@ -160,9 +160,6 @@ public:
 private:
 	/** Attachment arrays UI handler */
 	TSharedPtr<FDeadlineCloudAttachmentArrayBuilder> ArrayBuilder;
-
-	/** Handles overridden settings in UI */
-	TSharedPtr<FPropertyAvailabilityHandler> PropertyOverrideHandler;
 };
 
 /**

@@ -612,6 +612,9 @@ void FDeadlinePluginUISpec::Define()
 			CreatedRenderJobDataAsset->Steps.Add(CreatedEmptyStepDataAsset);
 			CreatedRenderJobDataAsset->Environments.Add(CreatedEnvironmentDataAsset);
 
+			CreatedRenderJobDataAsset->JobPresetStruct.JobAttachments.InputFiles.Files.Paths.Add(FFilePath("C:/Temp/InputFile1.txt"));
+			CreatedRenderJobDataAsset->JobPresetStruct.JobAttachments.InputDirectories.Directories.Paths.Add(FDirectoryPath("C:/Temp/InputDir1"));
+
 			ShowTestEnvironmentParameters();
 			ShowTestStepParameters();
 
@@ -696,7 +699,8 @@ void FDeadlinePluginUISpec::Define()
 			FDriverElementRef EmptyStepEnvCategory = Driver->FindElement(By::Path("#MRQStepEnvHeader.Empty"));
 
 			FDriverElementRef SavePresetButton = Driver->FindElement(By::Path("#MRQJobSavePresetButton"));
-
+			FDriverElementRef FileArrayElementText = Driver->FindElement(By::Path("#AttachmentArrayElement.Value//<SFilePathPicker>//<SEditableTextBox>"));
+			FDriverElementRef DirArrayElementText = Driver->FindElement(By::Path("#AttachmentArrayElement.Value//<SPropertyEditorText>//<SEditableTextBox>"));
 			auto VisibilityTest = [this](const FString& ParameterName, FDriverElementRef Widget, bool bShouldBeVisible)
 				{
 					ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), Widget, 50);
@@ -711,7 +715,24 @@ void FDeadlinePluginUISpec::Define()
 					}
 				};
 
+			auto EditableTextTest = [this](const FString& ParameterName, FDriverElementRef Widget, const FString& ExpectedValue)
+				{
+					ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), Widget, 50);
+					if (Widget->IsVisible() && Widget->IsInteractable())
+					{
+						InputText(Widget, "Test", true);
+						TestTrue(ParameterName + " should be editable", "Test" == ExpectedValue);
+					}
+					else
+					{
+						TestTrue(ParameterName + " widget should be visible and interactable", false);
+					}
+				};
+
 			VisibilityTest("SavePresetButton", SavePresetButton, true);
+
+			EditableTextTest("File Array Element Text", FileArrayElementText, MRQJob->PresetOverrides.JobAttachments.InputFiles.Files.Paths[0].FilePath);
+			EditableTextTest("Dir Array Element Text", DirArrayElementText, MRQJob->PresetOverrides.JobAttachments.InputDirectories.Directories.Paths[0].Path);
 
 			VisibilityTest("StringParameters", StringParametersWidget, true);
 			VisibilityTest("PathParameters", PathParametersWidget, true);
@@ -748,6 +769,7 @@ void FDeadlinePluginUISpec::Define()
 
 				CreatedEmptyStepDataAsset->RemoveFromRoot();
 				CreatedEmptyStepDataAsset = nullptr;
+
 				CreatedEmptyEnvironmentDataAsset->RemoveFromRoot();
 				CreatedEmptyEnvironmentDataAsset = nullptr;
 

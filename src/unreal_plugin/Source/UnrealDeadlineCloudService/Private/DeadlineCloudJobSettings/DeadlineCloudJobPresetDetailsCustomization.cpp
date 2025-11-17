@@ -237,7 +237,13 @@ void FDeadlineCloudAttachmentDetailsCustomization::CustomizeChildren(
                         return bVisible
                             ? EVisibility::Visible
                             : EVisibility::Hidden;
-                    }));
+                    }))
+                .IsEnabled(
+                    TAttribute<bool>::CreateLambda([this, OuterJob]()
+                        {
+                            return false;
+                        })
+                );
     }
     else
     { 
@@ -438,6 +444,10 @@ void FDeadlineCloudAttachmentArrayBuilder::OnGenerateEntry(
     TSharedPtr<SWidget> NameWidget;
     TSharedPtr<SWidget> ValueWidget;
     PropertyRow.GetDefaultWidgets(NameWidget, ValueWidget);
+
+    FName Tag = FName("AttachmentArrayElement.Value");
+    ValueWidget->AddMetadata(FDriverMetaData::Id(Tag));
+
     PropertyRow.CustomWidget(true)
         .NameContent()
         .HAlign(HAlign_Fill)
@@ -467,25 +477,8 @@ void FDeadlineCloudAttachmentArrayCustomization::CustomizeHeader(
     const TSharedPtr<IPropertyHandle> ArrayHandle = InPropertyHandle->GetChildHandle("Paths", false);
 
     UMoviePipelineDeadlineCloudExecutorJob* OuterJob = FPropertyAvailabilityHandler::GetOuterJob(InPropertyHandle);
-    PropertyOverrideHandler = MakeShared<FPropertyAvailabilityHandler>(OuterJob);
-
-    const FName PropertyPath = *InPropertyHandle->GetProperty()->GetPathName();
 
     ArrayBuilder = FDeadlineCloudAttachmentArrayBuilder::MakeInstance(ArrayHandle.ToSharedRef());
-    if (PropertyOverrideHandler->GetOuterJob(InPropertyHandle))
-    {
-        ArrayBuilder->OnIsEnabled.BindLambda([this, PropertyPath]()
-            {
-                return this->PropertyOverrideHandler->IsPropertyRowEnabledInMovieRenderJob(PropertyPath);
-            });
-    }
-    else
-    {
-        ArrayBuilder->OnIsEnabled.BindLambda([this, PropertyPath]()
-            {
-                return this->PropertyOverrideHandler->IsPropertyRowEnabledInDataAsset(PropertyPath);
-            });
-    }
     ArrayBuilder->GenerateWrapperStructHeaderRowContent(InHeaderRow, InPropertyHandle->CreatePropertyNameWidget());
 }
 
