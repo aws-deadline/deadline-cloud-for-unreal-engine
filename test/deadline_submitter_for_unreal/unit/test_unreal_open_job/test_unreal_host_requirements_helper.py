@@ -9,6 +9,9 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step_host_require
 
 
 class _RangeBoundTypes:
+    # Range boundary types matching Unreal Engine's ERangeBoundTypes.
+    # OPEN   — open boundary (the value is not included in the range)
+    # CLOSED — closed boundary (the value is included in the range)
     OPEN = "OPEN"
     CLOSED = "CLOSED"
 

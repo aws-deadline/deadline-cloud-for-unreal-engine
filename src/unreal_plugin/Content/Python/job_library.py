@@ -110,11 +110,13 @@ class DeadlineCloudJobBundleLibraryImplementation(unreal.DeadlineCloudJobBundleL
 
     @unreal.ufunction(override=True)
     def is_amount_requirement_default(self, amount_name) -> bool:
-        return HostRequirementsHelper.is_default_requirement_by_name("amounts", amount_name)
+        return HostRequirementsHelper.is_predefined_requirement_by_name("amounts", amount_name)
 
     @unreal.ufunction(override=True)
     def is_attribute_requirement_default(self, attribute_name) -> bool:
-        return HostRequirementsHelper.is_default_requirement_by_name("attributes", attribute_name)
+        return HostRequirementsHelper.is_predefined_requirement_by_name(
+            "attributes", attribute_name
+        )
 
     @unreal.ufunction(override=True)
     def get_requirement_friendly_name(self, name) -> str:

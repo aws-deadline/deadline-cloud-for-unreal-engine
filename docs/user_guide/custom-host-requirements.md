@@ -4,17 +4,22 @@ This guide describes how to create and use custom host requirements for Deadline
 
 ## Overview
 
-Host Requirements define which worker machines are eligible to execute a particular render step.
+Host Requirements define which fleet are eligible to run a particular render step.
 They are stored inside a `UDeadlineCloudHostRequirements` asset, which is then referenced by a `DeadlineCloudRenderStep` asset.
 
 | Requirement Type | Configuration Location | Use Case |
 |------------------|------------------------|----------|
 | Base System Requirements | CPU / RAM / GPU fields | Restrict rendering to machines with specific hardware |
 | Custom Amount Requirements | Name + Min/Max values | Require numeric resource levels (licenses, tokens, quotas) |
-| Custom Attribute Requirements | Attribute + value list | Select workers based on tags, groups, metadata |
+| Custom Attribute Requirements | Attribute + value list | Required custom attributes on fleets to run the step |
 
 > Hiding a requirement using the eye icon only hides it in the MRQ Submit UI.  
 > The requirement **still applies** when submitting the job.
+> 
+> **Important:** 
+> The `Name` and `Attribute` values used for **Custom Amount Requirements** and  
+> **Custom Attribute Requirements** must strictly match the valid identifiers  
+> defined in the official Open Job Description documentation:  **[Open Job Specifications](https://github.com/OpenJobDescription/openjd-specifications/wiki/2023-09-Template-Schemas#33-hostrequirements)**
 
 ---
 

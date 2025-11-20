@@ -35,7 +35,7 @@ FRIENDLY_NAME_MAP = {
 class HostRequirementsHelper:
 
     @staticmethod
-    def is_default_requirement_by_name(dict_name: str, name: str) -> bool:
+    def is_predefined_requirement_by_name(dict_name: str, name: str) -> bool:
         for req in DEFAULT_HOST_REQUIREMENTS.get(dict_name, []):
             if req["name"] == name:
                 return True
@@ -194,7 +194,7 @@ class HostRequirementsHelper:
                 if isinstance(req, unreal.DeadlineCloudAttributeRequirements):
                     any_of: Optional[list[str]]
                     all_of: Optional[list[str]]
-                    if HostRequirementsHelper.is_default_requirement_by_name("attributes", name):
+                    if HostRequirementsHelper.is_predefined_requirement_by_name("attributes", name):
                         any_of = [req.selected_value]
                         all_of = None
                     else:
@@ -222,7 +222,7 @@ class HostRequirementsHelper:
         for name, req in u_attributes_map.items():
 
             attr: dict[str, Any] = {"name": str(name)}
-            if HostRequirementsHelper.is_default_requirement_by_name("amounts", name):
+            if HostRequirementsHelper.is_predefined_requirement_by_name("amounts", name):
                 attr["anyOf"] = [req.selected_value]
             else:
                 if req.all_of:
