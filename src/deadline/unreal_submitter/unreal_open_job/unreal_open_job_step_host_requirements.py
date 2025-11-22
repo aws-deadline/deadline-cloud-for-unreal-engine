@@ -4,6 +4,7 @@ import unreal
 from typing import Any, Optional
 
 from openjd.model.v2023_09 import HostRequirementsTemplate
+from openjd.model import parse_model
 
 
 class HostRequirementsHelper:
@@ -30,7 +31,7 @@ class HostRequirementsHelper:
             # hardware requirements are currently all amount
             requirements["amounts"] = hardware_requirements
 
-        return HostRequirementsTemplate(**requirements)
+        return parse_model(model=HostRequirementsTemplate, obj=requirements)
 
     @staticmethod
     def get_os_requirements(
