@@ -176,8 +176,7 @@ class HostRequirementsHelper:
         if attrs:
             data["attributes"] = attrs
 
-        adapter = TypeAdapter(HostRequirementsTemplate)
-        return adapter.validate_python(data, context={})
+        return parse_model(model=HostRequirementsTemplate, obj=data)
 
     @staticmethod
     def _apply_overrides(
