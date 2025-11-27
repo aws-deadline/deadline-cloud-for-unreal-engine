@@ -76,13 +76,17 @@ class HostRequirementsHelper:
         attributes = HostRequirementsHelper.get_attribute_requirements_from_data_asset(
             data_asset.host_requirements.attributes
         )
-        requirements["attributes"] = attributes
+        if attributes:
+            requirements["attributes"] = attributes
 
         amounts = HostRequirementsHelper.get_amount_requirements_from_data_asset(
             data_asset.host_requirements.amounts
         )
+        if amounts:
+            requirements["amounts"] = amounts
 
-        requirements["amounts"] = amounts
+        if not requirements and not amounts:
+            return None
 
         return parse_model(model=HostRequirementsTemplate, obj=requirements)
 

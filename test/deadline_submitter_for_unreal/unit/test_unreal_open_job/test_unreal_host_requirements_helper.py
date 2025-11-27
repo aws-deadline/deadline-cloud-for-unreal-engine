@@ -42,6 +42,18 @@ class _AttributeRequirementEntry:
     is_enabled: bool
     any_of: Optional[List[str]] = None
     all_of: Optional[List[str]] = None
+    selected_value: Optional[str] = None
+
+
+@dataclass
+class _HostRequirements:
+    amounts: dict[str, _AmountRequirementEntry]
+    attributes: dict[str, _AttributeRequirementEntry]
+
+
+@dataclass
+class _DataAsset:
+    host_requirements: _HostRequirements
 
 
 def _mk_amount_entry(lb=None, ub=None, enabled=True):
@@ -51,8 +63,19 @@ def _mk_amount_entry(lb=None, ub=None, enabled=True):
     )
 
 
-def _mk_attr_entry(any_of=None, all_of=None, enabled=True):
-    return _AttributeRequirementEntry(is_enabled=enabled, any_of=any_of, all_of=all_of)
+def _mk_attr_entry(any_of=None, all_of=None, enabled=True, selected_value=None):
+    return _AttributeRequirementEntry(
+        is_enabled=enabled, any_of=any_of, all_of=all_of, selected_value=selected_value
+    )
+
+
+def _mk_data_asset(amounts=None, attributes=None):
+    return _DataAsset(
+        host_requirements=_HostRequirements(
+            amounts=amounts or {},
+            attributes=attributes or {},
+        )
+    )
 
 
 def _sorted_by_name(items: List[dict]):
@@ -169,3 +192,73 @@ class TestPrivateMutationHelpers:
             {"name": "gpuVendor", "allOf": ["nvidia"]},
             {"name": "os", "anyOf": ["linux", "windows"]},
         ]
+
+
+class TestHostRequirementsHelper:
+
+    def test_get_host_requirements_from_data_asset_with_os_requirements(self):
+        """Test that get_host_requirements_from_data_asset returns valid HostRequirementsTemplate with OS requirements"""
+        # GIVEN
+        attributes = {
+            "attr.worker.os.family": _mk_attr_entry(any_of=["linux"], selected_value="linux"),
+            "attr.worker.cpu.arch": _mk_attr_entry(any_of=["x86_64"], selected_value="x86_64"),
+        }
+        mock_data_asset = _mk_data_asset(attributes=attributes)
+
+        # WHEN
+        result = HostRequirementsHelper.get_host_requirements_from_data_asset(mock_data_asset)
+
+        # THEN
+        assert result is not None
+        # Verify the result has the expected structure for OS requirements
+        assert result.attributes
+        assert not result.amounts
+
+    def test_get_host_requirements_from_data_asset_with_hardware_requirements(self):
+        """Test that get_host_requirements_from_data_asset returns valid HostRequirementsTemplate with hardware requirements"""
+        # GIVEN
+        amounts = {
+            "amount.worker.vcpu": _mk_amount_entry(lb=_Bound(value=2)),
+        }
+
+        mock_data_asset = _mk_data_asset(amounts=amounts)
+
+        # WHEN
+        result = HostRequirementsHelper.get_host_requirements_from_data_asset(mock_data_asset)
+
+        # THEN
+        assert result is not None
+        # Verify the result has the expected structure for hardware requirements
+        assert result.amounts
+        assert not result.attributes
+
+    def test_get_host_requirements_from_data_asset_with_both_requirements(self):
+        """Test that get_host_requirements_from_data_asset returns valid HostRequirementsTemplate with both OS and hardware requirements"""
+        # GIVEN
+        amount = {
+            "amount.worker.vcpu": _mk_amount_entry(lb=_Bound(value=2)),
+        }
+        attributes = {
+            "attr.worker.os.family": _mk_attr_entry(any_of=["linux"], selected_value="linux"),
+        }
+        mock_data_asset = _mk_data_asset(amounts=amount, attributes=attributes)
+
+        # WHEN
+        result = HostRequirementsHelper.get_host_requirements_from_data_asset(mock_data_asset)
+
+        # THEN
+        assert result is not None
+        # Verify the result has both attributes and amounts
+        assert result.attributes
+        assert result.amounts
+
+    def test_get_host_requirements_from_data_asset_without_both_requirements(self):
+        """Test that get_host_requirements_from_data_asset returns None when no requirements are set"""
+        # GIVEN
+        mock_data_asset = _mk_data_asset()
+
+        # WHEN
+        result = HostRequirementsHelper.get_host_requirements_from_data_asset(mock_data_asset)
+
+        # THEN
+        assert result is None
