@@ -19,11 +19,18 @@
 #include "AssetToolsModule.h"
 #include "PackageTools.h"
 #include "PythonAPILibraries/PythonYamlLibrary.h"
-#include "DeadlineCloudJobSettings/DeadlineCloudDeveloperSettings.h"
 #include "ObjectTools.h"
 #include "UObject/SavePackage.h"
 #include "Serialization/ArchiveReplaceObjectRef.h"
 #include "Framework/MetaData/DriverMetaData.h"
+
+namespace
+{
+	inline bool MatchesSourcePath(const FSoftObjectPath& OverridePath, const UObject* SourceObj)
+	{
+		return OverridePath.IsValid() && OverridePath == FSoftObjectPath(SourceObj);
+	}
+}
 
 UMoviePipelineDeadlineCloudExecutorJob::UMoviePipelineDeadlineCloudExecutorJob()
 {
@@ -49,7 +56,7 @@ bool UMoviePipelineDeadlineCloudExecutorJob::IsPropertyRowEnabledInMovieRenderJo
 		return Match->bIsEnabled;
 	}
 
-	return false;
+	return true;
 }
 
 void UMoviePipelineDeadlineCloudExecutorJob::SetPropertyRowEnabledInMovieRenderJob(const FName& InPropertyPath, bool bInEnabled)
@@ -126,11 +133,15 @@ void UMoviePipelineDeadlineCloudExecutorJob::SaveAsJobPreset(FString& FolderPath
 		}
 		else if (auto Step = Cast<UDeadlineCloudStep>(NewObj))
 		{
-			CopyStepOverrides(Step);
+			CopyStepOverrides(Step, Cast<UDeadlineCloudStep>(Asset));
 		}
 		else if (auto Env = Cast<UDeadlineCloudEnvironment>(NewObj))
 		{
-			CopyEnvironmentOverrides(Env);
+			CopyEnvironmentOverrides(Env, Cast<UDeadlineCloudEnvironment>(Asset));
+		}
+		else if (auto HostReq = Cast<UDeadlineCloudHostRequirements>(NewObj))
+		{
+			CopyHostRequirementsOverrides(HostReq, Cast<UDeadlineCloudHostRequirements>(Asset));
 		}
 
 		Pkg->MarkPackageDirty();
@@ -201,12 +212,6 @@ FDeadlineCloudJobPresetStruct UMoviePipelineDeadlineCloudExecutorJob::GetDeadlin
 		FDeadlineCloudJobSharedSettingsStruct::StaticStruct(),
 		&PresetOverrides.JobSharedSettings,
 		&ReturnValue.JobSharedSettings
-	);
-
-	GetPresetStructWithOverrides(
-		FDeadlineCloudHostRequirementsStruct::StaticStruct(),
-		&PresetOverrides.HostRequirements,
-		&ReturnValue.HostRequirements
 	);
 
 	GetPresetStructWithOverrides(
@@ -424,7 +429,6 @@ void UMoviePipelineDeadlineCloudExecutorJob::UpdateInputFilesProperty()
 
 void UMoviePipelineDeadlineCloudExecutorJob::ReloadDataFromJobPreset()
 {
-	PresetOverrides.HostRequirements = JobPreset->JobPresetStruct.HostRequirements;
 	PresetOverrides.JobSharedSettings = JobPreset->JobPresetStruct.JobSharedSettings;
 
 	PresetOverrides.JobAttachments.InputFiles.Files =
@@ -474,6 +478,12 @@ void UMoviePipelineDeadlineCloudExecutorJob::GetPresetObjectsNames(const UMovieP
 					PackageName = FSoftObjectPath(Env).GetLongPackageName();
 					OutPresetPackageNames.Add(Env, PackageName);
 				}
+			}
+
+			if (IsValid(Step->HostRequirements))
+			{
+				PackageName = FSoftObjectPath(Step->HostRequirements).GetLongPackageName();
+				OutPresetPackageNames.Add(Step->HostRequirements, PackageName);
 			}
 		}
 	}
@@ -534,6 +544,15 @@ void UMoviePipelineDeadlineCloudExecutorJob::GeneratePresetObjectsNames(
 					StepEnvIndex++;
 				}
 			}
+
+			if (Step->HostRequirements)
+			{
+				if (!OutPresetPackageNames.Contains(Step->HostRequirements))
+				{
+					FString HostReqName = StepName + "_HostRequirements";
+					OutPresetPackageNames.Add(Step->HostRequirements, HostReqName);
+				}
+			}
 		}
 	}
 
@@ -557,11 +576,11 @@ void UMoviePipelineDeadlineCloudExecutorJob::GeneratePresetObjectsNames(
 
 
 
-void UMoviePipelineDeadlineCloudExecutorJob::CopyEnvironmentOverrides(UDeadlineCloudEnvironment* Environment)
+void UMoviePipelineDeadlineCloudExecutorJob::CopyEnvironmentOverrides(UDeadlineCloudEnvironment* Environment, UDeadlineCloudEnvironment* Origin)
 {
 	for (auto& EnvOverride : JobTemplateOverrides.EnvironmentsOverrides)
 	{
-		if (EnvOverride.Name == Environment->Name)
+		if (MatchesSourcePath(EnvOverride.SourceObjectPath, Origin))
 		{
 			Environment->Variables = EnvOverride.Variables;
 			return;
@@ -572,7 +591,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::CopyEnvironmentOverrides(UDeadlineC
 	{
 		for (auto& EnvOverride : StepOverride.EnvironmentsOverrides)
 		{
-			if (EnvOverride.Name == Environment->Name)
+			if (MatchesSourcePath(EnvOverride.SourceObjectPath, Origin))
 			{
 				Environment->Variables = EnvOverride.Variables;
 				return;
@@ -581,11 +600,28 @@ void UMoviePipelineDeadlineCloudExecutorJob::CopyEnvironmentOverrides(UDeadlineC
 	}
 }
 
-void UMoviePipelineDeadlineCloudExecutorJob::CopyStepOverrides(UDeadlineCloudStep* Step)
+void UMoviePipelineDeadlineCloudExecutorJob::CopyHostRequirementsOverrides(UDeadlineCloudHostRequirements* HostRequirements, UDeadlineCloudHostRequirements* Origin)
 {
 	for (auto& StepOverride : JobTemplateOverrides.StepsOverrides)
 	{
-		if (StepOverride.Name == Step->Name)
+		if (!StepOverride.HostRequirementsOverride.IsEmpty())
+		{
+			if (MatchesSourcePath(StepOverride.HostRequirementsOverride.SourceObjectPath, Origin))
+			{
+				HostRequirements->HostRequirements.Amounts = StepOverride.HostRequirementsOverride.HostRequirements.Amounts;
+				HostRequirements->HostRequirements.Attributes = StepOverride.HostRequirementsOverride.HostRequirements.Attributes;
+
+				return;
+			}
+		}
+	}
+}
+
+void UMoviePipelineDeadlineCloudExecutorJob::CopyStepOverrides(UDeadlineCloudStep* Step, UDeadlineCloudStep* Origin)
+{
+	for (auto& StepOverride : JobTemplateOverrides.StepsOverrides)
+	{
+		if (MatchesSourcePath(StepOverride.SourceObjectPath, Origin))
 		{
 			Step->TaskParameterDefinitions.Parameters = StepOverride.TaskParameterDefinitions.Parameters;
 			break;
@@ -595,7 +631,6 @@ void UMoviePipelineDeadlineCloudExecutorJob::CopyStepOverrides(UDeadlineCloudSte
 
 void UMoviePipelineDeadlineCloudExecutorJob::CopyJobOverrides(UDeadlineCloudRenderJob* Job)
 {
-	Job->JobPresetStruct.HostRequirements = PresetOverrides.HostRequirements;
 	Job->JobPresetStruct.JobSharedSettings = PresetOverrides.JobSharedSettings;
 	Job->JobPresetStruct.JobAttachments.InputFiles = PresetOverrides.JobAttachments.InputFiles;
 	Job->JobPresetStruct.JobAttachments.InputDirectories = PresetOverrides.JobAttachments.InputDirectories;
@@ -721,6 +756,7 @@ UDeadlineCloudRenderJob* UMoviePipelineDeadlineCloudExecutorJob::CreateDefaultJo
 			FString DefaultTemplate = "/Content/Python/openjd_templates/render_job.yml";
 			FString StepTemplate = "/Content/Python/openjd_templates/render_step.yml";
 			FString EnvTemplate = "/Content/Python/openjd_templates/launch_ue_environment.yml";
+			FString HostReqTemplate = "/Content/Python/openjd_templates/host_requirements.yml";
 
 			FString  PluginContentDir = IPluginManager::Get().FindPlugin(TEXT("UnrealDeadlineCloudService"))->GetBaseDir();
 
@@ -752,6 +788,18 @@ UDeadlineCloudRenderJob* UMoviePipelineDeadlineCloudExecutorJob::CreateDefaultJo
 			PresetEnv->OpenEnvFile(PathToEnvTemplate);
 			Preset->Environments.Add(PresetEnv);
 			UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: CreateDefaultJobPresetFromTemplates completed successfully"));
+
+			UDeadlineCloudHostRequirements* PresetHostReq;
+			PresetHostReq = NewObject<UDeadlineCloudHostRequirements>();
+			
+			FString PathToHostReqTemplate = FPaths::Combine(FPaths::ConvertRelativePathToFull(PluginContentDir), HostReqTemplate);
+			FPaths::NormalizeDirectoryName(PathToHostReqTemplate);
+			UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: Looking for host requirements template at: %s"), *PathToHostReqTemplate);
+
+			PresetHostReq->PathToTemplate.FilePath = PathToHostReqTemplate;
+			PresetHostReq->OpenHostRequirementsFile(PathToHostReqTemplate);
+			PresetStep->HostRequirements = PresetHostReq;
+			UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: Host requirements template loaded successfully"));
 		}
 	}
 
@@ -769,8 +817,10 @@ TArray<FDeadlineCloudStepOverride> UMoviePipelineDeadlineCloudExecutorJob::GetSt
 			if (Step)
 			{
 				auto StepData = Step->GetStepDataToOverride();
-
-				if (StepData.TaskParameterDefinitions.Parameters.IsEmpty() && StepData.EnvironmentsOverrides.IsEmpty())
+				
+				if (StepData.TaskParameterDefinitions.Parameters.IsEmpty() 
+					&& StepData.EnvironmentsOverrides.IsEmpty()
+					&& StepData.HostRequirementsOverride.IsEmpty())
 				{
 					continue;
 				}

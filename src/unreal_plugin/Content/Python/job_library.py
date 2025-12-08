@@ -14,6 +14,9 @@ from deadline.unreal_submitter.unreal_dependency_collector import (
 
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job import UnrealOpenJob
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import OpenJobParameterNames
+from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step_host_requirements import (
+    HostRequirementsHelper,
+)
 
 logger = get_logger()
 
@@ -106,16 +109,22 @@ class DeadlineCloudJobBundleLibraryImplementation(unreal.DeadlineCloudJobBundleL
         return parameters
 
     @unreal.ufunction(override=True)
+    def is_amount_requirement_default(self, amount_name) -> bool:
+        return HostRequirementsHelper.is_predefined_requirement_by_name("amounts", amount_name)
+
+    @unreal.ufunction(override=True)
+    def is_attribute_requirement_default(self, attribute_name) -> bool:
+        return HostRequirementsHelper.is_predefined_requirement_by_name(
+            "attributes", attribute_name
+        )
+
+    @unreal.ufunction(override=True)
+    def get_requirement_friendly_name(self, name) -> str:
+        return HostRequirementsHelper.get_friendly_name(name)
+
+    @unreal.ufunction(override=True)
     def get_plugins_dependencies(self):
         return [d for d in UnrealOpenJob.get_plugins_references().input_directories]
-
-    @unreal.ufunction(override=True)
-    def get_cpu_architectures(self):
-        return ["x86_64", "arm64"]
-
-    @unreal.ufunction(override=True)
-    def get_operating_systems(self):
-        return ["linux", "macos", "windows"]
 
     @unreal.ufunction(override=True)
     def get_job_initial_state_options(self):

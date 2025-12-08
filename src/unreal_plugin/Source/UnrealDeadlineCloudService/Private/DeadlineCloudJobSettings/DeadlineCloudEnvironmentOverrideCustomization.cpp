@@ -142,11 +142,6 @@ void FDeadlineCloudEnvOverrideArrayBuilder::GenerateHeaderRowContent(FDetailWidg
     // Empty implementation to hide the array header
 }
 
-void FDeadlineCloudEnvOverrideArrayBuilder::GenerateWrapperStructHeaderRowContent(FDetailWidgetRow& NodeRow, TSharedRef<SWidget> NameContent)
-{
-    // Empty implementation to hide the wrapper struct header
-}
-
 void FDeadlineCloudEnvOverrideArrayBuilder::OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32, IDetailChildrenBuilder& ChildrenBuilder) const
 {
     IDetailPropertyRow& PropertyRow = ChildrenBuilder.AddProperty(ElementProperty);

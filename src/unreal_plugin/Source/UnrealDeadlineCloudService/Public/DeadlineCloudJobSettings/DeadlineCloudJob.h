@@ -5,6 +5,7 @@
 #include "DeadlineCloudRenderStep.h"
 #include "CoreMinimal.h"
 #include "DeadlineCloudEnvironment.h"
+#include "DeadlineCloudHostRequirements.h"
 #include "DeadlineCloudJob.generated.h"
 
 /**
@@ -45,51 +46,6 @@ public:
     /** Job priority */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Shared Settings", meta = (ClampMin = 0, ClampMax = 100, DisplayPriority = 5))
     int32 Priority = 50;
-};
-
-/**
- * Deadline Cloud Host Requirement Settings
- * Goes as part of FDeadlineCloudJobPresetStruct,
- * Exposes host requirement settings to Unreal MRQ through Deadline DataAsset
- */
-
-USTRUCT(BlueprintType)
-struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudHostRequirementsStruct
-{
-    GENERATED_BODY()
-
-    /** Indicates the job can be launched on all of the available worker nodes */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Host requirements")
-    bool bRunOnAllWorkerNodes = true;
-
-    /** Required OS */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Host requirements", meta = (EditCondition = "!bRunOnAllWorkerNodes", GetOptions = "GetOperatingSystems"))
-    FString OperatingSystem;
-
-    /** Required CPU architecture */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Host requirements", meta = (EditCondition = "!bRunOnAllWorkerNodes", GetOptions = "GetCpuArchitectures"))
-	FString CPU_Architecture;
-
-	/** Required number of CPU cores */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Host requirements", meta = (ClampMin = 1, ClampMax = 10000, DisplayName = "vCPUs", EditCondition = "!bRunOnAllWorkerNodes"))
-	FInt32Interval CPUs = FInt32Interval(1, 1);
-
-	/** Required amount of RAM */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Host requirements", meta = (ClampMin = 1, ClampMax = 10000, DisplayName = "Memory (GiB)", EditCondition = "!bRunOnAllWorkerNodes"))
-	FInt32Interval Memory = FInt32Interval(1, 1);
-
-	/** Required numer of GPU */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Host requirements", meta = (ClampMin = 0, ClampMax = 10000, DisplayName = "GPUs", EditCondition = "!bRunOnAllWorkerNodes"))
-	FInt32Interval GPUs = FInt32Interval(0, 0);
-
-	/** Required number of VRAM */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Host requirements", meta = (ClampMin = 1, ClampMax = 10000, DisplayName = "GPU Memory (GiB)", EditCondition = "!bRunOnAllWorkerNodes"))
-	FInt32Interval GPU_Memory = FInt32Interval(1, 1);
-
-	/** Required amount of scratch space */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Host requirements", meta = (ClampMin = 0, ClampMax = 10000, DisplayName = "Scratch Space", EditCondition = "!bRunOnAllWorkerNodes"))
-	FInt32Interval ScratchSpace = FInt32Interval(0, 0);
-
 };
 
 /**
@@ -213,10 +169,6 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudJobPresetStruct
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Preset")
 	FDeadlineCloudJobSharedSettingsStruct JobSharedSettings;
 
-	/** Host requirements */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Preset")
-	FDeadlineCloudHostRequirementsStruct HostRequirements;
-
 	/** Job attachments */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Preset")
 	FDeadlineCloudAttachmentsStruct JobAttachments;
@@ -307,55 +259,8 @@ public:
 	TArray<FParameterDefinition> GetParametersDataToOverride() const;
 public:
 
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override
-	{
-		Super::PostEditChangeProperty(PropertyChangedEvent);
-		if (PropertyChangedEvent.Property != nullptr) {
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 
-			FName PropertyName = PropertyChangedEvent.Property->GetFName();
-			if (PropertyName == "FilePath")
-			{
-				OpenJobFile(PathToTemplate.FilePath);
-				TriggerChange();
-			}
-		}
-	}
-	void AddHiddenParameter(FName Parameter)
-	{
-		HiddenParametersList.Add(Parameter);
-		Modify();
-		MarkPackageDirty();
-		ParameterHiddenEvent();
-	};
-	void ClearHiddenParameters()
-	{
-		HiddenParametersList.Empty();
-		Modify();
-		MarkPackageDirty();
-	};
-	bool AreEmptyHiddenParameters() { return HiddenParametersList.IsEmpty(); };
-	bool ContainsHiddenParameters(FName Parameter) { return HiddenParametersList.Contains(Parameter); };
-	bool IsParameterVisibilityChangedFromDefault(FName Parameter)
-	{
-		bool isHiddenNow = ContainsHiddenParameters(Parameter);
-
-		for (auto& p : ParameterDefinition.Parameters)
-		{
-			if (p.Name == Parameter)
-			{
-				bool IsDefaultHidden = p.UserInterfaceControl == EUserInterfaceControl::HIDDEN;
-				return isHiddenNow != IsDefaultHidden;
-			}
-		}
-
-		return false;
-	}
-	void RemoveHiddenParameters(FName Parameter) {
-		HiddenParametersList.Remove(Parameter);
-		Modify();
-		MarkPackageDirty();
-		ParameterHiddenEvent();
-	};
     FSimpleDelegate OnParameterHidden;
 
 	void ParameterHiddenEvent() {
@@ -365,33 +270,11 @@ public:
 		}
 	};
 
-	bool IsParametersHiddenByDefault() 
-	{ 
-		bool bParametersHiddenChanged = true;
-		for (auto Parameter : ParameterDefinition.Parameters)
-		{
-			if (IsParameterVisibilityChangedFromDefault(FName(Parameter.Name)))
-			{
-				bParametersHiddenChanged = false;
-				break;
-			}
-		}
-		return bParametersHiddenChanged;
-	};
-
-	void ResetParametersHiddenToDefault() 
-	{ 
-        HiddenParametersList.Empty();
-        for (auto Parameter : ParameterDefinition.Parameters)
-        {
-            if (Parameter.UserInterfaceControl == EUserInterfaceControl::HIDDEN)
-            {
-                HiddenParametersList.Add(FName(*Parameter.Name));
-            }
-        }
-	};
+	FHiddenItemsManager& GetHiddenManager() { return HiddenVarsManager; }
+	const FHiddenItemsManager& GetHiddenManager() const { return HiddenVarsManager; }
 private:
-	UPROPERTY(EditAnywhere, meta = (HideInDetailPanel, Category = "Parameters"))
-	TArray<FName> HiddenParametersList;
+
+	UPROPERTY()
+	FHiddenItemsManager HiddenVarsManager;
 
 };

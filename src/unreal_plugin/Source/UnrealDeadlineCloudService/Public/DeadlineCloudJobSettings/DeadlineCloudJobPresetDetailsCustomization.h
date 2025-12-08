@@ -28,12 +28,6 @@ public:
 	FPropertyAvailabilityHandler(UMoviePipelineDeadlineCloudExecutorJob* InJob);
 
 	/**
-	 * @param StructHandle MRQ job property handle
-	 * @return MRQ job of the property handle
-	 */
-	static UMoviePipelineDeadlineCloudExecutorJob* GetOuterJob(TSharedRef<IPropertyHandle> StructHandle);
-
-	/**
 	 * Adds check box in "Name" view widget for provided property row. Makes property value editable in MRQ view
 	 * @param PropertyRow property row interface
 	 */
@@ -61,7 +55,7 @@ public:
 /**
  * MRQ Job properties details customization for overridable Deadline cloud job settings.
  * Should be applied to the properties of the DeadlineCloud MRQ job grouped together into ustruct.
- * @ref FDeadlineCloudJobSharedSettingsStruct, @ref FDeadlineCloudHostRequirementsStruct
+ * @ref FDeadlineCloudJobSharedSettingsStruct
  */
 class FDeadlineCloudJobPresetDetailsCustomization : public IPropertyTypeCustomization
 {
@@ -96,8 +90,6 @@ protected:
 	 */
 	void CustomizeStructChildrenInMovieRenderQueue(IDetailPropertyRow& PropertyRow, UMoviePipelineDeadlineCloudExecutorJob* Job, TSharedPtr<SWidget> CustomValueWidget = TSharedPtr<SWidget>()) const;
 
-	// static bool IsResetToDefaultVisibleOverride(TSharedPtr<IPropertyHandle> PropertyHandle, UMoviePipelineDeadlineCloudExecutorJob* Job);
-	// static void ResetToDefaultOverride(TSharedPtr<IPropertyHandle> PropertyHandle, UMoviePipelineDeadlineCloudExecutorJob* Job);
 protected:
 	/** Handles overridden settings in UI */
 	TSharedPtr<FPropertyAvailabilityHandler> PropertyOverrideHandler;
@@ -202,4 +194,3 @@ private:
 	/** Referenced array property */
 	TSharedPtr<IPropertyHandleArray> ArrayProperty;
 };
-

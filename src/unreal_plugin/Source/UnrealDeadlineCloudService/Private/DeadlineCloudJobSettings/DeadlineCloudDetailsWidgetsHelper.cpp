@@ -15,8 +15,141 @@
 #include "IContentBrowserSingleton.h"
 #include "PackageTools.h"
 #include "Framework/MetaData/DriverMetaData.h"
+#include "Misc/Optional.h"
 
 #define LOCTEXT_NAMESPACE "DeadlineWidgets"
+
+class SIntSpinAsFloatOptional : public SCompoundWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SIntSpinAsFloatOptional)
+		: _Required(false)
+		, _MinInt(TNumericLimits<int32>::Lowest())
+		, _MaxInt(TNumericLimits<int32>::Max())
+		, _Step(1)
+		, _DefaultFloat(0.f)
+		, _MinDesiredWidth(90.f)
+		{
+		}
+		SLATE_ARGUMENT(TSharedPtr<IPropertyHandle>, FloatHandle)
+		SLATE_ARGUMENT(TSharedPtr<IPropertyHandle>, TypeHandle) // TEnumAsByte<ERangeBoundTypes::Type>
+			SLATE_ARGUMENT(bool, Required)
+		SLATE_ARGUMENT(int32, MinInt)
+		SLATE_ARGUMENT(int32, MaxInt)
+		SLATE_ARGUMENT(int32, Step)
+		SLATE_ARGUMENT(float, DefaultFloat)
+		SLATE_ARGUMENT(float, MinDesiredWidth)
+		SLATE_ATTRIBUTE(FText, OptionalTooltip)
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs)
+	{
+		FloatHandle = InArgs._FloatHandle; check(FloatHandle.IsValid());
+		TypeHandle = InArgs._TypeHandle;  check(TypeHandle.IsValid());
+		bRequired = InArgs._Required;
+		MinInt = InArgs._MinInt;
+		MaxInt = InArgs._MaxInt;
+		Step = FMath::Max(1, InArgs._Step);
+		DefaultFloat = InArgs._DefaultFloat;
+		MinDesiredWidth = InArgs._MinDesiredWidth;
+
+		float F = DefaultFloat;
+		if (FloatHandle->GetValue(F) != FPropertyAccess::Success) F = DefaultFloat;
+		CurrentInt = FMath::Clamp(static_cast<int32>(FMath::RoundHalfFromZero(F)), MinInt, MaxInt);
+
+		uint8 TypeVal = 0;
+		if (TypeHandle->GetValue(TypeVal) != FPropertyAccess::Success) TypeVal = 0;
+
+		ChildSlot
+			[
+				SAssignNew(Spin, SSpinBox<int32>)
+					.ToolTipText(InArgs._OptionalTooltip)
+					.MinDesiredWidth(MinDesiredWidth)
+					.MinValue(MinInt)
+					.MaxValue(MaxInt)
+					.Value(this, &SIntSpinAsFloatOptional::GetSpinValue)
+					.Delta(Step)
+					.OnValueChanged(this, &SIntSpinAsFloatOptional::OnSpinChanged)
+					.OnValueCommitted(this, &SIntSpinAsFloatOptional::OnSpinCommitted)
+					.OnEndSliderMovement(this, &SIntSpinAsFloatOptional::OnSpinEnd)
+			];
+	}
+
+private:
+	TSharedPtr<IPropertyHandle> FloatHandle;
+	TSharedPtr<IPropertyHandle> TypeHandle;
+	TSharedPtr<SSpinBox<int32>> Spin;
+
+	bool bRequired = false;
+	int32 MinInt = 0;
+	int32 MaxInt = 0;
+	int32 Step = 1;
+	int32 CurrentInt = 0;
+	float DefaultFloat = 0.f;
+	float MinDesiredWidth = 90.f;
+
+	int32 GetSpinValue() const { return CurrentInt; }
+
+	void PushTypeOpen()
+	{
+		if (TypeHandle.IsValid())
+		{
+			uint8 OpenVal = 2; // ERangeBoundTypes::Open
+			TypeHandle->SetValue(OpenVal);
+		}
+	}
+
+	void PushTypeInclusive()
+	{
+		if (TypeHandle.IsValid())
+		{
+			uint8 InclusiveVal = 1; // ERangeBoundTypes::Inclusive
+			TypeHandle->SetValue(InclusiveVal);
+		}
+	}
+
+	void PushFloatFromInt(int32 V, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags)
+	{
+		if (FloatHandle.IsValid())
+		{
+			const float AsF = static_cast<float>(V);
+			if (Flags == EPropertyValueSetFlags::DefaultFlags) FloatHandle->SetValue(AsF);
+			else FloatHandle->SetValue(AsF, Flags);
+		}
+	}
+
+	void OnSpinChanged(int32 NewVal)
+	{
+		CurrentInt = FMath::Clamp(NewVal, MinInt, MaxInt);
+		if (!bRequired && CurrentInt == MinInt)
+		{
+			PushTypeOpen();
+			return;
+		}
+		PushTypeInclusive();
+		PushFloatFromInt(CurrentInt, EPropertyValueSetFlags::InteractiveChange);
+	}
+
+	void OnSpinCommitted(int32 NewVal, ETextCommit::Type)
+	{
+		CurrentInt = FMath::Clamp(NewVal, MinInt, MaxInt);
+		if (!bRequired && CurrentInt == MinInt)
+		{
+			PushTypeOpen();
+			PushFloatFromInt(CurrentInt);
+			return;
+		}
+		PushTypeInclusive();
+		PushFloatFromInt(CurrentInt);
+	}
+
+	void OnSpinEnd(int32 NewVal)
+	{
+		CurrentInt = FMath::Clamp(NewVal, MinInt, MaxInt);
+		if (!bRequired && CurrentInt == MinInt) return;
+		PushFloatFromInt(CurrentInt);
+	}
+};
 
 class SDeadlineCloudSavePresetWidget : public SCompoundWidget
 {
@@ -737,6 +870,7 @@ public:
 	SLATE_BEGIN_ARGS(SDeadlineCloudStringWidget) {}
 		SLATE_ARGUMENT(TSharedPtr<IPropertyHandle>, StringPropertyHandle)
 		SLATE_EVENT(FOnVerifyTextChanged, IsValidInput)
+		SLATE_ATTRIBUTE(FText, ToolTip)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs)
@@ -748,6 +882,7 @@ public:
 				SNew(SHorizontalBox)
 					+ SHorizontalBox::Slot()
 					.FillWidth(1.0f)
+					.HAlign(HAlign_Fill)
 					.VAlign(VAlign_Center)
 					[
 						SAssignNew(TextBox, SEditableTextBox)
@@ -755,6 +890,7 @@ public:
 							.Text(this, &SDeadlineCloudStringWidget::GetText)
 							.OnTextCommitted(this, &SDeadlineCloudStringWidget::OnTextCommitted)
 							.OnTextChanged(this, &SDeadlineCloudStringWidget::OnTextChanged)
+							.ToolTipText(InArgs._ToolTip)
 					]
 			];
 
@@ -814,6 +950,7 @@ private:
 	FOnVerifyTextChanged IsValidInput;
 	FText Error;
 };
+
 /*
 SDeadlineCloudIntWidget is a custom Slate widget for integer input fields.
 It wraps a SNumericEntryBox that converts between string-based input and integer display/editing.
@@ -858,6 +995,7 @@ private:
 
 	TSharedPtr<IPropertyHandle> Property;
 };
+
 /*
 SDeadlineCloudFloatWidget is a custom Slate widget for float input fields.
 */
@@ -902,6 +1040,7 @@ private:
 
 	TSharedPtr<IPropertyHandle> Property;
 };
+
 /*
 SConsistencyWidget shows consistency check result for Deadline Job|Step|Environment parameters and same parameters loaded from .yaml for consistency check.
 A part of parameter consistency checking system in a Deadline Cloud plugin, where it notifies users of parameter changes and provides a way to update them.
@@ -993,7 +1132,11 @@ void FDeadlineCloudDetailsWidgetsHelper::CreateSavePresetDialogWidget(UMoviePipe
 	}
 }
 
-TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(TSharedPtr<IPropertyHandle> ParameterHandle, EValueType Type, EValueValidationType ValidationType)
+TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(
+	TSharedPtr<IPropertyHandle> ParameterHandle, 
+	EValueType Type, 
+	EValueValidationType ValidationType, 
+	FText Tooltip)
 {
 	switch (Type)
 	{
@@ -1001,7 +1144,7 @@ TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByTy
 	case EValueType::STRING:
 	{
 		FOnVerifyTextChanged Validation = FDeadlineCloudInputValidationHelper::GetStringValidationFunction(ValidationType);
-		return CreateStringWidget(ParameterHandle, Validation);
+		return CreateStringWidget(ParameterHandle, Validation, Tooltip);
 	}
 	case EValueType::PATH:
 	{
@@ -1092,6 +1235,417 @@ TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateConsistencyWidget(
 	return  ConsistensyWidget;
 }
 
+TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateMrqCheckBoxWidget(UMoviePipelineDeadlineCloudExecutorJob* MrqJob, FName PropertyPath, bool DefaultValue)
+{
+	return
+		MrqJob
+		? SNew(SCheckBox)
+		.IsChecked_Lambda([MrqJob, PropertyPath, DefaultValue]()
+			{
+				if (MrqJob)
+				{
+					return MrqJob->IsPropertyRowEnabledInMovieRenderJob(PropertyPath)
+						? ECheckBoxState::Checked
+						: ECheckBoxState::Unchecked;
+				}
+				return ECheckBoxState::Unchecked;
+			})
+		.OnCheckStateChanged_Lambda([MrqJob, PropertyPath](ECheckBoxState NewState)
+			{
+				if (MrqJob)
+				{
+					const bool bEnabled = (NewState == ECheckBoxState::Checked);
+					UE_LOG(LogTemp, Warning, TEXT("Setting PropertyPath = %s, Enabled = %d"), *PropertyPath.ToString(), bEnabled);
+					MrqJob->SetPropertyRowEnabledInMovieRenderJob(PropertyPath, bEnabled);
+					MrqJob->OnRequestDetailsRefresh.ExecuteIfBound();
+				}
+			})
+		: SNullWidget::NullWidget;
+}
+
+TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateMrqCheckBoxWidgetForHostRequiremets(
+	UMoviePipelineDeadlineCloudExecutorJob* MrqJob,
+	TSharedPtr<IPropertyHandle> IsEnabledHandle,
+	TAttribute<bool> IsEnabledAttr
+)
+{
+	return FDeadlineCloudDetailsWidgetsHelper::CreateMrqCheckBoxWidgetCustom(
+		MrqJob,
+		TAttribute<ECheckBoxState>::Create(
+			TAttribute<ECheckBoxState>::FGetter::CreateLambda([MrqJob, IsEnabledHandle, IsEnabledAttr]() -> ECheckBoxState
+				{
+					if (!MrqJob || !IsEnabledHandle.IsValid())
+					{
+						return ECheckBoxState::Unchecked;
+					}
+					bool bEnabled = IsEnabledAttr.Get();
+
+					return bEnabled ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+				})
+		),
+		FOnCheckStateChanged::CreateLambda([MrqJob, IsEnabledHandle](ECheckBoxState NewState)
+			{
+				if (!MrqJob || !IsEnabledHandle.IsValid())
+				{
+					return;
+				}
+
+				const bool bEnabled = (NewState == ECheckBoxState::Checked);
+
+				if (IsEnabledHandle->SetValue(bEnabled) != FPropertyAccess::Result::Success)
+				{
+					return;
+				}
+			})
+	);
+}
+
+TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateMrqCheckBoxWidgetCustom(
+	UMoviePipelineDeadlineCloudExecutorJob* MrqJob, 
+	TAttribute<ECheckBoxState> StateAttribute, 
+	FOnCheckStateChanged ChangeEvent
+)
+{
+	return 
+		MrqJob
+		? SNew(SCheckBox)
+		.IsChecked(StateAttribute)
+		.OnCheckStateChanged(ChangeEvent)
+		: SNullWidget::NullWidget;
+}
+
+TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateDefaultAttributeValueWidget(
+	TSharedPtr<IPropertyHandle> AllOfPropertyHandle,
+	TSharedPtr<IPropertyHandle> AnyOfPropertyHandle,
+	TSharedPtr<IPropertyHandle> SelectedValuePropertyHandle,
+	TAttribute<bool>& IsEnabledAttr
+)
+{
+	auto ReadArrayAsStrings = [](const TSharedPtr<IPropertyHandle>& Handle, TArray<FString>& Out)
+		{
+			Out.Reset();
+			if (!Handle.IsValid() || !Handle->AsArray().IsValid()) return;
+			uint32 Num = 0;
+			Handle->AsArray()->GetNumElements(Num);
+			for (uint32 i = 0; i < Num; ++i)
+			{
+				FString V;
+				TSharedPtr<IPropertyHandle> Elem = Handle->AsArray()->GetElement(i);
+				if (Elem.IsValid() && Elem->GetValue(V) == FPropertyAccess::Success) Out.Add(V);
+			}
+		};
+
+	TArray<FString> Options;
+	{
+		TSet<FString> Unique;
+		TArray<FString> Buf;
+		ReadArrayAsStrings(AllOfPropertyHandle, Buf);  for (const FString& V : Buf) Unique.Add(V);
+		Buf.Reset();
+		ReadArrayAsStrings(AnyOfPropertyHandle, Buf);  for (const FString& V : Buf) Unique.Add(V);
+		Options = Unique.Array();
+	}
+
+	FString Current;
+	if (SelectedValuePropertyHandle.IsValid()) SelectedValuePropertyHandle->GetValue(Current);
+	if (Current.IsEmpty() && Options.Num() > 0)
+	{
+		Current = Options[0];
+		SelectedValuePropertyHandle->SetValue(Current);
+	}
+
+	TSharedPtr<TArray<TSharedPtr<FString>>> OptionsPtr = MakeShared<TArray<TSharedPtr<FString>>>();
+	TSharedPtr<FString> InitiallySelected;
+	for (const FString& V : Options)
+	{
+		TSharedPtr<FString> Item = MakeShared<FString>(V);
+		if (!InitiallySelected.IsValid() && V == Current) InitiallySelected = Item;
+		OptionsPtr->Add(Item);
+	}
+
+	return SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.MinWidth(200.f)
+		[
+			SNew(SComboBox<TSharedPtr<FString>>)
+				.IsEnabled(IsEnabledAttr)
+				.OptionsSource(OptionsPtr.Get())
+				.InitiallySelectedItem(InitiallySelected)
+				.OnGenerateWidget_Lambda([OptionsPtr](TSharedPtr<FString> Item)
+					{
+						return SNew(STextBlock).Text(FText::FromString(Item.IsValid() ? *Item : TEXT("")));
+					})
+				.OnSelectionChanged_Lambda([SelectedValuePropertyHandle, OptionsPtr](TSharedPtr<FString> NewSel, ESelectInfo::Type)
+					{
+						if (NewSel.IsValid()) SelectedValuePropertyHandle->SetValue(*NewSel);
+					})
+				[
+					SNew(STextBlock)
+						.Text_Lambda([SelectedValuePropertyHandle]()
+							{
+								FString V; SelectedValuePropertyHandle->GetValue(V);
+								return FText::FromString(V.IsEmpty() ? TEXT("—") : V);
+							})
+						.Font(IDetailLayoutBuilder::GetDetailFont())
+				]
+		];
+}
+
+TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateCustomAttributeValueWidget(
+	TSharedPtr<IPropertyHandle> AllOfPropertyHandle, 
+	TSharedPtr<IPropertyHandle> AnyOfPropertyHandle,
+	TAttribute<bool>& IsEnabledAttr
+)
+{
+	auto GetArrayCount = [](const TSharedPtr<IPropertyHandle>& ArrHandle) -> uint32
+		{
+			uint32 Num = 0;
+			if (ArrHandle.IsValid() && ArrHandle->AsArray().IsValid())
+			{
+				ArrHandle->AsArray()->GetNumElements(Num);
+			}
+			return Num;
+		};
+
+	enum class EMode { AllOf, AnyOf };
+
+	TSharedPtr<EMode> CurrentMode = MakeShared<EMode>(
+		(GetArrayCount(AnyOfPropertyHandle) > 0) ? EMode::AnyOf : EMode::AllOf
+	);
+
+	auto GetActiveMode = [CurrentMode]() -> EMode
+	{
+		return *CurrentMode;
+	};
+
+	auto ReadArrayAsStrings = [](const TSharedPtr<IPropertyHandle>& ArrHandle, TArray<FString>& Out)
+		{
+			Out.Reset();
+			if (!ArrHandle.IsValid() || !ArrHandle->AsArray().IsValid()) return;
+
+			uint32 Num = 0;
+			ArrHandle->AsArray()->GetNumElements(Num);
+			for (uint32 i = 0; i < Num; ++i)
+			{
+				TSharedPtr<IPropertyHandle> Elem = ArrHandle->AsArray()->GetElement(i);
+				FString Val;
+				if (Elem->GetValue(Val) == FPropertyAccess::Success)
+				{
+					Out.Add(Val);
+				}
+			}
+		};
+
+	auto WriteArrayFromStrings = [](const TSharedPtr<IPropertyHandle>& ArrHandle, const TArray<FString>& In)
+		{
+			if (!ArrHandle.IsValid() || !ArrHandle->AsArray().IsValid()) return;
+
+			TSharedPtr<IPropertyHandleArray> Array = ArrHandle->AsArray();
+			Array->EmptyArray();
+			for (const FString& V : In)
+			{
+				uint32 Num = 0;
+				Array->GetNumElements(Num);
+				FPropertyHandleItemAddResult Res = ArrHandle->AsArray()->AddItem();
+
+				TSharedPtr<IPropertyHandle> Elem = Array->GetElement(Num);
+				if (Elem.IsValid())
+				{
+					Elem->SetValue(V);
+				}
+			}
+		};
+
+	auto MoveAll = [ReadArrayAsStrings, WriteArrayFromStrings](const TSharedPtr<IPropertyHandle>& From, const TSharedPtr<IPropertyHandle>& To)
+		{
+			if (!From.IsValid() || !To.IsValid()) return;
+
+			TArray<FString> Buf;
+			ReadArrayAsStrings(From, Buf);
+			WriteArrayFromStrings(To, Buf);
+
+			if (From->AsArray().IsValid())
+			{
+				From->AsArray()->EmptyArray();
+			}
+		};
+
+	auto GetActiveArray = [AllOfPropertyHandle, AnyOfPropertyHandle, GetActiveMode]() -> TSharedPtr<IPropertyHandle>
+		{
+			return (GetActiveMode() == EMode::AllOf) ? AllOfPropertyHandle : AnyOfPropertyHandle;
+		};
+
+	auto GetInactiveArray = [AllOfPropertyHandle, AnyOfPropertyHandle, GetActiveMode]() -> TSharedPtr<IPropertyHandle>
+		{
+			return (GetActiveMode() == EMode::AllOf) ? AnyOfPropertyHandle : AllOfPropertyHandle;
+		};
+
+
+	return SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		.Padding(0.f, 0.f, 8.f, 0.f)
+		[
+			SNew(SCheckBox)
+				.IsEnabled(IsEnabledAttr)
+				.IsChecked_Lambda([GetActiveMode]()
+					{
+						return GetActiveMode() == EMode::AllOf ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+					})
+				.OnCheckStateChanged_Lambda([CurrentMode, AllOfPropertyHandle, AnyOfPropertyHandle, MoveAll](ECheckBoxState NewState)
+					{
+						if (NewState == ECheckBoxState::Checked)
+						{
+							*CurrentMode = EMode::AllOf;
+							MoveAll(AnyOfPropertyHandle, AllOfPropertyHandle);
+						}
+					})
+				[
+					SNew(STextBlock).Text(FText::FromString(TEXT("AllOf")))
+				]
+		]
+
+	+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		.Padding(0.f, 0.f, 8.f, 0.f)
+		[
+			SNew(SCheckBox)
+				.IsEnabled(IsEnabledAttr)
+				.IsChecked_Lambda([GetActiveMode]()
+					{
+						return GetActiveMode() == EMode::AnyOf ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+					})
+				.OnCheckStateChanged_Lambda([CurrentMode, AllOfPropertyHandle, AnyOfPropertyHandle, MoveAll](ECheckBoxState NewState)
+					{
+						if (NewState == ECheckBoxState::Checked)
+						{
+							*CurrentMode = EMode::AnyOf;
+							MoveAll(AllOfPropertyHandle, AnyOfPropertyHandle);
+						}
+					})
+				[
+					SNew(STextBlock).Text(FText::FromString(TEXT("AnyOf")))
+				]
+		]
+
+	+ SHorizontalBox::Slot()
+		.FillWidth(1.f)
+		.VAlign(VAlign_Center)
+		.HAlign(HAlign_Fill)
+		[
+			SNew(SEditableTextBox)
+				.ToolTipText(LOCTEXT("CustomAttributeValueTooltip", "Space delimited items"))
+				.IsEnabled(IsEnabledAttr)
+				.Font(IDetailLayoutBuilder::GetDetailFont())
+				.Text_Lambda([GetActiveArray, ReadArrayAsStrings]()
+					{
+						TArray<FString> Items;
+						ReadArrayAsStrings(GetActiveArray(), Items);
+
+						FString Combined;
+						for (int32 i = 0; i < Items.Num(); ++i)
+						{
+							Combined += Items[i];
+							if (i < Items.Num() - 1) Combined += TEXT(" ");
+						}
+						return FText::FromString(Combined);
+					})
+				.OnTextCommitted_Lambda([GetActiveArray, GetInactiveArray, WriteArrayFromStrings](const FText& NewText, ETextCommit::Type)
+					{
+						TArray<FString> Values;
+						NewText.ToString().ParseIntoArrayWS(Values);
+
+						for (int32 i = Values.Num() - 1; i >= 0; --i)
+						{
+							Values[i] = Values[i].TrimStartAndEnd();
+							if (Values[i].IsEmpty())
+							{
+								Values.RemoveAt(i);
+							}
+						}
+
+						WriteArrayFromStrings(GetActiveArray(), Values);
+
+						const TSharedPtr<IPropertyHandle> Inactive = GetInactiveArray();
+						if (Inactive.IsValid() && Inactive->AsArray().IsValid())
+						{
+							Inactive->AsArray()->EmptyArray();
+						}
+					})
+		];
+}
+
+TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::MakeBoundEditor(
+	const FText& Label,
+	const TSharedPtr<IPropertyHandle>& TypeHandle,
+	const TSharedPtr<IPropertyHandle>& ValueHandle,
+	bool bRequired,
+	TAttribute<bool>& IsEnabledAttr,
+	int32 MinInt,
+	FText OptionalTooltip)
+{
+	TypeHandle->MarkHiddenByCustomization();
+
+	TSharedRef<SWidget> ValueWidget = SNew(SIntSpinAsFloatOptional)
+		.FloatHandle(ValueHandle)
+		.TypeHandle(TypeHandle)
+		.Required(bRequired)
+		.MinInt(MinInt)
+		.MaxInt(10000)
+		.OptionalTooltip(OptionalTooltip);
+
+	return  SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(2)
+		.VAlign(VAlign_Center)
+		[
+			SNew(STextBlock)
+				.Text(Label)
+				.Font(IDetailLayoutBuilder::GetDetailFont())
+		]
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(2)
+		.VAlign(VAlign_Center)
+		[
+			SNew(SBox)
+				.IsEnabled(IsEnabledAttr)
+				[
+					ValueWidget
+				]
+		];
+}
+
+TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateAmountValueWidget(TSharedPtr<IPropertyHandle> RangeHandle, TAttribute<bool>& IsEnabledAttr)
+{
+	auto LowerBound = RangeHandle->GetChildHandle("LowerBound");
+	auto UpperBound = RangeHandle->GetChildHandle("UpperBound");
+	auto LowerType = LowerBound->GetChildHandle("Type");
+	auto UpperType = UpperBound->GetChildHandle("Type");
+	auto LowerValue = LowerBound->GetChildHandle("Value");
+	auto UpperValue = UpperBound->GetChildHandle("Value");
+
+	return SNew(SHorizontalBox)
+		// Min
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(2)
+		[
+			MakeBoundEditor(LOCTEXT("Min", "Min"), LowerType, LowerValue, true, IsEnabledAttr, 0)
+		]
+
+		// Max
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(2)
+		[
+			MakeBoundEditor(LOCTEXT("Max", "Max"), UpperType, UpperValue, false, IsEnabledAttr, 0, LOCTEXT("Max tooltip", "0 means no Max"))
+		];
+}
+
 TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateEyeUpdateWidget()
 {
 	TSharedRef<SEyeUpdateWidget> EyeUpdateWidget = SNew(SEyeUpdateWidget)
@@ -1123,11 +1677,12 @@ TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateFloatWidget(TShare
 		.PropertyHandle(ParameterHandle);
 }
 
-TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateStringWidget(TSharedPtr<IPropertyHandle> ParameterHandle, FOnVerifyTextChanged Validation)
+TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateStringWidget(TSharedPtr<IPropertyHandle> ParameterHandle, FOnVerifyTextChanged Validation, FText ToolTip)
 {
 	return SNew(SDeadlineCloudStringWidget)
 		.StringPropertyHandle(ParameterHandle)
-		.IsValidInput(Validation);
+		.IsValidInput(Validation)
+		.ToolTip(ToolTip);
 }
 
 UMoviePipelineDeadlineCloudExecutorJob* FDeadlineCloudDetailsWidgetsHelper::GetMrqJob(TSharedRef<IPropertyHandle> Handle)

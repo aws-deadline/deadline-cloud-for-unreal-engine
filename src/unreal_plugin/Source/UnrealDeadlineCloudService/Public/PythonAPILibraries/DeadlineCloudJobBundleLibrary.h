@@ -51,4 +51,13 @@ public:
 	/** @return list of Possible job initial states */
 	UFUNCTION(BlueprintImplementableEvent)
 	TArray<FString> GetJobInitialStateOptions();
+
+	UFUNCTION(BlueprintImplementableEvent)
+	bool IsAmountRequirementDefault(const FString& Name);
+
+	UFUNCTION(BlueprintImplementableEvent)
+	bool IsAttributeRequirementDefault(const FString& Name);
+
+	UFUNCTION(BlueprintImplementableEvent)
+	FString GetRequirementFriendlyName(const FString& Name);
 };
