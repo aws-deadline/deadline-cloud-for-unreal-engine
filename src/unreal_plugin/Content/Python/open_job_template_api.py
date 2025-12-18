@@ -295,9 +295,7 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
             raw_min = item.get("min")
             raw_max = item.get("max")
 
-            if not (raw_min is not None and raw_min >= 0) and not (
-                raw_max is not None and raw_max >= 1
-            ):
+            if (raw_min is None or raw_min < 0) and (raw_max is None or raw_max < 1):
                 continue
 
             if name in result:

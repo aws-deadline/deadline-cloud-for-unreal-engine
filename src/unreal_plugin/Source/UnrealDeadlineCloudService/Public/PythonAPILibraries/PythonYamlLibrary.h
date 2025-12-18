@@ -33,7 +33,9 @@ enum class EValueValidationType : uint8
 	JobDescription,
     JobParameterValue,
 	StepParameterValue,
-	EnvParameterValue
+	EnvParameterValue,
+	AmountName,
+	AttributeName,
 };
 
 UENUM(BlueprintType)

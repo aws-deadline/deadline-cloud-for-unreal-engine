@@ -168,10 +168,12 @@ TSharedRef<SWidget> FDeadlineCloudAttributeBuilder::CreateNameWidget(TSharedPtr<
         NameWidget = FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(
             NameHandle, 
             EValueType::STRING, 
-            EValueValidationType::Default, 
+            EValueValidationType::AttributeName, 
             FText::FromString("attr.[.]*")
         );
         NameWidget->SetEnabled(IsEnabledAttr);
+        FName Tag = FName("HostReq.Attr.Custom.Name");
+        NameWidget->AddMetadata(FDriverMetaData::Id(Tag));
     }
 
 	return NameWidget.ToSharedRef();
@@ -282,10 +284,12 @@ TSharedRef<SWidget> FDeadlineCloudAmountBuilder::CreateNameWidget(TSharedPtr<IPr
         NameWidget = FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(
             NameHandle, 
             EValueType::STRING,
-			EValueValidationType::Default,
+			EValueValidationType::AmountName,
 			FText::FromString("amount.[.]*")
         );
         NameWidget->SetEnabled(IsEnabledAttr);
+        FName Tag = FName("HostReq.Amount.Custom.Name");
+        NameWidget->AddMetadata(FDriverMetaData::Id(Tag));
     }
 
 	return NameWidget.ToSharedRef();
