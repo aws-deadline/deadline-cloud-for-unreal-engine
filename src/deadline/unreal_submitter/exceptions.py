@@ -64,6 +64,14 @@ class PathContainsNonValidCharacters(DeadlineCloudSubmitterException):
 class FailedToDetectFilesTransferStrategy(DeadlineCloudSubmitterException):
     """Raised when its failed to detect which strategy to use for transfer files to render"""
 
+    pass
+
+
+class SubmitterInputValidationError(DeadlineCloudSubmitterException):
+    """Raised when user input validation fails during job submission"""
+
+    pass
+
 
 class ProjectIsNotUnderWorkspaceError(Exception):
     """Raised when current Unreal Project is not under the current Workspace"""
