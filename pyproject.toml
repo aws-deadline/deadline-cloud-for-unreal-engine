@@ -83,7 +83,7 @@ packages = [
 ]
 
 [tool.mypy]
-python_version = 3.10
+python_version = "3.10"
 check_untyped_defs = true
 show_error_codes = true
 pretty = true
