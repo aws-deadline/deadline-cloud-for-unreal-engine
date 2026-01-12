@@ -60,4 +60,10 @@ public:
 
 	UFUNCTION(BlueprintImplementableEvent)
 	FString GetRequirementFriendlyName(const FString& Name);
+
+	UFUNCTION(BlueprintImplementableEvent)
+	FString ValidateAmountName(const FString& Name);
+
+	UFUNCTION(BlueprintImplementableEvent)
+	FString ValidateAttributeName(const FString& Name);
 };

@@ -4,8 +4,11 @@ import unreal
 from typing import Any, Optional, Union
 
 from openjd.model import parse_model
-from openjd.model.v2023_09 import HostRequirementsTemplate
-
+from openjd.model.v2023_09 import (
+    HostRequirementsTemplate,
+    AmountRequirementTemplate,
+    AttributeRequirementTemplate,
+)
 
 DEFAULT_HOST_REQUIREMENTS: dict[str, list[Any]] = {
     "amounts": [
@@ -33,6 +36,22 @@ FRIENDLY_NAME_MAP = {
 
 
 class HostRequirementsHelper:
+
+    @staticmethod
+    def validate_name(dict_name: str, name: str) -> str:
+        if HostRequirementsHelper.is_predefined_requirement_by_name(dict_name, name):
+            return "Using predefined names is not allowed"
+
+        try:
+            if dict_name == "amounts":
+                parse_model(model=AmountRequirementTemplate, obj={"name": name, "min": 1})
+            elif dict_name == "attributes":
+                parse_model(
+                    model=AttributeRequirementTemplate, obj={"name": name, "anyOf": ["Test"]}
+                )
+        except Exception as e:
+            return str(e)
+        return ""
 
     @staticmethod
     def is_predefined_requirement_by_name(dict_name: str, name: str) -> bool:

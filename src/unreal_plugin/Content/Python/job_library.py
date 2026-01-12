@@ -129,3 +129,11 @@ class DeadlineCloudJobBundleLibraryImplementation(unreal.DeadlineCloudJobBundleL
     @unreal.ufunction(override=True)
     def get_job_initial_state_options(self):
         return ["READY", "SUSPENDED"]
+
+    @unreal.ufunction(override=True)
+    def validate_amount_name(self, name) -> str:
+        return HostRequirementsHelper.validate_name("amounts", name)
+
+    @unreal.ufunction(override=True)
+    def validate_attribute_name(self, name) -> str:
+        return HostRequirementsHelper.validate_name("attributes", name)
