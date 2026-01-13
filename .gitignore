@@ -98,4 +98,4 @@ DerivedDataCache/*
 gen
 
 # Kiro IDE files
-.kiro/
+.kiro/specs/

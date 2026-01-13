@@ -329,6 +329,45 @@ class UnrealRenderStepHandler(BaseStepHandler):
             UnrealRenderStepHandler.cached_frame_range_end,
         )
 
+    @staticmethod
+    def parse_dynamic_chunked_frames(dynamic_chunked_frames: str) -> tuple[int, int]:
+        """
+        Parse a contiguous frame chunk expression into start and end frames.
+
+        IMPORTANT: Only CONTIGUOUS rangeConstraint is supported. Non-contiguous frame lists
+        (e.g., "1,5,10" or "1-5,10-15") are NOT supported because Unreal Engine's Movie Render
+        Queue (MRQ) only accepts contiguous frame ranges via custom_start_frame/custom_end_frame.
+        MRQ does not provide an API to render arbitrary non-contiguous frames in a single job.
+
+        Supported format:
+            Range: "<start>-<end>" (e.g., "1-10", "5-5", "0-100")
+
+        :param dynamic_chunked_frames: Frame chunk expression string from TASK_CHUNKING extension
+            (must be CONTIGUOUS rangeConstraint)
+        :return: Tuple of (start_frame, end_frame)
+        :raises ValueError: If dynamic_chunked_frames is empty, malformed, or not in range format
+        """
+        if not dynamic_chunked_frames or not dynamic_chunked_frames.strip():
+            raise ValueError("dynamic_chunked_frames cannot be empty")
+
+        dynamic_chunked_frames = dynamic_chunked_frames.strip()
+
+        # CONTIGUOUS mode always returns range format: "<start>-<end>"
+        match = re.match(r"^(\d+)-(\d+)$", dynamic_chunked_frames)
+        if match:
+            start = int(match.group(1))
+            end = int(match.group(2))
+            if start > end:
+                raise ValueError(
+                    f"Invalid frame range: start ({start}) cannot be greater than end ({end})"
+                )
+            return (start, end)
+
+        raise ValueError(
+            f"Invalid dynamic_chunked_frames format: '{dynamic_chunked_frames}'. "
+            "Expected range format '<start>-<end>' (e.g., '1-10', '5-5')"
+        )
+
     def run_script(self, args: dict) -> bool:
         """
         Create the unreal.MoviePipelineQueue object and render it with the render executor
@@ -364,11 +403,11 @@ class UnrealRenderStepHandler(BaseStepHandler):
             )
 
         output_settings = None
-        if "chunk_id" in args:
-            chunk_id: int = args["chunk_id"]
         for job in subsystem.get_queue().get_jobs():
-            if args.get("frames_per_task") and "chunk_id" in args:
-                frames_per_task: int = args["frames_per_task"]
+            if "dynamic_chunked_frames" in args or (
+                args.get("frames_per_task") and "chunk_id" in args
+            ):
+                # Dynamic chunking or frame-based chunking (both set custom frame ranges)
                 if not output_settings:
                     output_settings = job.get_configuration().find_or_add_setting_by_class(
                         unreal.MoviePipelineOutputSetting
@@ -378,23 +417,39 @@ class UnrealRenderStepHandler(BaseStepHandler):
                         unreal.SystemLibrary.conv_soft_obj_path_to_soft_obj_ref(job.sequence)
                     )
                 )
-                frame_range_start, frame_range_end = self.get_frame_range(
-                    output_settings, level_sequence
-                )
 
-                output_settings.custom_start_frame = frame_range_start + (
-                    chunk_id * frames_per_task
-                )
-                output_settings.custom_end_frame = min(
-                    output_settings.custom_start_frame + frames_per_task, frame_range_end
-                )
-                level_sequence.set_playback_start(output_settings.custom_start_frame)
-                level_sequence.set_playback_end(output_settings.custom_end_frame)
+                # Determine frame range based on chunking mode
+                if "dynamic_chunked_frames" in args:
+                    # Dynamic chunking
+                    start_frame, end_frame = self.parse_dynamic_chunked_frames(
+                        args["dynamic_chunked_frames"]
+                    )
+                    # The scheduler returns inclusive frame ranges (e.g., "10-10" means 1 frame),
+                    # but Unreal's custom_end_frame is exclusive. Add 1 to make it inclusive.
+                    end_frame = end_frame + 1
+                    # Dynamic chunking requires explicit custom playback range
+                    output_settings.use_custom_playback_range = True
+                else:
+                    # Frame-based chunking
+                    frames_per_task: int = args["frames_per_task"]
+                    chunk_id: int = args["chunk_id"]
+                    frame_range_start, frame_range_end = self.get_frame_range(
+                        output_settings, level_sequence
+                    )
+                    start_frame = frame_range_start + (chunk_id * frames_per_task)
+                    end_frame = min(start_frame + frames_per_task, frame_range_end)
+
+                output_settings.custom_start_frame = start_frame
+                output_settings.custom_end_frame = end_frame
+                level_sequence.set_playback_start(start_frame)
+                level_sequence.set_playback_end(end_frame)
                 logger.info(
                     f"Rendering custom frame range from {output_settings.custom_start_frame} to {output_settings.custom_end_frame} with sequence playback start {level_sequence.get_playback_start()} end {level_sequence.get_playback_end()}"
                 )
             elif "chunk_size" in args and "chunk_id" in args:
+                # Shot-based chunking
                 chunk_size: int = args["chunk_size"]
+                chunk_id: int = args["chunk_id"]
                 UnrealRenderStepHandler.enable_shots_by_chunk(
                     render_job=job,
                     task_chunk_size=chunk_size,

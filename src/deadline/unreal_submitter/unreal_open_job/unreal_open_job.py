@@ -1122,6 +1122,103 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         return parameter_values
 
+    def _is_using_dynamic_chunking(self) -> bool:
+        """
+        Check if any step in this job uses dynamic chunking (CHUNK[INT] type).
+
+        :return: True if any step uses dynamic chunking, False otherwise
+        :rtype: bool
+        """
+        from deadline.unreal_submitter.unreal_open_job.unreal_open_job_dynamic_chunking import (
+            DynamicChunkingHelper,
+        )
+
+        for step in self._steps:
+            try:
+                step_template_object = step.get_template_object()
+                if DynamicChunkingHelper.is_using_dynamic_chunking(step_template_object):
+                    return True
+            except (FileNotFoundError, AttributeError):
+                continue
+        return False
+
+    def _build_frames_parameter_value(self, parameter_values: list[dict]) -> list[dict]:
+        """
+        Build and return the Frames parameter value for dynamic chunking templates.
+
+        Extracts the frame range from MRQ settings:
+        - If custom playback range is enabled, uses custom_start_frame and custom_end_frame
+        - Otherwise, uses the level sequence's playback range
+
+        The frame range is formatted as "<start>-<end>" (e.g., "0-99" for 100 frames).
+
+        :param parameter_values: list of parameter values to be updated
+        :type parameter_values: list[dict]
+
+        :return: list of updated parameter values
+        :rtype: list[dict]
+        """
+        # Check if Frames parameter exists in the parameter values (indicates dynamic chunking)
+        frames_param = next(
+            (p for p in parameter_values if p["name"] == OpenJobParameterNames.FRAMES), None
+        )
+        if not frames_param:
+            return parameter_values
+
+        # Skip if Frames already has a value
+        if frames_param.get("value") is not None:
+            return parameter_values
+
+        # Need MRQ job to extract frame range
+        if not self._mrq_job:
+            logger.warning(
+                "Cannot populate Frames parameter: MRQ job is not set. "
+                "Dynamic chunking requires frame range from MRQ settings."
+            )
+            return parameter_values
+
+        # Load output settings and level sequence from MRQ job
+        output_settings = self._mrq_job.get_configuration().find_setting_by_class(
+            unreal.MoviePipelineOutputSetting
+        )
+        level_sequence = unreal.EditorAssetLibrary.load_asset(
+            unreal.SystemLibrary.conv_soft_object_reference_to_string(
+                unreal.SystemLibrary.conv_soft_obj_path_to_soft_obj_ref(self._mrq_job.sequence)
+            )
+        )
+
+        if not level_sequence:
+            logger.warning(
+                "Cannot populate Frames parameter: Level sequence not found. "
+                "Dynamic chunking requires frame range from level sequence."
+            )
+            return parameter_values
+
+        # Extract frame range from MRQ settings
+        if output_settings and output_settings.use_custom_playback_range:
+            start_frame = output_settings.custom_start_frame
+            end_frame = output_settings.custom_end_frame
+            logger.info(
+                f"Using custom playback range for Frames parameter: {start_frame}-{end_frame}"
+            )
+        else:
+            start_frame = level_sequence.get_playback_range().get_start_frame()
+            end_frame = level_sequence.get_playback_range().get_end_frame()
+            logger.info(
+                f"Using level sequence playback range for Frames parameter: {start_frame}-{end_frame}"
+            )
+
+        # Format as "<start>-<end>" for OpenJD IntRangeExpr
+        frames_value = f"{start_frame}-{end_frame}"
+
+        parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+            job_parameter_values=parameter_values,
+            job_parameter_name=OpenJobParameterNames.FRAMES,
+            job_parameter_value=frames_value,
+        )
+
+        return parameter_values
+
     def _build_parameter_values(self) -> list:
         """
         Build and return list of parameter values for the OpenJob. Use YAML parameter names and
@@ -1139,6 +1236,8 @@ class RenderUnrealOpenJob(UnrealOpenJob):
           (see :meth:`deadline.unreal_submitter.unreal_open_job.unreal_open_job.RenderUnrealOpenJob._build_parameter_values_for_ugs()`)
         - Parameters for P4 if P4 is used
           (see :meth:`deadline.unreal_submitter.unreal_open_job.unreal_open_job.RenderUnrealOpenJob._build_parameter_values_for_p4()`)
+        - Frames parameter for dynamic chunking templates
+          (see :meth:`deadline.unreal_submitter.unreal_open_job.unreal_open_job.RenderUnrealOpenJob._build_frames_parameter_value()`)
 
         .. note:: If expected parameter missed, it will be skipped
 
@@ -1217,6 +1316,12 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         if self._transfer_files_strategy == TransferProjectFilesStrategy.P4:
             unfilled_parameter_values = self._build_parameter_values_for_p4(
+                parameter_values=unfilled_parameter_values
+            )
+
+        # Populate Frames parameter for dynamic chunking templates
+        if self._is_using_dynamic_chunking():
+            unfilled_parameter_values = self._build_frames_parameter_value(
                 parameter_values=unfilled_parameter_values
             )
 

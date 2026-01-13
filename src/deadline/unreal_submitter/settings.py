@@ -23,3 +23,10 @@ P4_RENDER_STEP_TEMPLATE_DEFAULT_PATH = "p4/p4_render_step.yml"
 P4_LAUNCH_ENVIRONMENT_TEMPLATE_DEFAULT_PATH = "p4/p4_launch_ue_environment.yml"
 P4_SYNC_CMF_ENVIRONMENT_TEMPLATE_DEFAULT_PATH = "p4/p4_sync_cmf_environment.yml"
 P4_SYNC_SMF_ENVIRONMENT_TEMPLATE_DEFAULT_PATH = "p4/p4_sync_smf_environment.yml"
+
+DYNAMIC_CHUNKING_RENDER_JOB_TEMPLATE_DEFAULT_PATH = (
+    "dynamic_chunking/dynamic_chunking_render_job.yml"
+)
+DYNAMIC_CHUNKING_RENDER_STEP_TEMPLATE_DEFAULT_PATH = (
+    "dynamic_chunking/dynamic_chunking_render_step.yml"
+)
