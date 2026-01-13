@@ -1,6 +1,6 @@
 coverage[toml] == 7.*
-pytest == 9.0.*; python_version >= '3.10'
-pytest == 8.4.*; python_version < '3.10'
+pytest == 9.*; python_version >= '3.10'
+pytest == 8.*; python_version < '3.10'
 pytest-cov == 7.*
 pytest-xdist == 3.*
 twine == 6.*
