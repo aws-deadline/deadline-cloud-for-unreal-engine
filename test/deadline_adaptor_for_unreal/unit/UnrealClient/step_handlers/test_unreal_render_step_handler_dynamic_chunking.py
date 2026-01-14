@@ -40,6 +40,12 @@ class TestParseDynamicChunkedFrames:
             ("10-20", 10, 20),  # Range middle values
             (" 1-10 ", 1, 10),  # Range with whitespace
             ("  5-5  ", 5, 5),  # Single frame range with extra whitespace
+            # Negative frame support
+            ("-100--76", -100, -76),  # Both negative
+            ("-50-10", -50, 10),  # Negative start, positive end
+            ("-10--10", -10, -10),  # Single negative frame as range
+            ("-1-0", -1, 0),  # Negative to zero
+            ("  -100--76  ", -100, -76),  # Negative with whitespace
         ],
     )
     def test_valid_frame_chunk_formats(
@@ -64,10 +70,8 @@ class TestParseDynamicChunkedFrames:
             ("abc", "Invalid dynamic_chunked_frames format"),  # Non-numeric
             ("1.5", "Invalid dynamic_chunked_frames format"),  # Float
             ("1-", "Invalid dynamic_chunked_frames format"),  # Incomplete range
-            ("-10", "Invalid dynamic_chunked_frames format"),  # Negative single frame
-            ("1--2", "Invalid dynamic_chunked_frames format"),  # Double dash
-            ("-1-10", "Invalid dynamic_chunked_frames format"),  # Negative start
-            ("1-10-20", "Invalid dynamic_chunked_frames format"),  # Multiple dashes
+            ("-10", "Invalid dynamic_chunked_frames format"),  # Negative single frame (not range)
+            ("1-10-20", "Invalid dynamic_chunked_frames format"),  # Multiple dashes (ambiguous)
             (
                 "1,2,3",
                 "Invalid dynamic_chunked_frames format",
@@ -95,6 +99,14 @@ class TestParseDynamicChunkedFrames:
             unreal_render_step_handler.parse_dynamic_chunked_frames("10-1")
 
         assert "start (10) cannot be greater than end (1)" in str(exc_info.value)
+
+    def test_negative_start_greater_than_end_raises_error(self, unreal_render_step_handler):
+        """Test that start > end with negative frames raises ValueError"""
+        # WHEN/THEN
+        with pytest.raises(ValueError) as exc_info:
+            unreal_render_step_handler.parse_dynamic_chunked_frames("-50--100")
+
+        assert "start (-50) cannot be greater than end (-100)" in str(exc_info.value)
 
 
 class TestDynamicChunkingPrecedence:

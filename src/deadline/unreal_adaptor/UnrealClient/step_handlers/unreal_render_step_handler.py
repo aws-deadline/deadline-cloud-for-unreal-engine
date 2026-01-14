@@ -340,7 +340,7 @@ class UnrealRenderStepHandler(BaseStepHandler):
         MRQ does not provide an API to render arbitrary non-contiguous frames in a single job.
 
         Supported format:
-            Range: "<start>-<end>" (e.g., "1-10", "5-5", "0-100")
+            Range: "<start>-<end>" (e.g., "1-10", "5-5", "0-100", "-100--76", "-50-10")
 
         :param dynamic_chunked_frames: Frame chunk expression string from TASK_CHUNKING extension
             (must be CONTIGUOUS rangeConstraint)
@@ -353,7 +353,7 @@ class UnrealRenderStepHandler(BaseStepHandler):
         dynamic_chunked_frames = dynamic_chunked_frames.strip()
 
         # CONTIGUOUS mode always returns range format: "<start>-<end>"
-        match = re.match(r"^(\d+)-(\d+)$", dynamic_chunked_frames)
+        match = re.match(r"^(-?\d+)-(-?\d+)$", dynamic_chunked_frames)
         if match:
             start = int(match.group(1))
             end = int(match.group(2))
@@ -365,7 +365,7 @@ class UnrealRenderStepHandler(BaseStepHandler):
 
         raise ValueError(
             f"Invalid dynamic_chunked_frames format: '{dynamic_chunked_frames}'. "
-            "Expected range format '<start>-<end>' (e.g., '1-10', '5-5')"
+            "Expected range format '<start>-<end>' (e.g., '1-10', '5-5', '-100-100')"
         )
 
     def run_script(self, args: dict) -> bool:
