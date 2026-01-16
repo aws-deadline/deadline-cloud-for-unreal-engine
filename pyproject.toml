@@ -83,11 +83,15 @@ packages = [
 ]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = 3.9
 check_untyped_defs = true
 show_error_codes = true
 pretty = true
 files = [ "src/**/*.py" ]
+exclude = [
+    "site-packages",
+    ".*/site-packages/.*",
+]
 ignore_missing_imports = true
 # Tell mypy that there's a namespace package at src/deadline
 namespace_packages = true
