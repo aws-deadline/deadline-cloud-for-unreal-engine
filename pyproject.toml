@@ -88,10 +88,6 @@ check_untyped_defs = true
 show_error_codes = true
 pretty = true
 files = [ "src/**/*.py" ]
-exclude = [
-    "site-packages",
-    ".*/site-packages/.*",
-]
 ignore_missing_imports = true
 # Tell mypy that there's a namespace package at src/deadline
 namespace_packages = true
@@ -99,7 +95,8 @@ explicit_package_bases = true
 mypy_path = "src"
 
 [[tool.mypy.overrides]]
-module = ["unreal.*"]
+module = ["_pytest.*", "pytest.*", "unreal.*"]
+follow_imports = "skip"
 ignore_missing_imports = true
 
 [tool.ruff]
