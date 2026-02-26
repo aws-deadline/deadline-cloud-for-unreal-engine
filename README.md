@@ -20,7 +20,7 @@ For instructions on installing and using this integration, visit the [user guide
 
 This library requires:
 
-1. Python 3.9 or higher; and Unreal Engine 5.3 or higher.
+1. Python 3.9 or higher; and Unreal Engine 5.4 or higher.
 2. Windows operating system.
 
 ## Submitter
