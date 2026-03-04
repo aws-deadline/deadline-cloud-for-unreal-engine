@@ -33,8 +33,3 @@ Requires these UE plugins (declared in `.uplugin`):
 - `PythonScriptPlugin`
 - `MovieRenderPipeline`
 - `EditorScriptingUtilities`
-
-## Code style
-
-- C++ follows standard UE coding conventions
-- Python files in `Content/Python/` follow the same style as the `deadline.*` packages (copyright header, type hints, ruff/black formatting)

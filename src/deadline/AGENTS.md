@@ -10,14 +10,6 @@ This directory contains the Python packages for AWS Deadline Cloud for Unreal En
 - `unreal_logger` — Logging utilities that bridge Python logging to Unreal's log system
 - `unreal_cmd_utils` — Unreal Engine command-line argument parsing and merging
 
-## Code style
-
-- All files must start with `# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.`
-- Use `get_logger()` from `deadline.unreal_logger` for logging in submitter/perforce code
-- Use standard `logging.getLogger(__name__)` in adaptor code
-- Type hints are expected on all public functions
-- Imports: first-party packages are `deadline` and `openjd`
-
 ## Key dependencies
 
 - `deadline` (client library) — job submission APIs, telemetry

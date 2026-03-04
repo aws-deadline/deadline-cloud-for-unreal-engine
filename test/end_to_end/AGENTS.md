@@ -13,6 +13,6 @@ End-to-end tests that run against real AWS Deadline Cloud infrastructure. These 
 ## Important context
 
 - These tests require valid AWS credentials and a real Deadline Cloud environment
-- They are slow and resource-intensive — not part of the default `pytest` run
+- They are slow and resource-intensive — not run as part of the default unit tests
 - The `conftest.py` adds the repo root to `sys.path` and imports from `scripts/build_plugin.py`
 - Resource cleanup is handled by fixtures; check teardown logic before modifying
