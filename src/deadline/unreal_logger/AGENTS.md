@@ -16,6 +16,3 @@ Logging bridge between Python's `logging` module and Unreal Engine's log system.
 - Use `get_logger()` in code that runs inside UE or in simple packages (submitter, perforce_utils, UnrealClient)
 - Use standard `logging.getLogger(__name__)` when per-module logger names matter for debugging (e.g. `UnrealAdaptor/` which runs outside UE as a multi-module process)
 
-## Testing
-
-- Unit tests: `test/deadline_logger_for_unreal/`

@@ -21,7 +21,3 @@ Handles job submission from the Unreal Editor to AWS Deadline Cloud. Runs inside
 - Telemetry is collected by default; users can opt out via `DEADLINE_CLOUD_TELEMETRY_OPT_OUT=true`
 - The `unreal_open_job` subpackage builds OpenJD job bundles programmatically — changes here affect the job structure sent to Deadline Cloud
 
-## Testing
-
-- Unit tests: `test/deadline_submitter_for_unreal/`
-- The `unreal` module must be mocked in tests since it's only available inside UE

@@ -10,16 +10,6 @@ This directory contains the Python packages for AWS Deadline Cloud for Unreal En
 - `unreal_logger` — Logging utilities that bridge Python logging to Unreal's log system
 - `unreal_cmd_utils` — Unreal Engine command-line argument parsing and merging
 
-## Build & test
-
-- Build system: Hatch (`pyproject.toml` at repo root)
-- Python: >=3.9
-- Install dev: `pip install -e ".[dev]"` from repo root
-- Run tests: `pytest` from repo root (configured in `pyproject.toml`)
-- Coverage threshold: 65%
-- Linting: `ruff` (line-length 100), `mypy` (check_untyped_defs, Python 3.9)
-- Formatter: `black` (line-length 100)
-
 ## Code style
 
 - All files must start with `# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.`

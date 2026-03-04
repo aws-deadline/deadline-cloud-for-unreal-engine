@@ -20,6 +20,3 @@ Perforce workspace management for Deadline Cloud Unreal Engine jobs. Handles wor
 - Credentials are fetched from AWS Secrets Manager at runtime
 - This code runs on worker nodes, not inside Unreal Engine
 
-## Testing
-
-- Unit tests: `test/deadline_perforce_utils_for_unreal/`

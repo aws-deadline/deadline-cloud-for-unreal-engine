@@ -34,23 +34,6 @@ Requires these UE plugins (declared in `.uplugin`):
 - `MovieRenderPipeline`
 - `EditorScriptingUtilities`
 
-## Build
-
-- Build file: `UnrealDeadlineCloudService.Build.cs`
-- Module type: `UncookedOnly` (editor-only, not shipped in cooked builds)
-- The Python `deadline-cloud-for-unreal-engine` package (>=0.5.0) must be available in the UE Python environment
-
-## Development pipeline
-
-- Python submitter library is bundled into `Content/Python/libraries/` during CI/CD (see `DEVELOPMENT.md`)
-- C++ docs generated with Doxygen: `cd Documentation && doxygen`
-
-## Testing
-
-- C++ automation tests in `Private/Tests/` — run via UE's Automation framework
-- Integration tests in `Private/Tests/Integration/`
-- OpenJD template tests in `Private/Tests/openjd_templates/`
-
 ## Code style
 
 - C++ follows standard UE coding conventions

@@ -4,14 +4,6 @@
 
 Test suite for the `deadline-cloud-for-unreal-engine` Python packages. Organized by source package with unit and end-to-end test directories.
 
-## Running tests
-
-- Run all tests: `pytest` from repo root
-- Run a specific suite: `pytest test/deadline_submitter_for_unreal/`
-- Run a single test: `pytest test/path/to/test_file.py::test_name`
-- Coverage threshold: 65% (enforced in `pyproject.toml`)
-- Coverage report: `build/coverage/`
-
 ## Structure
 
 - `deadline_submitter_for_unreal/` — Tests for `src/deadline/unreal_submitter`

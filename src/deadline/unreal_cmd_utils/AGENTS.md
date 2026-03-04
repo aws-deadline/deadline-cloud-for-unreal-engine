@@ -15,6 +15,3 @@ Utilities for parsing and merging Unreal Engine command-line arguments. Used by 
 - Uses `shlex` for tokenization
 - Higher-priority args override lower-priority args when keys conflict
 
-## Testing
-
-- Unit tests: `test/deadline_cmd_utils_for_unreal/`

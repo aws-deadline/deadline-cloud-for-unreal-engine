@@ -24,6 +24,3 @@ Worker-side adaptor that launches and controls Unreal Engine on Deadline Cloud r
   - `UnrealClient/` (runs inside UE): use `from deadline.unreal_logger import get_logger` / `get_logger(__name__)`
 - JSON schemas in `schemas/` validate data passed between adaptor and client
 
-## Testing
-
-- Unit tests: `test/deadline_adaptor_for_unreal/`
