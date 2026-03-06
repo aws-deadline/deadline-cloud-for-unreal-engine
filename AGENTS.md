@@ -1,7 +1,5 @@
 # AGENTS.md — deadline-cloud-for-unreal-engine
 
-For project architecture and component relationships, use the `ue-architecture` skill.
-
 ## Build
 
 ```bash
@@ -37,10 +35,7 @@ hatch run fmt     # black auto-format
 ```
 
 ## Testing Conventions
-
-- The `unreal` module is **never** available in tests — always mock it
-- All test files **MUST** start with `# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.`
-- Coverage threshold: 65%
+- See `test/AGENTS.md` for detailed test structure and patterns
 
 ## Commit Messages
 
@@ -57,15 +52,27 @@ Use conventional commits:
 
 ## Design Docs for Major Changes
 
-For new features or major refactors, use the `design-doc` skill. This does NOT apply to small bug fixes.
+For new features or major refactors, use the `ue-design` skill. This does NOT apply to small bug fixes.
 
-UE-specific additions to the standard design process:
-- Use the `ue-architecture` skill to understand component boundaries and where code should go
-- Use the `openjd-template` skill when the feature involves OpenJD templates
-- Reference UE docs when the feature touches Unreal Engine APIs:
-  - UE C++ API: https://dev.epicgames.com/documentation/en-us/unreal-engine/API
-  - UE Python API: https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api
-- Check backwards compatibility — if breaking changes are needed, include version bump and migration plan in the implementation plan
-- Consider security implications and call them out explicitly
-- Research options, present tradeoffs, and ask follow-up questions before committing to an approach
-- Save design docs in `docs/designs/`
+## Architecture
+
+C++ and Python integration enabling Unreal Movie Render Queue job submission to AWS Deadline Cloud and worker-side rendering via OpenJD adaptors. Each component has its own `AGENTS.md` with detailed context.
+
+```
+  SUBMITTER WORKSTATION                         WORKER NODE
+ ┌──────────────────────┐                     ┌──────────────────────┐
+ │  UE Editor           │                     │  unreal_adaptor      │
+ │  ├─ C++ Plugin       │   OpenJD Job Bundle │  ├─ UnrealAdaptor/   │
+ │  ├─ Content/Python/  │ ──────────────────► │  └─ UnrealClient/    │
+ │  └─ unreal_submitter │                     │                      │
+ └──────────────────────┘                     │  unreal_perforce_utils│
+                                              │  unreal_cmd_utils    │
+                                              │  unreal_logger       │
+                                              └──────────────────────┘
+```
+
+### External References
+
+- **UE C++ API:** https://dev.epicgames.com/documentation/en-us/unreal-engine/API
+- **UE Python API:** https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api
+- For OpenJD template work, use the `openjd-template` skill
