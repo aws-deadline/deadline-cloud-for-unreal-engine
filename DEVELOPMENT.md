@@ -183,6 +183,27 @@ Solutions:
    - Resubmit the job using the Unreal Engine version that matches the worker node. On Service Managed Fleets - Ensure the Conda package version selected matches your project's version of Unreal Engine
    - Install the correct Unreal Engine version on the worker node and update environment variables to match the job's Unreal Engine version
 
+### Build Fails Because Repository Was Downloaded as a Zip Instead of Cloned
+
+Root Cause: The repository was downloaded as a zip archive from GitHub (e.g. "Download ZIP") instead of being cloned with `git`. GitHub zip downloads do not include the `.git` folder, which `setuptools-scm` requires to determine the package version.
+
+Running `hatch build` directly will show:
+```
+LookupError: Error getting the version from source `vcs`: setuptools-scm was unable to detect version for <path>.
+
+Make sure you're either building from a fully intact git repository or PyPI tarballs. Most other sources (such as GitHub's tarballs, a git checkout without the .git folder) don't contain the necessary metadata and will not work.
+```
+
+Running `scripts/build_plugin.py` will show:
+```
+subprocess.CalledProcessError: Command '['hatch', 'build']' returned non-zero exit status 1.
+```
+
+Solution: Clone the repository using `git clone` instead of downloading the zip:
+```bash
+git clone https://github.com/aws-deadline/deadline-cloud-for-unreal-engine.git
+```
+
 ### Missing Deadline Cloud Job Submission Configuration in Movie Render Queue
 
 Issue: When launching Movie Render Queue, Deadline Cloud job submission configurations are not visible.
