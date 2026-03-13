@@ -2,6 +2,11 @@
 
 Step-by-step workflow the agent follows to automate environment setup. Execute each step, validate, and only prompt the user when required.
 
+> **Source of truth:** The canonical setup instructions live in
+> [docs/user_guide/setup-submitter.md](../../../docs/user_guide/setup-submitter.md) and
+> [DEVELOPMENT.md](../../../DEVELOPMENT.md).
+> This guide tells the agent *how to automate* those steps — refer to the source docs for full details.
+
 ## Step 0: Verify Windows OS
 
 **Action:** Check OS.
@@ -21,9 +26,7 @@ Get-WmiObject Win32_VideoController | Where-Object {$_.Name -like "*NVIDIA*"}
 nvidia-smi
 ```
 
-**If not found:** Inform user GPU/drivers are required. Provide links:
-- Local: https://www.nvidia.com/Download/index.aspx
-- EC2: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/install-nvidia-driver.html#nvidia-GRID-driver
+**If not found:** Inform user GPU/drivers are required. Refer to the NVIDIA driver instructions in `docs/user_guide/setup-submitter.md`.
 
 Wait for user confirmation before continuing.
 
@@ -55,7 +58,7 @@ python --version
 winget install Python.Python.3.12 --scope machine
 ```
 
-If winget fails, instruct user to install from https://www.python.org/downloads/ (install for all users). Wait for confirmation.
+If winget fails, instruct user to install from https://www.python.org/downloads/. Wait for confirmation.
 
 ## Step 4: Verify Build Tools
 
@@ -66,13 +69,12 @@ where.exe msbuild
 Get-ChildItem "C:\Program Files\Microsoft Visual Studio" -Directory
 ```
 
-**If not found:** Inform user Visual Studio with C++ tools is required:
-- Download: https://visualstudio.microsoft.com/
-- Workload: "Desktop development with C++"
-- Individual Components: MSVC build tools (match UE version per https://dev.epicgames.com/documentation/en-us/unreal-engine/setting-up-visual-studio-development-environment-for-cplusplus-projects-in-unreal-engine)
-- Individual Components: .NET Framework SDK (4.6.1 or 4.8.1)
+**If not found:** Attempt install via winget:
+```powershell
+winget install Microsoft.VisualStudio.2022.Community --override "--add Microsoft.VisualStudio.Workload.NativeDesktop --passive"
+```
 
-Wait for user confirmation.
+If winget fails, inform user to install manually. Refer to `docs/user_guide/setup-submitter.md` for version requirements. Wait for user confirmation.
 
 ## Step 5: Verify Deadline Cloud Monitor
 
@@ -83,11 +85,12 @@ deadline --version
 Test-Path "$env:LOCALAPPDATA\DeadlineCloudMonitor\DeadlineCloudMonitor.exe"
 ```
 
-**If found:** Display version and continue.
+**If not found:** Attempt install via winget:
+```powershell
+winget install Amazon.DeadlineCloudMonitor
+```
 
-**If not found:** Inform user DCM is required. Install from: https://docs.aws.amazon.com/deadline-cloud/latest/userguide/submitter.html#install-deadline-cloud-monitor
-
-Note: The Windows installer includes the Deadline CLI.
+If winget fails, refer user to install instructions in `docs/user_guide/setup-submitter.md`.
 
 ## Step 6: Detect Unreal Engine
 
@@ -99,11 +102,7 @@ Get-ChildItem "C:\Program Files\Epic Games" -Directory | Where-Object {$_.Name -
 
 **If found:** Use newest version, display it, continue.
 
-**If not found:** Prompt user to either:
-1. Install UE (5.4+) from https://www.unrealengine.com/download
-2. Enter custom installation path
-
-Validate custom path: `Test-Path "$USER_PATH\Engine\Binaries\Win64\UnrealEditor.exe"`
+**If not found:** Prompt user to install UE (5.4+) or enter custom path. Validate: `Test-Path "$USER_PATH\Engine\Binaries\Win64\UnrealEditor.exe"`
 
 ## Step 7: Install Hatch
 
@@ -118,33 +117,22 @@ hatch --version
 python -m pip install hatch
 ```
 
-Verify with `hatch --version`.
-
 ## Step 8: Build and Install Plugin
 
 **Action:** Run the automated build script from the repo root.
 
 ```powershell
 python scripts/build_plugin.py --ueversion {VERSION} --install
-# Or with custom path:
-python scripts/build_plugin.py --ueversion {VERSION} --engine-root "{CUSTOM_UE_PATH}" --install
 ```
-
-Monitor output and report progress. This builds the C++ plugin AND installs Python dependencies.
 
 ## Step 9: Verify Environment Variables
 
-**Action:** Check PATH.
+**Action:** Check PATH includes Python and UE binaries.
 
 ```powershell
 $env:PATH -split ';' | Select-String "Python"
 $env:PATH -split ';' | Select-String "Epic Games"
 ```
-
-Required on PATH:
-- Python install dir (e.g. `C:\Program Files\Python312`)
-- Python Scripts dir (e.g. `C:\Program Files\Python312\Scripts`)
-- UE binaries (e.g. `C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\Win64`)
 
 If missing, inform user which paths to add.
 
@@ -162,24 +150,8 @@ Installed:
 
 ## Step 11: Enable Plugin in Unreal Engine (MANUAL)
 
-This is the only manual step. Instruct the user:
-
-> The plugin is installed but must be enabled manually in Unreal Engine.
-> Follow: https://aws-deadline.github.io/unreal-engine/setup-submitter/#submitter-installation-complete
->
-> 1. Open Unreal Engine
-> 2. Edit → Plugins → search "UnrealDeadlineCloudService" → enable
-> 3. Restart UE
-> 4. Configure Movie Render Pipeline settings (see DEVELOPMENT.md "Submit a test render")
-> 5. Submit a test render to verify
+This is the only manual step. Refer user to `docs/user_guide/setup-submitter.md` (Submitter Installation Complete section).
 
 ## Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| `build_plugin.py` can't find UE | Use `--engine-root` to specify custom path |
-| MSVC version mismatch | Match exact recommended version for your UE version |
-| Long path errors | Ensure Step 2 completed successfully |
-| `hatch` not found after install | Restart terminal or add Python Scripts to PATH |
-| Plugin not visible in UE | Verify plugin was copied to `Engine\Plugins\UnrealDeadlineCloudService` |
-| Credential errors at runtime | Open Deadline Cloud Monitor and sign in |
+Refer to the Troubleshooting section in `DEVELOPMENT.md` for common issues and solutions.

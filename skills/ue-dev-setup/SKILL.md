@@ -1,7 +1,7 @@
 ---
 name: ue-dev-setup
 description: Automated dev environment setup for deadline-cloud-for-unreal-engine. Use when onboarding, setting up the UE integration repo, building the plugin, or installing dependencies. The agent automates all steps and only prompts when user input is required.
-tags: [skill, unreal, ue5, deadline-cloud, dev-setup, onboarding, hatch, openjd, build, install]
+tags: [skill, deadline-cloud, deadline-cloud-for-unreal-engine deadline-cloud-for-ue, dev-setup, onboarding, dev-setup, plugin-build]
 ---
 
 # Unreal Engine Dev Setup

@@ -1,5 +1,7 @@
 # Design Document Template
 
+> **When to use:** This template is intended for major features, architectural changes, or cross-team integrations. For smaller changes, a brief description in the PR is sufficient — avoid creating design docs that add maintenance burden without proportional value.
+
 Generate `docs/designs/<feature-name>.md` using this structure. Write each section to disk as it's approved.
 
 **Design flow:** Work through Parts 1-3 with the human in the loop. After the design is complete, generate the Executive Summary at the top.

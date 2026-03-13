@@ -1,7 +1,7 @@
 ---
 name: ue-design
 description: AI-guided design for Unreal Engine features and major changes in Deadline Cloud integration. Use when designing new features, planning major refactors, creating design docs, or making architectural decisions for deadline-cloud-for-unreal-engine. Triggers on requests like "design a feature", "write a design doc", "plan a major change", or "architect a solution".
-tags: [skill, unreal, design, architecture, deadline-cloud, feature-design]
+tags: [skill, deadline-cloud, deadline-cloud-for-unreal-engine, deadline-cloud-for-ue, design, architecture, feature-design]
 ---
 
 # UE Design
@@ -13,9 +13,11 @@ AI-guided interactive design process for Unreal Engine features in Deadline Clou
 ## Usage
 
 Use this skill when:
-- Designing a new feature for the UE integration
+- Designing a new **major** feature for the UE integration
 - Planning a major refactor or architectural change
 - Creating or refining a design document in `docs/designs/`
+
+Do **not** use this skill for small bug fixes, minor enhancements, or changes that can be adequately described in a PR description.
 
 ## Core Concepts
 
