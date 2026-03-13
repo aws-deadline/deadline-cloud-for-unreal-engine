@@ -143,9 +143,9 @@ Installed:
   - Plugin built and installed to: [PATH]
 ```
 
-## Step 11: Enable Plugin in Unreal Engine (MANUAL)
+## Step 11: Enable Plugin and Test (MANUAL)
 
-This is the only manual step. Refer user to `docs/user_guide/setup-submitter.md` (Submitter Installation Complete section).
+This is the only manual step. Refer user to the "Submit a Test Render" section in `docs/user_guide/setup-submitter.md`.
 
 ## Troubleshooting
 

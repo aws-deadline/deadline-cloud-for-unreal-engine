@@ -6,6 +6,10 @@ This package has two active branches:
 
 ## Build and Install the Plugin, Submitter, and Adapter
 
+> **Tip:** If you're using an AI coding agent, you can run the `ue-dev-setup` skill to automate the entire dev environment setup. Just ask: *"use ue-dev-setup skill to setup this computer"*.
+>
+> For major features or significant refactors, use the `ue-design` skill to create a structured design doc before writing code. Just ask: *"use ue-design skill to design a feature"*.
+
 Full instructions for building and installing these packages and the necessary dependencies to act as a submitter and/or worker can be found in [Submitter Setup Guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-submitter.md) and [CMF Worker Setup Guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-cmf-worker.md).  Use the "mainline" branch for development rather than "release", and if you plan on submitting pull requests work out of [a fork](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/CONTRIBUTING.md#contributing-via-pull-requests).
 
 
