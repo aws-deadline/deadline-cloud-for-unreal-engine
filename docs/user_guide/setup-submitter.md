@@ -21,14 +21,15 @@ If you’re setting up on a brand new Windows EC2 Instance as your submitter, a 
 1. Download the Epic Installer and install a version of Unreal between versions 5.4 and 5.6. Note that on version 5.5 with DirectX 11 there's a crash bug which can affect projects rendered using the Deadline Cloud plugin which has been fixed in Unreal's source and can be tracked [here](https://issues.unrealengine.com/issue/UE-276282). Projects in Deadline Cloud should use DirectX 12 with UE 5.5.
 1. NVIDIA GRID drivers - Follow Windows instructions - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/install-nvidia-driver.html#nvidia-GRID-driver
 
-## Automated Setup (Recommended)
+## Submitter Installation
 
 If you're using an AI coding agent, you can automate the entire setup below by running the `ue-dev-setup` skill. Just ask: *"use ue-dev-setup skill to setup this computer"*. The agent will handle as much as it can and prompt you only when manual action is needed.
 
 If you prefer to set up manually, expand the section below.
 
-<details>
+<details markdown="1">
 <summary><strong>Manual Setup Steps</strong></summary>
+
 
 ## Windows Long Paths
 
@@ -145,11 +146,9 @@ _4._ Lastly, Python dependencies can be installed by the submitter installer. NO
 
 </details>
 
-## Submitter Installation Complete
-
-If you don't need to set up a new fleet you can stop here, or skip down to the "Submit a Test Render" section.
-
 # Create a Fleet
+
+If you already have a Windows fleet and don't need to set up a new fleet, you can stop here or skip down to the "Submit a Test Render" section.
 
 ## Create a Service Managed Fleet (SMF)
 
