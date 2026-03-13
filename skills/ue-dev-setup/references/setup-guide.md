@@ -85,12 +85,7 @@ deadline --version
 Test-Path "$env:LOCALAPPDATA\DeadlineCloudMonitor\DeadlineCloudMonitor.exe"
 ```
 
-**If not found:** Attempt install via winget:
-```powershell
-winget install Amazon.DeadlineCloudMonitor
-```
-
-If winget fails, refer user to install instructions in `docs/user_guide/setup-submitter.md`.
+**If not found:** Deadline Cloud Monitor must be downloaded manually from the AWS console. Instruct user to download and install it, then re-run `deadline --version` to confirm. Refer to `docs/user_guide/setup-submitter.md` for details.
 
 ## Step 6: Detect Unreal Engine
 

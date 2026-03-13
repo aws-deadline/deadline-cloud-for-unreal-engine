@@ -39,7 +39,7 @@ hatch run fmt     # black auto-format
 
 ## Commit Messages
 
-Always sign commits: `git commit -s`
+**IMPORTANT:** All commits MUST be signed off. Always use `git commit -s` (never `git commit` without `-s`). PRs with unsigned commits will be blocked.
 
 Use conventional commits:
 - `feat:` — new features
