@@ -7,6 +7,8 @@ import sys
 import urllib.error
 from unittest.mock import patch, MagicMock
 
+import pytest
+
 # Mock the 'unreal' module before importing update_check, since it's only
 # available inside the Unreal Engine Python environment.
 _mock_unreal = MagicMock()
@@ -85,29 +87,40 @@ class TestFetchLatestVersion:
 class TestIsUpdateAvailable:
     """Tests for _is_update_available()."""
 
-    def test_newer_version_available(self):
-        assert _is_update_available("0.5.0", "0.6.5") is True
-
-    def test_same_version(self):
-        assert _is_update_available("0.6.5", "0.6.5") is False
-
-    def test_older_version(self):
-        assert _is_update_available("1.0.0", "0.6.5") is False
-
-    def test_invalid_current_version(self):
-        assert _is_update_available("not-a-version", "0.6.5") is False
-
-    def test_invalid_latest_version(self):
-        assert _is_update_available("0.6.5", "not-a-version") is False
-
-    def test_dev_build_is_older_than_release(self):
-        assert _is_update_available("0.6.5.post144", "0.7.0") is True
-
-    def test_release_is_newer_than_dev_build(self):
-        assert _is_update_available("0.7.0", "0.6.5.post144") is False
-
-    def test_post_release_does_not_trigger_update_for_same_base(self):
-        assert _is_update_available("0.6.5.post144", "0.6.5") is False
+    @pytest.mark.parametrize(
+        "current, latest, expected",
+        [
+            # Newer version available
+            ("0.5.0", "0.6.5", True),
+            ("0.6.5", "0.10.0", True),
+            # Same version
+            ("0.6.5", "0.6.5", False),
+            # Current is newer (no update)
+            ("1.0.0", "0.6.5", False),
+            ("0.10.0", "0.6.5", False),
+            # Invalid versions
+            ("not-a-version", "0.6.5", False),
+            ("0.6.5", "not-a-version", False),
+            # Dev/post builds
+            ("0.6.5.post144", "0.7.0", True),
+            ("0.7.0", "0.6.5.post144", False),
+            ("0.6.5.post144", "0.6.5", False),
+        ],
+        ids=[
+            "newer_available",
+            "newer_available_double_digit_minor",
+            "same_version",
+            "current_is_newer",
+            "current_is_newer_double_digit_minor",
+            "invalid_current",
+            "invalid_latest",
+            "dev_build_older_than_release",
+            "release_newer_than_dev_build",
+            "post_release_same_base",
+        ],
+    )
+    def test_is_update_available(self, current, latest, expected):
+        assert _is_update_available(current, latest) is expected
 
 
 class TestCheckAndShowUpdateDialog:
