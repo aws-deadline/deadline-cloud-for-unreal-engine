@@ -210,7 +210,9 @@ This example will use the Meerkat Demo from the Unreal Marketplace:
 
 The submitter plugin automatically checks for newer releases on GitHub when Unreal Editor starts. If an update is available, a dialog will prompt you to visit the release page.
 
-To deactivate update notifications:
+To deactivate update notifications, uncheck "Show submitter update notifications" under "General Settings" in the Deadline Cloud settings panel (Edit > Project Settings > Plugins > Deadline Cloud).
+
+Alternatively, you can use the CLI:
 
 ```
 deadline config set settings.submitter_update_notification false

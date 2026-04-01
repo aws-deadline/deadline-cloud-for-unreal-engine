@@ -337,6 +337,13 @@ class DeadlineCloudSettingsLibraryImplementation(unreal.DeadlineCloudSettingsLib
             config=config_parser,
         )
 
+        # general.show_update_notifications (settings.submitter_update_notification)
+        config.set_setting(
+            "settings.submitter_update_notification",
+            "true" if settings.general.show_update_notifications else "false",
+            config=config_parser,
+        )
+
         config_file.write_config(config_parser)
 
         if farm_queue_update:
