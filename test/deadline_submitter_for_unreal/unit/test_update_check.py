@@ -21,6 +21,7 @@ from update_check import (  # noqa: E402
     _is_update_available,
     safe_check_and_show_update_dialog,
     RELEASES_PAGE_URL,
+    SETUP_GUIDE_URL,
 )
 
 
@@ -126,6 +127,10 @@ class TestIsUpdateAvailable:
 class TestCheckAndShowUpdateDialog:
     """Tests for safe_check_and_show_update_dialog()."""
 
+    @pytest.fixture(autouse=True)
+    def reset_unreal_mock(self):
+        _mock_unreal.reset_mock()
+
     @patch("update_check._is_update_notification_enabled", return_value=False)
     def test_returns_false_when_notifications_disabled(self, mock_enabled):
         assert safe_check_and_show_update_dialog() is False
@@ -159,9 +164,20 @@ class TestCheckAndShowUpdateDialog:
         result = safe_check_and_show_update_dialog()
 
         assert result is True
-        mock_webbrowser.assert_called_once_with(RELEASES_PAGE_URL)
-        # Should show two dialogs: the update dialog and the restart reminder
+        # Should open releases page first, then setup guide
+        assert mock_webbrowser.call_count == 2
+        mock_webbrowser.assert_any_call(RELEASES_PAGE_URL)
+        mock_webbrowser.assert_any_call(SETUP_GUIDE_URL)
+        # Should show two dialogs: the update dialog and the setup guide
         assert _mock_unreal.EditorDialog.show_message.call_count == 2
+
+        # First dialog should mention release notes
+        first_call_args = _mock_unreal.EditorDialog.show_message.call_args_list[0]
+        assert RELEASES_PAGE_URL in first_call_args[0][1]
+
+        # Second dialog should mention the setup guide
+        second_call_args = _mock_unreal.EditorDialog.show_message.call_args_list[1]
+        assert SETUP_GUIDE_URL in second_call_args[0][1]
 
     @patch("update_check._is_update_available", return_value=True)
     @patch("update_check._fetch_latest_version", return_value="0.6.5")
@@ -176,6 +192,24 @@ class TestCheckAndShowUpdateDialog:
         result = safe_check_and_show_update_dialog()
 
         assert result is False
+
+    @patch("update_check.webbrowser.open")
+    @patch("update_check._is_update_available", return_value=True)
+    @patch("update_check._fetch_latest_version", return_value="0.6.5")
+    @patch("update_check._get_current_version", return_value="0.5.0")
+    @patch("update_check._is_update_notification_enabled", return_value=True)
+    def test_skips_setup_guide_when_user_dismisses_second_dialog(
+        self, mock_enabled, mock_current, mock_fetch, mock_available, mock_webbrowser
+    ):
+        _mock_unreal.AppReturnType.YES = "YES"
+        # First dialog: Yes, second dialog: No
+        _mock_unreal.EditorDialog.show_message.side_effect = ["YES", "NO"]
+
+        result = safe_check_and_show_update_dialog()
+
+        assert result is True
+        # Only the releases page should be opened, not the setup guide
+        mock_webbrowser.assert_called_once_with(RELEASES_PAGE_URL)
 
     @patch("update_check.webbrowser.open", side_effect=Exception("browser error"))
     @patch("update_check._is_update_available", return_value=True)

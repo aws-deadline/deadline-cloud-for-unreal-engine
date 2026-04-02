@@ -33,6 +33,7 @@ GITHUB_LATEST_RELEASE_URL = (
     "https://api.github.com/repos/aws-deadline/deadline-cloud-for-unreal-engine/releases/latest"
 )
 RELEASES_PAGE_URL = "https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/releases"
+SETUP_GUIDE_URL = "https://aws-deadline.github.io/unreal-engine/setup-submitter/"
 _REQUEST_TIMEOUT_SECONDS = 5
 
 
@@ -125,7 +126,10 @@ def _check_and_show_update_dialog() -> bool:
         f"submitter is now available.\n\n"
         f"Current: {current_version}  ->  New: {latest_version}\n\n"
         f"View release notes:\n{RELEASES_PAGE_URL}\n\n"
-        "Click 'Yes' to be redirected to the release page, or 'No' to dismiss."
+        "To disable these notifications, go to Edit > Project Settings > "
+        'search for "Deadline" and uncheck "Show Submitter Update '
+        'Notifications" under General Settings.\n\n'
+        "Click 'Yes' to open the release page, or 'No' to dismiss."
     )
 
     response = unreal.EditorDialog.show_message(
@@ -140,12 +144,24 @@ def _check_and_show_update_dialog() -> bool:
         except Exception:
             return False
 
-        unreal.EditorDialog.show_message(
-            "Application Restart Required",
-            "Please install the new release and then restart Unreal Engine "
-            "to use the new version.",
-            unreal.AppMsgType.OK,
+        guide_message = (
+            "Please follow the setup guide to install the new release and "
+            "then restart Unreal Engine to use the new version.\n\n"
+            f"Setup guide:\n{SETUP_GUIDE_URL}\n\n"
+            "Click 'Yes' to open the setup guide, or 'No' to dismiss."
         )
+
+        guide_response = unreal.EditorDialog.show_message(
+            "Installation Guide",
+            guide_message,
+            unreal.AppMsgType.YES_NO,
+        )
+
+        if guide_response == unreal.AppReturnType.YES:
+            try:
+                webbrowser.open(SETUP_GUIDE_URL)
+            except Exception:
+                logger.debug("Failed to open setup guide URL", exc_info=True)
         return True
 
     return False
