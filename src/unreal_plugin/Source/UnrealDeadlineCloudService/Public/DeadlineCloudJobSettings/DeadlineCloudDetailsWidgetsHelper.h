@@ -14,11 +14,51 @@ class FDeadlineCloudDetailsWidgetsHelper
 public:
 	static void CreateSavePresetDialogWidget(class UMoviePipelineDeadlineCloudExecutorJob* MrqJob, bool bModal = true);
 
-	static TSharedRef<SWidget> CreatePropertyWidgetByType(TSharedPtr<IPropertyHandle> ParameterHandle, EValueType Type, EValueValidationType ValidationType = EValueValidationType::Default);
+	static TSharedRef<SWidget> CreatePropertyWidgetByType(
+		TSharedPtr<IPropertyHandle> ParameterHandle, 
+		EValueType Type, 
+		EValueValidationType ValidationType = EValueValidationType::Default, 
+		FText Tooltip = FText::GetEmpty()
+	);
 	static TSharedPtr<SWidget> TryCreatePropertyWidgetFromMetadata(TSharedPtr<IPropertyHandle> ParameterHandle);
 	static TSharedRef<SWidget> CreateNameWidget(FString Parameter);
 
 	static TSharedRef<SWidget> CreateConsistencyWidget(FString ResultString);
+	 
+	static TSharedRef<SWidget> CreateMrqCheckBoxWidget(class UMoviePipelineDeadlineCloudExecutorJob* MrqJob, FName PropertyPath, bool DefaultValue);
+	static TSharedRef<SWidget> CreateMrqCheckBoxWidgetForHostRequiremets(
+		UMoviePipelineDeadlineCloudExecutorJob* MrqJob,
+		TSharedPtr<IPropertyHandle> IsEnabledHandle,
+		TAttribute<bool> IsEnabledAttr
+	);
+	static TSharedRef<SWidget> CreateMrqCheckBoxWidgetCustom(class UMoviePipelineDeadlineCloudExecutorJob* MrqJob, TAttribute<ECheckBoxState> StateAttribute, FOnCheckStateChanged ChangeEvent);
+
+	static TSharedRef<SWidget> CreateDefaultAttributeValueWidget(
+		TSharedPtr<IPropertyHandle> AllOfPropertyHandle, 
+		TSharedPtr<IPropertyHandle> AnyOfPropertyHandle, 
+		TSharedPtr<IPropertyHandle> SelectedValuePropertyHandle,
+		TAttribute<bool>& IsEnabledAttr
+	);
+
+	static TSharedRef<SWidget> CreateCustomAttributeValueWidget(
+		TSharedPtr<IPropertyHandle> PropertyHandle,
+		TSharedPtr<IPropertyHandle> AnyOfPropertyHandle,
+		TAttribute<bool>& IsEnabledAttr
+	);
+
+	static TSharedRef<SWidget> CreateAmountValueWidget(TSharedPtr<IPropertyHandle> RangeHandle, TAttribute<bool>& IsEnabledAttr);
+	static 	TSharedRef<SWidget> MakeBoundEditor(
+		const FText& Label, 
+		const TSharedPtr<IPropertyHandle>& TypeHandle, 
+		const TSharedPtr<IPropertyHandle>& ValueHandle, 
+		bool bRequired,
+		TAttribute<bool>& IsEnabledAttr, 
+		int32 MinInt,
+		FText OptionalTooltip = FText::GetEmpty()
+	);
+
+	template <typename TOuterClass>
+	static TOuterClass* GetPropertyOuter(TSharedRef<IPropertyHandle> Property);
 
 	class SConsistencyWidget : public SCompoundWidget
 	{
@@ -177,5 +217,25 @@ private:
 	static TSharedRef<SWidget> CreatePathWidget(TSharedPtr<IPropertyHandle> ParameterHandle, FOnVerifyTextChanged Validation);
 	static TSharedRef<SWidget> CreateIntWidget(TSharedPtr<IPropertyHandle> ParameterHandle);
 	static TSharedRef<SWidget> CreateFloatWidget(TSharedPtr<IPropertyHandle> ParameterHandle);
-	static TSharedRef<SWidget> CreateStringWidget(TSharedPtr<IPropertyHandle> ParameterHandle, FOnVerifyTextChanged Validation);
+	static TSharedRef<SWidget> CreateStringWidget(TSharedPtr<IPropertyHandle> ParameterHandle, FOnVerifyTextChanged Validation, FText Tooltip);
+};
+
+template<typename TOuterClass>
+inline TOuterClass* FDeadlineCloudDetailsWidgetsHelper::GetPropertyOuter(TSharedRef<IPropertyHandle> Property)
+{
+	TArray<UObject*> OuterObjects;
+	Property->GetOuterObjects(OuterObjects);
+
+	if (OuterObjects.Num() == 0)
+	{
+		return nullptr;
+	}
+
+	const TWeakObjectPtr<UObject> OuterObject = OuterObjects[0];
+	if (!OuterObject.IsValid())
+	{
+		return nullptr;
+	}
+
+	return Cast<TOuterClass>(OuterObject.Get());
 };

@@ -73,8 +73,9 @@ public:
     void SaveAsJobPreset(FString& FolderPath, FString& BaseName, bool bSetAsDefault);
 
     void CopyJobOverrides(UDeadlineCloudRenderJob* Job);
-	void CopyStepOverrides(UDeadlineCloudStep* Step);
-    void CopyEnvironmentOverrides(UDeadlineCloudEnvironment* Environment);
+	void CopyStepOverrides(UDeadlineCloudStep* Step, UDeadlineCloudStep* Origin);
+    void CopyEnvironmentOverrides(UDeadlineCloudEnvironment* Environment, UDeadlineCloudEnvironment* Origin);
+	void CopyHostRequirementsOverrides(UDeadlineCloudHostRequirements* HostRequirements, UDeadlineCloudHostRequirements* Origin);
 
 	void FixReferencesAfterDuplication(TMap<UDataAsset*, FString>& SourceObjects, TArray<UDataAsset*> NewObjects);
 

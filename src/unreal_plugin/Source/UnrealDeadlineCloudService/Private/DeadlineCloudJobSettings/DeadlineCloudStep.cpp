@@ -5,9 +5,28 @@
 #include "PythonAPILibraries/PythonParametersConsistencyChecker.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "AssetRegistry/AssetRegistryHelpers.h"
+#include "Interfaces/IPluginManager.h"
 
 UDeadlineCloudStep::UDeadlineCloudStep()
 {
+    HiddenParamsManager.OnGetAllNames.BindLambda([this]()
+        {
+            TSet<FName> Names;
+            for (const auto& P : TaskParameterDefinitions.Parameters)
+            {
+                Names.Add(FName(*P.Name));
+            }
+            return Names;
+        });
+
+    HiddenParamsManager.OnGetDefaultHidden = HiddenParamsManager.OnGetAllNames;
+
+    HiddenParamsManager.OnChanged.BindLambda([this]()
+        {
+            Modify();
+            MarkPackageDirty();
+            ParameterHiddenEvent();
+        });
 }
 
 void UDeadlineCloudStep::OpenStepFile(const FString& Path)
@@ -18,10 +37,10 @@ void UDeadlineCloudStep::OpenStepFile(const FString& Path)
         Name = StepStruct.Name;
         TaskParameterDefinitions.Parameters = StepStruct.Parameters;
         
-        HiddenParametersList.Empty();
+        GetHiddenManager().Clear();
         for (auto Parameter :TaskParameterDefinitions.Parameters)
         {
-            HiddenParametersList.Add(FName(*Parameter.Name));
+            GetHiddenManager().Add(FName(*Parameter.Name));
         }
     }
     else
@@ -127,7 +146,7 @@ FDeadlineCloudStepOverride UDeadlineCloudStep::GetStepDataToOverride()
 {
     FDeadlineCloudStepOverride StepData;
     TArray<FDeadlineCloudEnvironmentOverride> Envs;
-
+    StepData.SourceObjectPath = FSoftObjectPath(this);
     StepData.Name = Name;
     StepData.DependsOn = DependsOn;
 
@@ -138,12 +157,13 @@ FDeadlineCloudStepOverride UDeadlineCloudStep::GetStepDataToOverride()
         if (Environment)
         {
             FDeadlineCloudEnvironmentOverride FilteredEnvData;
+			FilteredEnvData.SourceObjectPath = FSoftObjectPath(Environment);
             FilteredEnvData.Name = Environment->Name;
             
             // Filter out hidden variables
             for (const auto& VariablePair : Environment->Variables.Variables)
             {
-                if (!Environment->ContainsHiddenParameters(FName(VariablePair.Key)))
+                if (!Environment->GetHiddenManager().Contains(FName(VariablePair.Key)))
                 {
                     FilteredEnvData.Variables.Variables.Add(VariablePair.Key, VariablePair.Value);
                 }
@@ -157,12 +177,54 @@ FDeadlineCloudStepOverride UDeadlineCloudStep::GetStepDataToOverride()
     }
 
     StepData.EnvironmentsOverrides = Envs;
+    UDeadlineCloudHostRequirements* PresetHostReq;
+    if (IsValid(HostRequirements))
+    {
+        PresetHostReq = HostRequirements;
+    }
+    else
+    {
+        FString  PluginContentDir = IPluginManager::Get().FindPlugin(TEXT("UnrealDeadlineCloudService"))->GetBaseDir();
+        FString HostReqTemplate = "/Content/Python/openjd_templates/host_requirements.yml";
+        PresetHostReq = NewObject<UDeadlineCloudHostRequirements>();
+
+        FString PathToHostReqTemplate = FPaths::Combine(FPaths::ConvertRelativePathToFull(PluginContentDir), HostReqTemplate);
+        FPaths::NormalizeDirectoryName(PathToHostReqTemplate);
+
+        PresetHostReq->PathToTemplate.FilePath = PathToHostReqTemplate;
+        PresetHostReq->OpenHostRequirementsFile(PathToHostReqTemplate);  
+    }
+
+
+    StepData.HostRequirementsOverride.SourceObjectPath = FSoftObjectPath(HostRequirements);
+
+	FDeadlineCloudHostRequirement HostReqOverrides;
+
+    for (const auto& AmountPair : PresetHostReq->HostRequirements.Amounts)
+    {
+        if (!PresetHostReq->GetAmountsHiddenManager().Contains(FName(AmountPair.Key)))
+        {
+            HostReqOverrides.Amounts.Add(AmountPair.Key, AmountPair.Value);
+        }
+    }
+
+    for (const auto& AttributePair : PresetHostReq->HostRequirements.Attributes)
+    {
+        if (!PresetHostReq->GetAttributesHiddenManager().Contains(FName(AttributePair.Key)))
+        {
+            HostReqOverrides.Attributes.Add(AttributePair.Key, AttributePair.Value);
+        }
+    }
+
+    StepData.HostRequirementsOverride.HostRequirements.Amounts = HostReqOverrides.Amounts;
+    StepData.HostRequirementsOverride.HostRequirements.Attributes = HostReqOverrides.Attributes;
+    StepData.HostRequirementsOverride.SourceObjectPath = FSoftObjectPath(HostRequirements);
 
     FDeadlineCloudStepParametersArray LocalTaskParameterDefinitions;
 
     for (int i = 0; i < TaskParameterDefinitions.Parameters.Num(); i++)
     {
-        if (!ContainsHiddenParameters(FName(TaskParameterDefinitions.Parameters[i].Name)))
+        if (!GetHiddenManager().Contains(FName(TaskParameterDefinitions.Parameters[i].Name)))
         {
             // Add parameter if not hidden
             LocalTaskParameterDefinitions.Parameters.Add(TaskParameterDefinitions.Parameters[i]);
@@ -275,6 +337,8 @@ void FDeadlineCloudStepOverride::CopyParametersValuesFrom(const FDeadlineCloudSt
 		}
 	}
 
+	HostRequirementsOverride.CopyParametersValuesFrom(Other.HostRequirementsOverride);
+
 	// Copy TaskParameterDefinitions values
 	for (const FStepTaskParameterDefinition& OtherParam : Other.TaskParameterDefinitions.Parameters)
 	{
@@ -289,4 +353,6 @@ void FDeadlineCloudStepOverride::CopyParametersValuesFrom(const FDeadlineCloudSt
 			}
 		}
 	}
+
+	SourceObjectPath = Other.SourceObjectPath;
 }

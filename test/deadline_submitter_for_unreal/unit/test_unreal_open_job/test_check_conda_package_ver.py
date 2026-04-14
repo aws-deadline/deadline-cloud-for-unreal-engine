@@ -39,7 +39,7 @@ class TestCheckCondaPackageVersion:
     )
     def test_check_conda_package_version_conda_packages_no_value(self, get_engine_version_mock):
         # GIVEN
-        get_engine_version_mock.return_value = "5.3.0"
+        get_engine_version_mock.return_value = "5.4.0"
 
         job_parameter_values = [dict(name=OpenJobParameterNames.CONDA_PACKAGES, value="")]
 
@@ -47,14 +47,14 @@ class TestCheckCondaPackageVersion:
         assert UnrealOpenJob.check_conda_package_version(job_parameter_values)
 
         # THEN
-        assert job_parameter_values[0].get("value") == "unrealengine=5.3 unrealengine-openjd=*.*.*"
+        assert job_parameter_values[0].get("value") == "unrealengine=5.4 unrealengine-openjd=*.*.*"
 
     @patch(
         "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.SystemLibrary.get_engine_version"
     )
     def test_check_conda_package_version_no_unrealengine_pattern(self, get_engine_version_mock):
         # GIVEN
-        get_engine_version_mock.return_value = "5.3.0"
+        get_engine_version_mock.return_value = "5.4.0"
 
         job_parameter_values = [
             dict(
@@ -69,7 +69,7 @@ class TestCheckCondaPackageVersion:
         # THEN
         assert (
             job_parameter_values[0].get("value")
-            == "unrealengine=5.3 somepackage=1.0 unrealengine-openjd=0.5.*"
+            == "unrealengine=5.4 somepackage=1.0 unrealengine-openjd=0.5.*"
         )
 
     @patch(
@@ -77,10 +77,10 @@ class TestCheckCondaPackageVersion:
     )
     def test_check_conda_package_version_versions_match(self, get_engine_version_mock):
         # GIVEN
-        get_engine_version_mock.return_value = "5.3"
+        get_engine_version_mock.return_value = "5.4"
 
         job_parameter_values = [
-            dict(name=OpenJobParameterNames.CONDA_PACKAGES, value="unrealengine=5.3")
+            dict(name=OpenJobParameterNames.CONDA_PACKAGES, value="unrealengine=5.4")
         ]
 
         # WHEN
@@ -91,10 +91,10 @@ class TestCheckCondaPackageVersion:
     )
     def test_check_conda_package_version_versions_mismatch(self, get_engine_version_mock):
         # GIVEN
-        get_engine_version_mock.return_value = "5.4"
+        get_engine_version_mock.return_value = "5.5"
 
         job_parameter_values = [
-            dict(name=OpenJobParameterNames.CONDA_PACKAGES, value="unrealengine=5.3")
+            dict(name=OpenJobParameterNames.CONDA_PACKAGES, value="unrealengine=5.4")
         ]
 
         # WHEN
@@ -105,10 +105,10 @@ class TestCheckCondaPackageVersion:
     )
     def test_check_conda_package_version_minor_version_difference(self, get_engine_version_mock):
         # GIVEN
-        get_engine_version_mock.return_value = "5.3.2"
+        get_engine_version_mock.return_value = "5.4.4"
 
         job_parameter_values = [
-            dict(name=OpenJobParameterNames.CONDA_PACKAGES, value="unrealengine=5.3")
+            dict(name=OpenJobParameterNames.CONDA_PACKAGES, value="unrealengine=5.4")
         ]
 
         # WHEN

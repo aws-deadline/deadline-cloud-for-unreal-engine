@@ -32,10 +32,15 @@ public:
     /** Identifier with error message */
     static bool IsValidIdentifier(const FString& InStr, FText& OutError, const FText& FieldName = FText::FromString(TEXT("Identifier")));
 
+    static bool IsValidAttributeName(const FString& InStr, FText& OutError);
+    static bool IsValidAmountName(const FString& InStr, FText& OutError);
+
 private:
 
     static FValidatorFunc CreateLengthValidator(int32 Min, int32 Max);
     static FValidatorFunc CreateLengthAndIdentifierValidator(int32 Min, int32 Max);
     static FValidatorFunc CreateLengthAndControlValidator(int32 Min, int32 Max, TSet<TCHAR> ExcludeList);
+    static FValidatorFunc CreateAmountNameValidator();
+    static FValidatorFunc CreateAttributeNameValidator();
 
 };

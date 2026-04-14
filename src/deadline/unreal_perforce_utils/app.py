@@ -1,5 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
+import dataclasses
+import hashlib
 import os
 import json
 import pprint
@@ -12,6 +14,147 @@ from deadline.unreal_logger import get_logger
 from deadline.unreal_perforce_utils import perforce, exceptions, secret_manager
 
 logger = get_logger()
+
+
+@dataclasses.dataclass
+class WorkspaceInfoFile:
+    """Registry of previously created Perforce workspaces, stored as JSON alongside the workspace root."""
+
+    stream_workspaces: dict[str, str] = dataclasses.field(default_factory=dict)
+    view_workspace: Optional[str] = None
+
+    @staticmethod
+    def load(path: str) -> "WorkspaceInfoFile":
+        """Load from JSON file. Returns empty registry on missing/corrupt file."""
+        try:
+            with open(path, "r") as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            logger.info(f"Workspace info file not found at {path}, starting with empty registry.")
+            return WorkspaceInfoFile()
+        except json.JSONDecodeError:
+            logger.warning(
+                f"Workspace info file at {path} contains invalid JSON, starting with empty registry."
+            )
+            return WorkspaceInfoFile()
+        except OSError as e:
+            logger.warning(
+                f"Could not read workspace info file at {path}: {e}. Starting with empty registry."
+            )
+            return WorkspaceInfoFile()
+
+        # Validate types — fall back to empty on bad data
+        stream_workspaces = data.get("stream_workspaces", {})
+        view_workspace = data.get("view_workspace")
+
+        if not isinstance(stream_workspaces, dict) or not all(
+            isinstance(k, str) and isinstance(v, str) for k, v in stream_workspaces.items()
+        ):
+            logger.warning(f"Invalid stream_workspaces in {path}, starting with empty registry.")
+            return WorkspaceInfoFile()
+
+        if view_workspace is not None and not isinstance(view_workspace, str):
+            logger.warning(f"Invalid view_workspace in {path}, starting with empty registry.")
+            return WorkspaceInfoFile()
+
+        return WorkspaceInfoFile(
+            stream_workspaces=stream_workspaces,
+            view_workspace=view_workspace,
+        )
+
+    def save(self, path: str) -> None:
+        """Write to JSON file with sorted keys."""
+        data = {
+            "stream_workspaces": self.stream_workspaces,
+            "view_workspace": self.view_workspace,
+        }
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w") as f:
+                json.dump(data, f, sort_keys=True)
+        except OSError as e:
+            logger.error(f"Could not write workspace info file at {path}: {e}")
+
+    def lookup_stream(self, stream_path: str) -> Optional[str]:
+        """Return workspace name for stream path, or None."""
+        return self.stream_workspaces.get(stream_path)
+
+    def lookup_view(self) -> Optional[str]:
+        """Return the single shared view workspace name, or None."""
+        return self.view_workspace
+
+    def register_stream(self, stream_path: str, workspace_name: str) -> None:
+        """Add stream_path -> workspace_name mapping."""
+        self.stream_workspaces[stream_path] = workspace_name
+
+    def register_view(self, workspace_name: str) -> None:
+        """Set the single shared view workspace name."""
+        self.view_workspace = workspace_name
+
+
+def merge_view_mappings(existing_views: list[str], new_views: list[str]) -> list[str]:
+    """
+    Merge new view mappings into existing ones.
+    Appends any mappings from new_views not already present in existing_views.
+    Returns the merged list.
+    """
+    merged = list(existing_views)
+    for view in new_views:
+        if view not in merged:
+            merged.append(view)
+    return merged
+
+
+@dataclasses.dataclass
+class _ResolvedWorkspace:
+    name: str
+    reusing: bool
+
+
+def _stream_path_to_name_component(stream_path: str) -> str:
+    """
+    Convert a P4 stream path like ``//MeerkatDemo/Mainline`` into a human-readable
+    string safe for use in P4 client names and directory names.
+
+    Strips leading ``//``, replaces ``/`` with ``_``, and appends a short hash
+    suffix to avoid collisions when different stream paths produce the same
+    readable portion (e.g. ``//A_B/C`` vs ``//A/B_C``).
+
+    Example: ``//MeerkatDemo/Mainline`` → ``MeerkatDemo_Mainline_a3f2``
+    """
+    readable = stream_path.lstrip("/").replace("/", "_")
+    short_hash = hashlib.sha256(stream_path.encode()).hexdigest()[:4]
+    return f"{readable}_{short_hash}"
+
+
+def _resolve_workspace_name(
+    specification_template: dict,
+    project_name: str,
+    workspace_info: Optional[WorkspaceInfoFile],
+) -> _ResolvedWorkspace:
+    """Determine workspace name, consulting the registry if available."""
+    if workspace_info is not None:
+        if "Stream" in specification_template:
+            stream_path = specification_template["Stream"]
+            existing = workspace_info.lookup_stream(stream_path)
+            if existing:
+                logger.info(f"Reusing existing stream workspace: {existing}")
+                return _ResolvedWorkspace(name=existing, reusing=True)
+            stream_component = _stream_path_to_name_component(stream_path)
+            name = get_workspace_name(project_name=stream_component)
+            workspace_info.register_stream(stream_path, name)
+            return _ResolvedWorkspace(name=name, reusing=False)
+
+        if "View" in specification_template:
+            existing = workspace_info.lookup_view()
+            if existing:
+                logger.info(f"Reusing existing view workspace: {existing}")
+                return _ResolvedWorkspace(name=existing, reusing=True)
+            name = get_workspace_name(project_name=project_name)
+            workspace_info.register_view(name)
+            return _ResolvedWorkspace(name=name, reusing=False)
+
+    return _ResolvedWorkspace(name=get_workspace_name(project_name=project_name), reusing=False)
 
 
 def get_workspace_name(project_name: str) -> str:
@@ -73,6 +216,10 @@ def create_perforce_workspace_from_template(
     Replace ``{workspace_name}`` token in the template with the real workspace name in
     ``"Client"`` and ``"View"`` fields
 
+    When ``P4_CLIENTS_ROOT_DIRECTORY`` is set, consults a workspace registry file
+    (``workspace_info.json``) to reuse previously created workspaces instead of
+    always creating new ones.
+
     :param specification_template: Workspace specification template dictionary
     :param project_name: Name of the project to build workspace name
     :param overridden_workspace_root: Workspace local path root (Optional, root from template is used by default)
@@ -88,7 +235,18 @@ def create_perforce_workspace_from_template(
         f"Overridden workspace root: {overridden_workspace_root}"
     )
 
-    workspace_name = get_workspace_name(project_name=project_name)
+    persistent_root = os.getenv("P4_CLIENTS_ROOT_DIRECTORY")
+    workspace_info = None
+    workspace_info_path = None
+
+    if persistent_root:
+        # NOTE: Assumes single worker/session/adaptor per clients root — no file locking needed.
+        workspace_info_path = os.path.join(persistent_root, "workspace_info.json")
+        workspace_info = WorkspaceInfoFile.load(workspace_info_path)
+
+    resolved = _resolve_workspace_name(specification_template, project_name, workspace_info)
+    workspace_name = resolved.name
+    reusing = resolved.reusing
 
     specification_template["Client"] = specification_template["Client"].replace(
         "{workspace_name}", workspace_name
@@ -106,15 +264,33 @@ def create_perforce_workspace_from_template(
             f"{os.getenv('P4_CLIENTS_ROOT_DIRECTORY', os.getcwd())}/{workspace_name}"
         )
 
+    # Clear Host lock for reusable workspaces so they can be used from any host
+    if persistent_root:
+        specification_template["Host"] = ""
+
     logger.info(f"Specification: {specification_template}")
 
+    connection = perforce.PerforceConnection()
+
+    if reusing and "View" in specification_template:
+        # Stream workspaces: no view merge needed — P4 derives the view from the stream definition.
+        # View workspaces: merge with existing spec to preserve mappings from prior jobs.
+        existing_spec = connection.p4.fetch_client(workspace_name)
+        existing_views = existing_spec.get("View", [])
+        new_views = specification_template["View"]
+        merged_views = merge_view_mappings(existing_views, new_views)
+        specification_template["View"] = merged_views
+
     perforce_client = perforce.PerforceClient(
-        connection=perforce.PerforceConnection(),
+        connection=connection,
         name=workspace_name,
         specification=specification_template,
     )
 
     perforce_client.save()
+
+    if workspace_info is not None and workspace_info_path is not None:
+        workspace_info.save(workspace_info_path)
 
     logger.info("Perforce workspace created!")
     logger.info(pprint.pformat(perforce_client.spec))
@@ -363,8 +539,8 @@ def clear_workspace_files(
 def delete_workspace(workspace_name: Optional[str] = None, project_name: Optional[str] = None):
     """
     Clear workspace files in the depot and delete the workspace.
-    If the `P4_CLIENTS_ROOT_DIRECTORY` environment variable is set, skip deletion. This indicates
-    that the workspaces are located in a permanent directory and should not be deleted.
+    If the `P4_CLIENTS_ROOT_DIRECTORY` environment variable is set, skip deletion — workspaces
+    under that root are intended to be reused across jobs.
 
     Roll back all possible changes in reverse order:
     Delete worksapce <- Delete local files <- Revert changes
@@ -378,7 +554,9 @@ def delete_workspace(workspace_name: Optional[str] = None, project_name: Optiona
     """
 
     if "P4_CLIENTS_ROOT_DIRECTORY" in os.environ:
-        logger.info("P4_CLIENTS_ROOT_DIRECTORY variable found. Skip deleting the workspace")
+        logger.info(
+            "P4_CLIENTS_ROOT_DIRECTORY is set — skipping workspace deletion (reusable workspace)"
+        )
         return
 
     logger.info(f"Deleting workspace for the project: {project_name}")

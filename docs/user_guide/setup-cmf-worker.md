@@ -32,8 +32,8 @@ Select the appropriate branch for your deployment:
 
 **1. Install Unreal Engine**
 1. Download the Epic Games Launcher
-2. Install Unreal Engine 5.3 or higher
-   > **📝 Note**: Unreal Engine 5.3+ is required for Deadline Cloud compatibility
+2. Install Unreal Engine 5.4 or higher
+   > **📝 Note**: Unreal Engine 5.4+ is required for Deadline Cloud compatibility
 
 **2. Install NVIDIA GRID Drivers**
 - Follow the [AWS NVIDIA GRID driver installation guide](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/install-nvidia-driver.html#nvidia-GRID-driver)

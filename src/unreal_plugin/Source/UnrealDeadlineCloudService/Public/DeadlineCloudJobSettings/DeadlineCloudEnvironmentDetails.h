@@ -39,7 +39,6 @@ private:
     bool IsPropertyHidden(FName Parameter) const;
     bool IsEyeWidgetEnabled(FName Parameter) const;
     bool IsParameterChangedFromDefault(FName Parameter) const;
-    UDeadlineCloudEnvironment* GetOuterEnvironment() const;
 
     FSimpleDelegate OnRebuildChildren;
     TSharedPtr<IPropertyHandleMap> MapProperty;
@@ -72,8 +71,6 @@ public:
         IDetailChildrenBuilder& InChildBuilder,
         IPropertyTypeCustomizationUtils& InCustomizationUtils) override;
     /** End IPropertyTypeCustomization interface */
-
-    static UDeadlineCloudEnvironment* GetOuterEnvironment(TSharedRef<IPropertyHandle> Handle);
 private:
     FUIAction EmptyCopyPasteAction;
     TSharedPtr<FDeadlineCloudEnvironmentParametersMapBuilder> ArrayBuilder;

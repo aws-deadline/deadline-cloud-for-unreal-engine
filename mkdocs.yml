@@ -24,6 +24,7 @@ copyright: Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 markdown_extensions:
   - toc:
       permalink: true
+  - md_in_html
 
 nav:
   - Home: index.md
