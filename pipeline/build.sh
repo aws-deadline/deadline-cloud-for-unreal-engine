@@ -7,4 +7,4 @@ pip install --upgrade hatch
 pip install --upgrade twine
 hatch -v run lint
 hatch run test
-hatch -v run build
+hatch -v build
