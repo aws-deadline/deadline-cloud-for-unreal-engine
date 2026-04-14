@@ -1,3 +1,11 @@
+## 0.6.7 (2026-04-14)
+
+
+
+### Bug Fixes
+* **pipeline**: Use hatch built-in build command in publish script (#281) ([`8c8089e`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/8c8089ebe009713a13ff473dea72978e180cb2bb))
+
+
 ## 0.6.6 (2026-04-13)
 
 
