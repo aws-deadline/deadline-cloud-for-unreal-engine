@@ -1,11 +1,11 @@
 ## 0.6.8 (2026-04-14)
 
 
-
+### Bug Fixes
+* **workflow**: Use centralized build-python-version for PublishToPyPI (#280) ([`9e011f3`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/9e011f3))
 
 
 ## 0.6.7 (2026-04-14)
-
 
 
 ### Bug Fixes
