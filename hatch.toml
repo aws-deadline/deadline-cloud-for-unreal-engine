@@ -36,15 +36,6 @@ deploy = "mkdocs gh-deploy --force"
 [[envs.all.matrix]]
 python = ["3.8", "3.9", "3.10", "3.11"]
 
-[envs.default.env-vars]
-SKIP_BOOTSTRAP_TEST_RESOURCES="True"
-
-[envs.codebuild.scripts]
-build = "hatch build"
-
-[envs.codebuild.env-vars]
-SKIP_BOOTSTRAP_TEST_RESOURCES="True"
-
 [envs.release]
 detached = true
 

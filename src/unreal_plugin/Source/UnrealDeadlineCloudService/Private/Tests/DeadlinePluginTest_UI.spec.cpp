@@ -362,6 +362,76 @@ bool FValidationFunction_JobDescription_Invalid::RunTest(const FString& Paramete
     return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FIsValidAttributeName_Test,
+	"DeadlineCloud.Validation.AttributeName.Integration",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter
+)
+
+bool FIsValidAttributeName_Test::RunTest(const FString& Parameters)
+{
+	FText Error;
+
+	UDeadlineCloudJobBundleLibrary* Library = UDeadlineCloudJobBundleLibrary::Get();
+	if (!Library)
+	{
+		const bool bOk = FDeadlineCloudInputValidationHelper::IsValidAttributeName(TEXT("AnyName"), Error);
+
+		TestFalse("Should fail when library is unavailable", bOk);
+		TestTrue("Should return user-friendly error",
+			Error.ToString().Contains(TEXT("Cannot validate the name")));
+
+		return true;
+	}
+
+	const bool bValidTest = FDeadlineCloudInputValidationHelper::IsValidAttributeName(TEXT("attr.test"), Error);
+	TestTrue("Valid attribute name should pass", bValidTest);
+	TestTrue("Error should be empty on success", Error.IsEmpty());
+	const bool bInvalidTest = FDeadlineCloudInputValidationHelper::IsValidAttributeName(TEXT("attrtest"), Error);
+	TestFalse("Invalid attribute name should not pass", bInvalidTest);
+	TestTrue("Error should contain an error message", !Error.IsEmpty());
+	const bool bPredefinedTest = FDeadlineCloudInputValidationHelper::IsValidAttributeName(TEXT("attr.worker.os.family"), Error);
+	TestFalse("Predefined attribute name should not pass", bInvalidTest);
+	TestTrue("Error should contain an error message", !Error.IsEmpty());
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FIsValidAmountName_Test,
+	"DeadlineCloud.Validation.AmountName.Integration",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter
+)
+
+bool FIsValidAmountName_Test::RunTest(const FString& Parameters)
+{
+	FText Error;
+
+	UDeadlineCloudJobBundleLibrary* Library = UDeadlineCloudJobBundleLibrary::Get();
+	if (!Library)
+	{
+		const bool bOk = FDeadlineCloudInputValidationHelper::IsValidAmountName(TEXT("AnyName"), Error);
+
+		TestFalse("Should fail when library is unavailable", bOk);
+		TestTrue("Should return user-friendly error",
+			Error.ToString().Contains(TEXT("Cannot validate the name")));
+
+		return true;
+	}
+
+	const bool bValidTest = FDeadlineCloudInputValidationHelper::IsValidAmountName(TEXT("amount.test"), Error);
+	TestTrue("Valid amount name should pass", bValidTest);
+	TestTrue("Error should be empty on success", Error.IsEmpty());
+	const bool bInvalidTest = FDeadlineCloudInputValidationHelper::IsValidAmountName(TEXT("amounttest"), Error);
+	TestFalse("Invalid amount name should not pass", bInvalidTest);
+	TestTrue("Error should contain an error message", !Error.IsEmpty());
+	const bool bPredefinedTest = FDeadlineCloudInputValidationHelper::IsValidAmountName(TEXT("amount.worker.vcpu"), Error);
+	TestFalse("Predefined amount name should not pass", bInvalidTest);
+	TestTrue("Error should contain an error message", !Error.IsEmpty());
+
+	return true;
+}
+
 static FString ConvertLocalPathToFull(const FString& Path)
 {
 	FString PluginContentDir = IPluginManager::Get().FindPlugin(TEXT("UnrealDeadlineCloudService"))->GetBaseDir();
@@ -432,6 +502,10 @@ AssetType* CreateAsset(
     {
         Asset->OpenEnvFile(OutFullTemplatePath);
     }
+	else if constexpr (std::is_same_v<AssetType, UDeadlineCloudHostRequirements>)
+	{
+		Asset->OpenHostRequirementsFile(OutFullTemplatePath);
+	}
 	return Asset;
 }
 
@@ -473,6 +547,7 @@ UDeadlineCloudStep* CreatedStepDataAsset;
 UDeadlineCloudEnvironment* CreatedEnvironmentDataAsset;
 UDeadlineCloudJob* CreatedJobDataAsset;
 UDeadlineCloudRenderJob* CreatedRenderJobDataAsset;
+UDeadlineCloudHostRequirements* CreatedHostRequirements;
 UMoviePipelineDeadlineCloudExecutorJob* MRQJob;
 FParametersConsistencyCheckResult result;
 
@@ -489,6 +564,8 @@ FString PathToEmptyEnvironmentTemplate;
 FString EmptyEnvTemplate = "/Source/UnrealDeadlineCloudService/Private/Tests/openjd_templates/launch_ue_environment_UI_empty.yml";
 FString PathToJobTemplate;
 FString JobTemplate = "/Source/UnrealDeadlineCloudService/Private/Tests/openjd_templates/render_job_UI.yml";
+FString PathToHostReqTemplate;
+FString HostReqTemplate = "/Source/UnrealDeadlineCloudService/Private/Tests/openjd_templates/host_requirements_UI.yml";
 
 const FString DetailsPath = "<SStandaloneAssetEditorToolkitHost>//<SDetailsView>";
 const FString ListPath = DetailsPath + "//<SListPanel>";
@@ -562,17 +639,17 @@ inline bool Init(UObject* Asset, const FString& InDetailsPath, const FString& In
 
 inline void ShowTestStepParameters()
 {
-	CreatedStepDataAsset->RemoveHiddenParameters("StringParameters");
-	CreatedStepDataAsset->RemoveHiddenParameters("PathParameters");
-	CreatedStepDataAsset->RemoveHiddenParameters("FloatParameters");
-	CreatedStepDataAsset->RemoveHiddenParameters("IntParameters");
+	CreatedStepDataAsset->GetHiddenManager().Remove("StringParameters");
+	CreatedStepDataAsset->GetHiddenManager().Remove("PathParameters");
+	CreatedStepDataAsset->GetHiddenManager().Remove("FloatParameters");
+	CreatedStepDataAsset->GetHiddenManager().Remove("IntParameters");
 }
 
 inline void ShowTestEnvironmentParameters()
 {
-	CreatedEnvironmentDataAsset->RemoveHiddenParameter("Variable1");
-	CreatedEnvironmentDataAsset->RemoveHiddenParameter("Variable2");
-	CreatedEnvironmentDataAsset->RemoveHiddenParameter("Variable3");
+	CreatedEnvironmentDataAsset->GetHiddenManager().Remove("Variable1");
+	CreatedEnvironmentDataAsset->GetHiddenManager().Remove("Variable2");
+	CreatedEnvironmentDataAsset->GetHiddenManager().Remove("Variable3");
 }
 
 END_DEFINE_SPEC(FDeadlinePluginUISpec);
@@ -611,6 +688,9 @@ void FDeadlinePluginUISpec::Define()
 			CreatedRenderJobDataAsset->Steps.Add(CreatedStepDataAsset);
 			CreatedRenderJobDataAsset->Steps.Add(CreatedEmptyStepDataAsset);
 			CreatedRenderJobDataAsset->Environments.Add(CreatedEnvironmentDataAsset);
+
+			CreatedRenderJobDataAsset->JobPresetStruct.JobAttachments.InputFiles.Files.Paths.Add(FFilePath("C:/Temp/InputFile1.txt"));
+			CreatedRenderJobDataAsset->JobPresetStruct.JobAttachments.InputDirectories.Directories.Paths.Add(FDirectoryPath("C:/Temp/InputDir1"));
 
 			ShowTestEnvironmentParameters();
 			ShowTestStepParameters();
@@ -696,6 +776,8 @@ void FDeadlinePluginUISpec::Define()
 			FDriverElementRef EmptyStepEnvCategory = Driver->FindElement(By::Path("#MRQStepEnvHeader.Empty"));
 
 			FDriverElementRef SavePresetButton = Driver->FindElement(By::Path("#MRQJobSavePresetButton"));
+			FDriverElementRef FileArrayElementText = Driver->FindElement(By::Path("#AttachmentArrayElement.Value//<SFilePathPicker>//<SEditableTextBox>"));
+			FDriverElementRef DirArrayElementText = Driver->FindElement(By::Path("#AttachmentArrayElement.Value//<SPropertyEditorText>//<SEditableTextBox>"));
 
 			auto VisibilityTest = [this](const FString& ParameterName, FDriverElementRef Widget, bool bShouldBeVisible)
 				{
@@ -711,7 +793,24 @@ void FDeadlinePluginUISpec::Define()
 					}
 				};
 
+			auto EditableTextTest = [this](const FString& ParameterName, FDriverElementRef Widget, const FString& ExpectedValue)
+				{
+					ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), Widget, 50);
+					if (Widget->IsVisible() && Widget->IsInteractable())
+					{
+						InputText(Widget, "Test", true);
+						TestTrue(ParameterName + " should be editable", "Test" == ExpectedValue);
+					}
+					else
+					{
+						TestTrue(ParameterName + " widget should be visible and interactable", false);
+					}
+				};
+
 			VisibilityTest("SavePresetButton", SavePresetButton, true);
+
+			EditableTextTest("File Array Element Text", FileArrayElementText, MRQJob->PresetOverrides.JobAttachments.InputFiles.Files.Paths[0].FilePath);
+			EditableTextTest("Dir Array Element Text", DirArrayElementText, MRQJob->PresetOverrides.JobAttachments.InputDirectories.Directories.Paths[0].Path);
 
 			VisibilityTest("StringParameters", StringParametersWidget, true);
 			VisibilityTest("PathParameters", PathParametersWidget, true);
@@ -729,9 +828,10 @@ void FDeadlinePluginUISpec::Define()
 			VisibilityTest("Variable2", Variable2Widget, true);
 			VisibilityTest("Variable3", Variable3Widget, true);
 			VisibilityTest("HiddenVariable", HiddenVariableWidget, false);
-
-			VisibilityTest("Default Step category", DefaultStepCategory, true);
-			VisibilityTest("Empty Step category", EmptyStepCategory, false);
+			
+			// always visible with host reqs
+			//VisibilityTest("Default Step category", DefaultStepCategory, true);
+			//VisibilityTest("Empty Step category", EmptyStepCategory, false);
 			VisibilityTest("Default Environment category", DefaultEnvCategory, true);
 			VisibilityTest("Empty Step Environment category", EmptyStepEnvCategory, false);
 
@@ -748,6 +848,7 @@ void FDeadlinePluginUISpec::Define()
 
 				CreatedEmptyStepDataAsset->RemoveFromRoot();
 				CreatedEmptyStepDataAsset = nullptr;
+
 				CreatedEmptyEnvironmentDataAsset->RemoveFromRoot();
 				CreatedEmptyEnvironmentDataAsset = nullptr;
 
@@ -782,11 +883,11 @@ void FDeadlinePluginUISpec::Define()
 			CreatedJobDataAsset = CreateAndOpenAsset<UDeadlineCloudJob>(JobTemplate, PathToJobTemplate);
 			CreatedJobDataAsset->AddToRoot();
 
-			TestTrue("HiddenParameters should contains in hidden parameters array by default", CreatedJobDataAsset->ContainsHiddenParameters("HiddenParameter"));
-			TestFalse("PathParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->ContainsHiddenParameters("PathParameter"));
-			TestFalse("IntParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->ContainsHiddenParameters("IntParameter"));
-			TestFalse("StringParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->ContainsHiddenParameters("StringParameter"));
-			TestFalse("FloatParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->ContainsHiddenParameters("FloatParameter"));
+			TestTrue("HiddenParameters should contains in hidden parameters array by default", CreatedJobDataAsset->GetHiddenManager().Contains("HiddenParameter"));
+			TestFalse("PathParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->GetHiddenManager().Contains("PathParameter"));
+			TestFalse("IntParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->GetHiddenManager().Contains("IntParameter"));
+			TestFalse("StringParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->GetHiddenManager().Contains("StringParameter"));
+			TestFalse("FloatParameter should not contains in hidden parameters array by default", CreatedJobDataAsset->GetHiddenManager().Contains("FloatParameter"));
 
 			});
 
@@ -953,11 +1054,11 @@ void FDeadlinePluginUISpec::Define()
 			CreatedStepDataAsset = CreateAndOpenAsset<UDeadlineCloudStep>(StepTemplate, PathToStepTemplate);
 			CreatedStepDataAsset->AddToRoot();
 
-			TestTrue("HiddenParameters should contains in hidden parameters array by default", CreatedStepDataAsset->ContainsHiddenParameters("HiddenParameters"));
-			TestTrue("IntParameters should contains in hidden parameters array by default", CreatedStepDataAsset->ContainsHiddenParameters("IntParameters"));
-			TestTrue("FloatParameters should contains in hidden parameters array by default", CreatedStepDataAsset->ContainsHiddenParameters("FloatParameters"));
-			TestTrue("StringParameters should contains in hidden parameters array by default", CreatedStepDataAsset->ContainsHiddenParameters("StringParameters"));
-			TestTrue("PathParameters should contains in hidden parameters array by default", CreatedStepDataAsset->ContainsHiddenParameters("PathParameters"));
+			TestTrue("HiddenParameters should contains in hidden parameters array by default", CreatedStepDataAsset->GetHiddenManager().Contains("HiddenParameters"));
+			TestTrue("IntParameters should contains in hidden parameters array by default", CreatedStepDataAsset->GetHiddenManager().Contains("IntParameters"));
+			TestTrue("FloatParameters should contains in hidden parameters array by default", CreatedStepDataAsset->GetHiddenManager().Contains("FloatParameters"));
+			TestTrue("StringParameters should contains in hidden parameters array by default", CreatedStepDataAsset->GetHiddenManager().Contains("StringParameters"));
+			TestTrue("PathParameters should contains in hidden parameters array by default", CreatedStepDataAsset->GetHiddenManager().Contains("PathParameters"));
 
 			ShowTestStepParameters();
 			});
@@ -1093,10 +1194,10 @@ void FDeadlinePluginUISpec::Define()
 			CreatedEnvironmentDataAsset = CreateAndOpenAsset<UDeadlineCloudEnvironment>(EnvTemplate, PathToEnvironmentTemplate);
 			CreatedEnvironmentDataAsset->AddToRoot();
 
-			TestTrue("HiddenVariable should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->ContainsHiddenParameters("HiddenVariable"));
-			TestTrue("Variable1 should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->ContainsHiddenParameters("Variable1"));
-			TestTrue("Variable2 should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->ContainsHiddenParameters("Variable2"));
-			TestTrue("Variable3 should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->ContainsHiddenParameters("Variable3"));
+			TestTrue("HiddenVariable should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->GetHiddenManager().Contains("HiddenVariable"));
+			TestTrue("Variable1 should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->GetHiddenManager().Contains("Variable1"));
+			TestTrue("Variable2 should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->GetHiddenManager().Contains("Variable2"));
+			TestTrue("Variable3 should contains in hidden parameters array by default", CreatedEnvironmentDataAsset->GetHiddenManager().Contains("Variable3"));
 
 			ShowTestEnvironmentParameters();
 			});
@@ -1153,6 +1254,94 @@ void FDeadlinePluginUISpec::Define()
 				CreatedEnvironmentDataAsset = nullptr;
 		});
     });
+
+	Describe("DeadlineCloudHostRequirementsUI", [this]()
+		{
+			BeforeEach([this]() {
+				CreatedHostRequirements = CreateAndOpenAsset<UDeadlineCloudHostRequirements>(HostReqTemplate, PathToHostReqTemplate);
+				CreatedHostRequirements->AddToRoot();
+				});
+
+			It("HostRequirementsUI", EAsyncExecution::ThreadPool, FTimespan::FromSeconds(120), [this]() {
+				if (!InitForDataAsset(CreatedHostRequirements))
+				{
+					return;
+				}
+
+				ExpandAllProperties(DetailsPath, Driver);
+
+				FDriverElementRef CustomAmountNameWidget = Driver->FindElement(By::Path("#HostReq.Amount.Custom.Name//<SEditableTextBox>"));
+				FDriverElementRef CustomAttrNameWidget = Driver->FindElement(By::Path("#HostReq.Attr.Custom.Name//<SEditableTextBox>"));
+
+				auto FindStringKeyRef =
+					[](auto& Map, const FString& KeyToFind) -> FString*
+					{
+						for (auto It = Map.CreateIterator(); It; ++It)
+						{
+							if (It.Key() == KeyToFind)
+							{
+								return &It.Key();
+							}
+						}
+
+						return nullptr;
+					};
+
+				ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), CustomAmountNameWidget, 50);
+				bool bCustomAmountNameWidgetExists = CustomAmountNameWidget->Exists();
+				TestTrue("CustomAmountNameWidget widget should exist", bCustomAmountNameWidgetExists);
+
+				if (bCustomAmountNameWidgetExists)
+				{
+					FString* AmountKey = FindStringKeyRef(CreatedHostRequirements->HostRequirements.Amounts, "amount.test");
+					if (AmountKey == nullptr)
+					{
+						TestTrue("Amount Custom Key should exist", false);
+					}
+					else
+					{
+						FString OldValue = *AmountKey;
+						InputText(CustomAmountNameWidget, "InvalidNameTest", true);
+						TestTrue("New key should not exist", FindStringKeyRef(CreatedHostRequirements->HostRequirements.Amounts, "amount.test") != nullptr);
+
+						InputText(CustomAmountNameWidget, "amount.custom", true);
+						TestTrue("New key should exist", FindStringKeyRef(CreatedHostRequirements->HostRequirements.Amounts, "amount.custom") != nullptr);
+					}
+				}
+
+				ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), CustomAttrNameWidget, 50);
+				bool bCustomAttrNameWidgetExists = CustomAttrNameWidget->Exists();
+				TestTrue("CustomAmountNameWidget widget should exist", bCustomAttrNameWidgetExists);
+
+				if (bCustomAttrNameWidgetExists)
+				{
+					FString* AttrKey = FindStringKeyRef(CreatedHostRequirements->HostRequirements.Attributes, "attr.test");
+					if (AttrKey == nullptr)
+					{
+						TestTrue("Attr Custom Key should exist", false);
+					}
+					else
+					{
+						FString OldValue = *AttrKey;
+						InputText(CustomAttrNameWidget, "InvalidNameTest", true);
+						TestTrue("New key should not exist", FindStringKeyRef(CreatedHostRequirements->HostRequirements.Attributes, "attr.test") != nullptr);
+
+						InputText(CustomAttrNameWidget, "attr.custom", true);
+						TestTrue("New key should exist", FindStringKeyRef(CreatedHostRequirements->HostRequirements.Attributes, "attr.custom") != nullptr);
+					}
+				}
+
+				});
+
+			AfterEach([this]()
+				{
+					auto* Editor = GEditor->GetEditorSubsystem<UAssetEditorSubsystem>();
+					Editor->CloseAllAssetEditors();
+
+					CreatedHostRequirements->RemoveFromRoot();
+					CreatedHostRequirements = nullptr;
+				});
+		});
 
 	Describe("DeadlineCloudSavePresetWidget", [this]()
     {
@@ -1222,6 +1411,8 @@ void FDeadlinePluginUISpec::Define()
 			MRQJob = nullptr;
 		});
     });
+
+
 
 	AfterEach([this]() {
 		Driver.Reset();

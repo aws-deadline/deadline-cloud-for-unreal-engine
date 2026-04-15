@@ -200,13 +200,6 @@ class UnrealOpenJob(UnrealOpenJobEntity):
 
         steps = [UnrealOpenJobStep.from_data_asset(step) for step in data_asset.steps]
 
-        host_requirements = HostRequirementsHelper.u_host_requirements_to_openjd_host_requirements(
-            data_asset.job_preset_struct.host_requirements
-        )
-        for step in steps:
-            if host_requirements is not None:
-                step.host_requirements = host_requirements
-
         shared_settings = data_asset.job_preset_struct.job_shared_settings
         result_job = cls(
             file_path=data_asset.path_to_template.file_path,
@@ -774,15 +767,11 @@ class RenderUnrealOpenJob(UnrealOpenJob):
                 f"Currently it has {render_steps_count} Render Steps"
             )
 
-        host_requirements = HostRequirementsHelper.u_host_requirements_to_openjd_host_requirements(
-            data_asset.job_preset_struct.host_requirements
-        )
         steps = []
         for source_step in data_asset.steps:
             job_step_cls = cls.job_step_map.get(type(source_step), UnrealOpenJobStep)
             job_step = job_step_cls.from_data_asset(source_step)
-            if host_requirements is not None:
-                job_step.host_requirements = host_requirements
+
             steps.append(job_step)
 
         environments = []
@@ -879,14 +868,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         :type mrq_job: unreal.MoviePipelineDeadlineCloudExecutorJob
         """
 
-        host_requirements = HostRequirementsHelper.u_host_requirements_to_openjd_host_requirements(
-            mrq_job.preset_overrides.host_requirements
-        )
         for step in self._steps:
-            # update host requirements
-            if host_requirements is not None:
-                step.host_requirements = host_requirements
-
             # set mrq job to render step
             if isinstance(step, RenderUnrealOpenJobStep):
                 step.mrq_job = mrq_job
@@ -905,6 +887,13 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
             # update depends on
             step.step_dependencies = list(step_override.depends_on)
+
+            # update host_req
+            step_host_requirements_override = step_override.host_requirements_override
+            step.host_requirements = HostRequirementsHelper.add_overrides(
+                step.host_requirements,
+                step_host_requirements_override,
+            )
 
             # update step environments
             for env in step.environments:

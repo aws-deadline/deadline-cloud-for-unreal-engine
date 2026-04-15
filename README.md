@@ -1,5 +1,7 @@
 # AWS Deadline Cloud for Unreal Engine
 
+### [User guide](https://aws-deadline.github.io/) | [Service documentation](https://docs.aws.amazon.com/deadline-cloud/) | [Deadline Cloud on GitHub](https://github.com/aws-deadline/) 
+
 [![pypi](https://img.shields.io/pypi/v/deadline-cloud-for-unreal-engine.svg?style=flat)](https://pypi.python.org/pypi/deadline-cloud-for-unreal-engine)
 [![python](https://img.shields.io/pypi/pyversions/deadline-cloud-for-unreal-engine.svg?style=flat)](https://pypi.python.org/pypi/deadline-cloud-for-unreal-engine)
 [![license](https://img.shields.io/pypi/l/deadline-cloud-for-unreal-engine.svg?style=flat)](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/LICENSE)
@@ -18,7 +20,7 @@ For instructions on installing and using this integration, visit the [user guide
 
 This library requires:
 
-1. Python 3.9 or higher; and Unreal Engine 5.3 or higher.
+1. Python 3.9 or higher; and Unreal Engine 5.4 - 5.7.
 2. Windows operating system.
 
 ## Submitter
@@ -42,7 +44,7 @@ Jobs created by the submitter use this adaptor by default. The Unreal Engine Ada
 
 On [Service Managed Fleets (SMF)](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/smf-manage.html) worker hosts, the Unreal Engine and adaptor are automatically available via the `deadline-cloud Conda` channel with the [default Queue Environment](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/create-queue-environment.html#conda-queue-environment).
 
-Perforce is not currently supported on SMF.
+Perforce is supported on SMF!
 
 ### Customer Managed Fleets (CMF)
 

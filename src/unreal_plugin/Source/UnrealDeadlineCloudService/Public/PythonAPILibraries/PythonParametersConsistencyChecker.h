@@ -40,7 +40,7 @@ public:
 	FParametersConsistencyCheckResult	CheckStepParametersConsistency(const UDeadlineCloudStep* Step);
 
 	UFUNCTION(BlueprintImplementableEvent)
-	void	FixStepParametersConsistency (UDeadlineCloudStep* Step);
+	void FixStepParametersConsistency (UDeadlineCloudStep* Step);
 
 	UFUNCTION(BlueprintImplementableEvent)
 	FParametersConsistencyCheckResult	CheckEnvironmentVariablesConsistency(const UDeadlineCloudEnvironment* Environment);

@@ -35,7 +35,9 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_parameters_consis
 )
 from deadline.unreal_logger import get_logger
 from deadline.unreal_submitter import exceptions, settings
-
+from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step_host_requirements import (
+    HostRequirementsHelper,
+)
 
 logger = get_logger()
 
@@ -148,7 +150,7 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         return self._host_requirements
 
     @host_requirements.setter
-    def host_requirements(self, value: HostRequirementsTemplate):
+    def host_requirements(self, value: Optional[HostRequirementsTemplate]):
         self._host_requirements = value
 
     @property
@@ -194,6 +196,9 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
             environments=[
                 UnrealOpenJobEnvironment.from_data_asset(env) for env in data_asset.environments
             ],
+            host_requirements=HostRequirementsHelper.get_host_requirements_from_data_asset(
+                data_asset.host_requirements
+            ),
             extra_parameters=[
                 UnrealOpenJobStepParameterDefinition.from_unreal_param_definition(param)
                 for param in data_asset.get_step_parameters()

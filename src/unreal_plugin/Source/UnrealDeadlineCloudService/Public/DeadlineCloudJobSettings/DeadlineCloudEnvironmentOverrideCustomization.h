@@ -39,9 +39,6 @@ public:
     /** FDetailArrayBuilder Interface */
     virtual void GenerateHeaderRowContent(FDetailWidgetRow& NodeRow) override;
 
-    /** Generates wrapper struct header row content */
-    void GenerateWrapperStructHeaderRowContent(FDetailWidgetRow& NodeRow, TSharedRef<SWidget> NameContent);
-
 private:
     /** Generates array element widget */
     void OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const;

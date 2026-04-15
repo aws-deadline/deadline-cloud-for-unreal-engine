@@ -6,6 +6,29 @@
 
 UDeadlineCloudEnvironment::UDeadlineCloudEnvironment()
 {
+    HiddenVarsManager.OnGetAllNames.BindLambda([this]()
+        {
+            TSet<FName> Names;
+            for (const auto& KV : Variables.Variables)
+            {
+                Names.Add(FName(*KV.Key));
+            }
+            return Names;
+        });
+
+    HiddenVarsManager.OnGetDefaultHidden.BindLambda([this]()
+        {
+            return HiddenVarsManager.OnGetAllNames.IsBound()
+                ? HiddenVarsManager.OnGetAllNames.Execute()
+                : TSet<FName>{};
+        });
+
+    HiddenVarsManager.OnChanged.BindLambda([this]()
+        {
+            Modify();
+            MarkPackageDirty();
+            ParameterHiddenEvent();
+        });
 }
 
 void UDeadlineCloudEnvironment::OpenEnvFile(const FString& Path)
@@ -15,11 +38,11 @@ void UDeadlineCloudEnvironment::OpenEnvFile(const FString& Path)
         FEnvironmentStruct EnvironmentStructure = Library->OpenEnvFile(Path);
         Name = EnvironmentStructure.Name;
         Variables.Variables.Empty();
-        UserHiddenParametersList.Empty();
+        GetHiddenManager().Clear();
         for (FEnvVariable Variable : EnvironmentStructure.Variables)
         {
             Variables.Variables.Add(Variable.Name, Variable.Value);
-            UserHiddenParametersList.Add(FName(*Variable.Name));
+            GetHiddenManager().Add(FName(*Variable.Name));
         }
     }
     else
@@ -55,14 +78,13 @@ void UDeadlineCloudEnvironment::FixEnvironmentVariablesConsistency(UDeadlineClou
 
 FDeadlineCloudEnvironmentOverride UDeadlineCloudEnvironment::GetEnvironmentData()
 {
-
     FDeadlineCloudEnvironmentOverride FilteredEnvData;
     FilteredEnvData.Name = this->Name;
-    
+	FilteredEnvData.SourceObjectPath = FSoftObjectPath(this);
     // Filter out hidden variables from the environment
     for (const auto& VariablePair : this->Variables.Variables)
     {
-        if (!ContainsHiddenParameters(FName(VariablePair.Key)))
+        if (!HiddenVarsManager.Contains(FName(VariablePair.Key)))
         {
             FilteredEnvData.Variables.Variables.Add(VariablePair.Key, VariablePair.Value);
         }
@@ -153,4 +175,6 @@ void FDeadlineCloudEnvironmentOverride::CopyParametersValuesFrom(const FDeadline
 			*FoundVar = VarPair.Value;
 		}
 	}
+
+	SourceObjectPath = Other.SourceObjectPath;
 }
