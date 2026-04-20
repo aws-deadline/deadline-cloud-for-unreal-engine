@@ -1,0 +1,48 @@
+name: InstallMarketplacePlugins
+variables: {}
+script:
+  embeddedFiles:
+    - name: installScript
+      filename: install_marketplace_plugins.bat
+      type: TEXT
+      data: |
+        @echo off
+        setlocal enabledelayedexpansion
+
+        set "SOURCE_DIR={{Param.MarketplacePluginsDir}}"
+        if "%SOURCE_DIR%"=="" (
+            echo No Marketplace plugins to install, skipping.
+            exit /b 0
+        )
+        if not exist "%SOURCE_DIR%" (
+            echo Marketplace plugins source dir not found: %SOURCE_DIR%, skipping.
+            exit /b 0
+        )
+
+        :: Find the engine Plugins dir by resolving UnrealEditor-Cmd on PATH
+        for %%I in (UnrealEditor-Cmd.exe) do set "UE_EXE=%%~$PATH:I"
+        if "%UE_EXE%"=="" (
+            echo ERROR: UnrealEditor-Cmd.exe not found on PATH
+            exit /b 1
+        )
+
+        :: UE_EXE is like .../Engine/Binaries/Win64/UnrealEditor-Cmd.exe
+        :: Navigate up to Engine/Plugins/Marketplace
+        for %%I in ("%UE_EXE%") do set "BIN_DIR=%%~dpI"
+        set "ENGINE_PLUGINS_DIR=%BIN_DIR%..\..\Plugins\Marketplace"
+
+        echo Source: %SOURCE_DIR%
+        echo Destination: %ENGINE_PLUGINS_DIR%
+
+        if not exist "%ENGINE_PLUGINS_DIR%" mkdir "%ENGINE_PLUGINS_DIR%"
+
+        :: Copy each plugin subdirectory
+        for /d %%D in ("%SOURCE_DIR%\*") do (
+            echo Installing plugin: %%~nxD
+            xcopy "%%D" "%ENGINE_PLUGINS_DIR%\%%~nxD\" /E /I /Y /Q
+        )
+
+        echo Marketplace plugins installed successfully.
+  actions:
+    onEnter:
+      command: '{{Env.File.installScript}}'
