@@ -204,3 +204,22 @@ This example will use the Meerkat Demo from the Unreal Marketplace:
 		
 	1. Ready to Go! Hit "Render (Remote)". 
 1. You can go to Deadline Cloud Monitor and watch the progress of your job. 
+
+
+# Update Notifications
+
+The submitter plugin automatically checks for newer releases on GitHub when Unreal Editor starts. If an update is available, a dialog will prompt you to visit the release page.
+
+To deactivate update notifications, uncheck "Show submitter update notifications" under "General Settings" in the Deadline Cloud settings panel (Edit > Project Settings > Plugins > Deadline Cloud).
+
+Alternatively, you can use the CLI:
+
+```
+deadline config set settings.submitter_update_notification false
+```
+
+To re-enable:
+
+```
+deadline config set settings.submitter_update_notification true
+```
