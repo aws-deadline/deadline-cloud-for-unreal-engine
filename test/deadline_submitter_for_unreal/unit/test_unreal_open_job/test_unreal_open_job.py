@@ -687,6 +687,9 @@ class TestRenderUnrealOpenJob:
             lambda *a, **kw: None,
         )
         monkeypatch.setattr(
+            InstallMarketplacePluginsEnvironment, "__init__", lambda self, **kw: None
+        )
+        monkeypatch.setattr(
             UnrealOpenJob, "_create_missing_extra_parameters_from_template", lambda self: None
         )
 
@@ -725,6 +728,9 @@ class TestRenderUnrealOpenJob:
         monkeypatch.setattr(
             "deadline.unreal_submitter.unreal_open_job.unreal_open_job.UnrealOpenJobEntity.__init__",
             lambda *a, **kw: None,
+        )
+        monkeypatch.setattr(
+            InstallMarketplacePluginsEnvironment, "__init__", lambda self, **kw: None
         )
         monkeypatch.setattr(
             UnrealOpenJob, "_create_missing_extra_parameters_from_template", lambda self: None
