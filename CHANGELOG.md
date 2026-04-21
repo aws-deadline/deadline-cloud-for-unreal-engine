@@ -1,3 +1,29 @@
+## 0.6.8 (2026-04-14)
+
+
+### Bug Fixes
+* **workflow**: Use centralized build-python-version for PublishToPyPI (#280) ([`9e011f3`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/9e011f3))
+
+
+## 0.6.7 (2026-04-14)
+
+
+### Bug Fixes
+* **pipeline**: Use hatch built-in build command in publish script (#281) ([`8c8089e`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/8c8089ebe009713a13ff473dea72978e180cb2bb))
+
+
+## 0.6.6 (2026-04-13)
+
+
+### Features
+* Adding persistent perforce workspace support (#273) ([`663e5dd`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/663e5dd2cb6fa5a16dfa1939e402d99c5448537e))
+* Add amount and attributes name UI validation (#254) ([`d34587b`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/d34587bc43c0340e6600e0bdbf2f9ad6714b3446))
+* Custom Host Requirements (#232) ([`39db954`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/39db9541bbc3a8b7260aebef00bd8b9217b5a5db))
+
+### Bug Fixes
+* Job attachment file and folder picker should be enabled (#240) ([`0188372`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/018837252e6b71214d5a5b198e7c67512332d9d9))
+
+
 ## 0.6.5 (2025-10-29)
 
 

@@ -18,8 +18,19 @@ Select the appropriate branch for your deployment:
 If you’re setting up on a brand new Windows EC2 Instance as your submitter, a g5.2xlarge instance with 200 GB of storage will likely be reasonable minimum:
 
 1. Launch EC2 instance with a valid Instance Profile. This is required to download NVIDIA GRID drivers as instructed below.
-1. Download the Epic Installer and install a version of Unreal between versions 5.3 or newer. Note that on version 5.5 with DirectX 11 there's a crash bug which can affect projects rendered using the Deadline Cloud plugin which has been fixed in Unreal's source and can be tracked [here](https://issues.unrealengine.com/issue/UE-276282). Projects in Deadline Cloud should use DirectX 12 with UE 5.5.
+1. Download the Epic Installer and install a supported version of Unreal (5.4 - 5.7).
+    - UE 5.5 has a known crash bug when running with the DirectX 11 plugin, see UI issue #UE-276282. If you need DirectX support on UE 5.5, use DirectX 12+.
 1. NVIDIA GRID drivers - Follow Windows instructions - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/install-nvidia-driver.html#nvidia-GRID-driver
+
+## Submitter Installation
+
+If you're using an AI coding agent, you can automate the entire setup below by running the `ue-dev-setup` skill. Just ask: *"use ue-dev-setup skill to setup this computer"*. The agent will handle as much as it can and prompt you only when manual action is needed.
+
+If you prefer to set up manually, expand the section below.
+
+<details markdown="1">
+<summary><strong>Manual Setup Steps</strong></summary>
+
 
 ## Windows Long Paths
 
@@ -134,11 +145,11 @@ _4._ Lastly, Python dependencies can be installed by the submitter installer. NO
 1. Enable the Unreal Engine Plugin
 1. Make sure the Unreal Engine plugin install path matches where your plugin was copied to (In particular make sure your Unreal version matches)
 
-## Submitter Installation Complete
-
-If you don't need to set up a new fleet you can stop here, or skip down to the "Submit a Test Render" section.
+</details>
 
 # Create a Fleet
+
+If you already have a Windows fleet and don't need to set up a new fleet, you can stop here or skip down to the "Submit a Test Render" section.
 
 ## Create a Service Managed Fleet (SMF)
 
@@ -193,3 +204,22 @@ This example will use the Meerkat Demo from the Unreal Marketplace:
 		
 	1. Ready to Go! Hit "Render (Remote)". 
 1. You can go to Deadline Cloud Monitor and watch the progress of your job. 
+
+
+# Update Notifications
+
+The submitter plugin automatically checks for newer releases on GitHub when Unreal Editor starts. If an update is available, a dialog will prompt you to visit the release page.
+
+To deactivate update notifications, uncheck "Show submitter update notifications" under "General Settings" in the Deadline Cloud settings panel (Edit > Project Settings > Plugins > Deadline Cloud).
+
+Alternatively, you can use the CLI:
+
+```
+deadline config set settings.submitter_update_notification false
+```
+
+To re-enable:
+
+```
+deadline config set settings.submitter_update_notification true
+```

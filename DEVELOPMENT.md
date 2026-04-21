@@ -6,6 +6,10 @@ This package has two active branches:
 
 ## Build and Install the Plugin, Submitter, and Adapter
 
+> **Tip:** If you're using an AI coding agent, you can run the `ue-dev-setup` skill to automate the entire dev environment setup. Just ask: *"use ue-dev-setup skill to setup this computer"*.
+>
+> For major features or significant refactors, use the `ue-design` skill to create a structured design doc before writing code. Just ask: *"use ue-design skill to design a feature"*.
+
 Full instructions for building and installing these packages and the necessary dependencies to act as a submitter and/or worker can be found in [Submitter Setup Guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-submitter.md) and [CMF Worker Setup Guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-cmf-worker.md).  Use the "mainline" branch for development rather than "release", and if you plan on submitting pull requests work out of [a fork](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/CONTRIBUTING.md#contributing-via-pull-requests).
 
 
@@ -182,6 +186,27 @@ Root Cause: Version mismatch between the Unreal Engine version used to submit th
 Solutions:
    - Resubmit the job using the Unreal Engine version that matches the worker node. On Service Managed Fleets - Ensure the Conda package version selected matches your project's version of Unreal Engine
    - Install the correct Unreal Engine version on the worker node and update environment variables to match the job's Unreal Engine version
+
+### Build Fails Because Repository Was Downloaded as a Zip Instead of Cloned
+
+Root Cause: The repository was downloaded as a zip archive from GitHub (e.g. "Download ZIP") instead of being cloned with `git`. GitHub zip downloads do not include the `.git` folder, which `setuptools-scm` requires to determine the package version.
+
+Running `hatch build` directly will show:
+```
+LookupError: Error getting the version from source `vcs`: setuptools-scm was unable to detect version for <path>.
+
+Make sure you're either building from a fully intact git repository or PyPI tarballs. Most other sources (such as GitHub's tarballs, a git checkout without the .git folder) don't contain the necessary metadata and will not work.
+```
+
+Running `scripts/build_plugin.py` will show:
+```
+subprocess.CalledProcessError: Command '['hatch', 'build']' returned non-zero exit status 1.
+```
+
+Solution: Clone the repository using `git clone` instead of downloading the zip:
+```bash
+git clone https://github.com/aws-deadline/deadline-cloud-for-unreal-engine.git
+```
 
 ### Missing Deadline Cloud Job Submission Configuration in Movie Render Queue
 

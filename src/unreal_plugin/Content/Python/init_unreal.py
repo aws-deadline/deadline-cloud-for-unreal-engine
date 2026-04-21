@@ -162,6 +162,10 @@ if remote_execution != "True":
 
     logger.info("INIT DEADLINE CLOUD")
 
+    from update_check import safe_check_and_show_update_dialog
+
+    safe_check_and_show_update_dialog()
+
     logger.info(f'DEADLINE CLOUD PATH: {os.getenv("DEADLINE_CLOUD")}')
 
     # These unused imports are REQUIRED!!!
