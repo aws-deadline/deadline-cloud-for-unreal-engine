@@ -43,3 +43,10 @@ parameterDefinitions:
 - name: ChunkSize
   type: INT
   default: 1
+- name: MarketplacePluginsDir
+  type: PATH
+  objectType: DIRECTORY
+  dataFlow: IN
+  default: ''
+  userInterface:
+   control: HIDDEN

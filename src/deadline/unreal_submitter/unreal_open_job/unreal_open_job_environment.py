@@ -120,6 +120,13 @@ class UnrealOpenJobEnvironment(UnrealOpenJobEntity):
         return parse_model(model=self.template_class, obj=template_dict)
 
 
+# Install Marketplace Plugins Environment
+class InstallMarketplacePluginsEnvironment(UnrealOpenJobEnvironment):
+    """Predefined Environment for installing Marketplace plugins on SMF workers"""
+
+    default_template_path = settings.INSTALL_MARKETPLACE_PLUGINS_ENVIRONMENT_TEMPLATE_DEFAULT_PATH
+
+
 # Launch Unreal Editor Environment
 class LaunchEditorUnrealOpenJobEnvironment(UnrealOpenJobEnvironment):
     """Predefined Environment for launching the Unreal Editor"""

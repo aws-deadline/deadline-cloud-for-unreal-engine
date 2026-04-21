@@ -43,4 +43,11 @@ parameterDefinitions:
   default: 1
   userInterface: 
    control: HIDDEN
+- name: MarketplacePluginsDir
+  type: PATH
+  objectType: DIRECTORY
+  dataFlow: IN
+  default: ''
+  userInterface:
+   control: HIDDEN
 

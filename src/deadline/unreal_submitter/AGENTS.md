@@ -21,3 +21,11 @@ Handles job submission from the Unreal Editor to AWS Deadline Cloud. Runs inside
 - Telemetry is collected by default; users can opt out via `DEADLINE_CLOUD_TELEMETRY_OPT_OUT=true`
 - The `unreal_open_job` subpackage builds OpenJD job bundles programmatically — changes here affect the job structure sent to Deadline Cloud
 
+
+## UE Plugin Locations
+
+Three plugin directories matter for `get_plugins_references()`:
+
+- **Project** (`<Project>/Plugins/`): Project level plugins. Scanned and uploaded.
+- **Engine stock** (`<Engine>/Engine/Plugins/`): Built-in plugins. Shipped with UE — skipped.
+- **FAB/Marketplace installed** (`<Engine>/Engine/Plugins/Marketplace/`): Fab/Marketplace/Launcher-installed plugins. Uploaded and copied into the worker's engine dir by the auto-injected `InstallMarketplacePlugins` environment.
