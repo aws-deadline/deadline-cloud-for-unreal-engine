@@ -35,6 +35,7 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step import (
     UnrealOpenJobStepParameterDefinition,
 )
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment import (
+    InstallMarketplacePluginsEnvironment,
     UnrealOpenJobEnvironment,
     UgsUnrealOpenJobEnvironment,
     P4UnrealOpenJobEnvironment,
@@ -173,6 +174,14 @@ class UnrealOpenJob(UnrealOpenJobEntity):
 
         self._steps: list[UnrealOpenJobStep] = steps or []
         self._environments: list[UnrealOpenJobEnvironment] = environments or []
+
+        # Auto-inject Marketplace plugins installer if marketplace plugins exist
+        # and it's not already in the environment list
+        if UnrealOpenJob.get_marketplace_plugins_dir() and not any(
+            isinstance(e, InstallMarketplacePluginsEnvironment) for e in self._environments
+        ):
+            self._environments.insert(0, InstallMarketplacePluginsEnvironment())
+
         self._job_shared_settings = job_shared_settings or JobSharedSettings()
         self._asset_references = asset_references or AssetReferences()
 
@@ -418,53 +427,69 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         return asset_references
 
     @staticmethod
-    def get_plugins(path: str):
-        unreal_plugins: list[dict] = []
+    def _scan_plugin_dirs(path: str) -> list[tuple[str, str]]:
+        """Scan a directory for .uplugin files.
+
+        :return: List of (plugin_name, plugin_directory) tuples
+        """
+        results = {}
         pattern = os.path.join(path, "**", "*.uplugin")
-
         for uplugin in glob.iglob(pattern, recursive=True):
-            real_path = Path(uplugin).resolve(strict=True)
-            try:
-                with real_path.open(encoding="utf-8") as f:
-                    plugin_data = json.load(f)
-
-                unreal_plugins.append(
-                    {
-                        "name": real_path.stem,
-                        "enabled_by_default": plugin_data.get("EnabledByDefault", True),
-                        "folder": Path(uplugin).parent.name,
-                    }
-                )
-            except (OSError, json.JSONDecodeError):
-                continue
-
-        return unreal_plugins
+            name = Path(uplugin).stem
+            plugin_dir = str(Path(uplugin).parent)
+            results[name] = plugin_dir
+        return list(results.items())
 
     @staticmethod
-    def parse_uproject(path: str) -> dict[str, bool]:
-        with open(path, encoding="utf‑8") as f:
-            data = json.load(f)
+    def get_marketplace_plugins_dir() -> str:
+        """Return the engine Marketplace plugins directory if it exists, empty string otherwise."""
+        # engine_plugins_dir() returns the engine's plugins root directory
+        # (e.g., "C:/Program Files/Epic Games/UE_5.x/Engine/Plugins/").
+        # Stock plugins can be found in this folder.
+        engine_plugins = unreal.Paths.convert_relative_path_to_full(
+            unreal.Paths.engine_plugins_dir()
+        )
 
-        return {e["Name"]: e.get("Enabled", True) for e in data.get("Plugins", [])}
+        # Note: "Marketplace" is the conventional install path used by the Fab/Launcher;
+        # this is not formally documented by Epic and may change in the future.
+        # "Marketplace" folder is created when user installs the very first marketplace plugin.
+        marketplace_dir = os.path.join(engine_plugins, "Marketplace")
+        return marketplace_dir if os.path.isdir(marketplace_dir) else ""
 
     @staticmethod
     def get_plugins_references() -> AssetReferences:
-        project_path = unreal.Paths.get_project_file_path()
-        project_plugins_info = UnrealOpenJob.parse_uproject(project_path)
-
         result = AssetReferences()
-        plugins_dir = unreal.Paths.project_plugins_dir()
-        plugins_dir_full = unreal.Paths.convert_relative_path_to_full(plugins_dir)
-        plugins = UnrealOpenJob.get_plugins(plugins_dir_full)
+        lib = unreal.PluginBlueprintLibrary
+        enabled_plugins = set(lib.get_enabled_plugin_names())
 
-        for plugin in plugins:
-            if plugin["name"] == "UnrealDeadlineCloudService":
-                continue
+        # Directories to scan for non-stock plugins.
+        # We only scan directories where user-installed plugins live, skipping the
+        # stock engine plugins that ship with every UE installation.
+        scan_dirs = []
 
-            is_enable = project_plugins_info.get(plugin["name"], plugin["enabled_by_default"])
+        # Project-level plugins (<Project>/Plugins/)
+        project_plugins = unreal.Paths.convert_relative_path_to_full(
+            unreal.Paths.project_plugins_dir()
+        )
+        scan_dirs.append(project_plugins)
 
-            if is_enable:
-                result.input_directories.add(os.path.join(plugins_dir_full, plugin["folder"]))
+        # Engine Marketplace plugins — user-installed via Fab or the Epic Games Launcher.
+        marketplace_dir = UnrealOpenJob.get_marketplace_plugins_dir()
+        if marketplace_dir:
+            scan_dirs.append(marketplace_dir)
+
+        for scan_dir in scan_dirs:
+            for plugin_name, plugin_dir in UnrealOpenJob._scan_plugin_dirs(scan_dir):
+                if plugin_name == "UnrealDeadlineCloudService":
+                    continue
+                if plugin_name in enabled_plugins:
+                    result.input_directories.add(plugin_dir)
+
+        if result.input_directories:
+            logger.info(
+                f"Auto-detected {len(result.input_directories)} non-stock plugin(s) "
+                f"as job attachments: {result.input_directories}"
+            )
 
         return result
 
@@ -1208,6 +1233,14 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             job_parameter_values=unfilled_parameter_values,
             job_parameter_name=OpenJobParameterNames.UNREAL_PROJECT_PATH,
             job_parameter_value=common.get_project_file_path(),
+        )
+
+        # Set the Marketplace plugins dir so the worker can find and install them
+        marketplace_dir = UnrealOpenJob.get_marketplace_plugins_dir()
+        unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+            job_parameter_values=unfilled_parameter_values,
+            job_parameter_name=OpenJobParameterNames.MARKETPLACE_PLUGINS_DIR,
+            job_parameter_value=marketplace_dir,
         )
 
         if self._transfer_files_strategy == TransferProjectFilesStrategy.UGS:

@@ -29,6 +29,7 @@ def create_job_from_bundle_mock(
             progress=100.0,
             transferRate=1000.0,
             progressMessage="Done",
+            processedFiles=0,
         )
     )
     upload_progress_callback(
@@ -37,6 +38,7 @@ def create_job_from_bundle_mock(
             progress=100.0,
             transferRate=1000.0,
             progressMessage="Done",
+            processedFiles=0,
         )
     )
     create_job_result_callback()
