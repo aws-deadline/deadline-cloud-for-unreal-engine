@@ -250,7 +250,7 @@ def get_build_script_args() -> List[str]:
     Returns:
         List of command line arguments for the build script
     """
-    return ["--install", "--test", "--worker"]
+    return ["--install", "--test"]
 
 
 def add_content_plugins_to_project(project_path: str, plugins: List[str], enabled: bool) -> None:
