@@ -222,6 +222,12 @@ def pytest_addoption(parser) -> None:
     )
 
 
+def pytest_configure(config) -> None:
+    """Fail fast: stop on first E2E test failure since each test is expensive."""
+    if config.option.maxfail == 0:
+        config.option.maxfail = 1
+
+
 def get_source_root() -> str:
     """
     Return the path of the root of the deadline-cloud-for-unreal-engine source.
@@ -655,7 +661,7 @@ def run_unreal_test(request, reusable_queue_fleet_association) -> Callable:
             and output_lines is a list of all output lines from the test
         """
         if deadlineargs is None:
-            deadlineargs = "-NoLoadingScreen -FixedSeed -log -Unattended -MRQInstance -deterministicaudio -audiomixer"
+            deadlineargs = "-NoLoadingScreen -FixedSeed -log -Unattended -MRQInstance -deterministicaudio -audiomixer -MaxRetriesPerTask=0"
 
         reusable_farm_id, reusable_queue_id, reusable_fleet_id = reusable_queue_fleet_association
 
@@ -1847,3 +1853,72 @@ def _extract_project_plugins_from_log_events(logs_client, log_group, log_stream)
         next_token = new_token
 
     return sorted(plugin_names)
+
+
+def find_latest_job_bundle() -> str:
+    """
+    Find the most recently created job bundle directory in job history.
+
+    Returns:
+        Path to the latest job bundle directory
+    """
+    profile_name = config.get_setting("defaults.aws_profile_name")
+    job_history_root = os.path.join(os.path.expanduser("~"), ".deadline", "job_history")
+    if profile_name and os.path.isdir(os.path.join(job_history_root, profile_name)):
+        job_history_root = os.path.join(job_history_root, profile_name)
+
+    bundle_dirs: List[str] = []
+    for root, dirs, files in os.walk(job_history_root):
+        if "template.yaml" in files:
+            bundle_dirs.append(root)
+    assert bundle_dirs, "No job bundle directories found in job history"
+    return sorted(bundle_dirs)[-1]
+
+
+def get_session_log_events(
+    deadline_client: BaseClient, farm_id: str, queue_id: str, job_id: str
+) -> List[str]:
+    """
+    Fetch all log event messages from the first session of a job.
+
+    Args:
+        deadline_client: Boto3 Deadline client
+        farm_id: The farm ID
+        queue_id: The queue ID
+        job_id: The job ID
+
+    Returns:
+        List of log event message strings
+    """
+    sessions_response = deadline_client.list_sessions(
+        farmId=farm_id, jobId=job_id, queueId=queue_id
+    )
+    session_id = sessions_response["sessions"][0]["sessionId"]
+
+    session_response = deadline_client.get_session(
+        farmId=farm_id, jobId=job_id, queueId=queue_id, sessionId=session_id
+    )
+
+    log_config = session_response["log"]["options"]
+    cwl_client = boto3.client("logs", TEST_TARGET_REGION)
+
+    all_messages: List[str] = []
+    next_token = None
+    while True:
+        kwargs = {
+            "logGroupName": log_config["logGroupName"],
+            "logStreamName": log_config["logStreamName"],
+        }
+        if next_token:
+            kwargs["nextToken"] = next_token
+
+        resp = cwl_client.get_log_events(**kwargs)
+        for ev in resp.get("events", []):
+            all_messages.append(ev.get("message", ""))
+
+        new_token = resp.get("nextForwardToken")
+        if not new_token or new_token == next_token:
+            break
+        next_token = new_token
+
+    return all_messages

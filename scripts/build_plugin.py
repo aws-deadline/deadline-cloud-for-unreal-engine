@@ -187,6 +187,39 @@ def install_whl_to_plugin(whl_path: str, engine_root: str):
     logger.info(f"Install result: {result.returncode}")
 
 
+def install_adaptor_bundle(plugin_folder: str):
+    """
+    Build the adaptor bundle and copy it into the plugin's Content/Python directory.
+
+    :param plugin_folder: Path to the installed plugin folder
+    """
+    source_root = get_source_root()
+    adaptor_bundle_script = os.path.join(source_root, "scripts", "adaptorBundle.py")
+
+    if not os.path.exists(adaptor_bundle_script):
+        logger.warning(f"adaptorBundle.py not found at {adaptor_bundle_script}, skipping bundle")
+        return
+
+    # Build the bundle at the repo root
+    bundle_output = os.path.join(source_root, "adaptor_bundle")
+    logger.info("Building adaptor bundle...")
+    result = subprocess.run(
+        [sys.executable, adaptor_bundle_script, "--output", bundle_output],
+        cwd=source_root,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            "adaptorBundle.py failed — adaptor bundle is required for job submission"
+        )
+
+    # Copy into plugin Content/Python/adaptor_bundle
+    dest = os.path.join(plugin_folder, "Content", "Python", "adaptor_bundle")
+    if os.path.exists(dest):
+        shutil.rmtree(dest)
+    shutil.copytree(bundle_output, dest)
+    logger.info(f"Adaptor bundle installed to {dest}")
+
+
 def install_plugin(engine_root: str, output_folder: str, whl_path: str, binaries: bool):
     """
     Installs the plugin to the given Unreal Engine installation, copying the compiled binaries and resources from the given output folder and
@@ -206,25 +239,8 @@ def install_plugin(engine_root: str, output_folder: str, whl_path: str, binaries
     if binaries:
         install_plugin_build_output(output_folder, plugin_folder)
     install_whl_to_plugin(whl_path, engine_root)
+    install_adaptor_bundle(plugin_folder)
     logger.info(f"Plugin installed to {plugin_folder}")
-
-
-def install_whl_global(whl_path: str):
-    """
-    Installs the given .whl file to the global python interpreter
-
-    :param whl_path: Path to whl file
-    """
-
-    if not os.path.exists(whl_path):
-        raise Exception(f"Could not find .whl file at {whl_path}")
-    # Pip install the .whl file to the global python interpreter
-    logger.info(f"Installing {whl_path} to global interpreter")
-    result = subprocess.run(
-        ["python", "-m", "pip", "install", whl_path, "--upgrade"],
-        check=True,
-    )
-    logger.info(f"Install result: {result.returncode}")
 
 
 def find_engine_root(version: Optional[str] = None) -> str:
@@ -311,37 +327,6 @@ def build_plugin(runuat_path: str, plugin_input_folder: str, output_folder: str)
     )
     if result.returncode != 0:
         raise Exception(f"Build failed {result.returncode}")
-
-
-def install_worker_dependencies(engine_root: str):
-    """
-    Installs the dependencies required for the worker plugin to function
-
-    :param engine_root: Path to root of Unreal Engine installation
-    """
-
-    logger.info("Installing worker dependencies...")
-    python_path = os.path.join(
-        engine_root, "Engine", "Binaries", "ThirdParty", "Python3", "Win64", "python.exe"
-    )
-    if not os.path.exists(python_path):
-        raise Exception(
-            f"Could not find Python executable at {python_path}, please supply an --engine-root to a valid Unreal installation or set UE_INSTALL_ROOT to "
-            + "the folder where Unreal is installed (Should contain UE_VERSION.NUM subfolders)"
-        )
-
-    worker_dependencies = ["pywin32"]
-    for dep in worker_dependencies:
-        subprocess.run(
-            [python_path, "-m", "pip", "install", dep],
-            check=True,
-        )
-
-    subprocess.run(
-        ["python", "-m", "pip", "install", "deadline-cloud-worker-agent"],
-        check=True,
-        stderr=subprocess.PIPE,
-    )
 
 
 def unreal_python_has_deadline_installed(engine_root: str) -> Tuple[bool, Optional[str]]:
@@ -463,7 +448,6 @@ def build_and_install(
     uplugin_path: str = "",
     output_folder: str = "",
     install: bool = False,
-    worker: bool = False,
     binaries: bool = True,
     test: bool = False,
     version: str = "",
@@ -475,7 +459,6 @@ def build_and_install(
     :param uplugin_path: Path to .uplugin file to build
     :param output_folder: Path to folder to build the plugin in
     :param install: Whether to install the plugin to the Unreal Engine installation
-    :param worker: Whether to install the plugin as a worker plugin to the global python interpreter
     :param binaries: Should binaries be included in the installation
     :param test: Should test content be included in the plugin installation
     :param version: Specific version to use if found
@@ -504,10 +487,6 @@ def build_and_install(
 
     if install:
         install_plugin(engine_root, output_folder, whl_path, binaries)
-
-    if worker:
-        install_whl_global(whl_path)
-        install_worker_dependencies(engine_root)
 
     if test:
         install_test_content(get_plugin_folder(engine_root))
@@ -544,11 +523,6 @@ def main():
         help="Install the plugin to the Unreal Engine installation",
     )
     parser.add_argument(
-        "--worker",
-        action="store_true",
-        help="Install the plugin as a worker plugin to the global python interpreter.  Generally should be paired with --install.",
-    )
-    parser.add_argument(
         "--no-binaries",
         default=False,
         action="store_true",
@@ -566,7 +540,6 @@ def main():
         uplugin_path=args.uplugin_path,
         output_folder=args.output_folder,
         install=args.install,
-        worker=args.worker,
         binaries=not args.no_binaries,
         test=args.test,
         version=args.ueversion,

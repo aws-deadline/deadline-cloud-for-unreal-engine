@@ -154,7 +154,7 @@ If you already have a Windows fleet and don't need to set up a new fleet, you ca
 ## Create a Service Managed Fleet (SMF)
 
 1. Follow [Service-managed fleets](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/smf-manage.html) user guide to create a Service Managed Fleet (SMF) if you don't already have one.
-	On [Service Managed Fleets (SMF)](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/smf-manage.html), the Unreal Engine and adaptor are automatically available via the `deadline-cloud Conda` channel with the [default Queue Environment](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/create-queue-environment.html#conda-queue-environment). You are ready to start rendering now! Continue with "Submit a Test Render" section below to submit a test render job.
+	On [Service Managed Fleets (SMF)](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/smf-manage.html), the Unreal Engine is automatically available via the `deadline-cloud` Conda channel with the [default Queue Environment](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/create-queue-environment.html#conda-queue-environment). You are ready to start rendering now! Continue with "Submit a Test Render" section below to submit a test render job.
 
 ## Create a Customer Managed Fleet (CMF)
 
@@ -199,8 +199,7 @@ This example will use the Meerkat Demo from the Unreal Marketplace:
 				1. Under "Input Files", select "Show Auto-Detected" 
 				1. Verify that the list of Auto Detected Files populates correctly
 		1. Under "Job Template Overrides":
-			1. Update the Unreal Engine version in "CondaPackages" if you are using a different version than 5.6
-				1. Note: Unreal Engine version autodetection is coming in a future release
+			1. Verify the Unreal Engine version in "CondaPackages" matches your installed version
 		
 	1. Ready to Go! Hit "Render (Remote)". 
 1. You can go to Deadline Cloud Monitor and watch the progress of your job. 

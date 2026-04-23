@@ -1,8 +1,11 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import logging
+import re
+
 from conftest import (
     extract_job_info_from_test_output,
+    get_session_log_events,
     wait_for_job_state,
     get_last_session_project_plugins,
     add_content_plugins_to_project,
@@ -52,6 +55,31 @@ def test_create_job_with_worker_agent(
         assert success
 
         logger.info(f"Job {job_id} SUCCEEDED")
+
+        # Verify adaptor bundle was used (T1)
+        log_messages = get_session_log_events(deadline_client, farm_id, queue_id, job_id)
+        bundle_used = any(
+            re.search(r"Using adaptor from job attachment bundle", msg) for msg in log_messages
+        )
+        assert bundle_used, "Expected adaptor bundle to be used but log message not found"
+        logger.info("Confirmed: adaptor bundle was used")
+
+        # Verify AdaptorSetup onEnter ran exactly once — env persists across steps (T6)
+        bundle_setup_count = sum(
+            1 for msg in log_messages if "Using adaptor from job attachment bundle" in msg
+        )
+        assert (
+            bundle_setup_count == 1
+        ), f"Expected AdaptorSetup onEnter once but found {bundle_setup_count} times"
+        logger.info("Confirmed: AdaptorSetup onEnter ran exactly once")
+
+        # Verify CondaPackages does not contain unrealengine-openjd (T7)
+        job = deadline_client.get_job(farmId=farm_id, queueId=queue_id, jobId=job_id)
+        conda_value = job.get("parameters", {}).get("CondaPackages", {}).get("string", "")
+        assert (
+            "unrealengine-openjd" not in conda_value
+        ), f"CondaPackages should not contain unrealengine-openjd but got: '{conda_value}'"
+        logger.info(f"Confirmed: CondaPackages='{conda_value}' (no unrealengine-openjd)")
     else:
         logger.warning("Could not extract job ID or farm ID from test output")
         assert False, "Could not extract job information from test output"

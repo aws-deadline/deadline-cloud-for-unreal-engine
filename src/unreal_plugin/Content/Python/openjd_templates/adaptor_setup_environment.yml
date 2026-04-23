@@ -1,0 +1,26 @@
+name: AdaptorSetup
+script:
+  embeddedFiles:
+  - name: setupScript
+    filename: adaptor-setup.cmd
+    type: TEXT
+    data: |
+      @echo off
+      set "BUNDLE_PATH={{Param.AdaptorBundlePath}}"
+      if exist "%BUNDLE_PATH%" (
+        echo Using adaptor from job attachment bundle: %BUNDLE_PATH%
+        echo openjd_env: PYTHONPATH=%BUNDLE_PATH%
+        echo openjd_env: PATH=%BUNDLE_PATH%\bin;%PATH%
+        exit /b 0
+      )
+      where unreal-engine-openjd >nul 2>&1 && (
+        echo Adaptor found on PATH via conda, using as fallback
+        exit /b 0
+      )
+      echo ERROR: No adaptor available. Attach the adaptor bundle or add unrealengine-openjd to CondaPackages. 1>&2
+      exit /b 1
+  actions:
+    onEnter:
+      command: '{{Env.File.setupScript}}'
+      cancelation:
+        mode: NOTIFY_THEN_TERMINATE

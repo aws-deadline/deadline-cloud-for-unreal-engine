@@ -174,3 +174,10 @@ class P4SyncCmfUnrealOpenJobEnvironment(P4UnrealOpenJobEnvironment):
 
 class P4SyncSmfUnrealOpenJobEnvironment(P4UnrealOpenJobEnvironment):
     default_template_path = settings.P4_SYNC_SMF_ENVIRONMENT_TEMPLATE_DEFAULT_PATH
+
+
+# Adaptor Setup Environment (job-level, runs before LaunchUnrealEditor)
+class AdaptorSetupUnrealOpenJobEnvironment(UnrealOpenJobEnvironment):
+    """Predefined Environment for setting up the adaptor bundle on the worker."""
+
+    default_template_path = settings.ADAPTOR_SETUP_ENVIRONMENT_TEMPLATE_DEFAULT_PATH

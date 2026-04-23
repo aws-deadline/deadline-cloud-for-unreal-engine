@@ -5,8 +5,8 @@ This guide walks you through setting up an EC2 instance as a CMF worker for AWS 
 ## Overview
 
 **CMF vs SMF Differences:**
-- **CMF**: Manual installation of Unreal Engine and adaptor on worker hosts
-- **SMF**: Automatic availability through `deadline-cloud Conda` channel
+- **CMF**: Manual installation of Unreal Engine on worker hosts
+- **SMF**: Unreal Engine automatically available through `deadline-cloud` Conda channel
 
 ## Choose Your Branch
 
@@ -99,7 +99,9 @@ If you've installed with this script and configured worker agent successfully, y
 python -m pip install deadline-cloud-worker-agent
 ```
 
-The correct version of the adaptor must be installed depending on the version of the submitter being used. If you are using the version of the submitter from the release branch in GitHub, you can simply install with pip:
+Starting with version 1.0.0, the adaptor is bundled with each job submission as a job attachment and does not require separate installation on the worker.
+
+If you are using a submitter version older than 1.0.0, you must install the adaptor manually with pip:
 
 ```
 python -m pip install deadline-cloud-for-unreal-engine
