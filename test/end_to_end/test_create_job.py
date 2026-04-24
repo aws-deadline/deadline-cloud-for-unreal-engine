@@ -9,6 +9,7 @@ from conftest import (
     find_latest_job_bundle,
     wait_for_job_state,
     cancel_job,
+    rename_job,
 )
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,8 @@ def test_create_job(deadline_client, build_plugin, create_readonly_test_project,
     assert farm_id
     assert queue_id
 
+    rename_job(deadline_client, farm_id, queue_id, job_id, "E2E: Job Bundle Inspection")
+
     # For checking if a job is in READY state:
     success, status, message = wait_for_job_state(
         deadline_client=deadline_client,
@@ -50,9 +53,9 @@ def test_create_job(deadline_client, build_plugin, create_readonly_test_project,
     with open(os.path.join(bundle_dir, "template.yaml"), "r") as f:
         template = yaml.safe_load(f)
     env_names = [e.get("name") for e in template.get("jobEnvironments", [])]
-    assert (
-        "AdaptorSetup" in env_names
-    ), f"AdaptorSetup environment not found in template. Environments: {env_names}"
+    assert "AdaptorSetup" in env_names, (
+        f"AdaptorSetup environment not found in template. Environments: {env_names}"
+    )
     logger.info("Confirmed: AdaptorSetup environment in template")
 
     # Verify parameter_values.yaml has AdaptorBundlePath with a non-empty value
@@ -60,16 +63,16 @@ def test_create_job(deadline_client, build_plugin, create_readonly_test_project,
         param_values = yaml.safe_load(f)
     params = {p["name"]: p.get("value") for p in param_values.get("parameterValues", [])}
 
-    assert params.get(
-        "AdaptorBundlePath"
-    ), f"AdaptorBundlePath is empty or missing. Got: '{params.get('AdaptorBundlePath')}'"
+    assert params.get("AdaptorBundlePath"), (
+        f"AdaptorBundlePath is empty or missing. Got: '{params.get('AdaptorBundlePath')}'"
+    )
     logger.info(f"Confirmed: AdaptorBundlePath='{params['AdaptorBundlePath']}'")
 
     # Verify CondaPackages does not contain unrealengine-openjd
     conda_value = params.get("CondaPackages", "")
-    assert (
-        "unrealengine-openjd" not in conda_value
-    ), f"CondaPackages should not contain unrealengine-openjd. Got: '{conda_value}'"
+    assert "unrealengine-openjd" not in conda_value, (
+        f"CondaPackages should not contain unrealengine-openjd. Got: '{conda_value}'"
+    )
     logger.info(f"Confirmed: CondaPackages='{conda_value}' (no unrealengine-openjd)")
 
     # Verify asset_references.yaml includes adaptor_bundle in input directories
@@ -78,9 +81,9 @@ def test_create_job(deadline_client, build_plugin, create_readonly_test_project,
         asset_refs = yaml.safe_load(f) or {}
     input_dirs = asset_refs.get("assetReferences", {}).get("inputs", {}).get("directories", [])
     has_bundle = any("adaptor_bundle" in d for d in input_dirs)
-    assert (
-        has_bundle
-    ), f"adaptor_bundle not found in asset_references input directories: {input_dirs}"
+    assert has_bundle, (
+        f"adaptor_bundle not found in asset_references input directories: {input_dirs}"
+    )
     logger.info("Confirmed: adaptor_bundle in asset_references input directories")
 
     # Once the job is in READY state, cancel it since test_worker_agent.py will handle the full job execution

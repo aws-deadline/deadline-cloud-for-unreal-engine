@@ -14,6 +14,7 @@ from conftest import (
     extract_job_info_from_test_output,
     get_session_log_events,
     wait_for_job_state,
+    rename_job,
 )
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,8 @@ def test_adaptor_bundle_priority_over_conda(
     job_id, farm_id, queue_id = extract_job_info_from_test_output(output_lines)
     assert job_id and farm_id and queue_id, "Could not extract job information from test output"
 
+    rename_job(deadline_client, farm_id, queue_id, job_id, "E2E: Bundle Priority Over Conda")
+
     success, status, message = wait_for_job_state(
         deadline_client=deadline_client,
         farm_id=farm_id,
@@ -64,9 +67,9 @@ def test_adaptor_bundle_priority_over_conda(
     bundle_used = any(
         re.search(r"Using adaptor from job attachment bundle", msg) for msg in log_messages
     )
-    assert (
-        bundle_used
-    ), "Expected bundle to be used but 'Using adaptor from job attachment bundle' not found in logs"
+    assert bundle_used, (
+        "Expected bundle to be used but 'Using adaptor from job attachment bundle' not found in logs"
+    )
 
     conda_fallback_used = any(
         re.search(r"Adaptor found on PATH via conda, using as fallback", msg)

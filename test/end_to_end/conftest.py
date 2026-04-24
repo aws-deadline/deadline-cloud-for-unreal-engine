@@ -201,6 +201,28 @@ def cancel_job(deadline_client: BaseClient, farm_id: str, queue_id: str, job_id:
         return False
 
 
+def rename_job(
+    deadline_client: BaseClient, farm_id: str, queue_id: str, job_id: str, display_name: str
+) -> None:
+    """
+    Rename a job in Deadline Cloud to make it identifiable in the console.
+
+    Args:
+        deadline_client: Boto3 Deadline client
+        farm_id: The farm ID containing the job
+        queue_id: The queue ID containing the job
+        job_id: The job ID to rename
+        display_name: The new display name for the job
+    """
+    try:
+        deadline_client.update_job(
+            farmId=farm_id, queueId=queue_id, jobId=job_id, displayName=display_name
+        )
+        logger.info(f"Renamed job {job_id} to '{display_name}'")
+    except Exception as e:
+        logger.warning(f"Failed to rename job {job_id}: {e}")
+
+
 def pytest_addoption(parser) -> None:
     """
     Add custom command line options to pytest.

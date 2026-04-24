@@ -20,6 +20,7 @@ from conftest import (
     find_latest_job_bundle,
     get_session_log_events,
     wait_for_job_state,
+    rename_job,
 )
 
 logger = logging.getLogger(__name__)
@@ -104,6 +105,7 @@ def test_adaptor_fallback_scenarios(
         yaml.dump(param_values, f)
 
     job_id = create_job_from_job_bundle(job_bundle_dir=bundle_dir, max_retries_per_task=0)
+    rename_job(deadline_client, farm_id, queue_id, job_id, "E2E: Conda Fallback (T3)")
     success, status, message = wait_for_job_state(
         deadline_client=deadline_client,
         farm_id=farm_id,
@@ -145,6 +147,7 @@ def test_adaptor_fallback_scenarios(
         logger.info(f"T4 PASSED: Submission failed as expected: {e}")
         return
 
+    rename_job(deadline_client, farm_id, queue_id, job_id, "E2E: No Adaptor Available (T4)")
     success, status, message = wait_for_job_state(
         deadline_client=deadline_client,
         farm_id=farm_id,

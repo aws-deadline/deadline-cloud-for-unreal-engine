@@ -10,6 +10,7 @@ from conftest import (
     get_last_session_project_plugins,
     add_content_plugins_to_project,
     add_plugins_to_project,
+    rename_job,
 )
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,7 @@ def test_create_job_with_worker_agent(
     job_id, farm_id, queue_id = extract_job_info_from_test_output(output_lines)
 
     if job_id and farm_id and queue_id:
+        rename_job(deadline_client, farm_id, queue_id, job_id, "E2E: Basic Render With Bundle")
 
         # Wait for job completion
         success, status, message = wait_for_job_state(
@@ -68,17 +70,17 @@ def test_create_job_with_worker_agent(
         bundle_setup_count = sum(
             1 for msg in log_messages if "Using adaptor from job attachment bundle" in msg
         )
-        assert (
-            bundle_setup_count == 1
-        ), f"Expected AdaptorSetup onEnter once but found {bundle_setup_count} times"
+        assert bundle_setup_count == 1, (
+            f"Expected AdaptorSetup onEnter once but found {bundle_setup_count} times"
+        )
         logger.info("Confirmed: AdaptorSetup onEnter ran exactly once")
 
         # Verify CondaPackages does not contain unrealengine-openjd (T7)
         job = deadline_client.get_job(farmId=farm_id, queueId=queue_id, jobId=job_id)
         conda_value = job.get("parameters", {}).get("CondaPackages", {}).get("string", "")
-        assert (
-            "unrealengine-openjd" not in conda_value
-        ), f"CondaPackages should not contain unrealengine-openjd but got: '{conda_value}'"
+        assert "unrealengine-openjd" not in conda_value, (
+            f"CondaPackages should not contain unrealengine-openjd but got: '{conda_value}'"
+        )
         logger.info(f"Confirmed: CondaPackages='{conda_value}' (no unrealengine-openjd)")
     else:
         logger.warning("Could not extract job ID or farm ID from test output")
@@ -92,7 +94,6 @@ def test_worker_agent_project_plugins(
     run_unreal_test,
     deadline_worker_agent,
 ):
-
     # The deadline_worker_agent fixture will start the worker agent before this test runs
     # and will stop it after the test completes
 
@@ -117,6 +118,7 @@ def test_worker_agent_project_plugins(
     job_id, farm_id, queue_id = extract_job_info_from_test_output(output_lines)
 
     if job_id and farm_id and queue_id:
+        rename_job(deadline_client, farm_id, queue_id, job_id, "E2E: Project Plugins")
 
         # Wait for job completion
         wait_for_job_state(
