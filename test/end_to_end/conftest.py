@@ -507,6 +507,10 @@ def wait_for_job_state(
     if expected_states is None:
         expected_states = ["SUCCEEDED"]
 
+    # Terminal states — once a job reaches one of these, it will never transition out.
+    # If the job lands in a terminal state that isn't in expected_states, stop waiting.
+    terminal_states = {"SUCCEEDED", "FAILED", "CANCELED"}
+
     logger.info(
         f"Monitoring job {job_id} in farm {farm_id}, queue {queue_id} for state(s) {expected_states}"
     )
@@ -567,6 +571,15 @@ def wait_for_job_state(
             if status in expected_states:
                 logger.info(f"Job {job_id} reached expected state: {status}")
                 return True, status, f"Job {job_id} reached expected state: {status}"
+
+            # Early exit if job reached a terminal state that we weren't waiting for
+            if status in terminal_states and status not in expected_states:
+                fail_msg = (
+                    f"Job {job_id} reached terminal state {status} "
+                    f"while waiting for {expected_states}"
+                )
+                logger.error(fail_msg)
+                return False, status, fail_msg
 
             # Wait before checking again
             time.sleep(wait_interval)
@@ -1058,7 +1071,6 @@ def worker_role_arn(iam_client: BaseClient, sts_client: BaseClient, reusable_far
         response = iam_client.get_role(RoleName=DEADLINE_UNREAL_FLEET_TEST_ROLE)
         return response["Role"]["Arn"]
     except botocore.exceptions.ClientError:
-
         role_policy = {
             "Version": "2012-10-17",
             "Statement": [
