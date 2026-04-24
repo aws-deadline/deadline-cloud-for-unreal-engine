@@ -7,28 +7,22 @@
 # Examples:
 #   ./scripts/remote_e2e.sh                                    # Run all E2E tests
 #   ./scripts/remote_e2e.sh test_adaptor_bundle_priority       # Run specific test
-#   ./scripts/remote_e2e.sh "test_create_job or test_worker"   # Run multiple tests
 
 set -euo pipefail
 
 INSTANCE_ID="i-0e113a9b34dc58cf2"
-REMOTE_REPO="C:\\Users\\Administrator\\deadline-cloud-for-unreal-engine-cheriech"
-REMOTE_LOG="C:\\Users\\Administrator\\e2e_test.log"
 BRANCH=$(git branch --show-current)
 TEST_FILTER="${1:-}"
-LOCAL_LOG="/tmp/e2e_result_$(date +%Y%m%d_%H%M%S).log"
 
-# Ensure session-manager-plugin is on PATH
 export PATH="/usr/local/bin:$PATH"
 
 echo "=== Remote E2E Test Runner ==="
 echo "Branch: $BRANCH"
-echo "Instance: $INSTANCE_ID"
 echo "Test filter: ${TEST_FILTER:-all tests}"
 echo ""
 
-# Step 1: Commit and push any uncommitted changes
-echo "--- Step 1: Pushing code to origin ---"
+# Step 1: Commit and push
+echo "--- Pushing code ---"
 if ! git diff --quiet || ! git diff --cached --quiet; then
     git add -A
     git commit -s -m "wip: auto-commit for remote E2E testing"
@@ -37,86 +31,89 @@ git push origin "$BRANCH" 2>&1 || { echo "ERROR: git push failed"; exit 1; }
 echo "Push complete."
 echo ""
 
-# Step 2: Build the test command — write all output to a log file on Windows
+# Step 2: Build SSM command
+# Set USERPROFILE so deadline config is found (SSM runs as SYSTEM)
 if [ -n "$TEST_FILTER" ]; then
-    TEST_CMD="hatch run e2e -s -k \\\"$TEST_FILTER\\\" *> $REMOTE_LOG 2>&1"
+    HATCH_CMD="hatch run e2e -s -k \\\"$TEST_FILTER\\\""
 else
-    TEST_CMD="hatch run e2e -s *> $REMOTE_LOG 2>&1"
+    HATCH_CMD="hatch run e2e -s"
 fi
 
-# Step 3: Send command to Windows via SSM
-# The command: pull latest code, run tests, write output to log file
-echo "--- Step 2: Running tests on Windows EC2 ---"
-REMOTE_SCRIPT="cd $REMOTE_REPO; git fetch origin; git reset --hard origin/$BRANCH; $TEST_CMD; Write-Output \"EXIT_CODE=\$LASTEXITCODE\"; Get-Content $REMOTE_LOG -Tail 200"
+cat > /tmp/ssm_params.json << JSONEOF
+{
+  "commands": [
+    "\$env:USERPROFILE = 'C:\\\\Users\\\\Administrator'",
+    "\$env:HOME = 'C:\\\\Users\\\\Administrator'",
+    "\$env:HOMEPATH = '\\\\Users\\\\Administrator'",
+    "\$env:APPDATA = 'C:\\\\Users\\\\Administrator\\\\AppData\\\\Roaming'",
+    "\$env:LOCALAPPDATA = 'C:\\\\Users\\\\Administrator\\\\AppData\\\\Local'",
+    "cd C:\\\\Users\\\\Administrator\\\\deadline-cloud-for-unreal-engine-cheriech",
+    "git fetch origin",
+    "git reset --hard origin/${BRANCH}",
+    "${HATCH_CMD} *> C:\\\\Users\\\\Administrator\\\\e2e_test.log 2>&1",
+    "\$exitCode = \$LASTEXITCODE",
+    "Write-Output '=== LAST 200 LINES ==='",
+    "Get-Content C:\\\\Users\\\\Administrator\\\\e2e_test.log -Tail 200",
+    "Write-Output \"EXIT_CODE=\$exitCode\"",
+    "exit \$exitCode"
+  ],
+  "executionTimeout": ["3600"]
+}
+JSONEOF
 
+echo "--- Running tests on Windows EC2 ---"
 COMMAND_ID=$(aws ssm send-command \
     --instance-ids "$INSTANCE_ID" \
     --document-name "AWS-RunPowerShellScript" \
-    --parameters "{\"commands\":[\"$REMOTE_SCRIPT\"],\"executionTimeout\":[\"3600\"]}" \
+    --parameters file:///tmp/ssm_params.json \
     --timeout-seconds 3600 \
-    --output json 2>&1 | python3 -c "import sys,json; print(json.load(sys.stdin)['Command']['CommandId'])")
+    --query 'Command.CommandId' \
+    --output text 2>&1)
 
 echo "SSM Command ID: $COMMAND_ID"
-echo "Waiting for test completion (this may take 10+ minutes)..."
-echo "Full log will be at $REMOTE_LOG on the Windows machine"
+echo "Polling..."
 echo ""
 
-# Step 4: Poll for completion
+# Step 3: Poll for completion
 while true; do
-    sleep 15
-    RESULT=$(aws ssm get-command-invocation \
+    sleep 30
+    STATUS=$(aws ssm get-command-invocation \
         --command-id "$COMMAND_ID" \
         --instance-id "$INSTANCE_ID" \
-        --output json 2>&1)
+        --query 'Status' \
+        --output text 2>&1)
 
-    STATUS=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['Status'])")
+    echo "  $(date +%H:%M:%S) - $STATUS"
 
-    if [ "$STATUS" = "InProgress" ] || [ "$STATUS" = "Pending" ] || [ "$STATUS" = "Delayed" ]; then
-        echo "  Status: $STATUS ($(date +%H:%M:%S))"
-        continue
-    fi
-
-    # Terminal state reached
-    echo ""
-    echo "--- Test Result: $STATUS ---"
-    echo ""
-
-    # The SSM output contains the last 200 lines of the log
-    STDOUT=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('StandardOutputContent',''))")
-    STDERR=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('StandardErrorContent',''))")
-
-    # Save locally
-    {
-        echo "=== E2E Test Results (last 200 lines) ==="
-        echo "Date: $(date)"
-        echo "Branch: $BRANCH"
-        echo "Test filter: ${TEST_FILTER:-all}"
-        echo "Status: $STATUS"
-        echo "Full log on Windows: $REMOTE_LOG"
+    if [ "$STATUS" != "InProgress" ] && [ "$STATUS" != "Pending" ] && [ "$STATUS" != "Delayed" ]; then
         echo ""
-        echo "$STDOUT"
-        if [ -n "$STDERR" ]; then
+        echo "=== Result: $STATUS ==="
+        echo ""
+        aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$INSTANCE_ID" \
+            --query 'StandardOutputContent' \
+            --output text 2>&1
+
+        STDERR=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$INSTANCE_ID" \
+            --query 'StandardErrorContent' \
+            --output text 2>&1)
+        if [ -n "$STDERR" ] && [ "$STDERR" != "None" ]; then
             echo ""
             echo "=== STDERR ==="
             echo "$STDERR"
         fi
-    } > "$LOCAL_LOG"
 
-    # Print the tail output (errors are at the end)
-    echo "$STDOUT"
-    if [ -n "$STDERR" ]; then
         echo ""
-        echo "=== STDERR ==="
-        echo "$STDERR"
-    fi
+        echo "Full log: C:\\Users\\Administrator\\e2e_test.log"
+        echo "Fetch more: PATH=/usr/local/bin:\$PATH bash scripts/remote_e2e_logs.sh 500"
 
-    echo ""
-    echo "Local log: $LOCAL_LOG"
-    echo "Full log on Windows: $REMOTE_LOG"
-
-    if [ "$STATUS" = "Success" ]; then
-        exit 0
-    else
-        exit 1
+        if [ "$STATUS" = "Success" ]; then
+            exit 0
+        else
+            exit 1
+        fi
     fi
 done
