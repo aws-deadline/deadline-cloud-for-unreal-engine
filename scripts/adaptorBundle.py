@@ -43,7 +43,7 @@ BUNDLE_DEPENDENCIES = [
     "pyyaml",
 ]
 
-DEFAULT_PYTHON_VERSION = "3.11"
+DEFAULT_PYTHON_VERSION = f"{sys.version_info.major}.{sys.version_info.minor}"
 DEFAULT_PLATFORM = "win_amd64"
 DEFAULT_OUTPUT_DIR = "adaptor_bundle"
 
