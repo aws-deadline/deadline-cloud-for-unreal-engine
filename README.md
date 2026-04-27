@@ -42,13 +42,13 @@ Jobs created by the submitter use this adaptor by default. The Unreal Engine Ada
 
 ### Service Managed Fleets (SMF)
 
-On [Service Managed Fleets (SMF)](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/smf-manage.html) worker hosts, the Unreal Engine and adaptor are automatically available via the `deadline-cloud Conda` channel with the [default Queue Environment](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/create-queue-environment.html#conda-queue-environment).
+On [Service Managed Fleets (SMF)](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/smf-manage.html) worker hosts, the Unreal Engine is automatically available via the `deadline-cloud` Conda channel with the [default Queue Environment](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/create-queue-environment.html#conda-queue-environment).
 
 Perforce is supported on SMF!
 
 ### Customer Managed Fleets (CMF)
 
-The Unreal Engine and adaptor must be manually installed on worker hosts of Customer Managed Fleets (CMF). See [CMF Worker Setup Guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-cmf-worker.md) for instructions on setting up an instance to act as a worker node.
+The Unreal Engine must be manually installed on worker hosts of Customer Managed Fleets (CMF). See [CMF Worker Setup Guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-cmf-worker.md) for instructions on setting up an instance to act as a worker node.
 
 ## Versioning
 

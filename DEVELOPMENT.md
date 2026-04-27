@@ -35,6 +35,18 @@ End to end tests validate a more complete render job workflow than our unit test
 hatch run e2e -s
 ```
 
+> **⚠️ Important**: The submitter picks the UE version via `find_engine_root()` (latest installed or `--ueversion`), but the **worker** launches UE from the system `PATH`. You must ensure the UE version in your `PATH` matches the version used by the submitter, otherwise you'll get serialization errors like `Package Version: 0`.
+>
+> Check which UE is on your PATH:
+> ```powershell
+> $env:PATH -split ';' | Select-String "Epic"
+> ```
+>
+> Update it if needed:
+> ```powershell
+> $env:PATH = "C:\Program Files\Epic Games\UE_5.7\Engine\Binaries\Win64;" + $env:PATH
+> ```
+
 ### Run linting
 
 ```bash
@@ -60,22 +72,17 @@ When making C++ changes before testing you'll need to rebuild and copy your modi
 
 ### Testing Python Changes
 
-When making changes to the Python submitter you'll need to rebuild and install your .whl file, adjusting paths to your local installation:
+When making changes to the Python submitter or adaptor, rebuild and install the plugin:
 
-```
-// Install hatch if not yet installed
-pip install hatch
-hatch build
-"C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install dist\deadline_cloud_for_unreal_engine-0.2.2.post21-py3-none-any.whl --target "C:\Program Files\Epic Games\UE_5.5\Engine\Plugins\UnrealDeadlineCloudService\Content\Python\libraries"
+```bash
+python scripts/build_plugin.py --install
 ```
 
-When making adaptor changes, the same .whl can either be transferred to your worker or built on the worker off the same changes.
+To target a specific UE version, pass `--ueversion`:
 
-Install the .whl on the worker with:
-
-// Note we're installing the Adaptor to the global pip install which should be found on our path rather than our Unreal plugin.
-pip install ./path/to/my-file.whl
-
+```bash
+python scripts/build_plugin.py --install --ueversion 5.6
+```
 
 ### Running Unreal Spec Tests
 
@@ -184,7 +191,7 @@ Error: The package '/Temp/UnrealDeadlineCloudService/RenderJobManifests/###' was
 Root Cause: Version mismatch between the Unreal Engine version used to submit the job and the version running on the worker node.
 
 Solutions:
-   - Resubmit the job using the Unreal Engine version that matches the worker node. On Service Managed Fleets - Ensure the Conda package version selected matches your project's version of Unreal Engine
+   - Resubmit the job using the Unreal Engine version that matches the worker node. On Service Managed Fleets - Ensure the Unreal Engine Conda package version matches your project's version of Unreal Engine
    - Install the correct Unreal Engine version on the worker node and update environment variables to match the job's Unreal Engine version
 
 ### Build Fails Because Repository Was Downloaded as a Zip Instead of Cloned

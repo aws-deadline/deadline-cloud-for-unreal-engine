@@ -1,38 +1,18 @@
 # AGENTS.md — deadline-cloud-for-unreal-engine
 
-## Build
+## Post-Change Validation
 
-```bash
-hatch build
-```
+After making ANY code changes, you MUST run:
+1. `hatch run fmt` — auto-format
+2. `hatch run lint` — ruff + mypy
+3. `hatch build` — verify the package builds
+4. `hatch run test` — run ALL unit tests (do NOT use `pytest` directly, do NOT pass specific test files)
 
-## Tests
+To run targeted tests: `hatch run test -- test/<dir> -v` or `hatch run test -- -k "test_name"`
 
-You **MUST** use `hatch run test` to run unit tests — do NOT use `pytest` directly.
+**UE Automation (Spec) GUI Tests:** Require a running Unreal Editor instance. **Do NOT run** — they must be run manually by a human developer.
 
-```bash
-hatch run test                    # All unit tests
-hatch run test -- test/<dir> -v   # One test package
-hatch run test -- -k "test_name"  # One test by name
-```
-
-**UE Automation (Spec) GUI Tests:** Require installing the plugin with test content first:
-```bash
-python scripts/build_plugin.py --install --test
-```
-Then in UE: Tools → Test Automation → search "Deadline" → run.
-
-**E2E Tests:** Require authentication with AWS Deadline Cloud and are resource-intensive. You **SHOULD** only run E2E tests when all unit tests pass and you are about to finalize the change set.
-```bash
-hatch run e2e -s
-```
-
-## Linting
-
-```bash
-hatch run lint    # ruff + mypy
-hatch run fmt     # black auto-format
-```
+**E2E Tests:** Require AWS Deadline Cloud authentication and real cloud resources. **Do NOT run** — they must be run manually by a human developer.
 
 ## Testing Conventions
 - See `test/AGENTS.md` for detailed test structure and patterns

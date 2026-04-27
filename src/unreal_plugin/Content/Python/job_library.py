@@ -74,18 +74,14 @@ class DeadlineCloudJobBundleLibraryImplementation(unreal.DeadlineCloudJobBundleL
 
         conda_packages_value = conda_packages_param.value
         if not conda_packages_value:
-            conda_packages_param.value = UnrealOpenJob.normalize_openjd_version_param(
-                f"unrealengine={current_version}"
-            )
+            conda_packages_param.value = f"unrealengine={current_version}"
             parameters[conda_packages_param_index] = conda_packages_param
             return parameters
 
         # Check for unrealengine=x.x pattern
         ue_version_match = re.search(r"unrealengine=(\d+\.\d+)", conda_packages_value)
         if not ue_version_match:
-            conda_packages_param.value = UnrealOpenJob.normalize_openjd_version_param(
-                f"unrealengine={current_version} " + conda_packages_value
-            )
+            conda_packages_param.value = f"unrealengine={current_version} " + conda_packages_value
 
             parameters[conda_packages_param_index] = conda_packages_param
             return parameters
@@ -96,12 +92,10 @@ class DeadlineCloudJobBundleLibraryImplementation(unreal.DeadlineCloudJobBundleL
         # Compare versions
         if not template_ue_version == current_version:
             # replace with current version
-            conda_packages_param.value = UnrealOpenJob.normalize_openjd_version_param(
-                re.sub(
-                    r"unrealengine=\d+\.\d+",
-                    f"unrealengine={current_version}",
-                    conda_packages_value,
-                )
+            conda_packages_param.value = re.sub(
+                r"unrealengine=\d+\.\d+",
+                f"unrealengine={current_version}",
+                conda_packages_value,
             )
             logger.info(f"Updated Unreal Engine version in conda packages to: {current_version}")
             parameters[conda_packages_param_index] = conda_packages_param

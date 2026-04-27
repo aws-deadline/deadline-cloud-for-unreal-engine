@@ -30,7 +30,7 @@ parameterDefinitions:
   default: 0
 - name: CondaPackages
   type: STRING
-  default: unrealengine=5.7 unrealengine-openjd=0.6.*
+  default: unrealengine=5.7
   userInterface: 
    control: LINE_EDIT
 - name: CondaChannels
@@ -38,6 +38,13 @@ parameterDefinitions:
   default: deadline-cloud
   userInterface: 
    control: LINE_EDIT
+- name: AdaptorBundlePath
+  type: PATH
+  objectType: DIRECTORY
+  dataFlow: IN
+  default: ""
+  userInterface:
+    control: HIDDEN
 - name: ChunkSize
   type: INT
   default: 1

@@ -281,6 +281,8 @@ class OpenJobParameterNames:
     CONDA_PACKAGES = "CondaPackages"
     MARKETPLACE_PLUGINS_DIR = "MarketplacePluginsDir"
 
+    ADAPTOR_BUNDLE_PATH = "AdaptorBundlePath"
+
     PERFORCE_STREAM_PATH = "PerforceStreamPath"
     PERFORCE_CHANGELIST_NUMBER = "PerforceChangelistNumber"
     PERFORCE_WORKSPACE_SPECIFICATION_TEMPLATE = "PerforceWorkspaceSpecificationTemplate"

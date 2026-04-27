@@ -26,6 +26,13 @@ parameterDefinitions:
 - name: FramesPerTask
   type: INT
   default: 0
+- name: AdaptorBundlePath
+  type: PATH
+  objectType: DIRECTORY
+  dataFlow: IN
+  default: ""
+  userInterface:
+    control: HIDDEN
 - name: ChunkSize
   type: INT
   default: 1

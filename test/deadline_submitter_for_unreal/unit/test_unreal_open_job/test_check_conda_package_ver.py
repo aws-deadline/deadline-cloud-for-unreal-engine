@@ -47,7 +47,7 @@ class TestCheckCondaPackageVersion:
         assert UnrealOpenJob.check_conda_package_version(job_parameter_values)
 
         # THEN
-        assert job_parameter_values[0].get("value") == "unrealengine=5.4 unrealengine-openjd=*.*.*"
+        assert job_parameter_values[0].get("value") == "unrealengine=5.4"
 
     @patch(
         "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.SystemLibrary.get_engine_version"
@@ -59,7 +59,7 @@ class TestCheckCondaPackageVersion:
         job_parameter_values = [
             dict(
                 name=OpenJobParameterNames.CONDA_PACKAGES,
-                value="somepackage=1.0 unrealengine-openjd=0.5.*",
+                value="somepackage=1.0",
             )
         ]
 
@@ -67,10 +67,7 @@ class TestCheckCondaPackageVersion:
         assert UnrealOpenJob.check_conda_package_version(job_parameter_values)
 
         # THEN
-        assert (
-            job_parameter_values[0].get("value")
-            == "unrealengine=5.4 somepackage=1.0 unrealengine-openjd=0.5.*"
-        )
+        assert job_parameter_values[0].get("value") == "unrealengine=5.4 somepackage=1.0"
 
     @patch(
         "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.SystemLibrary.get_engine_version"
@@ -113,3 +110,25 @@ class TestCheckCondaPackageVersion:
 
         # WHEN
         assert UnrealOpenJob.check_conda_package_version(job_parameter_values)
+
+    @patch(
+        "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.SystemLibrary.get_engine_version"
+    )
+    def test_does_not_auto_add_unrealengine_openjd(self, get_engine_version_mock):
+        """Verify unrealengine-openjd is never auto-added to CondaPackages."""
+        test_cases = [
+            "",  # empty
+            "unrealengine=5.7",  # engine only
+            "unrealengine=5.7 somepkg=1.0",  # engine + other
+        ]
+        get_engine_version_mock.return_value = "5.7.0"
+
+        for input_value in test_cases:
+            job_parameter_values = [
+                dict(name=OpenJobParameterNames.CONDA_PACKAGES, value=input_value)
+            ]
+            UnrealOpenJob.check_conda_package_version(job_parameter_values)
+            result = job_parameter_values[0].get("value", "")
+            assert (
+                "unrealengine-openjd" not in result
+            ), f"unrealengine-openjd was auto-added for input '{input_value}', got '{result}'"
