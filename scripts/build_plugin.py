@@ -178,10 +178,23 @@ def install_whl_to_plugin(whl_path: str, engine_root: str):
 
     plugin_libraries_path = os.path.join(plugin_folder, "Content", "Python", "libraries")
 
-    # Pip install the .whl file to the plugin libraries path
+    # Pip install the .whl file to the plugin libraries path.
+    # --force-reinstall is required because pip install -t still checks the
+    # interpreter's own site-packages for already-satisfied dependencies.
+    # Without it, an older 'deadline' in UE Python's Lib/site-packages causes
+    # pip to skip installing the required version into the target directory.
     logger.info(f"Installing {whl_path} to {plugin_libraries_path}")
     result = subprocess.run(
-        [python_path, "-m", "pip", "install", whl_path, "-t", plugin_libraries_path, "--upgrade"],
+        [
+            python_path,
+            "-m",
+            "pip",
+            "install",
+            whl_path,
+            "-t",
+            plugin_libraries_path,
+            "--force-reinstall",
+        ],
         check=True,
     )
     logger.info(f"Install result: {result.returncode}")
@@ -241,6 +254,24 @@ def install_plugin(engine_root: str, output_folder: str, whl_path: str, binaries
     install_whl_to_plugin(whl_path, engine_root)
     install_adaptor_bundle(plugin_folder)
     logger.info(f"Plugin installed to {plugin_folder}")
+
+
+def install_whl_global(whl_path: str):
+    """
+    Installs the given .whl file to the global python interpreter
+
+    :param whl_path: Path to whl file
+    """
+
+    if not os.path.exists(whl_path):
+        raise Exception(f"Could not find .whl file at {whl_path}")
+    # Pip install the .whl file to the global python interpreter
+    logger.info(f"Installing {whl_path} to global interpreter")
+    result = subprocess.run(
+        ["python", "-m", "pip", "install", whl_path, "--upgrade", "--upgrade-strategy", "eager"],
+        check=True,
+    )
+    logger.info(f"Install result: {result.returncode}")
 
 
 def find_engine_root(version: Optional[str] = None) -> str:
@@ -490,6 +521,7 @@ def build_and_install(
 
     if install:
         install_plugin(engine_root, output_folder, whl_path, binaries)
+        install_whl_global(whl_path)
 
     if test:
         install_test_content(get_plugin_folder(engine_root))
