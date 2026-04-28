@@ -1,5 +1,4 @@
 name: InstallMarketplacePlugins
-variables: {}
 script:
   embeddedFiles:
     - name: installScript

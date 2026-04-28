@@ -19,6 +19,7 @@ import signal
 import subprocess
 import tempfile
 import time
+import psutil
 from scripts.build_plugin import find_engine_root
 
 # Import typing information
@@ -201,6 +202,28 @@ def cancel_job(deadline_client: BaseClient, farm_id: str, queue_id: str, job_id:
         return False
 
 
+def rename_job(
+    deadline_client: BaseClient, farm_id: str, queue_id: str, job_id: str, display_name: str
+) -> None:
+    """
+    Rename a job in Deadline Cloud to make it identifiable in the console.
+
+    Args:
+        deadline_client: Boto3 Deadline client
+        farm_id: The farm ID containing the job
+        queue_id: The queue ID containing the job
+        job_id: The job ID to rename
+        display_name: The new display name for the job
+    """
+    try:
+        deadline_client.update_job(
+            farmId=farm_id, queueId=queue_id, jobId=job_id, name=display_name
+        )
+        logger.info(f"Renamed job {job_id} to '{display_name}'")
+    except Exception as e:
+        logger.warning(f"Failed to rename job {job_id}: {e}")
+
+
 def pytest_addoption(parser) -> None:
     """
     Add custom command line options to pytest.
@@ -220,6 +243,12 @@ def pytest_addoption(parser) -> None:
         default=False,
         help="Clean up resources (queues, fleets, associations) after tests",
     )
+
+
+def pytest_configure(config) -> None:
+    """Fail fast: stop on first E2E test failure since each test is expensive."""
+    if config.option.maxfail == 0:
+        config.option.maxfail = 1
 
 
 def get_source_root() -> str:
@@ -244,7 +273,7 @@ def get_build_script_args() -> List[str]:
     Returns:
         List of command line arguments for the build script
     """
-    return ["--install", "--test", "--worker"]
+    return ["--install", "--test"]
 
 
 def add_content_plugins_to_project(project_path: str, plugins: List[str], enabled: bool) -> None:
@@ -501,6 +530,10 @@ def wait_for_job_state(
     if expected_states is None:
         expected_states = ["SUCCEEDED"]
 
+    # Terminal states — once a job reaches one of these, it will never transition out.
+    # If the job lands in a terminal state that isn't in expected_states, stop waiting.
+    terminal_states = {"SUCCEEDED", "FAILED", "CANCELED"}
+
     logger.info(
         f"Monitoring job {job_id} in farm {farm_id}, queue {queue_id} for state(s) {expected_states}"
     )
@@ -561,6 +594,15 @@ def wait_for_job_state(
             if status in expected_states:
                 logger.info(f"Job {job_id} reached expected state: {status}")
                 return True, status, f"Job {job_id} reached expected state: {status}"
+
+            # Early exit if job reached a terminal state that we weren't waiting for
+            if status in terminal_states and status not in expected_states:
+                fail_msg = (
+                    f"Job {job_id} reached terminal state {status} "
+                    f"while waiting for {expected_states}"
+                )
+                logger.error(fail_msg)
+                return False, status, fail_msg
 
             # Wait before checking again
             time.sleep(wait_interval)
@@ -655,7 +697,7 @@ def run_unreal_test(request, reusable_queue_fleet_association) -> Callable:
             and output_lines is a list of all output lines from the test
         """
         if deadlineargs is None:
-            deadlineargs = "-NoLoadingScreen -FixedSeed -log -Unattended -MRQInstance -deterministicaudio -audiomixer"
+            deadlineargs = "-NoLoadingScreen -FixedSeed -log -Unattended -MRQInstance -deterministicaudio -audiomixer -MaxRetriesPerTask=0"
 
         reusable_farm_id, reusable_queue_id, reusable_fleet_id = reusable_queue_fleet_association
 
@@ -958,6 +1000,9 @@ def deadline_client(session: boto3.Session) -> BaseClient:
     Returns:
         A Deadline Cloud client
     """
+    # Auto-accept file uploads so E2E tests don't block on user confirmation
+    config.set_setting("settings.auto_accept", "true")
+
     client = session.client("deadline", region_name=TEST_TARGET_REGION)
     logger.info(f"Created deadline client for region {TEST_TARGET_REGION}")
     return client
@@ -1052,7 +1097,6 @@ def worker_role_arn(iam_client: BaseClient, sts_client: BaseClient, reusable_far
         response = iam_client.get_role(RoleName=DEADLINE_UNREAL_FLEET_TEST_ROLE)
         return response["Role"]["Arn"]
     except botocore.exceptions.ClientError:
-
         role_policy = {
             "Version": "2012-10-17",
             "Statement": [
@@ -1688,7 +1732,31 @@ def deadline_worker_agent(
     except Exception as e:
         logger.error(f"Error stopping worker agent: {str(e)}")
 
+    # Kill any orphaned Unreal Editor processes that the worker agent may have spawned.
+    # These hold locks on plugin DLLs and prevent subsequent builds from succeeding.
+    _kill_unreal_processes()
+
     logger.info("Worker agent stopped")
+
+
+def _kill_unreal_processes():
+    """Kill any running UnrealEditor or UnrealEditor-Cmd processes."""
+    for proc in psutil.process_iter(["pid", "name"]):
+        try:
+            name = (proc.info["name"] or "").lower()
+            if name in ("unrealeditor.exe", "unrealeditor-cmd.exe"):
+                logger.info(
+                    f"Killing orphaned UE process: {proc.info['name']} (PID: {proc.info['pid']})"
+                )
+                proc.kill()
+                proc.wait(timeout=10)
+        except (
+            psutil.NoSuchProcess,
+            psutil.AccessDenied,
+            psutil.ZombieProcess,
+            psutil.TimeoutExpired,
+        ):
+            pass
 
 
 @pytest.fixture(scope="session")
@@ -1847,3 +1915,72 @@ def _extract_project_plugins_from_log_events(logs_client, log_group, log_stream)
         next_token = new_token
 
     return sorted(plugin_names)
+
+
+def find_latest_job_bundle() -> str:
+    """
+    Find the most recently created job bundle directory in job history.
+
+    Returns:
+        Path to the latest job bundle directory
+    """
+    profile_name = config.get_setting("defaults.aws_profile_name")
+    job_history_root = os.path.join(os.path.expanduser("~"), ".deadline", "job_history")
+    if profile_name and os.path.isdir(os.path.join(job_history_root, profile_name)):
+        job_history_root = os.path.join(job_history_root, profile_name)
+
+    bundle_dirs: List[str] = []
+    for root, dirs, files in os.walk(job_history_root):
+        if "template.yaml" in files:
+            bundle_dirs.append(root)
+    assert bundle_dirs, "No job bundle directories found in job history"
+    return sorted(bundle_dirs)[-1]
+
+
+def get_session_log_events(
+    deadline_client: BaseClient, farm_id: str, queue_id: str, job_id: str
+) -> List[str]:
+    """
+    Fetch all log event messages from the first session of a job.
+
+    Args:
+        deadline_client: Boto3 Deadline client
+        farm_id: The farm ID
+        queue_id: The queue ID
+        job_id: The job ID
+
+    Returns:
+        List of log event message strings
+    """
+    sessions_response = deadline_client.list_sessions(
+        farmId=farm_id, jobId=job_id, queueId=queue_id
+    )
+    session_id = sessions_response["sessions"][0]["sessionId"]
+
+    session_response = deadline_client.get_session(
+        farmId=farm_id, jobId=job_id, queueId=queue_id, sessionId=session_id
+    )
+
+    log_config = session_response["log"]["options"]
+    cwl_client = boto3.client("logs", TEST_TARGET_REGION)
+
+    all_messages: List[str] = []
+    next_token = None
+    while True:
+        kwargs = {
+            "logGroupName": log_config["logGroupName"],
+            "logStreamName": log_config["logStreamName"],
+        }
+        if next_token:
+            kwargs["nextToken"] = next_token
+
+        resp = cwl_client.get_log_events(**kwargs)
+        for ev in resp.get("events", []):
+            all_messages.append(ev.get("message", ""))
+
+        new_token = resp.get("nextForwardToken")
+        if not new_token or new_token == next_token:
+            break
+        next_token = new_token
+
+    return all_messages

@@ -1,7 +1,6 @@
 ﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 using UnrealBuildTool;
-using UnrealBuildTool.Rules;
 
 public class UnrealDeadlineCloudService : ModuleRules
 {

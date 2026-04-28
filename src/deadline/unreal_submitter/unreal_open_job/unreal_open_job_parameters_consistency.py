@@ -379,7 +379,9 @@ class ParametersConsistencyChecker:
             environment_template = yaml.safe_load(f)
 
         return ParametersConsistencyChecker.check_parameters_consistency(
-            yaml_parameters=[(k, "VARIABLE") for k in environment_template["variables"].keys()],
+            yaml_parameters=[
+                (k, "VARIABLE") for k in environment_template.get("variables", {}).keys()
+            ],
             data_asset_parameters=[(v, "VARIABLE") for v in environment_variables.keys()],
         )
 
@@ -406,14 +408,14 @@ class ParametersConsistencyChecker:
             environment_template = yaml.safe_load(f)
 
         missed_in_yaml, missed_in_data_asset = ParametersConsistencyChecker.symmetric_difference(
-            left=[(k, "VARIABLE") for k in environment_template["variables"].keys()],
+            left=[(k, "VARIABLE") for k in environment_template.get("variables", {}).keys()],
             right=[(v, "VARIABLE") for v in environment_variables.keys()],
         )
 
         fixed_variables = ParametersConsistencyChecker.fix_variables_consistency(
             missed_in_yaml=missed_in_yaml,
             missed_in_data_asset=missed_in_data_asset,
-            yaml_variables=environment_template["variables"],
+            yaml_variables=environment_template.get("variables", {}),
             data_asset_variables=environment_variables,
         )
 

@@ -39,6 +39,7 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment impor
     UnrealOpenJobEnvironment,
     UgsUnrealOpenJobEnvironment,
     P4UnrealOpenJobEnvironment,
+    AdaptorSetupUnrealOpenJobEnvironment,
 )
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_shared_settings import (
     JobSharedSettings,
@@ -544,24 +545,6 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         return current_version_match.group(0)
 
     @staticmethod
-    def normalize_openjd_version_param(param_value: str) -> str:
-        """
-        Check if the given CondaPackages parameter value contains openjd version.
-        If not, append "unrealengine-openjd=*.*.*" to the value.
-        :param param_value: CondaPackages parameter value
-        :return: Updated CondaPackages parameter value
-        :rtype: str
-        """
-        match = re.search(r"unrealengine-openjd=(?:\d+|\*)\.(?:\d+|\*)\.(?:\d+|\*)", param_value)
-        if match:
-            return param_value
-
-        if re.search(r"unrealengine-openjd=[^\s]+", param_value):
-            return re.sub(r"unrealengine-openjd=[^\s]+", "unrealengine-openjd=*.*.*", param_value)
-
-        return param_value + " unrealengine-openjd=*.*.*"
-
-    @staticmethod
     def check_conda_package_version(parameter_values: list[dict[str, Any]]) -> bool:
         """
         Check if the CondaPackages parameter contains Unreal Engine version and compare with current UE version.
@@ -581,15 +564,13 @@ class UnrealOpenJob(UnrealOpenJobEntity):
 
         conda_packages_value = conda_packages_param.get("value", "")
         if not conda_packages_value:
-            conda_packages_param["value"] = UnrealOpenJob.normalize_openjd_version_param(
-                f"unrealengine={current_version}"
-            )
+            conda_packages_param["value"] = f"unrealengine={current_version}"
             return True
 
         # Check for unrealengine=x.x pattern
         ue_version_match = re.search(r"unrealengine=(\d+\.\d+)", conda_packages_value)
         if not ue_version_match:
-            conda_packages_param["value"] = UnrealOpenJob.normalize_openjd_version_param(
+            conda_packages_param["value"] = (
                 f"unrealengine={current_version} " + conda_packages_value
             )
             return True
@@ -610,9 +591,6 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             if result != unreal.AppReturnType.YES:
                 return False
 
-        conda_packages_param["value"] = UnrealOpenJob.normalize_openjd_version_param(
-            conda_packages_value
-        )
         logger.info("Unreal Engine versions match, continuing with submission")
         return True
 
@@ -705,6 +683,15 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             self._transfer_files_strategy = TransferProjectFilesStrategy.UGS
         elif p4_envs:
             self._transfer_files_strategy = TransferProjectFilesStrategy.P4
+
+        # Insert AdaptorSetup environment at the beginning so it runs before LaunchUnrealEditor.
+        # This configures PYTHONPATH and PATH for the adaptor bundle on the worker.
+        has_adaptor_setup = any(
+            isinstance(e, AdaptorSetupUnrealOpenJobEnvironment) for e in self._environments
+        )
+        if not has_adaptor_setup:
+            adaptor_setup_env = AdaptorSetupUnrealOpenJobEnvironment()
+            self._environments.insert(0, adaptor_setup_env)
 
     @property
     def mrq_job(self):
@@ -1254,6 +1241,15 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             )
 
         all_parameter_values = filled_parameter_values + unfilled_parameter_values
+
+        # Set AdaptorBundlePath parameter to the local bundle directory path (or empty string)
+        adaptor_bundle_dir = self._get_adaptor_bundle_dir()
+        all_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+            job_parameter_values=all_parameter_values,
+            job_parameter_name=OpenJobParameterNames.ADAPTOR_BUNDLE_PATH,
+            job_parameter_value=adaptor_bundle_dir,
+        )
+
         return all_parameter_values
 
     def get_executor_cmd_args(self) -> str:
@@ -1493,6 +1489,35 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         return output_path
 
+    @staticmethod
+    def _get_adaptor_bundle_dir() -> str:
+        """
+        Get the path to the adaptor bundle directory.
+
+        Looks for the bundle in:
+        1. Inside the plugin (Content/Python/adaptor_bundle/) — installed by build_plugin.py
+        2. At the repo root (adaptor_bundle/) — for development
+        3. In CWD (adaptor_bundle/) — fallback
+
+        :return: Path to the adaptor bundle directory
+        :rtype: str
+        :raises FileNotFoundError: If the bundle directory is not found in any candidate location
+        """
+        bundle_candidates = [
+            Path(settings.OPENJD_TEMPLATES_DIRECTORY).parent / "adaptor_bundle",
+            Path(settings.OPENJD_TEMPLATES_DIRECTORY).parent.parent.parent.parent.parent
+            / "adaptor_bundle",
+            Path.cwd() / "adaptor_bundle",
+        ]
+        for candidate in bundle_candidates:
+            if candidate.is_dir():
+                return str(candidate.resolve())
+
+        raise FileNotFoundError(
+            "Adaptor bundle directory not found. "
+            "Run 'python scripts/build_plugin.py --install' to rebuild the plugin."
+        )
+
     def get_asset_references(self) -> AssetReferences:
         """
         Build asset references of the OpenJob with the given MRQ Job.
@@ -1504,6 +1529,10 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         """
 
         asset_references = super().get_asset_references()
+
+        # Add adaptor bundle directory as an input directory for job attachments
+        adaptor_bundle_dir = self._get_adaptor_bundle_dir()
+        asset_references.input_directories.add(adaptor_bundle_dir)
 
         if self._transfer_files_strategy == TransferProjectFilesStrategy.S3:
             # add dependencies to attachments

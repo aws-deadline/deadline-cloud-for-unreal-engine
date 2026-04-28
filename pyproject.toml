@@ -126,6 +126,7 @@ addopts = [
     # "--numprocesses=auto",
 ]
 testpaths = [ "test" ]
+pythonpath = [ "scripts" ]
 looponfailroots = [
     "src",
     "test",
