@@ -1000,8 +1000,10 @@ def deadline_client(session: boto3.Session) -> BaseClient:
     Returns:
         A Deadline Cloud client
     """
-    # Auto-accept file uploads so E2E tests don't block on user confirmation
-    config.set_setting("settings.auto_accept", "true")
+    # Set auto_accept to false so that the interactive_confirmation_callback in
+    # job_submit_wrapper.py handles upload confirmations instead of the deadline
+    # library auto-canceling when it encounters unknown paths.
+    config.set_setting("settings.auto_accept", "false")
 
     client = session.client("deadline", region_name=TEST_TARGET_REGION)
     logger.info(f"Created deadline client for region {TEST_TARGET_REGION}")
