@@ -154,7 +154,10 @@ if remote_execution != "True":
         os.environ["DEADLINE_CLOUD"] = libraries_path
 
     if os.getenv("DEADLINE_CLOUD") and os.environ["DEADLINE_CLOUD"] not in sys.path:
-        sys.path.append(os.environ["DEADLINE_CLOUD"])
+        # Insert at position 0 to take precedence over UE's auto-installed PipInstall
+        # packages, which may contain older versions of shared dependencies (e.g.
+        # typing_extensions) that are incompatible with the versions bundled here.
+        sys.path.insert(0, os.environ["DEADLINE_CLOUD"])
 
     from deadline.unreal_logger import get_logger
 
