@@ -1242,8 +1242,9 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         all_parameter_values = filled_parameter_values + unfilled_parameter_values
 
-        # Set AdaptorBundlePath parameter to the local bundle directory path (or empty string)
-        adaptor_bundle_dir = self._get_adaptor_bundle_dir()
+        # Set AdaptorBundlePath parameter to the local bundle directory path (or empty string).
+        # Bundle may be None on developer boxes; create_job_bundle() validates before submission.
+        adaptor_bundle_dir = self._get_adaptor_bundle_dir() or ""
         all_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
             job_parameter_values=all_parameter_values,
             job_parameter_name=OpenJobParameterNames.ADAPTOR_BUNDLE_PATH,
@@ -1490,33 +1491,54 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         return output_path
 
     @staticmethod
-    def _get_adaptor_bundle_dir() -> str:
+    def _get_adaptor_bundle_dir() -> Optional[str]:
         """
-        Get the path to the adaptor bundle directory.
+        Get the path to the adaptor bundle directory, or None if not found.
 
-        Looks for the bundle in:
-        1. Inside the plugin (Content/Python/adaptor_bundle/) — installed by build_plugin.py
-        2. At the repo root (adaptor_bundle/) — for development
-        3. In CWD (adaptor_bundle/) — fallback
+        Uses the ``ADAPTOR_BUNDLE_DIRECTORY`` setting which is populated by
+        ``init_unreal.py`` at plugin load time (pointing to
+        ``Content/Python/adaptor_bundle/`` inside the plugin).  The env var
+        can also be overridden for development or testing.
 
-        :return: Path to the adaptor bundle directory
-        :rtype: str
-        :raises FileNotFoundError: If the bundle directory is not found in any candidate location
+        Returns None (instead of raising) so that callers like
+        ``get_asset_references()`` and ``_build_parameter_values()`` — which
+        are invoked by UI previews, validation, and unit tests — do not crash
+        when no bundle has been built yet.  The actual submission path
+        (``create_job_bundle``) validates that the bundle exists.
+
+        :return: Path to the adaptor bundle directory, or None if not found
+        :rtype: Optional[str]
         """
-        bundle_candidates = [
-            Path(settings.OPENJD_TEMPLATES_DIRECTORY).parent / "adaptor_bundle",
-            Path(settings.OPENJD_TEMPLATES_DIRECTORY).parent.parent.parent.parent.parent
-            / "adaptor_bundle",
-            Path.cwd() / "adaptor_bundle",
-        ]
-        for candidate in bundle_candidates:
-            if candidate.is_dir():
-                return str(candidate.resolve())
+        bundle_dir = settings.ADAPTOR_BUNDLE_DIRECTORY
+        if bundle_dir and Path(bundle_dir).is_dir():
+            return str(Path(bundle_dir).resolve())
 
-        raise FileNotFoundError(
+        logger.debug(
             "Adaptor bundle directory not found. "
-            "Run 'python scripts/build_plugin.py --install' to rebuild the plugin."
+            "Run 'python scripts/build_plugin.py --install' to rebuild the plugin. "
+            "Set the ADAPTOR_BUNDLE_DIRECTORY environment variable to override."
         )
+        return None
+
+    def create_job_bundle(self):
+        """
+        Override to validate the adaptor bundle exists before submission.
+
+        This is the submission gate — UI previews and validation skip this check
+        because ``get_asset_references()`` and ``_build_parameter_values()``
+        gracefully handle a missing bundle.
+
+        :return: Job bundle directory path
+        :rtype: str
+        :raises FileNotFoundError: If the adaptor bundle directory is not found
+        """
+        adaptor_bundle_dir = self._get_adaptor_bundle_dir()
+        if not adaptor_bundle_dir:
+            raise FileNotFoundError(
+                "Adaptor bundle directory not found. "
+                "Run 'python scripts/build_plugin.py --install' to rebuild the plugin."
+            )
+        return super().create_job_bundle()
 
     def get_asset_references(self) -> AssetReferences:
         """
@@ -1530,9 +1552,12 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         asset_references = super().get_asset_references()
 
-        # Add adaptor bundle directory as an input directory for job attachments
+        # Add adaptor bundle directory as an input directory for job attachments.
+        # Bundle may be None on developer boxes where it hasn't been built yet;
+        # the actual submission path (create_job_bundle) validates its presence.
         adaptor_bundle_dir = self._get_adaptor_bundle_dir()
-        asset_references.input_directories.add(adaptor_bundle_dir)
+        if adaptor_bundle_dir:
+            asset_references.input_directories.add(adaptor_bundle_dir)
 
         if self._transfer_files_strategy == TransferProjectFilesStrategy.S3:
             # add dependencies to attachments

@@ -143,6 +143,9 @@ if remote_execution != "True":
             f"{Path(__file__).parent.as_posix()}/openjd_templates"
         )
 
+    if "ADAPTOR_BUNDLE_DIRECTORY" not in os.environ:
+        os.environ["ADAPTOR_BUNDLE_DIRECTORY"] = str(Path(__file__).parent / "adaptor_bundle")
+
     # Add the custom submit actions path to sys path
     actions_path = Path(__file__).parent.joinpath("submit_actions").as_posix()
 

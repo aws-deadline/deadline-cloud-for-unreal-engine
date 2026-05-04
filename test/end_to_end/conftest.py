@@ -1760,6 +1760,7 @@ def _kill_unreal_processes():
             psutil.ZombieProcess,
             psutil.TimeoutExpired,
         ):
+            # Best-effort: process may have exited, be inaccessible, or still shutting down.
             pass
 
 

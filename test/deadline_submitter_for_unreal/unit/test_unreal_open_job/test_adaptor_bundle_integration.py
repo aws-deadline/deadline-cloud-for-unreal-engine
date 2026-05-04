@@ -98,11 +98,12 @@ class TestAdaptorSetupEnvironment:
             template = yaml.safe_load(f)
 
         setup_script = template["script"]["embeddedFiles"][0]["data"]
-        bundle_check_pos = setup_script.index("BUNDLE_PATH")
+        # Use the actual condition check (goto :check_conda on empty), not the variable assignment
+        bundle_check_pos = setup_script.index('if not exist "%BUNDLE_PATH%\\bin"')
         conda_check_pos = setup_script.index("where unreal-engine-openjd")
         assert (
             bundle_check_pos < conda_check_pos
-        ), "Bundle check must come before conda check in AdaptorSetup script"
+        ), "Bundle existence check must come before conda check in AdaptorSetup script"
 
     def test_adaptor_setup_template_no_variables(self):
         """Verify the template has no variables key (not needed)."""
@@ -243,10 +244,10 @@ class TestRenderUnrealOpenJobAdaptorSetup:
         "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
         "UnrealOpenJobEntity.get_template_object"
     )
-    def test_get_asset_references_raises_when_no_bundle(
+    def test_get_asset_references_skips_when_no_bundle(
         self, get_template_object_mock, mock_bundle_dir, mock_dep_paths, mock_plugins
     ):
-        """Verify FileNotFoundError propagates when bundle directory doesn't exist."""
+        """Verify get_asset_references succeeds (no crash) when bundle directory doesn't exist."""
         get_template_object_mock.return_value = {
             "specificationVersion": "jobtemplate-2023-09",
             "name": "TestJob",
@@ -261,14 +262,15 @@ class TestRenderUnrealOpenJobAdaptorSetup:
                 },
             ],
         }
-        mock_bundle_dir.side_effect = FileNotFoundError("Adaptor bundle directory not found.")
+        mock_bundle_dir.return_value = None
         mock_dep_paths.return_value = []
         mock_plugins.return_value = AssetReferences()
 
         job = RenderUnrealOpenJob(name="TestJob")
 
-        with pytest.raises(FileNotFoundError):
-            job.get_asset_references()
+        # Should not raise — bundle missing is tolerated outside submission
+        asset_refs = job.get_asset_references()
+        assert "adaptor_bundle" not in str(asset_refs.input_directories)
 
 
 class TestJobTemplateCondaPackagesDefault:
@@ -372,128 +374,119 @@ class TestJobTemplateCondaPackagesDefault:
 class TestGetAdaptorBundleDir:
     """Tests for RenderUnrealOpenJob._get_adaptor_bundle_dir()."""
 
-    @patch("deadline.unreal_submitter.unreal_open_job.unreal_open_job.Path")
-    @patch(
-        "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
-        "UnrealOpenJobEntity.get_template_object"
-    )
-    def test_raises_when_no_bundle(self, get_template_object_mock, mock_path_cls):
-        """Verify FileNotFoundError raised when bundle directory doesn't exist."""
-        get_template_object_mock.return_value = {
-            "specificationVersion": "jobtemplate-2023-09",
-            "name": "TestJob",
-            "parameterDefinitions": [
-                {"name": "CondaPackages", "type": "STRING", "default": "unrealengine=5.7"},
-            ],
-        }
-
-        # Make all candidate paths return is_dir() = False
-        mock_path_instance = MagicMock()
-        mock_path_instance.__truediv__ = MagicMock(return_value=mock_path_instance)
-        mock_path_instance.parent = mock_path_instance
-        mock_path_instance.is_dir.return_value = False
-        mock_path_cls.return_value = mock_path_instance
-        mock_path_cls.cwd.return_value = mock_path_instance
-
-        with pytest.raises(FileNotFoundError):
-            RenderUnrealOpenJob._get_adaptor_bundle_dir()
-
-    @patch("deadline.unreal_submitter.unreal_open_job.unreal_open_job.Path")
-    @patch(
-        "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
-        "UnrealOpenJobEntity.get_template_object"
-    )
-    def test_finds_bundle_in_plugin_dir(self, get_template_object_mock, mock_path_cls):
-        """Verify bundle found at Content/Python/adaptor_bundle (plugin install path)."""
-        get_template_object_mock.return_value = {
-            "specificationVersion": "jobtemplate-2023-09",
-            "name": "TestJob",
-            "parameterDefinitions": [
-                {"name": "CondaPackages", "type": "STRING", "default": "unrealengine=5.7"},
-            ],
-        }
-
-        # First candidate (plugin path) exists, others don't
-        plugin_bundle = MagicMock()
-        plugin_bundle.is_dir.return_value = True
-        plugin_bundle.resolve.return_value = Path("/plugin/Content/Python/adaptor_bundle")
-
-        other_path = MagicMock()
-        other_path.is_dir.return_value = False
-        other_path.__truediv__ = MagicMock(return_value=other_path)
-        other_path.parent = other_path
-
-        templates_dir = MagicMock()
-        templates_dir.parent = MagicMock()
-        templates_dir.parent.__truediv__ = MagicMock(return_value=plugin_bundle)
-        # For repo root candidate: go up 5 parents
-        repo_parent = MagicMock()
-        repo_parent.__truediv__ = MagicMock(return_value=other_path)
-        templates_dir.parent.parent = MagicMock()
-        templates_dir.parent.parent.parent = MagicMock()
-        templates_dir.parent.parent.parent.parent = MagicMock()
-        templates_dir.parent.parent.parent.parent.parent = repo_parent
-
-        mock_path_cls.return_value = templates_dir
-        mock_path_cls.cwd.return_value = other_path
+    @patch("deadline.unreal_submitter.unreal_open_job.unreal_open_job.settings")
+    def test_returns_none_when_setting_empty(self, mock_settings):
+        """Verify None returned when ADAPTOR_BUNDLE_DIRECTORY is empty."""
+        mock_settings.ADAPTOR_BUNDLE_DIRECTORY = ""
 
         result = RenderUnrealOpenJob._get_adaptor_bundle_dir()
-        assert result == str(Path("/plugin/Content/Python/adaptor_bundle"))
+        assert result is None
 
-    @patch("deadline.unreal_submitter.unreal_open_job.unreal_open_job.Path")
-    @patch(
-        "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
-        "UnrealOpenJobEntity.get_template_object"
-    )
-    def test_plugin_path_takes_priority_over_repo_root(
-        self, get_template_object_mock, mock_path_cls
-    ):
-        """Verify plugin Content/Python/adaptor_bundle is checked before repo root."""
-        get_template_object_mock.return_value = {
-            "specificationVersion": "jobtemplate-2023-09",
-            "name": "TestJob",
-            "parameterDefinitions": [
-                {"name": "CondaPackages", "type": "STRING", "default": "unrealengine=5.7"},
-            ],
-        }
+    @patch("deadline.unreal_submitter.unreal_open_job.unreal_open_job.settings")
+    def test_returns_none_when_dir_does_not_exist(self, mock_settings, tmp_path):
+        """Verify None returned when ADAPTOR_BUNDLE_DIRECTORY points to nonexistent path."""
+        mock_settings.ADAPTOR_BUNDLE_DIRECTORY = str(tmp_path / "nonexistent_bundle")
 
-        # Both plugin and repo root paths exist
-        plugin_bundle = MagicMock()
-        plugin_bundle.is_dir.return_value = True
-        plugin_bundle.resolve.return_value = Path("/plugin/adaptor_bundle")
+        result = RenderUnrealOpenJob._get_adaptor_bundle_dir()
+        assert result is None
 
-        repo_bundle = MagicMock()
-        repo_bundle.is_dir.return_value = True
-        repo_bundle.resolve.return_value = Path("/repo/adaptor_bundle")
+    @patch("deadline.unreal_submitter.unreal_open_job.unreal_open_job.settings")
+    def test_returns_resolved_path_when_dir_exists(self, mock_settings, tmp_path):
+        """Verify resolved path returned when ADAPTOR_BUNDLE_DIRECTORY exists."""
+        bundle_dir = tmp_path / "adaptor_bundle"
+        bundle_dir.mkdir()
+        mock_settings.ADAPTOR_BUNDLE_DIRECTORY = str(bundle_dir)
 
-        templates_dir = MagicMock()
-        templates_dir.parent = MagicMock()
-        templates_dir.parent.__truediv__ = MagicMock(return_value=plugin_bundle)
-        repo_parent = MagicMock()
-        repo_parent.__truediv__ = MagicMock(return_value=repo_bundle)
-        templates_dir.parent.parent = MagicMock()
-        templates_dir.parent.parent.parent = MagicMock()
-        templates_dir.parent.parent.parent.parent = MagicMock()
-        templates_dir.parent.parent.parent.parent.parent = repo_parent
+        result = RenderUnrealOpenJob._get_adaptor_bundle_dir()
+        assert result == str(bundle_dir.resolve())
 
-        mock_path_cls.return_value = templates_dir
-        cwd_path = MagicMock()
-        cwd_path.__truediv__ = MagicMock(
-            return_value=MagicMock(is_dir=MagicMock(return_value=False))
+    @patch("deadline.unreal_submitter.unreal_open_job.unreal_open_job.settings")
+    def test_does_not_use_cwd_fallback(self, mock_settings, tmp_path, monkeypatch):
+        """Verify CWD is never used as a fallback — only the explicit setting matters."""
+        # Create adaptor_bundle in CWD — should NOT be found
+        cwd_bundle = tmp_path / "cwd_workspace"
+        cwd_bundle.mkdir()
+        (cwd_bundle / "adaptor_bundle").mkdir()
+        monkeypatch.chdir(cwd_bundle)
+
+        # Setting points nowhere
+        mock_settings.ADAPTOR_BUNDLE_DIRECTORY = str(tmp_path / "nonexistent")
+
+        result = RenderUnrealOpenJob._get_adaptor_bundle_dir()
+        assert result is None, "CWD must never be used as a fallback for security reasons"
+
+
+class TestAdaptorSetupScriptEmptyPathGuard:
+    """Tests that the adaptor-setup.cmd script guards against empty/invalid BUNDLE_PATH.
+
+    B2 review concern: if OpenJD path-maps an empty string default into '.' or
+    the working directory, 'if exist' alone would pass. The script must also
+    check that BUNDLE_PATH is non-empty AND that the expected 'bin' subdirectory
+    exists inside it, to avoid silently setting PYTHONPATH to a wrong directory.
+    """
+
+    @staticmethod
+    def _get_setup_script() -> str:
+        template_path = (
+            Path(__file__).parents[4]
+            / "src"
+            / "unreal_plugin"
+            / "Content"
+            / "Python"
+            / "openjd_templates"
+            / "adaptor_setup_environment.yml"
         )
-        mock_path_cls.cwd.return_value = cwd_path
+        with open(template_path) as f:
+            template = yaml.safe_load(f)
+        return template["script"]["embeddedFiles"][0]["data"]
 
-        result = RenderUnrealOpenJob._get_adaptor_bundle_dir()
-        # Plugin path should win
-        assert result == str(Path("/plugin/adaptor_bundle"))
+    def test_script_guards_against_empty_string(self):
+        """Verify the script checks BUNDLE_PATH is non-empty before 'if exist'."""
+        script = self._get_setup_script()
+        # The script should skip to conda fallback when BUNDLE_PATH is empty
+        assert '"%BUNDLE_PATH%"==""' in script, (
+            "Setup script must guard against empty BUNDLE_PATH. "
+            "An empty PATH parameter could be path-mapped to '.' or CWD."
+        )
 
-    @patch("deadline.unreal_submitter.unreal_open_job.unreal_open_job.Path")
+    def test_script_validates_bundle_structure(self):
+        """Verify the script checks for 'bin' subdir, not just directory existence."""
+        script = self._get_setup_script()
+        # Checking for bin/ inside the bundle is a structural validation
+        # that prevents false positives from random directories
+        assert "\\bin" in script, (
+            "Setup script should validate bundle structure (e.g. bin/ subdir) "
+            "not just directory existence."
+        )
+
+    def test_script_does_not_use_delayed_expansion(self):
+        """Verify the script avoids EnableDelayedExpansion.
+
+        EnableDelayedExpansion corrupts paths containing '!' characters.
+        Instead, the script uses goto/label to keep %PATH% expansion
+        outside of if ( ... ) blocks, avoiding the complementary problem
+        where ')' in PATH (e.g. 'Program Files (x86)') breaks if blocks.
+        """
+        script = self._get_setup_script()
+        assert "EnableDelayedExpansion" not in script
+        assert "!PATH!" not in script
+        # Should use %PATH% directly, outside of if () blocks
+        assert "%PATH%" in script
+
+
+class TestCreateJobBundleAdaptorValidation:
+    """Tests for RenderUnrealOpenJob.create_job_bundle() adaptor bundle validation."""
+
+    @patch(
+        "deadline.unreal_submitter.unreal_open_job.unreal_open_job."
+        "RenderUnrealOpenJob._get_adaptor_bundle_dir"
+    )
     @patch(
         "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
         "UnrealOpenJobEntity.get_template_object"
     )
-    def test_error_message_is_actionable(self, get_template_object_mock, mock_path_cls):
-        """Verify the error message tells the user how to fix it."""
+    def test_raises_when_bundle_missing(self, get_template_object_mock, mock_bundle_dir):
+        """Verify create_job_bundle raises FileNotFoundError when bundle is missing."""
         get_template_object_mock.return_value = {
             "specificationVersion": "jobtemplate-2023-09",
             "name": "TestJob",
@@ -501,13 +494,40 @@ class TestGetAdaptorBundleDir:
                 {"name": "CondaPackages", "type": "STRING", "default": "unrealengine=5.7"},
             ],
         }
+        mock_bundle_dir.return_value = None
 
-        mock_path_instance = MagicMock()
-        mock_path_instance.__truediv__ = MagicMock(return_value=mock_path_instance)
-        mock_path_instance.parent = mock_path_instance
-        mock_path_instance.is_dir.return_value = False
-        mock_path_cls.return_value = mock_path_instance
-        mock_path_cls.cwd.return_value = mock_path_instance
+        job = RenderUnrealOpenJob(name="TestJob")
+        with pytest.raises(FileNotFoundError, match="Adaptor bundle directory not found"):
+            job.create_job_bundle()
 
-        with pytest.raises(FileNotFoundError, match="build_plugin.py --install"):
-            RenderUnrealOpenJob._get_adaptor_bundle_dir()
+    @patch(
+        "deadline.unreal_submitter.unreal_open_job.unreal_open_job."
+        "UnrealOpenJob.create_job_bundle"
+    )
+    @patch(
+        "deadline.unreal_submitter.unreal_open_job.unreal_open_job."
+        "RenderUnrealOpenJob._get_adaptor_bundle_dir"
+    )
+    @patch(
+        "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
+        "UnrealOpenJobEntity.get_template_object"
+    )
+    def test_calls_super_when_bundle_exists(
+        self, get_template_object_mock, mock_bundle_dir, mock_super_create
+    ):
+        """Verify create_job_bundle delegates to super() when bundle exists."""
+        get_template_object_mock.return_value = {
+            "specificationVersion": "jobtemplate-2023-09",
+            "name": "TestJob",
+            "parameterDefinitions": [
+                {"name": "CondaPackages", "type": "STRING", "default": "unrealengine=5.7"},
+            ],
+        }
+        mock_bundle_dir.return_value = "/path/to/adaptor_bundle"
+        mock_super_create.return_value = "/path/to/job_bundle"
+
+        job = RenderUnrealOpenJob(name="TestJob")
+        result = job.create_job_bundle()
+
+        mock_super_create.assert_called_once()
+        assert result == "/path/to/job_bundle"

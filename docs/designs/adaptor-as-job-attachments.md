@@ -74,7 +74,7 @@ The Deadline Cloud worker agent is pre-installed on workers and provides a Pytho
 3. THE bundled adaptor attachment SHALL include: `unreal_adaptor`, `unreal_perforce_utils`, `unreal_logger`, `unreal_cmd_utils`, and only the third-party runtime dependencies NOT already provided by the worker agent. The worker agent provides `deadline` (client lib), `boto3`, `psutil`, `pywin32`, `openjd-model`, and `openjd-sessions`. The bundle MUST include: `openjd-adaptor-runtime` (includes `adaptor_runtime_client`), `jsonschema` (+ transitive deps: `attrs`, `referencing`, `jsonschema-specifications`, `rpds-py`), `pyyaml`, and `p4python`.
 4. THE solution SHALL NOT require conda to be installed or configured on the worker node.
 5. THE solution SHALL work with the existing Python interpreter available on the worker (Python ≥ 3.9).
-6. THE adaptor bundle SHALL be the default mechanism for running the adaptor on the worker. If the bundle is attached, it SHALL always be used regardless of whether the conda adaptor is also available. If no bundle is attached, the conda-installed adaptor (`unrealengine-openjd`) SHALL be used as a fallback. If neither the bundle nor the conda adaptor is available, the job SHALL fail with a clear error message. If the bundle directory is not found at submission time, the submitter SHALL fail with a fatal error to prevent submitting jobs without an adaptor.
+6. THE adaptor bundle SHALL be the default mechanism for running the adaptor on the worker. If the bundle is attached, it SHALL always be used regardless of whether the conda adaptor is also available. If no bundle is attached, the conda-installed adaptor (`unrealengine-openjd`) SHALL be used as a fallback. If neither the bundle nor the conda adaptor is available, the job SHALL fail with a clear error message. If the bundle directory is not found at submission time, the submitter SHALL fail with a fatal error at the point of submission (`create_job_bundle`) to prevent submitting jobs without an adaptor. Non-submission code paths (UI previews, validation, parameter inspection) SHALL NOT crash when the bundle is absent.
 7. WHEN the adaptor scripts are attached to a job, THE worker SHALL be able to resolve all imports from the attachment directory without any pre-installed packages beyond the standard library and the worker agent's own environment.
 8. THE `unreal-engine-p4-utils` CLI entry point SHALL also be converted to run from the attachment bundle.
 9. THE OpenJD templates SHALL continue to use `unreal-engine-openjd` and `unreal-engine-p4-utils` as commands. The adaptor setup environment SHALL make these commands available on PATH via wrapper scripts when running from the bundle.
@@ -178,14 +178,13 @@ script:
     data: |
       @echo off
       set "BUNDLE_PATH={{Param.AdaptorBundlePath}}"
-      if exist "%BUNDLE_PATH%" (
+      if not "%BUNDLE_PATH%"=="" if exist "%BUNDLE_PATH%\bin" (
         echo Using adaptor from job attachment bundle: %BUNDLE_PATH%
         echo openjd_env: PYTHONPATH=%BUNDLE_PATH%
         echo openjd_env: PATH=%BUNDLE_PATH%\bin;%PATH%
         exit /b 0
       )
-      where unreal-engine-openjd >nul 2>&1
-      if %ERRORLEVEL% == 0 (
+      where unreal-engine-openjd >nul 2>&1 && (
         echo Adaptor found on PATH via conda, using as fallback
         exit /b 0
       )
@@ -198,13 +197,15 @@ script:
         mode: NOTIFY_THEN_TERMINATE
 ```
 
-**No `onExit` action** — environment variables are session-scoped and do not persist across jobs.
+The script guards against empty or path-mapped `BUNDLE_PATH` values by checking both that the value is non-empty (`not ""==""`) and that the expected `bin/` subdirectory exists inside it (structural validation). Plain `%PATH%` expansion is used instead of `EnableDelayedExpansion` / `!PATH!` to avoid corrupting paths containing `!` characters.
 
 #### 7.2.3 Submitter changes (`unreal_open_job.py`)
 
-- **`get_asset_references()`**: Add the adaptor bundle directory to `input_directories`
+- **`get_asset_references()`**: Add the adaptor bundle directory to `input_directories` (gracefully skipped when bundle is not yet built, to allow UI previews and validation to function)
 - **Job template parameter definitions**: Add `AdaptorBundlePath` parameter (`type: PATH`, `dataFlow: IN`, `control: HIDDEN`)
-- **`_build_parameter_values()`**: Set `AdaptorBundlePath` value to the local path of the built bundle. If the bundle directory is not found, submission fails with a `FileNotFoundError` — this is a fatal error to prevent jobs from being submitted without an adaptor.
+- **`_build_parameter_values()`**: Set `AdaptorBundlePath` value to the local path of the built bundle, or empty string if the bundle is not found (non-fatal for previews/validation)
+- **`create_job_bundle()`**: Validate that the adaptor bundle directory exists. This is the submission gate — if the bundle is missing, submission fails with a `FileNotFoundError` to prevent jobs from being submitted without an adaptor. The failure is deferred to this point (rather than `get_asset_references()` or `_build_parameter_values()`) so that the submitter UI can still be inspected on developer boxes where no bundle has been built.
+- **`init_unreal.py`**: Set the `ADAPTOR_BUNDLE_DIRECTORY` environment variable (pointing to `Content/Python/adaptor_bundle/` inside the plugin) at plugin load time, alongside the existing `OPENJD_TEMPLATES_DIRECTORY`. The `_get_adaptor_bundle_dir()` static method reads this setting — no fragile parent-chain traversal or CWD fallback.
 - **Job environments list**: Insert `AdaptorSetup` environment before the `LaunchUnrealEditor` environment
 
 #### 7.2.4 Job template changes (`render_job.yml`, `p4_render_job.yml`)
@@ -422,9 +423,12 @@ Prerequisites:
 - Test templates in `Source/UnrealDeadlineCloudService/Private/Tests/openjd_templates/`: update accordingly
 
 **Task 5** ⚡ — Update submitter `unreal_open_job.py`
-- `get_asset_references()`: add bundle dir to `input_directories`
-- `_build_parameter_values()`: set `AdaptorBundlePath` value
-- `_build_template()`: insert `AdaptorSetup` environment before `LaunchUnrealEditor`
+- `get_asset_references()`: add bundle dir to `input_directories` (gracefully skip when missing)
+- `_build_parameter_values()`: set `AdaptorBundlePath` value (empty string when missing)
+- `create_job_bundle()`: validate bundle exists at submission time (fatal error if missing)
+- `init_unreal.py`: set `ADAPTOR_BUNDLE_DIRECTORY` env var at plugin load time
+- `settings.py`: add `ADAPTOR_BUNDLE_DIRECTORY` setting (read from env var)
+- `_get_adaptor_bundle_dir()`: read from `ADAPTOR_BUNDLE_DIRECTORY` setting only — no parent-chain traversal or CWD fallback
 
 **Task 6** — Unit tests for Tasks 4-5
 - Test asset references include bundle, param values, template structure

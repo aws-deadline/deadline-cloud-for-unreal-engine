@@ -153,19 +153,17 @@ class TestCopyAdaptorModules:
 
         assert not (bundle_dir / "deadline" / "__init__.py").exists()
 
-    def test_raises_on_missing_module(self, bundle_dir, tmp_path):
-        """Verify FileNotFoundError when a module is missing."""
+    def test_raises_on_missing_module(self, bundle_dir, tmp_path, monkeypatch):
+        """Verify FileNotFoundError when a required adaptor module is missing."""
         src_deadline = tmp_path / "src" / "deadline"
         src_deadline.mkdir(parents=True)
-        # Only create one module, not all four
+        # Only create one module — the others are missing
         (src_deadline / "unreal_adaptor").mkdir()
         (src_deadline / "unreal_adaptor" / "__init__.py").write_text("")
 
-        with patch("adaptorBundle.Path") as mock_path:
-            mock_path.return_value = tmp_path / "src" / "deadline"
-            # The function should raise when it can't find a module
-            with pytest.raises(FileNotFoundError):
-                _copy_adaptor_modules(bundle_dir)
+        monkeypatch.chdir(tmp_path)
+        with pytest.raises(FileNotFoundError):
+            _copy_adaptor_modules(bundle_dir)
 
 
 class TestGenerateWrapperScripts:
