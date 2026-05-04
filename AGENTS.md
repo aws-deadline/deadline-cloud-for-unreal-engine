@@ -54,6 +54,10 @@ Use conventional commits:
 
 For new features or major refactors, use the `ue-design` skill. This does NOT apply to small bug fixes.
 
+## Dependency Version Bumps
+
+When bumping versions in `pyproject.toml`, also update `PythonRequirements` in `src/unreal_plugin/UnrealDeadlineCloudService.uplugin`. UE's PipInstall caches packages in `<project>/Intermediate/PipInstall/` and won't auto-upgrade transitive dependencies, causing silent import failures if they go stale. Pin critical transitive dependencies (e.g. `typing_extensions>=4.14.1` required by `pydantic`) explicitly in the `.uplugin`.
+
 ## Architecture
 
 C++ and Python integration enabling Unreal Movie Render Queue job submission to AWS Deadline Cloud and worker-side rendering via OpenJD adaptors. Each component has its own `AGENTS.md` with detailed context.
