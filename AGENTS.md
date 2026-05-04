@@ -12,7 +12,18 @@ To run targeted tests: `hatch run test -- test/<dir> -v` or `hatch run test -- -
 
 **UE Automation (Spec) GUI Tests:** Require a running Unreal Editor instance. **Do NOT run** — they must be run manually by a human developer.
 
-**E2E Tests:** Require AWS Deadline Cloud authentication and real cloud resources. **Do NOT run** — they must be run manually by a human developer.
+**E2E Tests:** Require AWS Deadline Cloud authentication and real cloud resources. Before running, you MUST verify authentication:
+
+1. Run `deadline auth status` and confirm **Status: AUTHENTICATED** and **API Availability: True**
+2. Run `deadline config show` and confirm `defaults.farm_id` is set
+3. If either check fails, **stop and ask the user** to authenticate via Deadline Cloud Monitor or configure their farm
+4. Once confirmed, run e2e tests with: `hatch run test -- test/end_to_end -v`
+5. To run a specific e2e test: `hatch run test -- test/end_to_end/test_create_job.py -v`
+
+Useful e2e flags (append after `--`):
+- `--nobuild` — skip plugin build step
+- `--cleanup` — delete AWS resources (queues, fleets, S3 buckets) after tests
+- `--ueversion=5.4` — target a specific Unreal Engine version
 
 ## Testing Conventions
 - See `test/AGENTS.md` for detailed test structure and patterns

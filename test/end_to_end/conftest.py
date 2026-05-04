@@ -270,10 +270,14 @@ def get_build_script_args() -> List[str]:
     """
     Return the arguments to pass to the build script for a test installation.
 
+    Includes --worker to ensure the deadline-cloud-worker-agent is upgraded
+    alongside the deadline client library, preventing version mismatches
+    (e.g. S3AssetUploader API changes) that cause job attachment upload failures.
+
     Returns:
         List of command line arguments for the build script
     """
-    return ["--install", "--test"]
+    return ["--install", "--test", "--worker"]
 
 
 def add_content_plugins_to_project(project_path: str, plugins: List[str], enabled: bool) -> None:
@@ -1279,7 +1283,6 @@ def delete_fleets_util(deadline_client: BaseClient, fleet_responses: List[Dict[s
 
 @pytest.fixture(scope="session")
 def reusable_fleet_id(
-    worker_id: str,
     deadline_client: BaseClient,
     reusable_farm_id: str,
     worker_role_arn: str,
@@ -1289,7 +1292,6 @@ def reusable_fleet_id(
     Fixture that provides a fleet ID, creating one if it doesn't exist.
 
     Args:
-        worker_id: The pytest worker ID
         deadline_client: The Deadline Cloud client
         reusable_farm_id: The farm ID
         worker_role_arn: The ARN of the IAM role to use for the fleet

@@ -380,8 +380,8 @@ Prerequisites:
 |---|-----------|------|------|-----------------|
 | **T1** | **Basic render with bundle** | E2E ✅ | `test_worker_agent.py` | Job succeeds on SMF or CMF. Logs show `"Using adaptor from job attachment bundle"`. |
 | **T2** | **Bundle priority over conda** | E2E ✅ | `test_adaptor_bundle_priority.py` | Logs show bundle used, NOT conda fallback. |
-| **T3** | **Conda fallback (old submitter)** | E2E ✅ | `test_adaptor_fallback_scenarios.py` | Logs show `"Adaptor found on PATH via conda, using as fallback"`. |
-| **T4** | **No bundle, no conda → clear error** | E2E ✅ | `test_adaptor_fallback_scenarios.py` | Job fails with `"No adaptor available"` error. |
+| **T3** | **Conda fallback (old submitter)** | Manual | — | Logs show `"Adaptor found on PATH via conda, using as fallback"`. Requires SMF worker with conda. |
+| **T4** | **No bundle, no conda → clear error** | Manual | — | Job fails with `"No adaptor available"` error. Requires SMF worker with conda. |
 | **T5** | **Perforce job with bundle** | Manual | — | P4 sync and render complete. `unreal-engine-p4-utils` resolves from bundle. |
 | **T6** | **Bundle env persists across steps** | E2E ✅ | `test_worker_agent.py` | AdaptorSetup onEnter runs exactly once per session. |
 | **T7** | **CondaPackages default** | E2E ✅ | `test_worker_agent.py` | No `unrealengine-openjd` in CondaPackages. (Also unit test.) |
@@ -435,9 +435,10 @@ Prerequisites:
 **Task 7** — E2E tests (`test/end_to_end/`)
 - `test_worker_agent.py::test_create_job_with_worker_agent` — From single job: bundle used (T1), onEnter once (T6), CondaPackages default (T7) ✅ implemented
 - `test_adaptor_bundle_priority.py` — Bundle priority over conda when both present (T2) ✅ implemented
-- `test_adaptor_fallback_scenarios.py` — From single UE submission, resubmit modified bundles: conda fallback (T3), no adaptor error (T4) ✅ implemented
 
 **Task 8** — Manual tests (require human / special infrastructure)
+- T3: Conda fallback (requires SMF worker with conda)
+- T4: No bundle, no conda → clear error (requires SMF worker with conda)
 - T5: Perforce job with bundle
 
 **Task 9** — Update canary tests on service side
