@@ -7,6 +7,10 @@ The bundle contains the UE adaptor source modules and runtime dependencies NOT p
 by the Deadline Cloud worker agent. This replaces the conda-based deployment of the
 unrealengine-openjd package.
 
+Native dependencies (those containing platform-specific .pyd/.so files) are downloaded
+for ALL supported Python versions so the bundle works regardless of the worker's Python
+version. Pure-Python dependencies are version-agnostic and only downloaded once.
+
 Usage:
     python adaptorBundle.py [--output <dir>] [--python-version <ver>] [--platform <plat>]
 """
@@ -42,6 +46,17 @@ BUNDLE_DEPENDENCIES = [
     "attrs",
     "pyyaml",
 ]
+
+# Dependencies that contain native extensions (.pyd/.so) and must be downloaded
+# for each supported Python version to ensure compatibility on the worker.
+NATIVE_DEPENDENCIES = [
+    "rpds-py",
+    "p4python",
+    "pyyaml",
+]
+
+# All Python versions supported on the worker. Native deps are downloaded for each.
+SUPPORTED_PYTHON_VERSIONS = ["3.9", "3.10", "3.11", "3.12"]
 
 DEFAULT_PYTHON_VERSION = f"{sys.version_info.major}.{sys.version_info.minor}"
 DEFAULT_PLATFORM = "win_amd64"
@@ -136,31 +151,106 @@ def _copy_adaptor_modules(bundle_dir: Path) -> None:
         shutil.rmtree(str(submitter_dir))
 
 
+def _split_native_and_pure_specs(
+    dependency_specs: list[str],
+) -> tuple[list[str], list[str]]:
+    """Split dependency specs into native and pure-Python lists.
+
+    Returns (native_specs, pure_specs) where native_specs are packages
+    that contain platform-specific extensions and need multi-version install.
+    """
+
+    def _normalize(name: str) -> str:
+        return (
+            name.split()[0]
+            .split(">")[0]
+            .split("<")[0]
+            .split("=")[0]
+            .split("!")[0]
+            .lower()
+            .replace("_", "-")
+            .replace(".", "-")
+        )
+
+    native_names = {d.lower().replace("_", "-").replace(".", "-") for d in NATIVE_DEPENDENCIES}
+    native_specs = []
+    pure_specs = []
+    for spec in dependency_specs:
+        if _normalize(spec) in native_names:
+            native_specs.append(spec)
+        else:
+            pure_specs.append(spec)
+    return native_specs, pure_specs
+
+
 def _install_dependencies(
     bundle_dir: Path, dependency_specs: list[str], python_version: str, platform: str
 ) -> None:
     """Download platform-specific wheels for bundle dependencies using pip.
 
-    All dependencies are installed in a single pip call with --no-deps to prevent
-    transitive dependencies (e.g. pywin32, typing-extensions) that are
-    already provided by the worker agent from being pulled in.
+    Pure-Python dependencies are installed once (they are version-agnostic).
+    Native dependencies (those with .pyd/.so extensions) are installed for ALL
+    supported Python versions so the bundle works regardless of the worker's
+    Python interpreter version.
+
+    All dependencies are installed with --no-deps to prevent transitive
+    dependencies (e.g. pywin32, typing-extensions) that are already provided
+    by the worker agent from being pulled in.
     """
-    subprocess.run(
-        [
-            "pip",
-            "install",
-            "--target",
-            str(bundle_dir),
-            "--platform",
-            platform,
-            "--python-version",
-            python_version,
-            "--only-binary=:all:",
-            "--no-deps",
-            *dependency_specs,
-        ],
-        check=True,
-    )
+    native_specs, pure_specs = _split_native_and_pure_specs(dependency_specs)
+
+    # Install pure-Python deps once (version-agnostic)
+    if pure_specs:
+        subprocess.run(
+            [
+                "pip",
+                "install",
+                "--target",
+                str(bundle_dir),
+                "--platform",
+                platform,
+                "--python-version",
+                python_version,
+                "--only-binary=:all:",
+                "--no-deps",
+                *pure_specs,
+            ],
+            check=True,
+        )
+
+    # Install native deps for each supported Python version so the correct
+    # .pyd/.so files are available regardless of the worker's Python version.
+    if native_specs:
+        with TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            for ver in SUPPORTED_PYTHON_VERSIONS:
+                ver_dir = tmp_path / ver.replace(".", "_")
+                ver_dir.mkdir()
+                subprocess.run(
+                    [
+                        "pip",
+                        "install",
+                        "--target",
+                        str(ver_dir),
+                        "--platform",
+                        platform,
+                        "--python-version",
+                        ver,
+                        "--only-binary=:all:",
+                        "--no-deps",
+                        *native_specs,
+                    ],
+                    check=True,
+                )
+                # Copy files into bundle_dir, skipping duplicates (pure .py files
+                # are identical across versions; only .pyd/.so names differ)
+                for file in ver_dir.rglob("*"):
+                    if file.is_file():
+                        relative = file.relative_to(ver_dir)
+                        dest = bundle_dir / relative
+                        if not dest.exists():
+                            dest.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.copy2(str(file), str(dest))
 
 
 def _generate_wrapper_scripts(bundle_dir: Path) -> None:
