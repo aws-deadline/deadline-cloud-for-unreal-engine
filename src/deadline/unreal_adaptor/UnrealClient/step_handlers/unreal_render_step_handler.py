@@ -309,6 +309,32 @@ class UnrealRenderStepHandler(BaseStepHandler):
         pipeline_queue.copy_from(movie_pipeline_queue_asset)
 
     @staticmethod
+    def _apply_task_index_to_filename(render_job, task_index: int) -> None:
+        """
+        Substitute ``{task_index}`` in MRQ's FileNameFormat with the per-task index so
+        chunked renders that produce a single file per task (e.g. .mov containers) do
+        not collide on the same output filename. If the resolved format contains no
+        per-task token (neither ``{task_index}`` nor ``{frame_number}``), warn that
+        outputs from sibling tasks will overwrite each other.
+        """
+        output_settings = render_job.get_configuration().find_or_add_setting_by_class(
+            unreal.MoviePipelineOutputSetting
+        )
+        file_name_format = output_settings.file_name_format or ""
+        if "{task_index}" in file_name_format:
+            output_settings.file_name_format = file_name_format.replace(
+                "{task_index}", f"{task_index:04d}"
+            )
+        elif "{frame_number}" not in file_name_format:
+            logger.warning(
+                "FileNameFormat %r contains no per-task token; outputs from sibling "
+                "tasks will overwrite each other. Add {task_index} to FileNameFormat "
+                "to disambiguate per-task output (recommended for video containers "
+                "such as .mov where {frame_number} is not present by default).",
+                file_name_format,
+            )
+
+    @staticmethod
     def enable_shots_by_chunk(render_job, task_chunk_size: int, task_chunk_id: int):
 
         all_shots_to_render = [shot for shot in render_job.shot_info if shot.enabled]
@@ -470,6 +496,9 @@ class UnrealRenderStepHandler(BaseStepHandler):
                     task_chunk_size=chunk_size,
                     task_chunk_id=chunk_id,
                 )
+
+            if "chunk_id" in args and (args.get("frames_per_task") or "chunk_size" in args):
+                UnrealRenderStepHandler._apply_task_index_to_filename(job, chunk_id)
 
             if "output_path" in args:
                 if not os.path.exists(args["output_path"]):
