@@ -1,5 +1,11 @@
 # AGENTS.md — deadline-cloud-for-unreal-engine
 
+## ⚠️ Before You Commit
+
+**Every commit MUST be signed off.** Use `git commit -s` — the DCO check will
+block any PR that contains an unsigned commit. See
+[Commit Messages](#commit-messages) below for the full format.
+
 ## Build
 
 ```bash
