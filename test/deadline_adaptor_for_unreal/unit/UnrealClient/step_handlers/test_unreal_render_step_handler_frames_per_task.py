@@ -238,6 +238,77 @@ class TestUnrealRenderStepHandlerFramesPerTask:
             assert calculated_start == 101
             assert calculated_end == 50  # Clamped to range end
 
+    @pytest.mark.parametrize(
+        "fmt, task_index, expected",
+        [
+            ("{sequence_name}_{task_index}", 0, "{sequence_name}_0000"),
+            ("{sequence_name}_{task_index}", 7, "{sequence_name}_0007"),
+            ("{shot_name}.{task_index}.{render_pass}", 42, "{shot_name}.0042.{render_pass}"),
+        ],
+    )
+    def test_apply_task_index_substitutes_token(
+        self, unreal_render_step_handler, fmt, task_index, expected
+    ):
+        from deadline.unreal_adaptor.UnrealClient.step_handlers import (
+            unreal_render_step_handler as handler_mod,
+        )
+
+        output_settings = MagicMock()
+        output_settings.file_name_format = fmt
+        render_job = MagicMock()
+        render_job.get_configuration.return_value.find_or_add_setting_by_class.return_value = (
+            output_settings
+        )
+
+        with patch.object(handler_mod, "unreal", MagicMock()):
+            handler_mod.UnrealRenderStepHandler._apply_task_index_to_filename(
+                render_job, task_index
+            )
+
+        assert output_settings.file_name_format == expected
+
+    def test_apply_task_index_warns_when_no_per_task_token(self, unreal_render_step_handler):
+        from deadline.unreal_adaptor.UnrealClient.step_handlers import (
+            unreal_render_step_handler as handler_mod,
+        )
+
+        output_settings = MagicMock()
+        output_settings.file_name_format = "{sequence_name}"
+        render_job = MagicMock()
+        render_job.get_configuration.return_value.find_or_add_setting_by_class.return_value = (
+            output_settings
+        )
+
+        with (
+            patch.object(handler_mod, "unreal", MagicMock()),
+            patch.object(handler_mod.logger, "warning") as warn_mock,
+        ):
+            handler_mod.UnrealRenderStepHandler._apply_task_index_to_filename(render_job, 3)
+
+        assert output_settings.file_name_format == "{sequence_name}"
+        warn_mock.assert_called_once()
+
+    def test_apply_task_index_silent_when_frame_number_present(self, unreal_render_step_handler):
+        from deadline.unreal_adaptor.UnrealClient.step_handlers import (
+            unreal_render_step_handler as handler_mod,
+        )
+
+        output_settings = MagicMock()
+        output_settings.file_name_format = "{sequence_name}.{frame_number}"
+        render_job = MagicMock()
+        render_job.get_configuration.return_value.find_or_add_setting_by_class.return_value = (
+            output_settings
+        )
+
+        with (
+            patch.object(handler_mod, "unreal", MagicMock()),
+            patch.object(handler_mod.logger, "warning") as warn_mock,
+        ):
+            handler_mod.UnrealRenderStepHandler._apply_task_index_to_filename(render_job, 3)
+
+        assert output_settings.file_name_format == "{sequence_name}.{frame_number}"
+        warn_mock.assert_not_called()
+
     def test_static_method_behavior(self, unreal_render_step_handler):
         """Test that get_frame_range is a static method and caching works across instances"""
         # GIVEN
