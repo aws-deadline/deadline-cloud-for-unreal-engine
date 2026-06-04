@@ -1001,7 +1001,8 @@ def deadline_client(session: boto3.Session) -> BaseClient:
     Returns:
         A Deadline Cloud client
     """
-    client = session.client("deadline", region_name=TEST_TARGET_REGION)
+    endpoint_url = os.environ.get("DEADLINE_ENDPOINT", None)
+    client = session.client("deadline", region_name=TEST_TARGET_REGION, endpoint_url=endpoint_url)
     logger.info(f"Created deadline client for region {TEST_TARGET_REGION}")
     return client
 
