@@ -33,7 +33,7 @@ GITHUB_LATEST_RELEASE_URL = (
     "https://api.github.com/repos/aws-deadline/deadline-cloud-for-unreal-engine/releases/latest"
 )
 RELEASES_PAGE_URL = "https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/releases"
-SETUP_GUIDE_URL = "https://aws-deadline.github.io/unreal-engine/setup-submitter/"
+SETUP_GUIDE_URL = "https://docs.aws.amazon.com/deadline-cloud/latest/userguide/epic-unreal-engine.html#unreal-engine-installation"
 _REQUEST_TIMEOUT_SECONDS = 5
 
 

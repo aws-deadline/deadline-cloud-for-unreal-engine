@@ -51,12 +51,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Covers the install path that goes through pip directly (docs/user_guide/
-# setup-submitter.md, option 1) rather than through the .uplugin's PythonRequirements or
-# the dependency bundle, both of which request deadline's console extra themselves. An
-# extra rather than part of dependencies because those are also resolved into the adaptor
-# package, where awscrt is unusable and unavailable (see the comment above). A unit test
-# keeps this restated range equal to the deadline pin in dependencies.
+# Covers the documented install path that goes through pip directly rather than through
+# the .uplugin's PythonRequirements or the dependency bundle, both of which request
+# deadline's console extra themselves. An extra rather than part of dependencies because
+# those are also resolved into the adaptor package, where awscrt is unusable and
+# unavailable (see the comment above). A unit test keeps this restated range equal to the
+# deadline pin in dependencies.
 console = [
     "deadline[console] >= 0.60.4,< 0.61",
 ]
