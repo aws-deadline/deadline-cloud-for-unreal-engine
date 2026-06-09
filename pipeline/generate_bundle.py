@@ -62,7 +62,7 @@ def main():
                     file_path=step_template,
                     extra_parameters=[
                         UnrealOpenJobStepParameterDefinition(
-                            "ScriptPath", "PATH", ["/tmp/placeholder.py"]
+                            "ScriptPath", "PATH", ["C:/Temp/integ_test_script.py"]
                         )
                     ],
                 )

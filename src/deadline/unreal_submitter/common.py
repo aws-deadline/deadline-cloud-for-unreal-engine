@@ -279,6 +279,8 @@ def create_deadline_cloud_temp_file(file_prefix: str, file_data: Any, file_ext: 
         "UnrealDeadlineCloudService",
         file_prefix,
     )
+    if not os.path.isabs(destination_dir):
+        destination_dir = os.path.abspath(destination_dir)
     os.makedirs(destination_dir, exist_ok=True)
 
     temp_file = unreal.Paths.create_temp_filename(
@@ -292,8 +294,10 @@ def create_deadline_cloud_temp_file(file_prefix: str, file_data: Any, file_ext: 
         else:
             f.write(file_data)
 
-    temp_file = unreal.Paths.convert_relative_path_to_full(temp_file).replace("\\", "/")
-
+    temp_file = unreal.Paths.convert_relative_path_to_full(temp_file)
+    if not os.path.isabs(temp_file):
+        temp_file = os.path.abspath(temp_file)
+    temp_file = temp_file.replace("\\", "/")
     return temp_file
 
 

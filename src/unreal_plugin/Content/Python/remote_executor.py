@@ -10,13 +10,20 @@ logger = get_logger()
 
 
 @unreal.uclass()
-class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelineExecutorBase):
-    # The queue we are working on, null if no queue has been provided.
-    pipeline_queue = unreal.uproperty(unreal.MoviePipelineQueue)
+class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelinePythonHostExecutor):
+    """
+    Deadline Cloud remote executor for Movie Render Queue.
+
+    Inherits from MoviePipelinePythonHostExecutor (not MoviePipelineExecutorBase directly)
+    because Python-defined UClasses aren't available when the executor is first initialized.
+    The host executor's C++ code handles Execute() dispatch and forwards to execute_delayed()
+    which Python can reliably override.
+    """
+
     job_ids = unreal.uproperty(unreal.Array(str))
 
     @unreal.ufunction(override=True)
-    def execute(self, pipeline_queue):
+    def execute_delayed(self, pipeline_queue):
         logger.info(f"Asked to execute Queue: {pipeline_queue}")
         logger.info(f"Queue has {len(pipeline_queue.get_jobs())} jobs")
 
@@ -32,7 +39,7 @@ class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelineExecutorBase)
 
         self.pipeline_queue = pipeline_queue
 
-        unreal_submitter = UnrealMrqJobSubmitter()
+        unreal_submitter = UnrealMrqJobSubmitter(silent_mode=unreal.SystemLibrary.is_unattended())
 
         for job in self.pipeline_queue.get_jobs():
             logger.info(f"Submitting Job `{job.job_name}` to Deadline Cloud...")
@@ -42,12 +49,6 @@ class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelineExecutorBase)
 
     @unreal.ufunction(override=True)
     def is_rendering(self):
-        # Because we forward unfinished jobs onto another service when the
-        # button is pressed, they can always submit what is in the queue and
-        # there's no need to block the queue.
-        # A MoviePipelineExecutor implementation must override this. If you
-        # override a ufunction from a base class you don't specify the return
-        # type or parameter types.
         return False
 
     def check_dirty_packages(self) -> bool:

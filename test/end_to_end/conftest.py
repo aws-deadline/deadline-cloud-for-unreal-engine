@@ -244,6 +244,12 @@ def pytest_addoption(parser) -> None:
         default=None,
         help="Override the CondaChannels default in the render job template",
     )
+    parser.addoption(
+        "--render-offscreen",
+        action="store_true",
+        default=False,
+        help="Use -RenderOffScreen instead of -nullrhi (requires GPU)",
+    )
 
 
 def get_source_root() -> str:
@@ -689,13 +695,16 @@ def run_unreal_test(request, reusable_farm_id, reusable_queue_id) -> Callable:
         engine_root = find_engine_root(request.config.getoption("--ueversion"))
 
         unrealeditor_cmd_path = os.path.join(engine_root, "Engine", "Binaries", "Win64")
+        rhi_flag = (
+            "-RenderOffScreen" if request.config.getoption("--render-offscreen") else "-nullrhi"
+        )
         test_args = [
             os.path.join(unrealeditor_cmd_path, "UnrealEditor-Cmd.exe"),
             uproject_file,
             f"-ExecCmds=Automation RunTests {test_path}",
             "-stdout",
             "-unattended",
-            "-nullrhi",
+            rhi_flag,
             "-nosplash",
             "-nosound",
             "-nocontentbrowser",
@@ -1276,7 +1285,6 @@ def delete_fleets_util(deadline_client: BaseClient, fleet_responses: List[Dict[s
 
 @pytest.fixture(scope="session")
 def reusable_fleet_id(
-    worker_id: str,
     deadline_client: BaseClient,
     reusable_farm_id: str,
     worker_role_arn: str,
@@ -1286,7 +1294,6 @@ def reusable_fleet_id(
     Fixture that provides a fleet ID, creating one if it doesn't exist.
 
     Args:
-        worker_id: The pytest worker ID
         deadline_client: The Deadline Cloud client
         reusable_farm_id: The farm ID
         worker_role_arn: The ARN of the IAM role to use for the fleet
@@ -1632,6 +1639,10 @@ def deadline_worker_agent(
         log_dir, f"worker-agent-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.log"
     )
 
+    # Create persistence dir for worker agent state
+    persistence_dir = os.path.join(os.getcwd(), "worker-agent-state")
+    os.makedirs(persistence_dir, exist_ok=True)
+
     # Start the worker agent process
     cmd = [
         "deadline-worker-agent",
@@ -1639,64 +1650,69 @@ def deadline_worker_agent(
         reusable_farm_id,
         "--fleet-id",
         reusable_fleet_id,
-        # Disable rich console output to avoid encoding errors
-        "--structured-logs",  # Use structured logs instead of rich console output
+        "--structured-logs",
         "--run-jobs-as-agent-user",
+        "--no-shutdown",
+        "--logs-dir",
+        log_dir,
+        "--persistence-dir",
+        persistence_dir,
     ]
 
-    # Environment variables to disable rich console output
+    # Environment variables for the worker agent
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
-    env["TERM"] = "dumb"  # Disable terminal features
-    env["NO_COLOR"] = "1"  # Disable color output
+    env["TERM"] = "dumb"
+    env["NO_COLOR"] = "1"
+
+    # Add UE binaries to PATH so the adaptor can find UnrealEditor-Cmd
+    ue_bin_dir = os.path.join(find_engine_root(None), "Engine", "Binaries", "Win64")
+    if os.path.isdir(ue_bin_dir):
+        env["PATH"] = ue_bin_dir + os.pathsep + env.get("PATH", "")
 
     logger.info(f"Starting worker agent with command: {' '.join(cmd)}")
     logger.info(f"Worker agent logs will be written to: {log_file}")
 
+    log_fh = open(log_file, "w")
+
     # Use different process creation flags based on platform
     if sys.platform == "win32":
-        # On Windows, create a new process group so we can terminate it and all children
-        with open(log_file, "w") as f:
-            process = subprocess.Popen(
-                cmd,
-                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
-                stdout=f,
-                stderr=f,
-                env=env,
-                text=True,
-            )
+        process = subprocess.Popen(
+            cmd,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+            stdout=log_fh,
+            stderr=log_fh,
+            env=env,
+            text=True,
+        )
     else:
-        # On Unix-like systems, use process groups if available
-        with open(log_file, "w") as f:
-            if hasattr(os, "setsid"):
-                process = subprocess.Popen(
-                    cmd,
-                    preexec_fn=os.setsid,  # Create a new session
-                    stdout=f,
-                    stderr=f,
-                    env=env,
-                    text=True,
-                )
-            else:
-                # Fallback if setsid is not available
-                process = subprocess.Popen(
-                    cmd,
-                    stdout=f,
-                    stderr=f,
-                    env=env,
-                    text=True,
-                )
+        process = subprocess.Popen(
+            cmd,
+            preexec_fn=os.setsid if hasattr(os, "setsid") else None,
+            stdout=log_fh,
+            stderr=log_fh,
+            env=env,
+            text=True,
+        )
 
-    # Give the worker agent time to start and register
-    time.sleep(10)  # Increased to give more time to register
+    # Give the worker agent time to start and register with the fleet
+    for i in range(6):
+        time.sleep(5)
+        if process.poll() is not None:
+            log_fh.flush()
+            with open(log_file, "r") as f:
+                log_content = f.read()
+            pytest.fail(
+                f"Worker agent exited during startup (exit code {process.returncode}):\n{log_content}"
+            )
+        logger.info(f"Worker agent startup check {i+1}/6 — still running (PID {process.pid})")
 
-    # Check if process is still running
+    # Final check
     if process.poll() is not None:
-        # Process exited prematurely
+        log_fh.flush()
         with open(log_file, "r") as f:
             log_content = f.read()
-        error_msg = f"Worker agent failed to start: exit code {process.returncode}\nLog content: {log_content}"
-        pytest.fail(error_msg)
+        pytest.fail(f"Worker agent failed to start: exit code {process.returncode}\n{log_content}")
 
     logger.info(f"Worker agent started successfully with PID: {process.pid}")
     logger.info(f"To view worker agent logs, check: {log_file}")
@@ -1736,6 +1752,8 @@ def deadline_worker_agent(
                     process.kill()
     except Exception as e:
         logger.error(f"Error stopping worker agent: {str(e)}")
+    finally:
+        log_fh.close()
 
     logger.info("Worker agent stopped")
 
