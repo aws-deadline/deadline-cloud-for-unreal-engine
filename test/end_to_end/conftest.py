@@ -220,6 +220,30 @@ def pytest_addoption(parser) -> None:
         default=False,
         help="Clean up resources (queues, fleets, associations) after tests",
     )
+    parser.addoption(
+        "--farm-id",
+        action="store",
+        default=None,
+        help="Use a specific farm ID instead of reading from deadline config",
+    )
+    parser.addoption(
+        "--queue-id",
+        action="store",
+        default=None,
+        help="Use a specific queue ID instead of creating/reusing a test queue",
+    )
+    parser.addoption(
+        "--no-cancel",
+        action="store_true",
+        default=False,
+        help="Don't cancel the job after it reaches READY state",
+    )
+    parser.addoption(
+        "--conda-channel",
+        action="store",
+        default=None,
+        help="Override the CondaChannels default in the render job template",
+    )
 
 
 def get_source_root() -> str:
@@ -626,13 +650,14 @@ def extract_job_info_from_test_output(
 
 
 @pytest.fixture
-def run_unreal_test(request, reusable_queue_fleet_association) -> Callable:
+def run_unreal_test(request, reusable_farm_id, reusable_queue_id) -> Callable:
     """
     Fixture that provides a function to run Unreal Engine automation tests.
 
     Args:
         request: The pytest request object
-        reusable_queue_fleet_association: Fixture providing farm, queue, and fleet IDs
+        reusable_farm_id: The farm ID
+        reusable_queue_id: The queue ID
 
     Returns:
         A callable function that runs Unreal Engine automation tests
@@ -657,11 +682,7 @@ def run_unreal_test(request, reusable_queue_fleet_association) -> Callable:
         if deadlineargs is None:
             deadlineargs = "-NoLoadingScreen -FixedSeed -log -Unattended -MRQInstance -deterministicaudio -audiomixer"
 
-        reusable_farm_id, reusable_queue_id, reusable_fleet_id = reusable_queue_fleet_association
-
-        logger.info(
-            f"Running unreal test with farm {reusable_farm_id} queue {reusable_queue_id} fleet {reusable_fleet_id}"
-        )
+        logger.info(f"Running unreal test with farm {reusable_farm_id} queue {reusable_queue_id}")
 
         test_params_str = f"-testparams=farm_id={reusable_farm_id};queue_id={reusable_queue_id}"
 
@@ -754,39 +775,61 @@ def build_plugin(request) -> None:
     Fixture to run the scripts/build_plugin.py script at most once per test session.
 
     Guarantees the latest version of the code has been built and installed.
-    Runs the script as a subprocess rather than importing and running the methods directly
-    to simulate how customers will execute it.
 
     Args:
         request: The pytest request object
     """
     if request.config.getoption("--nobuild"):
         logger.info("Skipping build_plugin")
+    else:
+        # build_plugin.py lives in the scripts subfolder relative to the root of the repository
+        script_path = os.path.join(get_source_root(), "scripts", "build_plugin.py")
+        if not os.path.exists(script_path):
+            pytest.fail(f"Could not find build_plugin.py at {script_path}")
+
+        build_args = ["python", script_path]
+        build_args.extend(get_build_script_args())
+
+        passthrough_args = ["--ueversion"]
+
+        for arg in passthrough_args:
+            logger.debug(f"Checking arg {arg}")
+            if request.config.getoption(arg):
+                logger.debug(f"Found arg {arg}: {request.config.getoption(arg)}")
+                build_args.append(
+                    f"{arg}={request.config.getoption(arg)}" if arg.startswith("--") else arg
+                )
+            else:
+                logger.debug(f"Arg {arg} not present")
+
+        # Run the script and capture the output
+        result = subprocess.run(build_args, text=True)
+        assert result.returncode == 0
+
+
+@pytest.fixture(scope="session", autouse=True)
+def apply_conda_channel_override(request) -> Generator[None, None, None]:
+    """Override conda channel for render jobs via environment variable.
+
+    Sets DEADLINE_CONDA_CHANNELS env var which the plugin reads at submission time.
+    Only sets when --conda-channel is explicitly passed. Restores the prior value
+    (or unsets it) at session teardown so the env doesn't leak across sessions.
+    """
+    conda_channel = request.config.getoption("--conda-channel")
+    if not conda_channel:
+        yield
         return
 
-    # build_plugin.py lives in the scripts subfolder relative to the root of the repository
-    script_path = os.path.join(get_source_root(), "scripts", "build_plugin.py")
-    if not os.path.exists(script_path):
-        pytest.fail(f"Could not find build_plugin.py at {script_path}")
-
-    build_args = ["python", script_path]
-    build_args.extend(get_build_script_args())
-
-    passthrough_args = ["--ueversion"]
-
-    for arg in passthrough_args:
-        logger.debug(f"Checking arg {arg}")
-        if request.config.getoption(arg):
-            logger.debug(f"Found arg {arg}: {request.config.getoption(arg)}")
-            build_args.append(
-                f"{arg}={request.config.getoption(arg)}" if arg.startswith("--") else arg
-            )
+    prior = os.environ.get("DEADLINE_CONDA_CHANNELS")
+    os.environ["DEADLINE_CONDA_CHANNELS"] = conda_channel
+    logger.info(f"Set DEADLINE_CONDA_CHANNELS={conda_channel}")
+    try:
+        yield
+    finally:
+        if prior is None:
+            os.environ.pop("DEADLINE_CONDA_CHANNELS", None)
         else:
-            logger.debug(f"Arg {arg} not present")
-
-    # Run the script and capture the output
-    result = subprocess.run(build_args, text=True)
-    assert result.returncode == 0
+            os.environ["DEADLINE_CONDA_CHANNELS"] = prior
 
 
 @pytest.fixture(scope="session")
@@ -958,7 +1001,8 @@ def deadline_client(session: boto3.Session) -> BaseClient:
     Returns:
         A Deadline Cloud client
     """
-    client = session.client("deadline", region_name=TEST_TARGET_REGION)
+    endpoint_url = os.environ.get("DEADLINE_ENDPOINT", None)
+    client = session.client("deadline", region_name=TEST_TARGET_REGION, endpoint_url=endpoint_url)
     logger.info(f"Created deadline client for region {TEST_TARGET_REGION}")
     return client
 
@@ -1007,27 +1051,26 @@ DEADLINE_UNREAL_TEST_FARM_NAME: str = "deadline-unreal-test-farm"
 
 
 @pytest.fixture(scope="session")
-def reusable_farm_id() -> Generator[str, None, None]:
+def reusable_farm_id(request) -> Generator[str, None, None]:
     """
-    Fixture that provides a farm ID from your deadline config settings.
+    Fixture that provides a farm ID.
 
-    Args:
-        deadline_client: The Deadline Cloud client
-        request: The pytest request object
+    Uses --farm-id CLI option if provided, otherwise reads from deadline config.
 
     Yields:
         The farm ID to use for tests
     """
-    farm_id = None
-
-    config_farm_id = config.get_setting("defaults.farm_id")
-    if config_farm_id:
-        logger.info(f"Using farm_id {config_farm_id} from defaults.farm_id")
-        farm_id = config_farm_id
+    farm_id = request.config.getoption("--farm-id")
+    if farm_id:
+        logger.info(f"Using farm_id {farm_id} from --farm-id option")
     else:
-        raise Exception(
-            "Please configure the farm you wish to use for your test in your deadline config settings"
-        )
+        farm_id = config.get_setting("defaults.farm_id")
+        if farm_id:
+            logger.info(f"Using farm_id {farm_id} from defaults.farm_id")
+        else:
+            raise Exception(
+                "Please provide --farm-id or configure defaults.farm_id in deadline config"
+            )
 
     yield farm_id
 
@@ -1440,21 +1483,27 @@ def create_queue_helper(
 
 @pytest.fixture(scope="session")
 def reusable_queue_id(
-    create_queue_helper,
     reusable_farm_id: str,
     request,
 ) -> str:
     """
-    Fixture that provides a queue ID, creating one if it doesn't exist.
+    Fixture that provides a queue ID.
+
+    Uses --queue-id CLI option if provided, otherwise creates or reuses a test queue.
 
     Args:
-        create_queue_helper: Function to create or reuse a queue
         reusable_farm_id: The farm ID
         request: The pytest request object
 
     Returns:
         The queue ID
     """
+    queue_id = request.config.getoption("--queue-id")
+    if queue_id:
+        logger.info(f"Using queue_id {queue_id} from --queue-id option")
+        return queue_id
+    # Lazy-import the create_queue_helper fixture only when needed
+    create_queue_helper = request.getfixturevalue("create_queue_helper")
     queue = create_queue_helper(farm_id=reusable_farm_id)
     return queue["queueId"]
 

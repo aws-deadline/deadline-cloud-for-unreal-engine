@@ -5,7 +5,7 @@ pre-install-commands = [
 
 [envs.default.scripts]
 sync = "pip install -r requirements-testing.txt"
-test = "pytest test/ --cov-config pyproject.toml --ignore=test/end_to_end {args}"
+test = "pytest test/ --cov-config pyproject.toml --ignore=test/end_to_end --ignore=test/integ {args}"
 e2e = "pytest test/end_to_end --no-cov {args}"
 typing = "mypy {args:src test}"
 style = [
@@ -35,6 +35,38 @@ deploy = "mkdocs gh-deploy --force"
 
 [[envs.all.matrix]]
 python = ["3.8", "3.9", "3.10", "3.11"]
+
+[envs.integ-ci]
+pre-install-commands = [
+  "pip install -r requirements-testing.txt"
+]
+
+[[envs.integ-ci.matrix]]
+unreal = ["5.7"]
+python = ["3.11"]
+
+[envs.integ-ci.env-vars]
+UE_VERSION = "{matrix:unreal}"
+
+[envs.integ-ci.scripts]
+setup = "python ./pipeline/setup-runner.py --versions {matrix:unreal}"
+integ = "pytest --no-cov {args:test/integ} -vvv --numprocesses=1"
+
+[envs.e2e-ci]
+pre-install-commands = [
+  "pip install -r requirements-testing.txt"
+]
+
+[[envs.e2e-ci.matrix]]
+unreal = ["5.7"]
+python = ["3.11"]
+
+[envs.e2e-ci.env-vars]
+UE_VERSION = "{matrix:unreal}"
+
+[envs.e2e-ci.scripts]
+setup = "python ./pipeline/setup-runner.py --versions {matrix:unreal}"
+e2e = "pytest --no-cov {args:test/end_to_end/test_create_job.py} -vvv --numprocesses=1"
 
 [envs.release]
 detached = true

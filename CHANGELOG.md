@@ -1,3 +1,17 @@
+## 0.6.9 (2026-05-26)
+
+### Features
+* A default `UnrealAdaptor.json` configuration file is now shipped with the package, setting log_level to DEBUG for verbose adaptor logs by default. (#300)
+* The submitter now notifies you when a newer version of the submitter plugin is available. (#274)
+* Added UE 5.4/5.5 compatibility by replacing UE 5.6+ MinWidth call and converting lambdas to TFunction in DeadlineCloudDetailsWidgetsHelper. (#295)
+
+### Bug Fixes
+* Fixed PermissionError on multi-user Unreal worker hosts caused by the per-adaptor JSON config file being permanently locked to the SID of whichever account first created it. Bumped minimum openjd-adaptor-runtime to 0.9.4. (#302)
+* Fixed a crash in the adaptor when `LevelSequence` is None during `get_frame_range()`. The adaptor now falls back to the MRQ custom playback range in chunked renders instead of crashing with a NoneType error. (#298)
+* Added `{task_index}` token to MRQ FileNameFormat for chunked renders. Previously, when rendering video containers (e.g. .mov) across multiple Deadline tasks, each task would overwrite the same output file. Now each task produces a uniquely named file. (#299)
+* Fixed silent plugin initialization failure where `MoviePipelineDeadlineCloudRemoteExecutor` would disappear due to an outdated `typing_extensions` cached by UE's PipInstall. The plugin now pins `typing_extensions>=4.14.1` and uses targeted `sys.path` insertion. (#294)
+* Fixed an issue where pip would not upgrade deadline and worker-agent dependencies during install. The installer now uses `--force-reinstall` for the UE plugin target and `--upgrade --upgrade-strategy eager` for global Python and worker-agent installs. (#290)
+* The installer now auto-detects and installs FAB/Marketplace plugins automatically. (#286)
 ## 0.6.8 (2026-04-14)
 
 
