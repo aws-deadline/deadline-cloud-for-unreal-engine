@@ -5,7 +5,7 @@ import time
 from unittest.mock import Mock, MagicMock, patch
 
 import pytest
-from deadline_job_attachments.progress_tracker import ProgressReportMetadata, ProgressStatus
+from deadline.job_attachments.progress_tracker import ProgressReportMetadata, ProgressStatus
 
 unreal_mock = MagicMock()
 sys.modules["unreal"] = unreal_mock

@@ -246,8 +246,8 @@ class UnrealSubmitter:
         """
         Hashing progress callback for displaying hash metadata on the progress bar
 
-        :param hash_metadata: :class:`deadline_job_attachments.progress_tracker.ProgressReportMetadata`
-        :type hash_metadata: deadline_job_attachments.progress_tracker.ProgressReportMetadata
+        :param hash_metadata: :class:`deadline.job_attachments.progress_tracker.ProgressReportMetadata`
+        :type hash_metadata: deadline.job_attachments.progress_tracker.ProgressReportMetadata
         :return: Continue submission or not
         :rtype: bool
         """
@@ -263,8 +263,8 @@ class UnrealSubmitter:
         """
         Uploading progress callback for displaying upload metadata on the progress bar
 
-        :param upload_metadata: :class:`deadline_job_attachments.progress_tracker.ProgressReportMetadata`
-        :type upload_metadata: deadline_job_attachments.progress_tracker.ProgressReportMetadata
+        :param upload_metadata: :class:`deadline.job_attachments.progress_tracker.ProgressReportMetadata`
+        :type upload_metadata: deadline.job_attachments.progress_tracker.ProgressReportMetadata
         :return: Continue submission or not
         :rtype: bool
         """

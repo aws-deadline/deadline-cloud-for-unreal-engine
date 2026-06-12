@@ -11,7 +11,7 @@ import deadline.client.config as config
 from deadline.client import api
 from deadline.client.api import AwsCredentialsSource, AwsAuthenticationStatus, precache_clients
 from deadline.client.config import config_file
-from deadline_job_attachments.models import FileConflictResolution
+from deadline.job_attachments.models import FileConflictResolution
 
 from deadline.unreal_logger import get_logger
 
