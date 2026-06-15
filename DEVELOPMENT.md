@@ -219,3 +219,46 @@ Solution: Configure Movie Render Pipeline settings as described in [Submit a Tes
      - For "Default Remote Executor", select "MoviePipelineDeadlineCloudRemoteExecutor"
      - For "Default Executor Job", select "MoviePipelineDeadlineCloudExecutorJob"
      - Under "Default Job Settings Classes", click add icon, and add "DeadlineCloudRenderStepSetting"
+
+### `ModuleNotFoundError: No module named 'deadline.job_attachments'`
+
+Error: A Python import of any code path that touches `deadline.job_attachments` fails with the same one-line signature regardless of caller:
+```
+ModuleNotFoundError: No module named 'deadline.job_attachments'
+```
+
+The full traceback varies by what triggered the import — common variants are:
+
+- **Worker agent service fails to start** (host stays offline). The traceback ends in `deadline_worker_agent\log_messages.py` doing `from deadline.job_attachments import version as deadline_job_attach_version`. The agent never reaches the point of polling the fleet, so the host shows up as offline / unreachable.
+- **Worker agent starts but render tasks fail** before the Unreal adaptor runs. The traceback comes from the adaptor or the agent's session-startup path importing `deadline.client.config`, which transitively loads `deadline.job_attachments.models`. Tasks fail with a worker-side import error and are retried until the queue gives up.
+- **Contributor running `hatch run e2e -s` or `hatch run test`**. The traceback comes from `test\end_to_end\conftest.py` or any other test module importing `deadline.client.config`. Pytest fails at collection time.
+
+Root Cause: Starting with [`deadline`](https://github.com/aws-deadline/deadline-cloud) 0.57, `job_attachments` was carved out into a separately-published distribution: [`deadline-job-attachments`](https://github.com/aws-deadline/deadline-cloud-job-attachments). The import path stayed the same (`deadline.job_attachments`) via PEP 420 namespace packaging, but the files now live in a different installed distribution. The two distributions install side by side into the same `deadline/` namespace; if either is missing, imports of the missing half fail.
+
+Solution:
+
+1. On the affected host (or in the affected hatch env), confirm the missing distribution:
+```
+python -m pip list | findstr /B deadline       # cmd
+python -m pip list | Select-String "^deadline" # PowerShell
+```
+You should see entries for both `deadline` and `deadline-job-attachments`. If only `deadline` is present, this is the bug.
+
+2. Install the missing distribution and verify the import resolves:
+```
+python -m pip install deadline-job-attachments
+python -c "from deadline.job_attachments.models import FileConflictResolution; print('ok')"
+```
+
+3. On a CMF worker, restart the worker agent service so it picks up the repaired environment:
+```
+net stop  DeadlineWorker
+net start DeadlineWorker
+```
+(Service name may vary; check `services.msc`. After the restart, monitor a few task assignments to confirm imports succeed.)
+
+4. For contributor hatch envs in a generally inconsistent state (multiple stale upgrades), prune and recreate:
+```
+hatch env prune
+hatch run e2e -s
+```
