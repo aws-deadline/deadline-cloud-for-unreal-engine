@@ -36,7 +36,7 @@ class RenderJobMock:
 class TestUnrealRenderStepHandler:
 
     @pytest.mark.parametrize(
-        "shots_count, enabled_shots_count, task_chunk_size, task_chunk_id",
+        "shots_count, enabled_shots_count, shots_per_task, task_index",
         [
             (29, 15, 5, 0),
             (29, 29, 5, 1),
@@ -45,13 +45,13 @@ class TestUnrealRenderStepHandler:
             (10, 9, 3, 2),
         ],
     )
-    def test_enable_shots_by_chunk(
+    def test_enable_shots_for_task(
         self,
         unreal_render_step_handler,
         shots_count,
         enabled_shots_count,
-        task_chunk_size,
-        task_chunk_id,
+        shots_per_task,
+        task_index,
     ):
         # GIVEN
         enabled_shots = [
@@ -65,28 +65,28 @@ class TestUnrealRenderStepHandler:
         render_job_mock = RenderJobMock(shot_info=enabled_shots + disabled_shots)
 
         enabled_job_shots = [shot for shot in render_job_mock.shot_info if shot.enabled]
-        chunked = enabled_job_shots[
-            task_chunk_id * task_chunk_size : (task_chunk_id + 1) * task_chunk_size
+        task_shots = enabled_job_shots[
+            task_index * shots_per_task : (task_index + 1) * shots_per_task
         ]
-        chunked_names = [shot.outer_name for shot in chunked]
+        task_shot_names = [shot.outer_name for shot in task_shots]
 
         # WHEN
         with patch(
             "deadline.unreal_adaptor.UnrealClient.step_handlers."
             "unreal_render_step_handler.logger.info"
         ) as log_mock:
-            unreal_render_step_handler.enable_shots_by_chunk(
-                render_job_mock, task_chunk_size, task_chunk_id
+            unreal_render_step_handler.enable_shots_for_task(
+                render_job_mock, shots_per_task, task_index
             )
 
             # THEN
             enabled_shots = [shot for shot in render_job_mock.shot_info if shot.enabled]
             assert all([shot.enabled for shot in enabled_shots])
-            assert all([shot.outer_name.startswith("Enabled") for shot in chunked])
-            assert len(enabled_shots) <= task_chunk_size and len(enabled_shots) <= shots_count
+            assert all([shot.outer_name.startswith("Enabled") for shot in task_shots])
+            assert len(enabled_shots) <= shots_per_task and len(enabled_shots) <= shots_count
 
             disabled_shots = [
-                shot for shot in render_job_mock.shot_info if shot.outer_name not in chunked_names
+                shot for shot in render_job_mock.shot_info if shot.outer_name not in task_shot_names
             ]
             for shot in disabled_shots:
                 assert not shot.enabled

@@ -22,6 +22,7 @@ Follow these guides to set up and use AWS Deadline Cloud with Unreal Engine:
 
 - Advanced Сonfigurations
     - **[Host Requirements](./custom-host-requirements.md)** - Describe the Worker host capability requirements that must be met for Task scheduling
+    - **[Render Task Partitioning](./render-task-partitioning.md)** - How a render is split into tasks
 
 
 **Note:** We're currently migrating our documentation to this site. In the meantime, you can find additional user guides in the [deadline-cloud-for-unreal-engine GitHub repository](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine). To view these guides locally, follow the [Building the docs](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/DEVELOPMENT.md#building-the-docs) instructions in our development guide.

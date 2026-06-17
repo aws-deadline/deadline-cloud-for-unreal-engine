@@ -26,7 +26,7 @@ parameterDefinitions:
 - name: FramesPerTask
   type: INT
   default: 0
-- name: ChunkSize
+- name: ShotsPerTask
   type: INT
   default: 1
 - name: MarketplacePluginsDir
