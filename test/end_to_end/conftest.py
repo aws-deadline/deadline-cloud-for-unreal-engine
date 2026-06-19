@@ -12,6 +12,7 @@ import botocore
 import deadline.client.config as config
 import json
 import logging
+import psutil
 import pytest
 import re
 import shutil
@@ -244,6 +245,147 @@ def pytest_addoption(parser) -> None:
         default=None,
         help="Override the CondaChannels default in the render job template",
     )
+    parser.addoption(
+        "--no-prerun-checks",
+        action="store_true",
+        default=False,
+        help=(
+            "Skip all session-start (pre-run) validation checks. Use on hosts "
+            "where the checks produce known false positives (e.g. a host with "
+            "a legitimate production deadline-worker-agent service running)."
+        ),
+    )
+
+
+def _record_leftover(
+    proc_info: Dict[str, Any], cmdline_display: str, category: str
+) -> Dict[str, Any]:
+    return {
+        "pid": proc_info["pid"],
+        # psutil sets unreadable attrs to None (the key is present), so
+        # .get(default) doesn't fall back — use `or` instead.
+        "name": proc_info.get("name") or "unknown",
+        "cmdline_short": cmdline_display,
+        "category": category,
+    }
+
+
+def _categorize_process(
+    name_lower: str, cmdline_list: List[str], cmdline_unreadable: bool
+) -> Optional[str]:
+    """Return the leftover category for a process, or None if it doesn't match."""
+    # Worker agent: name match is reliable enough to flag without cmdline,
+    # so a worker owned by another user (LOCAL_SYSTEM, etc.) is still caught.
+    if name_lower in ("deadline-worker-agent.exe", "deadline-worker-agent"):
+        return "deadline-worker-agent"
+
+    if name_lower in ("unrealeditor-cmd.exe", "unrealeditor-cmd"):
+        # Distinguish a worker-launched UE from a developer's manual UE
+        # via the OpenJD session-temp path layout. Without cmdline we
+        # can't apply the guard, so we skip rather than risk a false flag.
+        if cmdline_unreadable:
+            return None
+        for arg in cmdline_list[1:]:
+            arg_lower = arg.lower()
+            # "openjd/" / "openjd\\" not just "openjd" — otherwise an
+            # unrelated path containing "openjdk" would false-flag.
+            if "openjd/" in arg_lower or "openjd\\" in arg_lower or "session-" in arg_lower:
+                return "UnrealEditor-Cmd (worker session)"
+        return None
+
+    # Python process: name "python" alone is too generic; require an
+    # explicit module/path match in the args.
+    if cmdline_unreadable:
+        return None
+    is_python = name_lower.startswith("python") or name_lower in ("py.exe", "py")
+    if is_python:
+        for arg in cmdline_list[1:]:
+            arg_lower = arg.lower()
+            if (
+                "deadline.unreal_adaptor" in arg_lower
+                or "/unreal_adaptor/" in arg_lower
+                or "\\unreal_adaptor\\" in arg_lower
+            ):
+                return "UnrealAdaptor"
+
+    return None
+
+
+def _find_leftover_processes() -> List[Dict[str, Any]]:
+    """Iterate running processes and return records for any matching a
+    leftover category (see _categorize_process)."""
+    leftover: List[Dict[str, Any]] = []
+
+    for proc in psutil.process_iter(["pid", "name", "cmdline"]):
+        try:
+            cmdline = proc.info.get("cmdline")
+            cmdline_unreadable = cmdline is None
+            cmdline_list = cmdline or []
+            if cmdline_unreadable:
+                cmdline_display = "<cmdline unreadable; insufficient privileges>"
+            elif not cmdline_list:
+                cmdline_display = "<no cmdline>"
+            else:
+                cmdline_display = " ".join(cmdline_list)[:160]
+            name_lower = (proc.info.get("name") or "").lower()
+
+            category = _categorize_process(name_lower, cmdline_list, cmdline_unreadable)
+            if category is not None:
+                leftover.append(_record_leftover(proc.info, cmdline_display, category))
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
+
+    return leftover
+
+
+def pytest_sessionstart(session) -> None:
+    """Abort the E2E session if a UE editor, Unreal adaptor, or
+    deadline-worker-agent is already running on this host. Such processes
+    hold file locks, occupy ports, and (for the worker-agent) can pick up
+    jobs the new run is trying to submit.
+
+    Detection only — the hook never terminates anything. Killing a
+    production deadline-worker-agent on a CMF host is too costly an
+    accident to risk for the convenience of automated cleanup.
+    """
+    if session.config.getoption("--no-prerun-checks"):
+        logger.info("--no-prerun-checks passed; skipping pre-run validation")
+        return
+
+    leftover = _find_leftover_processes()
+    if not leftover:
+        logger.info("No conflicting processes found")
+        return
+
+    msg_lines = [
+        "",
+        "=" * 70,
+        "ABORTING: A UE editor, Unreal adaptor, or deadline-worker-agent is",
+        "already running on this host. The E2E suite cannot run safely while",
+        "any of these processes are active.",
+        "",
+        "Detected:",
+        "",
+    ]
+    for proc_info in leftover:
+        msg_lines.append(
+            f"  [{proc_info['category']}] PID {proc_info['pid']} - {proc_info['name']}"
+        )
+        msg_lines.append(f"    {proc_info['cmdline_short']}")
+        msg_lines.append("")
+
+    msg_lines.append("To resolve, either:")
+    msg_lines.append("  Stop these processes, then re-run the suite:")
+    msg_lines.append("    - Task Manager (Ctrl+Shift+Esc): find by PID -> End Task")
+    msg_lines.append("    - Or, in an elevated shell:  taskkill /PID <pid> /F")
+    msg_lines.append("    - For a running worker service:  net stop DeadlineWorker")
+    msg_lines.append("  Or re-run with --no-prerun-checks to bypass this check.")
+    msg_lines.append("=" * 70)
+
+    full_msg = "\n".join(msg_lines)
+    logger.error(full_msg)
+    # returncode=3 = pytest "internal error / setup failure".
+    pytest.exit(full_msg, returncode=3)
 
 
 def get_source_root() -> str:
@@ -491,18 +633,26 @@ def queue_role_arn(iam_client: BaseClient, sts_client: BaseClient) -> str:
         return current_role_arn
 
 
+# Terminal non-success states for a Deadline Cloud job (per the GetJob API).
+# Default failure_states for wait_for_job_state(). Update if the API gains new
+# terminal failure states.
+TERMINAL_FAILURE_STATES: Tuple[str, ...] = ("FAILED", "CANCELED", "NOT_COMPATIBLE")
+
+
 def wait_for_job_state(
     deadline_client: BaseClient,
     farm_id: str,
     job_id: str,
     queue_id: str,
     expected_states: Optional[List[str]] = None,
+    failure_states: Optional[List[str]] = None,
     max_wait_time: int = 600,
     wait_interval: int = 10,
     status_interval: int = 5,
 ) -> Tuple[bool, Optional[str], str]:
     """
-    Monitor a Deadline Cloud job until it reaches an expected state or times out.
+    Monitor a Deadline Cloud job until it reaches an expected state, hits a
+    failure state, or times out.
 
     Args:
         deadline_client: Boto3 Deadline client
@@ -511,6 +661,8 @@ def wait_for_job_state(
         queue_id: The queue ID containing the job
         expected_states: List of states to consider as successful (e.g. ["READY", "SUCCEEDED"])
                         If None, defaults to ["SUCCEEDED"]
+        failure_states: Terminal states that fail the wait immediately. None
+                        defaults to TERMINAL_FAILURE_STATES; [] disables fail-fast.
         max_wait_time: Maximum time to wait in seconds (default: 600)
         wait_interval: Time between status checks in seconds (default: 10)
         status_interval: Time between status output messages in seconds (default: 5)
@@ -524,6 +676,18 @@ def wait_for_job_state(
     # Default expected states if not provided
     if expected_states is None:
         expected_states = ["SUCCEEDED"]
+
+    if failure_states is None:
+        effective_failure_states: List[str] = list(TERMINAL_FAILURE_STATES)
+    else:
+        effective_failure_states = list(failure_states)
+
+    # Drop states the caller is explicitly waiting for (e.g. a test that
+    # cancels its own job and waits for CANCELED).
+    excluded = [s for s in effective_failure_states if s in expected_states]
+    if excluded:
+        logger.debug(f"Excluded {excluded} from failure_states because they are in expected_states")
+    effective_failure_states = [s for s in effective_failure_states if s not in expected_states]
 
     logger.info(
         f"Monitoring job {job_id} in farm {farm_id}, queue {queue_id} for state(s) {expected_states}"
@@ -581,7 +745,13 @@ def wait_for_job_state(
                 logger.info(f"Job {job_id} status changed: {status}")
                 last_logged_status = status
 
-            # Check if job reached expected state
+            # Fail-fast on a terminal failure before checking expected, so we
+            # don't wait out max_wait_time on a job that's already failed.
+            if status in effective_failure_states:
+                error_msg = f"Job {job_id} reached failure state: {status}"
+                logger.error(error_msg)
+                return False, status, error_msg
+
             if status in expected_states:
                 logger.info(f"Job {job_id} reached expected state: {status}")
                 return True, status, f"Job {job_id} reached expected state: {status}"

@@ -7,13 +7,13 @@
 # Assumes you're running from the root of your plugin source directory
 
 import argparse
+import csv
 import logging
 import shutil
 import os
 import subprocess
 import sys
 import tempfile
-import psutil
 from typing import Tuple, Optional
 
 DEFAULT_UE_INSTALL_ROOT = "C:\\Program Files\\Epic Games"
@@ -89,8 +89,16 @@ def build_whl() -> str:
         )
         subprocess.run(["hatch", "--version"], check=True, stderr=subprocess.PIPE)
 
-    result = subprocess.run(["hatch", "build"], check=True, stderr=subprocess.PIPE)
-    lines = result.stderr.decode("utf-8").splitlines()
+    # When invoked from inside a hatch-managed env (e.g. the integ-ci env in CI),
+    # hatch refuses to build because the active env isn't a builder env. Strip the
+    # marker so `hatch build` runs in the default builder context.
+    build_env = os.environ.copy()
+    build_env.pop("HATCH_ENV_ACTIVE", None)
+    result = subprocess.run(["hatch", "build"], stderr=subprocess.PIPE, text=True, env=build_env)
+    if result.returncode != 0:
+        logger.error(f"hatch build failed with stderr:\n{result.stderr}")
+        raise Exception(f"hatch build failed: {result.stderr}")
+    lines = result.stderr.splitlines()
     whl_path = None
     # Go through lines, finding the first which ends in .whl
     for line in lines:
@@ -431,16 +439,29 @@ def check_running_unreal_processes():
     Returns:
         bool: True if any Unreal processes are running, False otherwise
     """
+    if sys.platform != "win32":
+        return False
+
+    target_names = {"unrealeditor.exe", "unrealeditor-cmd.exe"}
     unreal_processes = []
-    for proc in psutil.process_iter(["pid", "name"]):
-        try:
-            if proc.info["name"] and (
-                proc.info["name"].lower() == "unrealeditor.exe"
-                or proc.info["name"].lower() == "unrealeditor-cmd.exe"
-            ):
-                unreal_processes.append(proc.info)
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            pass
+    try:
+        # tasklist /FO CSV /NH outputs: "Image Name","PID","Session Name","Session#","Mem Usage"
+        result = subprocess.run(
+            ["tasklist", "/FO", "CSV", "/NH"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError) as e:
+        logger.warning(f"Could not check for running Unreal processes: {e}")
+        return False
+
+    for row in csv.reader(result.stdout.splitlines()):
+        if len(row) < 2:
+            continue
+        name, pid = row[0], row[1]
+        if name.lower() in target_names:
+            unreal_processes.append({"name": name, "pid": pid})
 
     if unreal_processes:
         logger.warning(
