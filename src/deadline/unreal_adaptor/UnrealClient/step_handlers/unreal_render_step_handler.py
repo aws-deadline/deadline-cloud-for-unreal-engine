@@ -75,15 +75,35 @@ if unreal:
                         )
                     )
                     if level_sequence is None:
-                        logger.error(
-                            "Render Executor: Error: Level Sequence not loaded. Check if the sequence "
-                            "exists and is valid"
+                        # Defensive fallback: if the LevelSequence can't be loaded
+                        # (we have seen this happen in production for reasons that
+                        # are not always reproducible), use the MRQ output_settings
+                        # custom range if it is non-empty. This avoids crashing the
+                        # render with an `AttributeError: 'NoneType' object has no
+                        # attribute 'get_playback_end'` when something upstream
+                        # caused the loader to return None.
+                        if output_settings.custom_end_frame > output_settings.custom_start_frame:
+                            logger.warning(
+                                "Render Executor: Level Sequence not loaded; falling back to "
+                                f"output_settings custom range "
+                                f"[{output_settings.custom_start_frame}, "
+                                f"{output_settings.custom_end_frame}]"
+                            )
+                            self.totalFrameRange += (
+                                output_settings.custom_end_frame
+                                - output_settings.custom_start_frame
+                            )
+                        else:
+                            logger.error(
+                                "Render Executor: Error: Level Sequence not loaded and "
+                                "output_settings has no custom range. Check if the sequence "
+                                "exists and is valid."
+                            )
+                            return
+                    else:
+                        self.totalFrameRange += (
+                            level_sequence.get_playback_end() - level_sequence.get_playback_start()
                         )
-                        return
-
-                    self.totalFrameRange += (
-                        level_sequence.get_playback_end() - level_sequence.get_playback_start()
-                    )
 
                 if self.totalFrameRange == 0:
                     logger.error(
@@ -289,6 +309,32 @@ class UnrealRenderStepHandler(BaseStepHandler):
         pipeline_queue.copy_from(movie_pipeline_queue_asset)
 
     @staticmethod
+    def _apply_task_index_to_filename(render_job, task_index: int) -> None:
+        """
+        Substitute ``{task_index}`` in MRQ's FileNameFormat with the per-task index so
+        chunked renders that produce a single file per task (e.g. .mov containers) do
+        not collide on the same output filename. If the resolved format contains no
+        per-task token (neither ``{task_index}`` nor ``{frame_number}``), warn that
+        outputs from sibling tasks will overwrite each other.
+        """
+        output_settings = render_job.get_configuration().find_or_add_setting_by_class(
+            unreal.MoviePipelineOutputSetting
+        )
+        file_name_format = output_settings.file_name_format or ""
+        if "{task_index}" in file_name_format:
+            output_settings.file_name_format = file_name_format.replace(
+                "{task_index}", f"{task_index:04d}"
+            )
+        elif "{frame_number}" not in file_name_format:
+            logger.warning(
+                "FileNameFormat %r contains no per-task token; outputs from sibling "
+                "tasks will overwrite each other. Add {task_index} to FileNameFormat "
+                "to disambiguate per-task output (recommended for video containers "
+                "such as .mov where {frame_number} is not present by default).",
+                file_name_format,
+            )
+
+    @staticmethod
     def enable_shots_by_chunk(render_job, task_chunk_size: int, task_chunk_id: int):
 
         all_shots_to_render = [shot for shot in render_job.shot_info if shot.enabled]
@@ -314,6 +360,33 @@ class UnrealRenderStepHandler(BaseStepHandler):
                 logger.info(
                     f"Cached custom frame range from {UnrealRenderStepHandler.cached_frame_range_start} to {UnrealRenderStepHandler.cached_frame_range_end}"
                 )
+            elif level_sequence is None:
+                # The caller passed a None LevelSequence (e.g. the loader returned
+                # None for reasons that are not always reproducible). Fall back to
+                # the MRQ output_settings custom range so chunked renders can still
+                # emit frames; otherwise we'd crash on
+                # `NoneType.get_playback_range()` further down. If output_settings
+                # has no non-empty range either, leave the cache unset and surface
+                # an error so misconfigured jobs aren't silently masked.
+                if output_settings.custom_end_frame > output_settings.custom_start_frame:
+                    UnrealRenderStepHandler.cached_frame_range_start = (
+                        output_settings.custom_start_frame
+                    )
+                    UnrealRenderStepHandler.cached_frame_range_end = (
+                        output_settings.custom_end_frame
+                    )
+                    logger.warning(
+                        "level_sequence is None in get_frame_range; using "
+                        f"output_settings custom range "
+                        f"[{UnrealRenderStepHandler.cached_frame_range_start}, "
+                        f"{UnrealRenderStepHandler.cached_frame_range_end}]"
+                    )
+                else:
+                    logger.error(
+                        "level_sequence is None and output_settings has no custom range; "
+                        "frame range cannot be determined"
+                    )
+                    return (None, None)
             else:
                 UnrealRenderStepHandler.cached_frame_range_start = (
                     level_sequence.get_playback_range().get_start_frame()
@@ -381,6 +454,12 @@ class UnrealRenderStepHandler(BaseStepHandler):
                 frame_range_start, frame_range_end = self.get_frame_range(
                     output_settings, level_sequence
                 )
+                if frame_range_start is None or frame_range_end is None:
+                    logger.error(
+                        "Frame range unavailable; cannot compute chunk window for "
+                        f"chunk_id={chunk_id} frames_per_task={frames_per_task}"
+                    )
+                    return False
 
                 output_settings.custom_start_frame = frame_range_start + (
                     chunk_id * frames_per_task
@@ -388,11 +467,28 @@ class UnrealRenderStepHandler(BaseStepHandler):
                 output_settings.custom_end_frame = min(
                     output_settings.custom_start_frame + frames_per_task, frame_range_end
                 )
-                level_sequence.set_playback_start(output_settings.custom_start_frame)
-                level_sequence.set_playback_end(output_settings.custom_end_frame)
-                logger.info(
-                    f"Rendering custom frame range from {output_settings.custom_start_frame} to {output_settings.custom_end_frame} with sequence playback start {level_sequence.get_playback_start()} end {level_sequence.get_playback_end()}"
-                )
+                # Force MRQ to honour the per-chunk window set above. Without this
+                # flag, MRQ falls back to the full range baked into the MRQ preset
+                # whenever `use_custom_playback_range` is false on the output
+                # settings -- which causes every chunked task to redundantly
+                # re-render the entire sequence. Observed in a 40-chunk render
+                # where each chunk re-rendered frames 0..end instead of its
+                # assigned window.
+                output_settings.use_custom_playback_range = True
+
+                if level_sequence is not None:
+                    level_sequence.set_playback_start(output_settings.custom_start_frame)
+                    level_sequence.set_playback_end(output_settings.custom_end_frame)
+                    logger.info(
+                        f"Rendering custom frame range from {output_settings.custom_start_frame} to {output_settings.custom_end_frame} with sequence playback start {level_sequence.get_playback_start()} end {level_sequence.get_playback_end()}"
+                    )
+                else:
+                    logger.warning(
+                        "Rendering chunk frame range "
+                        f"[{output_settings.custom_start_frame}, "
+                        f"{output_settings.custom_end_frame}] without a resolved "
+                        "LevelSequence; relying on output_settings.use_custom_playback_range"
+                    )
             elif "chunk_size" in args and "chunk_id" in args:
                 chunk_size: int = args["chunk_size"]
                 UnrealRenderStepHandler.enable_shots_by_chunk(
@@ -400,6 +496,9 @@ class UnrealRenderStepHandler(BaseStepHandler):
                     task_chunk_size=chunk_size,
                     task_chunk_id=chunk_id,
                 )
+
+            if "chunk_id" in args and (args.get("frames_per_task") or "chunk_size" in args):
+                UnrealRenderStepHandler._apply_task_index_to_filename(job, chunk_id)
 
             if "output_path" in args:
                 if not os.path.exists(args["output_path"]):

@@ -264,3 +264,253 @@ class TestUnrealP4UtilsApp:
 
         finally:
             os.unlink(job_deps_path)
+
+    @pytest.mark.parametrize(
+        "existing_root, new_root, expect_flush",
+        [
+            # Root changed (the customer's bug): server have-list points at the old
+            # root, files don't exist at the new root, sync would no-op.
+            ("E:/Perforce/ws", "C:/Perforce/ws", True),
+            # Root changed only by drive letter, slashes, and trailing slash —
+            # still a real move, must flush.
+            ("E:\\Perforce\\ws", "C:/Perforce/ws/", True),
+            # Same root with cosmetic differences (slashes, casing on Windows,
+            # trailing slash) — must NOT flush, or every reuse pays the full
+            # re-sync cost.
+            ("C:/Perforce/ws", "c:\\Perforce\\ws", False),
+            ("C:/Perforce/ws/", "C:/Perforce/ws", False),
+            # Existing client has no Root yet (newly fetched, fresh client) — don't
+            # flush, there's nothing to be stale.
+            ("", "C:/Perforce/ws", False),
+        ],
+    )
+    @patch("deadline.unreal_perforce_utils.app.perforce.PerforceClient")
+    @patch("deadline.unreal_perforce_utils.app.perforce.PerforceConnection")
+    @patch("deadline.unreal_perforce_utils.app._resolve_workspace_name")
+    def test_create_workspace_flushes_have_list_when_root_changes(
+        self,
+        resolve_mock: Mock,
+        connection_cls_mock: Mock,
+        client_cls_mock: Mock,
+        existing_root: str,
+        new_root: str,
+        expect_flush: bool,
+    ):
+        # GIVEN a reused workspace whose server-side Root may or may not match the new Root
+        resolve_mock.return_value = app._ResolvedWorkspace(name="ws-1", reusing=True)
+
+        connection = connection_cls_mock.return_value
+        connection.p4.fetch_client.return_value = {
+            "Root": existing_root,
+            "View": ["//depot/A/... //ws-1/A/..."],
+        }
+
+        template = {
+            "Client": "{workspace_name}",
+            "Root": new_root,
+            "View": ["//depot/A/... //{workspace_name}/A/..."],
+        }
+
+        # WHEN create_perforce_workspace_from_template runs with overridden_workspace_root
+        # so we control the new Root precisely (bypasses P4_CLIENTS_ROOT_DIRECTORY env).
+        with patch.dict(os.environ, {}, clear=True):
+            app.create_perforce_workspace_from_template(
+                specification_template=template,
+                project_name="Project",
+                overridden_workspace_root=new_root,
+            )
+
+        # THEN the have-list is flushed iff the Root actually changed
+        sync_calls = [c for c in connection.p4.run.call_args_list if c.args and c.args[0] == "sync"]
+        if expect_flush:
+            assert (
+                len(sync_calls) == 1
+            ), f"expected exactly one `p4 sync` flush call, got {sync_calls}"
+            assert sync_calls[0].args == ("sync", "-k", "//...#none")
+            assert (
+                connection.p4.client == "ws-1"
+            ), "must set p4.client before flushing so flush targets the right workspace"
+        else:
+            assert sync_calls == [], f"must not flush when Root is unchanged, got {sync_calls}"
+
+    @patch("deadline.unreal_perforce_utils.app.perforce.PerforceClient")
+    @patch("deadline.unreal_perforce_utils.app.perforce.PerforceConnection")
+    @patch("deadline.unreal_perforce_utils.app._resolve_workspace_name")
+    def test_create_workspace_continues_when_flush_fails(
+        self,
+        resolve_mock: Mock,
+        connection_cls_mock: Mock,
+        client_cls_mock: Mock,
+    ):
+        # GIVEN a reused workspace with a Root change, where the flush command errors
+        resolve_mock.return_value = app._ResolvedWorkspace(name="ws-1", reusing=True)
+
+        connection = connection_cls_mock.return_value
+        connection.p4.fetch_client.return_value = {"Root": "E:/old", "View": []}
+        connection.p4.run.side_effect = RuntimeError("p4 sync failed")
+
+        template = {
+            "Client": "{workspace_name}",
+            "Root": "C:/new",
+            "View": ["//depot/A/... //{workspace_name}/A/..."],
+        }
+
+        # WHEN
+        with patch.dict(os.environ, {}, clear=True):
+            result = app.create_perforce_workspace_from_template(
+                specification_template=template,
+                project_name="Project",
+                overridden_workspace_root="C:/new",
+            )
+
+        # THEN workspace creation still completes (don't fail the whole job over
+        # a flush hiccup — a downstream force-sync can still recover).
+        assert result is client_cls_mock.return_value
+        client_cls_mock.return_value.save.assert_called_once()  # type: ignore[attr-defined]
+
+    @patch("deadline.unreal_perforce_utils.app.perforce.PerforceClient")
+    @patch("deadline.unreal_perforce_utils.app.perforce.PerforceConnection")
+    @patch("deadline.unreal_perforce_utils.app._resolve_workspace_name")
+    def test_create_workspace_flushes_when_not_reusing_but_server_root_differs(
+        self,
+        resolve_mock: Mock,
+        connection_cls_mock: Mock,
+        client_cls_mock: Mock,
+    ):
+        # GIVEN a workspace that is NOT in the local registry (reusing=False) but
+        # already exists on the P4 server with a different Root (e.g. created by
+        # an older version before the registry was introduced).
+        resolve_mock.return_value = app._ResolvedWorkspace(name="ws-1", reusing=False)
+
+        connection = connection_cls_mock.return_value
+        connection.p4.fetch_client.return_value = {
+            "Root": "C:/Users/Administrator/Perforce/old_client",
+            "View": ["//depot/... //ws-1/..."],
+        }
+
+        template = {
+            "Client": "{workspace_name}",
+            "Root": "C:/P4projects2/ws-1",
+            "View": ["//depot/... //{workspace_name}/..."],
+        }
+
+        # WHEN P4_CLIENTS_ROOT_DIRECTORY is set (persistent workspace mode)
+        with patch.dict(os.environ, {"P4_CLIENTS_ROOT_DIRECTORY": "C:/P4projects2"}, clear=True):
+            app.create_perforce_workspace_from_template(
+                specification_template=template,
+                project_name="Project",
+                overridden_workspace_root="C:/P4projects2/ws-1",
+            )
+
+        # THEN the have-list is flushed even though reusing=False, because the
+        # server-side workspace has a different Root.
+        sync_calls = [c for c in connection.p4.run.call_args_list if c.args and c.args[0] == "sync"]
+        assert len(sync_calls) == 1
+        assert sync_calls[0].args == ("sync", "-k", "//...#none")
+
+    @patch("deadline.unreal_perforce_utils.app.perforce.PerforceClient")
+    @patch("deadline.unreal_perforce_utils.app.perforce.PerforceConnection")
+    @patch("deadline.unreal_perforce_utils.app._resolve_workspace_name")
+    def test_initial_workspace_sync_uses_force_for_skeleton_not_for_dependencies(
+        self,
+        resolve_mock: Mock,
+        connection_cls_mock: Mock,
+        client_cls_mock: Mock,
+        tmp_path,
+    ):
+        # GIVEN a workspace with a job dependencies descriptor
+        resolve_mock.return_value = app._ResolvedWorkspace(name="ws-1", reusing=False)
+
+        connection = connection_cls_mock.return_value
+        connection.p4.fetch_client.return_value = {"Root": "", "View": []}
+
+        workspace_mock = client_cls_mock.return_value
+        workspace_mock.spec = {"Root": "C:/P4root/ws-1"}
+        workspace_mock.where.side_effect = lambda dp: f"C:/P4root/ws-1/{dp.split('//depot/')[-1]}"
+
+        deps_file = tmp_path / "deps.json"
+        deps_file.write_text(
+            json.dumps(
+                {
+                    "job_dependencies": [
+                        "//depot/Project/Content/file1.uasset",
+                        "//depot/Project/Content/file2.uasset",
+                    ]
+                }
+            )
+        )
+
+        template = {
+            "Client": "{workspace_name}",
+            "Root": "C:/P4root/ws-1",
+            "View": ["//depot/... //{workspace_name}/..."],
+        }
+
+        # WHEN
+        with patch.dict(os.environ, {"P4_CLIENTS_ROOT_DIRECTORY": "C:/P4root"}, clear=True):
+            app.create_perforce_workspace_from_template(
+                specification_template=template,
+                project_name="Project",
+                overridden_workspace_root="C:/P4root/ws-1",
+            )
+
+        # Manually call initial_workspace_sync since create_perforce_workspace_from_template
+        # is tested via create_workspace which we can't easily call without full P4 setup
+        app.initial_workspace_sync(
+            workspace=workspace_mock,
+            unreal_project_relative_path="Project/Project.uproject",
+            changelist="3",
+            job_dependencies_descriptor_path=str(deps_file),
+        )
+
+        # THEN skeleton files synced with force=True, deps with force=False
+        sync_calls = workspace_mock.sync.call_args_list
+        skeleton_calls = [c for c in sync_calls if c.kwargs.get("force") is True]
+        dep_calls = [c for c in sync_calls if c.kwargs.get("force") is False]
+
+        assert len(skeleton_calls) == 4  # uproject, Binaries, Config, Plugins
+        assert len(dep_calls) == 2  # file1.uasset, file2.uasset
+
+    def test_initial_workspace_sync_emits_dependencies_synced(self, tmp_path, caplog):
+        # GIVEN a workspace and a valid dependencies descriptor
+        workspace_mock = MagicMock()
+        workspace_mock.spec = {"Root": "C:/P4root/ws-1"}
+        workspace_mock.where.side_effect = lambda dp: f"C:/P4root/ws-1/{dp.split('//depot/')[-1]}"
+
+        deps_file = tmp_path / "deps.json"
+        deps_file.write_text(
+            json.dumps(
+                {
+                    "job_dependencies": [
+                        "//depot/Project/Content/file1.uasset",
+                    ]
+                }
+            )
+        )
+
+        # WHEN
+        app.initial_workspace_sync(
+            workspace=workspace_mock,
+            unreal_project_relative_path="Project/Project.uproject",
+            changelist="3",
+            job_dependencies_descriptor_path=str(deps_file),
+        )
+
+        # THEN DEPENDENCIES_SYNCED is emitted
+        assert "openjd_env: DEPENDENCIES_SYNCED=true" in caplog.text
+
+    def test_initial_workspace_sync_no_signal_without_deps(self, tmp_path, caplog):
+        # GIVEN a workspace with no dependencies descriptor
+        workspace_mock = MagicMock()
+        workspace_mock.spec = {"Root": "C:/P4root/ws-1"}
+
+        # WHEN
+        app.initial_workspace_sync(
+            workspace=workspace_mock,
+            unreal_project_relative_path="Project/Project.uproject",
+            changelist="3",
+            job_dependencies_descriptor_path=None,
+        )
+
+        # THEN DEPENDENCIES_SYNCED is NOT emitted
+        assert "DEPENDENCIES_SYNCED" not in caplog.text

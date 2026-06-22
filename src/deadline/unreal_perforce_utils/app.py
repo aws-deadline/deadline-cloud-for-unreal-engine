@@ -92,6 +92,16 @@ class WorkspaceInfoFile:
         self.view_workspace = workspace_name
 
 
+def _normalize_root(root: str) -> str:
+    """
+    Normalize a workspace Root path for comparison: forward slashes, no trailing
+    separator, casefolded (P4 stores Windows paths case-insensitively).
+    """
+    if not root:
+        return ""
+    return root.replace("\\", "/").rstrip("/").casefold()
+
+
 def merge_view_mappings(existing_views: list[str], new_views: list[str]) -> list[str]:
     """
     Merge new view mappings into existing ones.
@@ -272,14 +282,44 @@ def create_perforce_workspace_from_template(
 
     connection = perforce.PerforceConnection()
 
-    if reusing and "View" in specification_template:
-        # Stream workspaces: no view merge needed — P4 derives the view from the stream definition.
-        # View workspaces: merge with existing spec to preserve mappings from prior jobs.
+    # Always fetch the existing server-side spec when using a persistent root.
+    # The workspace may already exist on the server even if the local registry
+    # (workspace_info.json) doesn't know about it (e.g. created by an older
+    # version of the code before the registry was introduced).
+    if persistent_root or reusing:
         existing_spec = connection.p4.fetch_client(workspace_name)
-        existing_views = existing_spec.get("View", [])
-        new_views = specification_template["View"]
-        merged_views = merge_view_mappings(existing_views, new_views)
-        specification_template["View"] = merged_views
+
+        # If Root changed since the workspace was last used, the server's have-list
+        # still describes files at the old root. A subsequent `p4 sync` would then
+        # report "file(s) up-to-date" and write nothing to the new root, leaving
+        # the renderer to fail loading assets that aren't actually on disk.
+        # Clear the have-list so the next sync transfers files to the new root.
+        existing_root = _normalize_root(existing_spec.get("Root", ""))
+        new_root = _normalize_root(specification_template.get("Root", ""))
+        if existing_root and new_root and existing_root != new_root:
+            logger.info(
+                f"Workspace '{workspace_name}' Root changed "
+                f"({existing_spec.get('Root')} -> {specification_template.get('Root')}); "
+                f"clearing have-list so subsequent sync transfers files to the new root."
+            )
+            try:
+                connection.p4.client = workspace_name
+                connection.p4.run("sync", "-k", "//...#none")
+            except Exception as e:
+                # Don't fail workspace creation — a force-sync downstream can still
+                # recover. Log loudly so operators can correlate later sync issues.
+                logger.error(
+                    f"Failed to clear have-list for workspace '{workspace_name}' "
+                    f"after Root change: {e}"
+                )
+
+        if reusing and "View" in specification_template:
+            # Stream workspaces: no view merge needed — P4 derives the view from the stream definition.
+            # View workspaces: merge with existing spec to preserve mappings from prior jobs.
+            existing_views = existing_spec.get("View", [])
+            new_views = specification_template["View"]
+            merged_views = merge_view_mappings(existing_views, new_views)
+            specification_template["View"] = merged_views
 
     perforce_client = perforce.PerforceClient(
         connection=connection,
@@ -349,26 +389,35 @@ def initial_workspace_sync(
     logger.info("Workspace initial synchronizing ...")
 
     workspace_root = workspace.spec["Root"].replace("\\", "/")
-    paths_to_sync = [f"{workspace_root}/{unreal_project_relative_path}"]
+    skeleton_paths = [f"{workspace_root}/{unreal_project_relative_path}"]
     unreal_project_directory = os.path.dirname(unreal_project_relative_path)
     for folder in ["Binaries", "Config", "Plugins"]:
         tokens = filter(
             lambda t: t not in [None, ""], [workspace_root, unreal_project_directory, folder, "..."]
         )
-        paths_to_sync.append("/".join(tokens))
+        skeleton_paths.append("/".join(tokens))
 
-    # Add job dependencies if provided
-    if job_dependencies_descriptor_path and os.path.exists(job_dependencies_descriptor_path):
-        dependency_paths = _parse_job_dependencies(workspace, job_dependencies_descriptor_path)
-        paths_to_sync.extend(dependency_paths)
-
-    logger.info(f"Paths to sync: {paths_to_sync}")
-
-    for path in paths_to_sync:
+    # Sync skeleton files with force to ensure they're always correct
+    logger.info(f"Paths to sync: {skeleton_paths}")
+    for path in skeleton_paths:
         try:
             workspace.sync(path, changelist=changelist, force=True)
         except Exception as e:
             logger.error(f"Initial workspace sync exception: {str(e)}")
+
+    # Sync job dependencies without force — P4's have-list will skip files
+    # already at the correct revision, making reuse near-instant.
+    if job_dependencies_descriptor_path and os.path.exists(job_dependencies_descriptor_path):
+        dependency_paths = _parse_job_dependencies(workspace, job_dependencies_descriptor_path)
+        logger.info(f"Dependency paths to sync: {dependency_paths}")
+        for path in dependency_paths:
+            try:
+                workspace.sync(path, changelist=changelist, force=False)
+            except Exception as e:
+                logger.error(f"Dependency sync exception: {str(e)}")
+
+    if job_dependencies_descriptor_path and os.path.exists(job_dependencies_descriptor_path):
+        logger.info("openjd_env: DEPENDENCIES_SYNCED=true")
 
 
 def configure_project_source_control_settings(

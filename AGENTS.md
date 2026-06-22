@@ -1,5 +1,11 @@
 # AGENTS.md — deadline-cloud-for-unreal-engine
 
+## ⚠️ Before You Commit
+
+**Every commit MUST be signed off.** Use `git commit -s` — the DCO check will
+block any PR that contains an unsigned commit. See
+[Commit Messages](#commit-messages) below for the full format.
+
 ## Build
 
 ```bash
@@ -53,6 +59,10 @@ Use conventional commits:
 ## Design Docs for Major Changes
 
 For new features or major refactors, use the `ue-design` skill. This does NOT apply to small bug fixes.
+
+## Dependency Version Bumps
+
+When bumping versions in `pyproject.toml`, also update `PythonRequirements` in `src/unreal_plugin/UnrealDeadlineCloudService.uplugin`. UE's PipInstall caches packages in `<project>/Intermediate/PipInstall/` and won't auto-upgrade transitive dependencies, causing silent import failures if they go stale. Pin critical transitive dependencies (e.g. `typing_extensions>=4.14.1` required by `pydantic`) explicitly in the `.uplugin`.
 
 ## Architecture
 

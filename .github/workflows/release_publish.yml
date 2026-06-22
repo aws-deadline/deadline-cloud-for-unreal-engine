@@ -34,8 +34,15 @@ jobs:
     with:
       tag: ${{ needs.TagRelease.outputs.tag }}
 
+  ManualTestGate:
+    needs: [TagRelease, UnitTests]
+    runs-on: ubuntu-latest
+    environment: release-gate
+    steps:
+      - run: echo "Manual testing approved for ${{ needs.TagRelease.outputs.tag }}"
+
   PreRelease:
-      needs: [TagRelease, UnitTests]
+      needs: [TagRelease, ManualTestGate]
       uses: aws-deadline/.github/.github/workflows/reusable_prerelease.yml@mainline
       permissions:
         id-token: write

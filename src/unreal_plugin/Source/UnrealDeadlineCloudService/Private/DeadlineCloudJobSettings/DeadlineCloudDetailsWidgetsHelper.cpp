@@ -1365,7 +1365,6 @@ TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateDefaultAttributeVa
 	return SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
-		.MinWidth(200.f)
 		[
 			SNew(SComboBox<TSharedPtr<FString>>)
 				.IsEnabled(IsEnabledAttr)
@@ -1418,7 +1417,7 @@ TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateCustomAttributeVal
 		return *CurrentMode;
 	};
 
-	auto ReadArrayAsStrings = [](const TSharedPtr<IPropertyHandle>& ArrHandle, TArray<FString>& Out)
+	TFunction<void(const TSharedPtr<IPropertyHandle>&, TArray<FString>&)> ReadArrayAsStrings = [](const TSharedPtr<IPropertyHandle>& ArrHandle, TArray<FString>& Out)
 		{
 			Out.Reset();
 			if (!ArrHandle.IsValid() || !ArrHandle->AsArray().IsValid()) return;
@@ -1436,7 +1435,7 @@ TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateCustomAttributeVal
 			}
 		};
 
-	auto WriteArrayFromStrings = [](const TSharedPtr<IPropertyHandle>& ArrHandle, const TArray<FString>& In)
+	TFunction<void(const TSharedPtr<IPropertyHandle>&, const TArray<FString>&)> WriteArrayFromStrings = [](const TSharedPtr<IPropertyHandle>& ArrHandle, const TArray<FString>& In)
 		{
 			if (!ArrHandle.IsValid() || !ArrHandle->AsArray().IsValid()) return;
 
@@ -1446,7 +1445,7 @@ TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateCustomAttributeVal
 			{
 				uint32 Num = 0;
 				Array->GetNumElements(Num);
-				FPropertyHandleItemAddResult Res = ArrHandle->AsArray()->AddItem();
+				ArrHandle->AsArray()->AddItem();
 
 				TSharedPtr<IPropertyHandle> Elem = Array->GetElement(Num);
 				if (Elem.IsValid())

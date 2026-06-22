@@ -53,7 +53,7 @@ def error_notify(
                 unreal.log(traceback.format_exc())
 
                 telemetry_client.record_error(
-                    event_details={"exception_scope": "on_submit"},
+                    event_details={"exception_scope": "caught", "error_operation": "on_submit"},
                     exception_type=str(type(e)),
                     from_gui=not self._silent_mode,
                 )
