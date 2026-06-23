@@ -1,6 +1,6 @@
 # AWS Deadline Cloud for Unreal Engine
 
-### [User guide](https://aws-deadline.github.io/) | [Service documentation](https://docs.aws.amazon.com/deadline-cloud/) | [Deadline Cloud on GitHub](https://github.com/aws-deadline/) 
+### [User guide](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/epic-unreal-engine.html) | [Service documentation](https://docs.aws.amazon.com/deadline-cloud/) | [Deadline Cloud on GitHub](https://github.com/aws-deadline/) 
 
 [![pypi](https://img.shields.io/pypi/v/deadline-cloud-for-unreal-engine.svg?style=flat)](https://pypi.python.org/pypi/deadline-cloud-for-unreal-engine)
 [![python](https://img.shields.io/pypi/pyversions/deadline-cloud-for-unreal-engine.svg?style=flat)](https://pypi.python.org/pypi/deadline-cloud-for-unreal-engine)
@@ -14,7 +14,7 @@
 
 AWS Deadline Cloud for Unreal Engine is a C++ and python package for Unreal that allows users to create Unreal Movie Render Queue jobs for [AWS Deadline Cloud][deadline-cloud] from within Unreal Engine. Using the [Open Job Description (OpenJD) Adaptor Runtime][openjd-adaptor-runtime] this package also provides a command line application on the worker side to that adapts Unreal's command line interface to support the [OpenJD specification][openjd] and allows efficient rendering of multiple shots from a sequence without restarting Unreal.
 
-For instructions on installing and using this integration, visit the [user guide](https://aws-deadline.github.io/deadline-cloud-for-unreal-engine).
+For instructions on installing and using this integration, visit the [user guide](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/epic-unreal-engine.html).
 
 ## Compatibility
 
@@ -27,7 +27,7 @@ This library requires:
 
 This package provides a Unreal Engine plugin that creates Unreal Movie Render Queue jobs for AWS Deadline Cloud using the [AWS Deadline Cloud client library][deadline-cloud-client]. Based on the loaded scene it determines the files required, allows the user to specify render options, and builds an [OpenJD template][openjd] that defines the workflow.
 
-See [Submitter Setup Guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-submitter.md) for instructions on setting up your Unreal Submitter plugin and Deadline Cloud Service Managed Fleets (SMF) or Customer Managed Fleets (CMF).
+See the [Submitter installation](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/epic-unreal-engine.html#unreal-engine-installation) section of the user guide for instructions on setting up your Unreal Submitter plugin and Deadline Cloud Service Managed Fleets (SMF) or Customer Managed Fleets (CMF).
 
 ## Adaptor
 
@@ -48,7 +48,7 @@ Perforce is supported on SMF!
 
 ### Customer Managed Fleets (CMF)
 
-The Unreal Engine and adaptor must be manually installed on worker hosts of Customer Managed Fleets (CMF). See [CMF Worker Setup Guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-cmf-worker.md) for instructions on setting up an instance to act as a worker node.
+The Unreal Engine and adaptor must be manually installed on worker hosts of Customer Managed Fleets (CMF). See the [Customer-managed fleet (CMF) worker setup](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/epic-unreal-engine.html#unreal-engine-cmf-worker-setup) section of the user guide for instructions on setting up an instance to act as a worker node.
 
 ## Versioning
 
@@ -66,7 +66,7 @@ See [CONTRIBUTING](https://github.com/aws-deadline/deadline-cloud-for-unreal-eng
 
 ## Telemetry
 
-See [telemetry](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/release/docs/telemetry.md) for more information.
+See [telemetry](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/opt-out.html) for more information.
 
 ## License
 

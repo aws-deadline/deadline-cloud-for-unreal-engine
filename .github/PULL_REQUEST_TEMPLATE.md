@@ -21,7 +21,7 @@ See [DEVELOPMENT.md](https://github.com/aws-deadline/deadline-cloud-for-unreal-e
 ### Have you run a render job successfully with these changes?
 
 *delete text starting here*
-See the "Submit a Test Render" section of [this guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-submitter.md#submit-a-test-render)
+See the "Submitting a test render" section of [the user guide](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/epic-unreal-engine.html#unreal-engine-test-render)
 *delete text ending here*
 
 ### Was this change documented?
