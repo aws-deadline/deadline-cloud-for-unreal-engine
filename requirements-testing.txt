@@ -4,7 +4,7 @@ pytest-cov == 7.*
 pytest-xdist == 3.*
 twine == 6.*
 mypy == 1.*
-black == 25.*
+black == 26.*
 ruff == 0.14.*
 types-pyyaml == 6.*
 psutil >= 5.9.0
