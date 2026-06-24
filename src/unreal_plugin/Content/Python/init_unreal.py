@@ -32,7 +32,10 @@ def get_ue_path(in_path: str) -> Optional[str]:
 def sync_mrq_dependencies(dependencies_descriptor_path: str) -> None:
     """
     Read given dependencies descriptor, try to sync them with unreal source control and
-    scan modified assets
+    scan modified assets.
+
+    If DEPENDENCIES_SYNCED env var is set, the P4 sync environment already synced
+    these files — skip the redundant sync and just scan the asset registry.
 
     :param dependencies_descriptor_path: Path to the dependencies JSON descriptor file
     :type dependencies_descriptor_path: str
@@ -52,13 +55,16 @@ def sync_mrq_dependencies(dependencies_descriptor_path: str) -> None:
         unreal.log_error(f"Job dependencies list is empty: {dependencies_descriptor_path}")
         return
 
-    synced = unreal.SourceControl.sync_files(job_dependencies)
-    if not synced:
-        unreal.log_error(
-            f"Failed to sync job dependencies: {dependencies_descriptor_path}. "
-            f"Sync error message: {unreal.SourceControl.last_error_msg()}"
-        )
-        return
+    if os.getenv("DEPENDENCIES_SYNCED") != "true":
+        synced = unreal.SourceControl.sync_files(job_dependencies)
+        if not synced:
+            unreal.log_error(
+                f"Failed to sync job dependencies: {dependencies_descriptor_path}. "
+                f"Sync error message: {unreal.SourceControl.last_error_msg()}"
+            )
+            return
+    else:
+        unreal.log("Skipping P4 sync — dependencies already synced by P4 sync environment.")
 
     ue_paths = []
     for job_dependency in job_dependencies:
