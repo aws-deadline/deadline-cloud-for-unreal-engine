@@ -164,7 +164,11 @@ class PerforceClient:
         logger.info(f"Running P4 sync with following arguments: {sync_args}")
 
         try:
-            self.p4.run(sync_args)
+            results = self.p4.run(sync_args)
+            if results:
+                logger.info(f"Sync results: {results}")
+            else:
+                logger.info("Sync: file(s) up-to-date")
         except Exception as e:
             logger.error(f"Error during p4 sync: {str(e)}")
 
