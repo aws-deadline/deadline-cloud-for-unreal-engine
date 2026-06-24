@@ -38,8 +38,6 @@ def test_create_job_with_worker_agent(
     job_id, farm_id, queue_id = extract_job_info_from_test_output(output_lines)
 
     if job_id and farm_id and queue_id:
-
-        # Wait for job completion
         success, status, message = wait_for_job_state(
             deadline_client=deadline_client,
             farm_id=farm_id,
@@ -50,7 +48,7 @@ def test_create_job_with_worker_agent(
             wait_interval=10,
         )
 
-        assert success
+        assert success, message
 
         logger.info(f"Job {job_id} SUCCEEDED")
     else:
@@ -91,8 +89,6 @@ def test_worker_agent_project_plugins(
     job_id, farm_id, queue_id = extract_job_info_from_test_output(output_lines)
 
     if job_id and farm_id and queue_id:
-
-        # Wait for job completion
         success, status, message = wait_for_job_state(
             deadline_client=deadline_client,
             farm_id=farm_id,
@@ -102,7 +98,9 @@ def test_worker_agent_project_plugins(
             max_wait_time=600,
             wait_interval=10,
         )
-        assert success, f"Job did not succeed: {status} - {message}"
+        # The plugin assertions below need a completed session; if the job
+        # didn't reach SUCCEEDED, the loaded-plugin log lines are unreliable.
+        assert success, message
 
         # Verify which project plugins were loaded by the worker
         worker_project_plugins = get_last_session_project_plugins(

@@ -12,6 +12,8 @@
         "script_args": { "type": "string" },
         "chunk_size": { "type": "integer" },
         "chunk_id": { "type": "integer" },
+        "shots_per_task": { "type": "integer" },
+        "task_index": { "type": "integer" },
         "output_path": { "type":  "string" }
     },
     "required": [

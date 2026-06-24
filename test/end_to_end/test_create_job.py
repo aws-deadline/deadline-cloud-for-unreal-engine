@@ -1,7 +1,11 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import logging
-from conftest import extract_job_info_from_test_output, wait_for_job_state, cancel_job
+from conftest import (
+    extract_job_info_from_test_output,
+    wait_for_job_state,
+    cancel_job,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +38,7 @@ def test_create_job(
         max_wait_time=30,
         wait_interval=5,
     )
-    assert success
+    assert success, message
 
     if request.config.getoption("--no-cancel"):
         logger.info(f"Job {job_id} is in READY state, skipping cancel (--no-cancel)")

@@ -312,7 +312,7 @@ class UnrealRenderStepHandler(BaseStepHandler):
     def _apply_task_index_to_filename(render_job, task_index: int) -> None:
         """
         Substitute ``{task_index}`` in MRQ's FileNameFormat with the per-task index so
-        chunked renders that produce a single file per task (e.g. .mov containers) do
+        multi-task renders that produce a single file per task (e.g. .mov containers) do
         not collide on the same output filename. If the resolved format contains no
         per-task token (neither ``{task_index}`` nor ``{frame_number}``), warn that
         outputs from sibling tasks will overwrite each other.
@@ -335,19 +335,19 @@ class UnrealRenderStepHandler(BaseStepHandler):
             )
 
     @staticmethod
-    def enable_shots_by_chunk(render_job, task_chunk_size: int, task_chunk_id: int):
+    def enable_shots_for_task(render_job, shots_per_task: int, task_index: int):
 
         all_shots_to_render = [shot for shot in render_job.shot_info if shot.enabled]
-        shots_chunk = all_shots_to_render[
-            task_chunk_id * task_chunk_size : (task_chunk_id + 1) * task_chunk_size
+        task_shots = all_shots_to_render[
+            task_index * shots_per_task : (task_index + 1) * shots_per_task
         ]
         for shot in render_job.shot_info:
-            if shot in shots_chunk:
+            if shot in task_shots:
                 shot.enabled = True
                 logger.info(f"Shot to render: {shot.outer_name}: {shot.inner_name}")
             else:
                 shot.enabled = False
-        logger.info(f"Shots in task: {[shot.outer_name for shot in shots_chunk]}")
+        logger.info(f"Shots in task: {[shot.outer_name for shot in task_shots]}")
 
     @staticmethod
     def get_frame_range(output_settings, level_sequence):
@@ -363,7 +363,7 @@ class UnrealRenderStepHandler(BaseStepHandler):
             elif level_sequence is None:
                 # The caller passed a None LevelSequence (e.g. the loader returned
                 # None for reasons that are not always reproducible). Fall back to
-                # the MRQ output_settings custom range so chunked renders can still
+                # the MRQ output_settings custom range so multi-task renders can still
                 # emit frames; otherwise we'd crash on
                 # `NoneType.get_playback_range()` further down. If output_settings
                 # has no non-empty range either, leave the cache unset and surface
@@ -402,6 +402,35 @@ class UnrealRenderStepHandler(BaseStepHandler):
             UnrealRenderStepHandler.cached_frame_range_end,
         )
 
+    @staticmethod
+    def _apply_param_aliases(args: dict) -> dict:
+        """Accept both the legacy and new run_data keys for the render
+        partitioning parameters, for backwards compatibility during the
+        parameter rename:
+
+            chunk_size -> shots_per_task
+            chunk_id   -> task_index
+
+        The names are being changed on the submitter side to avoid colliding
+        with OpenJD's own "ChunkSize" task-chunking term. This adaptor accepts
+        both so it can run jobs from an older submitter (legacy keys) and a
+        newer submitter (new keys) alike.
+
+        The adaptor's own downstream logic uses the NEW keys; this normalizes
+        the legacy keys onto the new ones in place. The new keys take
+        precedence when both are present. Once older submitters are no longer
+        in use, this aliasing (and the legacy keys in run_data.schema.json)
+        can be removed without touching the rest of the adaptor.
+
+        :param args: run_data arguments (mutated in place)
+        :return: the same args dict, for convenience
+        """
+        if "chunk_size" in args and "shots_per_task" not in args:
+            args["shots_per_task"] = args["chunk_size"]
+        if "chunk_id" in args and "task_index" not in args:
+            args["task_index"] = args["chunk_id"]
+        return args
+
     def run_script(self, args: dict) -> bool:
         """
         Create the unreal.MoviePipelineQueue object and render it with the render executor
@@ -413,6 +442,9 @@ class UnrealRenderStepHandler(BaseStepHandler):
         logger.info(
             f"{UnrealRenderStepHandler.run_script.__name__} executing with args: {args} ..."
         )
+
+        UnrealRenderStepHandler._apply_param_aliases(args)
+
         asset_registry = unreal.AssetRegistryHelpers.get_asset_registry()
         asset_registry.wait_for_completion()
 
@@ -437,10 +469,10 @@ class UnrealRenderStepHandler(BaseStepHandler):
             )
 
         output_settings = None
-        if "chunk_id" in args:
-            chunk_id: int = args["chunk_id"]
+        if "task_index" in args:
+            task_index: int = args["task_index"]
         for job in subsystem.get_queue().get_jobs():
-            if args.get("frames_per_task") and "chunk_id" in args:
+            if args.get("frames_per_task") and "task_index" in args:
                 frames_per_task: int = args["frames_per_task"]
                 if not output_settings:
                     output_settings = job.get_configuration().find_or_add_setting_by_class(
@@ -456,24 +488,23 @@ class UnrealRenderStepHandler(BaseStepHandler):
                 )
                 if frame_range_start is None or frame_range_end is None:
                     logger.error(
-                        "Frame range unavailable; cannot compute chunk window for "
-                        f"chunk_id={chunk_id} frames_per_task={frames_per_task}"
+                        "Frame range unavailable; cannot compute the frame window for "
+                        f"task_index={task_index} frames_per_task={frames_per_task}"
                     )
                     return False
 
                 output_settings.custom_start_frame = frame_range_start + (
-                    chunk_id * frames_per_task
+                    task_index * frames_per_task
                 )
                 output_settings.custom_end_frame = min(
                     output_settings.custom_start_frame + frames_per_task, frame_range_end
                 )
-                # Force MRQ to honour the per-chunk window set above. Without this
-                # flag, MRQ falls back to the full range baked into the MRQ preset
-                # whenever `use_custom_playback_range` is false on the output
-                # settings -- which causes every chunked task to redundantly
-                # re-render the entire sequence. Observed in a 40-chunk render
-                # where each chunk re-rendered frames 0..end instead of its
-                # assigned window.
+                # Force MRQ to honour the per-task frame window set above. Without
+                # this flag, MRQ falls back to the full range baked into the MRQ
+                # preset whenever `use_custom_playback_range` is false on the output
+                # settings -- which causes every task to redundantly re-render the
+                # entire sequence. Observed in a 40-task render where each task
+                # re-rendered frames 0..end instead of its assigned window.
                 output_settings.use_custom_playback_range = True
 
                 if level_sequence is not None:
@@ -484,21 +515,21 @@ class UnrealRenderStepHandler(BaseStepHandler):
                     )
                 else:
                     logger.warning(
-                        "Rendering chunk frame range "
+                        "Rendering task frame range "
                         f"[{output_settings.custom_start_frame}, "
                         f"{output_settings.custom_end_frame}] without a resolved "
                         "LevelSequence; relying on output_settings.use_custom_playback_range"
                     )
-            elif "chunk_size" in args and "chunk_id" in args:
-                chunk_size: int = args["chunk_size"]
-                UnrealRenderStepHandler.enable_shots_by_chunk(
+            elif "shots_per_task" in args and "task_index" in args:
+                shots_per_task: int = args["shots_per_task"]
+                UnrealRenderStepHandler.enable_shots_for_task(
                     render_job=job,
-                    task_chunk_size=chunk_size,
-                    task_chunk_id=chunk_id,
+                    shots_per_task=shots_per_task,
+                    task_index=task_index,
                 )
 
-            if "chunk_id" in args and (args.get("frames_per_task") or "chunk_size" in args):
-                UnrealRenderStepHandler._apply_task_index_to_filename(job, chunk_id)
+            if "task_index" in args and (args.get("frames_per_task") or "shots_per_task" in args):
+                UnrealRenderStepHandler._apply_task_index_to_filename(job, task_index)
 
             if "output_path" in args:
                 if not os.path.exists(args["output_path"]):
