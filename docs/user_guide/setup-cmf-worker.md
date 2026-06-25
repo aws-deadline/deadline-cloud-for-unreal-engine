@@ -6,7 +6,7 @@ This guide walks you through setting up an EC2 instance as a CMF worker for AWS 
 
 **CMF vs SMF Differences:**
 - **CMF**: Manual installation of Unreal Engine and adaptor on worker hosts
-- **SMF**: Automatic availability through `deadline-cloud Conda` channel
+- **SMF**: Automatic availability through `deadline-cloud-v2` and `deadline-cloud` Conda channels
 
 ## Choose Your Branch
 

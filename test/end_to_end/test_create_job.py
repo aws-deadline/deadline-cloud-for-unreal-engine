@@ -1,12 +1,18 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import logging
-from conftest import extract_job_info_from_test_output, wait_for_job_state, cancel_job
+from conftest import (
+    extract_job_info_from_test_output,
+    wait_for_job_state,
+    cancel_job,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def test_create_job(deadline_client, build_plugin, create_readonly_test_project, run_unreal_test):
+def test_create_job(
+    deadline_client, build_plugin, create_readonly_test_project, run_unreal_test, request
+):
     """Run CreateJob automation test from within Unreal and monitor job status until READY, then cancel it"""
 
     _, uproject_file = create_readonly_test_project
@@ -32,8 +38,11 @@ def test_create_job(deadline_client, build_plugin, create_readonly_test_project,
         max_wait_time=30,
         wait_interval=5,
     )
-    assert success
+    assert success, message
 
-    # Once the job is in READY state, cancel it since test_worker_agent.py will handle the full job execution
-    logger.info(f"Job {job_id} is in READY state, canceling it...")
-    cancel_job(deadline_client, farm_id, queue_id, job_id)
+    if request.config.getoption("--no-cancel"):
+        logger.info(f"Job {job_id} is in READY state, skipping cancel (--no-cancel)")
+    else:
+        # Once the job is in READY state, cancel it since test_worker_agent.py will handle the full job execution
+        logger.info(f"Job {job_id} is in READY state, canceling it...")
+        cancel_job(deadline_client, farm_id, queue_id, job_id)

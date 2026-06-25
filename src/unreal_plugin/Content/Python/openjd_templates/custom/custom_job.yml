@@ -17,3 +17,10 @@ parameterDefinitions:
 - name: Executable
   type: STRING
   default: 'UnrealEditor-Cmd'
+- name: MarketplacePluginsDir
+  type: PATH
+  objectType: DIRECTORY
+  dataFlow: IN
+  default: ''
+  userInterface:
+   control: HIDDEN

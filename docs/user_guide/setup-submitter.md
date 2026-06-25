@@ -154,7 +154,7 @@ If you already have a Windows fleet and don't need to set up a new fleet, you ca
 ## Create a Service Managed Fleet (SMF)
 
 1. Follow [Service-managed fleets](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/smf-manage.html) user guide to create a Service Managed Fleet (SMF) if you don't already have one.
-	On [Service Managed Fleets (SMF)](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/smf-manage.html), the Unreal Engine and adaptor are automatically available via the `deadline-cloud Conda` channel with the [default Queue Environment](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/create-queue-environment.html#conda-queue-environment). You are ready to start rendering now! Continue with "Submit a Test Render" section below to submit a test render job.
+	On [Service Managed Fleets (SMF)](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/smf-manage.html), the Unreal Engine and adaptor are automatically available via the `deadline-cloud-v2` and `deadline-cloud` Conda channels with the [default Queue Environment](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/create-queue-environment.html#conda-queue-environment). You are ready to start rendering now! Continue with "Submit a Test Render" section below to submit a test render job.
 
 ## Create a Customer Managed Fleet (CMF)
 
@@ -204,3 +204,22 @@ This example will use the Meerkat Demo from the Unreal Marketplace:
 		
 	1. Ready to Go! Hit "Render (Remote)". 
 1. You can go to Deadline Cloud Monitor and watch the progress of your job. 
+
+
+# Update Notifications
+
+The submitter plugin automatically checks for newer releases on GitHub when Unreal Editor starts. If an update is available, a dialog will prompt you to visit the release page.
+
+To deactivate update notifications, uncheck "Show submitter update notifications" under "General Settings" in the Deadline Cloud settings panel (Edit > Project Settings > Plugins > Deadline Cloud).
+
+Alternatively, you can use the CLI:
+
+```
+deadline config set settings.submitter_update_notification false
+```
+
+To re-enable:
+
+```
+deadline config set settings.submitter_update_notification true
+```

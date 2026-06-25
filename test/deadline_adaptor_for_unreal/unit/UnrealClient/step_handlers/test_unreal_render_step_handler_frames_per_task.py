@@ -120,19 +120,19 @@ class TestUnrealRenderStepHandlerFramesPerTask:
             log_mock.assert_called_with("Cached level sequence frame range from 1 to 100")
 
     @pytest.mark.parametrize(
-        "chunk_id, frames_per_task, frame_start, frame_end, expected_start, expected_end",
+        "task_index, frames_per_task, frame_start, frame_end, expected_start, expected_end",
         [
-            (0, 10, 1, 100, 1, 11),  # First chunk
-            (1, 10, 1, 100, 11, 21),  # Second chunk
-            (9, 10, 1, 100, 91, 100),  # Last chunk (clamped to end)
-            (0, 50, 10, 30, 10, 30),  # Single chunk covers entire range
-            (2, 5, 0, 20, 10, 15),  # Middle chunk
+            (0, 10, 1, 100, 1, 11),  # First task
+            (1, 10, 1, 100, 11, 21),  # Second task
+            (9, 10, 1, 100, 91, 100),  # Last task (clamped to end)
+            (0, 50, 10, 30, 10, 30),  # Single task covers entire range
+            (2, 5, 0, 20, 10, 15),  # Middle task
         ],
     )
     def test_frames_per_task_calculation_logic(
         self,
         unreal_render_step_handler,
-        chunk_id,
+        task_index,
         frames_per_task,
         frame_start,
         frame_end,
@@ -153,44 +153,47 @@ class TestUnrealRenderStepHandlerFramesPerTask:
                 output_settings, level_sequence
             )
 
-            calculated_start = frame_range_start + (chunk_id * frames_per_task)
+            calculated_start = frame_range_start + (task_index * frames_per_task)
             calculated_end = min(calculated_start + frames_per_task, frame_range_end)
 
             # THEN
             assert calculated_start == expected_start
             assert calculated_end == expected_end
 
-    def test_frames_per_task_vs_chunk_size_precedence(self, unreal_render_step_handler):
-        """Test that frames_per_task takes precedence over chunk_size in argument processing"""
+    def test_frames_per_task_vs_shots_per_task_precedence(self, unreal_render_step_handler):
+        """Test that frames_per_task takes precedence over shots_per_task in argument processing"""
         # GIVEN
         args_with_frames_per_task = {
             "frames_per_task": 10,
-            "chunk_id": 1,
-            "chunk_size": 5,  # This should be ignored
+            "task_index": 1,
+            "shots_per_task": 5,  # This should be ignored
         }
 
-        args_with_chunk_size_only = {
-            "chunk_size": 5,
-            "chunk_id": 1,
+        args_with_shots_per_task_only = {
+            "shots_per_task": 5,
+            "task_index": 1,
         }
 
-        args_no_chunking: dict[str, int] = {}
+        args_no_partitioning: dict[str, int] = {}
 
         # WHEN/THEN - Test precedence logic
         # frames_per_task should be used when present
         assert (
             args_with_frames_per_task.get("frames_per_task")
-            and "chunk_id" in args_with_frames_per_task
+            and "task_index" in args_with_frames_per_task
         )
 
-        # chunk_size should be used when frames_per_task is not present
+        # shots_per_task should be used when frames_per_task is not present
         assert (
-            not args_with_chunk_size_only.get("frames_per_task")
-            and "chunk_size" in args_with_chunk_size_only
+            not args_with_shots_per_task_only.get("frames_per_task")
+            and "shots_per_task" in args_with_shots_per_task_only
         )
 
-        # No chunking when neither is present
-        assert not args_no_chunking.get("frames_per_task") and "chunk_size" not in args_no_chunking
+        # No partitioning when neither is present
+        assert (
+            not args_no_partitioning.get("frames_per_task")
+            and "shots_per_task" not in args_no_partitioning
+        )
 
     def test_frame_range_caching_behavior(self, unreal_render_step_handler):
         """Test that frame range caching works correctly across multiple calls"""
@@ -217,7 +220,7 @@ class TestUnrealRenderStepHandlerFramesPerTask:
 
     def test_frame_range_edge_cases(self, unreal_render_step_handler):
         """Test edge cases for frame range calculations"""
-        # Test case 1: chunk_id * frames_per_task exceeds total range
+        # Test case 1: task_index * frames_per_task exceeds total range
         output_settings = MagicMock()
         level_sequence = MagicMock()
 
@@ -226,17 +229,88 @@ class TestUnrealRenderStepHandlerFramesPerTask:
                 output_settings, level_sequence
             )
 
-            # chunk_id=10, frames_per_task=10 would start at frame 101, but range only goes to 50
-            chunk_id = 10
+            # task_index=10, frames_per_task=10 would start at frame 101, but range only goes to 50
+            task_index = 10
             frames_per_task = 10
 
-            calculated_start = frame_range_start + (chunk_id * frames_per_task)  # 1 + 100 = 101
+            calculated_start = frame_range_start + (task_index * frames_per_task)  # 1 + 100 = 101
             calculated_end = min(
                 calculated_start + frames_per_task, frame_range_end
             )  # min(111, 50) = 50
 
             assert calculated_start == 101
             assert calculated_end == 50  # Clamped to range end
+
+    @pytest.mark.parametrize(
+        "fmt, task_index, expected",
+        [
+            ("{sequence_name}_{task_index}", 0, "{sequence_name}_0000"),
+            ("{sequence_name}_{task_index}", 7, "{sequence_name}_0007"),
+            ("{shot_name}.{task_index}.{render_pass}", 42, "{shot_name}.0042.{render_pass}"),
+        ],
+    )
+    def test_apply_task_index_substitutes_token(
+        self, unreal_render_step_handler, fmt, task_index, expected
+    ):
+        from deadline.unreal_adaptor.UnrealClient.step_handlers import (
+            unreal_render_step_handler as handler_mod,
+        )
+
+        output_settings = MagicMock()
+        output_settings.file_name_format = fmt
+        render_job = MagicMock()
+        render_job.get_configuration.return_value.find_or_add_setting_by_class.return_value = (
+            output_settings
+        )
+
+        with patch.object(handler_mod, "unreal", MagicMock()):
+            handler_mod.UnrealRenderStepHandler._apply_task_index_to_filename(
+                render_job, task_index
+            )
+
+        assert output_settings.file_name_format == expected
+
+    def test_apply_task_index_warns_when_no_per_task_token(self, unreal_render_step_handler):
+        from deadline.unreal_adaptor.UnrealClient.step_handlers import (
+            unreal_render_step_handler as handler_mod,
+        )
+
+        output_settings = MagicMock()
+        output_settings.file_name_format = "{sequence_name}"
+        render_job = MagicMock()
+        render_job.get_configuration.return_value.find_or_add_setting_by_class.return_value = (
+            output_settings
+        )
+
+        with (
+            patch.object(handler_mod, "unreal", MagicMock()),
+            patch.object(handler_mod.logger, "warning") as warn_mock,
+        ):
+            handler_mod.UnrealRenderStepHandler._apply_task_index_to_filename(render_job, 3)
+
+        assert output_settings.file_name_format == "{sequence_name}"
+        warn_mock.assert_called_once()
+
+    def test_apply_task_index_silent_when_frame_number_present(self, unreal_render_step_handler):
+        from deadline.unreal_adaptor.UnrealClient.step_handlers import (
+            unreal_render_step_handler as handler_mod,
+        )
+
+        output_settings = MagicMock()
+        output_settings.file_name_format = "{sequence_name}.{frame_number}"
+        render_job = MagicMock()
+        render_job.get_configuration.return_value.find_or_add_setting_by_class.return_value = (
+            output_settings
+        )
+
+        with (
+            patch.object(handler_mod, "unreal", MagicMock()),
+            patch.object(handler_mod.logger, "warning") as warn_mock,
+        ):
+            handler_mod.UnrealRenderStepHandler._apply_task_index_to_filename(render_job, 3)
+
+        assert output_settings.file_name_format == "{sequence_name}.{frame_number}"
+        warn_mock.assert_not_called()
 
     def test_static_method_behavior(self, unreal_render_step_handler):
         """Test that get_frame_range is a static method and caching works across instances"""
