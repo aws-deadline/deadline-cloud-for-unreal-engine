@@ -35,12 +35,19 @@ parameterDefinitions:
    control: LINE_EDIT
 - name: CondaChannels
   type: STRING
-  default: deadline-cloud
+  default: deadline-cloud-v2 deadline-cloud
   userInterface: 
    control: LINE_EDIT
 - name: ChunkSize
   type: INT
   default: 1
   userInterface: 
+   control: HIDDEN
+- name: MarketplacePluginsDir
+  type: PATH
+  objectType: DIRECTORY
+  dataFlow: IN
+  default: ''
+  userInterface:
    control: HIDDEN
 

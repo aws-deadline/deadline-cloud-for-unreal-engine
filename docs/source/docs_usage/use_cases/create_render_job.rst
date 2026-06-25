@@ -61,6 +61,16 @@ Render Job data asset
    #. FramesPerTask - Divide up the total number of frames to be rendered in the sequence by this value to
       determine the total number of Deadline Cloud tasks to create, with each task aiming to render this number
       of frames.
+
+      .. note::
+         When chunking a render across multiple tasks, MRQ writes one output file per task.
+         For image sequences (PNG/EXR/etc.) the default ``FileNameFormat`` already includes
+         ``{frame_number}``, so each task's output is unique. For video containers such as
+         ``.mov`` the default format is just ``{sequence_name}`` and every task will write to
+         the same filename, overwriting each other. To disambiguate, add the ``{task_index}``
+         token to the MRQ Output Setting's ``FileNameFormat`` (for example
+         ``{sequence_name}_{task_index}``). The submitter substitutes ``{task_index}`` at
+         render time with a zero-padded per-task index.
    #. ExtraCmdArgs - Additional CMD arguments to launch Unreal executable with
    #. ExtraCmdArgsFile - Specific file parameter where **ExtraCmdArgs** will be stored.
       Need to avoid **1024 chars limit** on **STRING** parameter. **Filled automatically during the submission**

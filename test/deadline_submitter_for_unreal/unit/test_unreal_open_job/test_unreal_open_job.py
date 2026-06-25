@@ -2,10 +2,7 @@
 
 import sys
 import pytest
-import os
-import json
-from unittest.mock import patch, mock_open, Mock, MagicMock
-from pathlib import Path
+from unittest.mock import patch, Mock, MagicMock
 from openjd.model import parse_model
 from openjd.model.v2023_09 import (
     JobTemplate,
@@ -514,145 +511,234 @@ class TestRenderUnrealOpenJob:
             with pytest.raises(exceptions.ProjectIsNotUnderWorkspaceError):
                 RenderUnrealOpenJob._get_project_path_relative_to_workspace_root(workspace_root)
 
-    def test_get_plugins(self, monkeypatch):
-        fake_files = [
-            os.path.join("/Game/Plugins/PluginA", "PluginA.uplugin"),
-            os.path.join("/Game/Plugins/PluginB", "PluginB.uplugin"),
-            os.path.join("/Game/Plugins/Broken", "Broken.uplugin"),
-        ]
-        monkeypatch.setattr("glob.iglob", lambda pattern, recursive=True: fake_files)
-
-        monkeypatch.setattr(Path, "resolve", lambda self, strict=True: self, raising=False)
-
-        class _DummyFile:
-            def __init__(self, path):
-                self.name = path
-
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *exc):
-                return False
-
-        monkeypatch.setattr(
-            Path, "open", lambda self, *a, **kw: _DummyFile(str(self)), raising=False
-        )
-
-        def _fake_json_load(fh):
-            if "Broken" in fh.name:
-                raise ValueError("corrupted json")
-            return {"EnabledByDefault": False} if "PluginA" in fh.name else {}
-
-        target_json_path = "deadline.unreal_submitter.unreal_open_job.unreal_open_job.json"
-        monkeypatch.setattr(f"{target_json_path}.load", _fake_json_load, raising=False)
-        monkeypatch.setattr(f"{target_json_path}.JSONDecodeError", ValueError, raising=False)
-
-        plugins = UnrealOpenJob.get_plugins("/Game")
-
-        assert sorted(p["name"] for p in plugins) == ["PluginA", "PluginB"]
-
-        expected = {
-            "PluginA": dict(enabled_by_default=False, folder="PluginA"),
-            "PluginB": dict(enabled_by_default=True, folder="PluginB"),
-        }
-        for p in plugins:
-            e = expected[p["name"]]
-            assert p["enabled_by_default"] == e["enabled_by_default"]
-            assert p["folder"] == e["folder"]
-
-    def test_parse_uproject(self, monkeypatch):
-        data = {
-            "Plugins": [
-                {"Name": "PluginA", "Enabled": False},
-                {"Name": "PluginB", "Enabled": True},
-                {"Name": "PluginC"},
-            ]
-        }
-        json_text = json.dumps(data)
-
-        monkeypatch.setattr(
-            "builtins.open",
-            mock_open(read_data=json_text),
-        )
-
-        result = UnrealOpenJob.parse_uproject("any/path/Project.uproject")
-
-        assert result == {"PluginA": False, "PluginB": True, "PluginC": True}
-
-    PROJECT_ROOT = "C:/Project"
-    PLUGINS_REL = "Plugins/"
+    PROJECT_PLUGINS = "C:/Project/Plugins"
+    ENGINE_PLUGINS = "C:/Engine/Engine/Plugins"
+    MARKETPLACE_DIR = "C:/Engine/Engine/Plugins/Marketplace"
 
     @pytest.mark.parametrize(
-        "uproject_plugins, plugins_list, expected_dirs",
+        "project_plugins, marketplace_plugins, marketplace_exists, enabled, expected_dirs",
         [
+            # Project plugin enabled
             (
-                {"PluginA": True, "PluginB": False},  # parse_uproject
-                [  # get_plugins
-                    {"name": "PluginA", "enabled_by_default": True, "folder": "PluginA"},
-                    {"name": "PluginB", "enabled_by_default": True, "folder": "PluginB"},
-                    {"name": "PluginC", "enabled_by_default": True, "folder": "PluginC"},
-                    {
-                        "name": "UnrealDeadlineCloudService",
-                        "enabled_by_default": True,
-                        "folder": "UDCS",
-                    },
-                ],
-                {  # expected_dirs
-                    f"{PROJECT_ROOT}/Plugins/PluginA",
-                    f"{PROJECT_ROOT}/Plugins/PluginC",
+                ["PluginA"],
+                [],
+                False,
+                {"PluginA": True},
+                {f"{PROJECT_PLUGINS}/PluginA"},
+            ),
+            # Project plugin not enabled
+            (
+                ["PluginA"],
+                [],
+                False,
+                {"PluginA": False},
+                set(),
+            ),
+            # Deadline Cloud plugin excluded
+            (
+                ["UnrealDeadlineCloudService"],
+                [],
+                False,
+                {"UnrealDeadlineCloudService": True},
+                set(),
+            ),
+            # Marketplace plugin enabled
+            (
+                [],
+                ["PaidPlugin"],
+                True,
+                {"PaidPlugin": True},
+                {f"{MARKETPLACE_DIR}/PaidPlugin"},
+            ),
+            # Marketplace plugin not enabled
+            (
+                [],
+                ["PaidPlugin"],
+                True,
+                {"PaidPlugin": False},
+                set(),
+            ),
+            # Mix: project + marketplace, some enabled
+            (
+                ["ProjectPlugin", "DisabledPlugin"],
+                ["PaidPlugin"],
+                True,
+                {"ProjectPlugin": True, "DisabledPlugin": False, "PaidPlugin": True},
+                {
+                    f"{PROJECT_PLUGINS}/ProjectPlugin",
+                    f"{MARKETPLACE_DIR}/PaidPlugin",
                 },
             ),
+            # No plugins at all
             (
-                {"PluginA": False, "PluginB": False},  # parse_uproject
-                [  # get_plugins
-                    {"name": "PluginA", "enabled_by_default": True, "folder": "PluginA"},
-                    {"name": "PluginB", "enabled_by_default": True, "folder": "PluginB"},
-                ],
-                set(),  # expected_dirs
+                [],
+                [],
+                False,
+                {},
+                set(),
             ),
+            # No marketplace dir exists
             (
-                {"PluginD": True},  # parse_uproject
-                [  # get_plugins
-                    {"name": "PluginD", "enabled_by_default": False, "folder": "PluginD"},
-                ],
-                {f"{PROJECT_ROOT}/Plugins/PluginD"},  # expected_dirs
-            ),
-            (
-                {},  # parse_uproject
-                [  # get_plugins
-                    {
-                        "name": "UnrealDeadlineCloudService",
-                        "enabled_by_default": True,
-                        "folder": "UDCS",
-                    },
-                ],
-                set(),  # expected_dirs
+                ["PluginA"],
+                [],
+                False,
+                {"PluginA": True},
+                {f"{PROJECT_PLUGINS}/PluginA"},
             ),
         ],
     )
     def test_get_plugins_references(
-        self, monkeypatch, uproject_plugins, plugins_list, expected_dirs
+        self,
+        monkeypatch,
+        project_plugins,
+        marketplace_plugins,
+        marketplace_exists,
+        enabled,
+        expected_dirs,
     ):
-        project_root = "C:/Project"
-        plugins_rel = "Plugins/"
+        fake_lib = MagicMock()
+        fake_lib.get_enabled_plugin_names.return_value = [
+            name for name, is_enabled in enabled.items() if is_enabled
+        ]
+
+        monkeypatch.setattr(
+            "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.PluginBlueprintLibrary",
+            fake_lib,
+        )
 
         fake_paths = MagicMock()
-        fake_paths.get_project_file_path.return_value = f"{project_root}/MyGame.uproject"
-        fake_paths.project_plugins_dir.return_value = plugins_rel
-        fake_paths.convert_relative_path_to_full.return_value = f"{project_root}/{plugins_rel}"
+        fake_paths.project_plugins_dir.return_value = "Plugins/"
+        fake_paths.engine_plugins_dir.return_value = "Engine/Plugins/"
+
+        def fake_convert(path):
+            if path == "Plugins/":
+                return self.PROJECT_PLUGINS
+            if path == "Engine/Plugins/":
+                return self.ENGINE_PLUGINS
+            return path
+
+        fake_paths.convert_relative_path_to_full.side_effect = fake_convert
 
         monkeypatch.setattr(
             "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.Paths", fake_paths
         )
 
+        def fake_scan(scan_dir):
+            normalized = scan_dir.replace("\\", "/")
+            if normalized == self.PROJECT_PLUGINS:
+                return [(name, f"{self.PROJECT_PLUGINS}/{name}") for name in project_plugins]
+            if normalized == self.MARKETPLACE_DIR:
+                return [(name, f"{self.MARKETPLACE_DIR}/{name}") for name in marketplace_plugins]
+            return []
+
+        monkeypatch.setattr(UnrealOpenJob, "_scan_plugin_dirs", staticmethod(fake_scan))
         monkeypatch.setattr(
-            UnrealOpenJob,
-            "parse_uproject",
-            lambda _path: uproject_plugins,
+            "deadline.unreal_submitter.unreal_open_job.unreal_open_job.os.path.isdir",
+            lambda p: marketplace_exists if p.replace("\\", "/") == self.MARKETPLACE_DIR else False,
         )
 
-        monkeypatch.setattr(UnrealOpenJob, "get_plugins", lambda _dir: plugins_list)
-
         refs: AssetReferences = UnrealOpenJob.get_plugins_references()
-
         assert refs.input_directories == expected_dirs
+
+    def test_get_marketplace_plugins_dir_exists(self, monkeypatch):
+        fake_paths = MagicMock()
+        fake_paths.engine_plugins_dir.return_value = "Engine/Plugins/"
+        fake_paths.convert_relative_path_to_full.return_value = self.ENGINE_PLUGINS
+
+        monkeypatch.setattr(
+            "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.Paths", fake_paths
+        )
+        monkeypatch.setattr(
+            "deadline.unreal_submitter.unreal_open_job.unreal_open_job.os.path.isdir",
+            lambda p: True,
+        )
+
+        result = UnrealOpenJob.get_marketplace_plugins_dir()
+        assert "Marketplace" in result
+
+    def test_get_marketplace_plugins_dir_not_exists(self, monkeypatch):
+        fake_paths = MagicMock()
+        fake_paths.engine_plugins_dir.return_value = "Engine/Plugins/"
+        fake_paths.convert_relative_path_to_full.return_value = self.ENGINE_PLUGINS
+
+        monkeypatch.setattr(
+            "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.Paths", fake_paths
+        )
+        monkeypatch.setattr(
+            "deadline.unreal_submitter.unreal_open_job.unreal_open_job.os.path.isdir",
+            lambda p: False,
+        )
+
+        result = UnrealOpenJob.get_marketplace_plugins_dir()
+        assert result == ""
+
+    def test_auto_inject_marketplace_env_when_marketplace_exists(self, monkeypatch):
+        from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment import (
+            InstallMarketplacePluginsEnvironment,
+        )
+
+        monkeypatch.setattr(
+            UnrealOpenJob,
+            "get_marketplace_plugins_dir",
+            staticmethod(lambda: "C:/Engine/Plugins/Marketplace"),
+        )
+        monkeypatch.setattr(
+            "deadline.unreal_submitter.unreal_open_job.unreal_open_job.UnrealOpenJobEntity.__init__",
+            lambda *a, **kw: None,
+        )
+        monkeypatch.setattr(
+            InstallMarketplacePluginsEnvironment, "__init__", lambda self, **kw: None
+        )
+        monkeypatch.setattr(
+            UnrealOpenJob, "_create_missing_extra_parameters_from_template", lambda self: None
+        )
+
+        job = UnrealOpenJob()
+        assert isinstance(job._environments[0], InstallMarketplacePluginsEnvironment)
+
+    def test_no_inject_marketplace_env_when_no_marketplace(self, monkeypatch):
+        from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment import (
+            InstallMarketplacePluginsEnvironment,
+        )
+
+        monkeypatch.setattr(UnrealOpenJob, "get_marketplace_plugins_dir", staticmethod(lambda: ""))
+        monkeypatch.setattr(
+            "deadline.unreal_submitter.unreal_open_job.unreal_open_job.UnrealOpenJobEntity.__init__",
+            lambda *a, **kw: None,
+        )
+        monkeypatch.setattr(
+            UnrealOpenJob, "_create_missing_extra_parameters_from_template", lambda self: None
+        )
+
+        job = UnrealOpenJob()
+        assert not any(
+            isinstance(e, InstallMarketplacePluginsEnvironment) for e in job._environments
+        )
+
+    def test_no_duplicate_inject_marketplace_env(self, monkeypatch):
+        from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment import (
+            InstallMarketplacePluginsEnvironment,
+        )
+
+        monkeypatch.setattr(
+            UnrealOpenJob,
+            "get_marketplace_plugins_dir",
+            staticmethod(lambda: "C:/Engine/Plugins/Marketplace"),
+        )
+        monkeypatch.setattr(
+            "deadline.unreal_submitter.unreal_open_job.unreal_open_job.UnrealOpenJobEntity.__init__",
+            lambda *a, **kw: None,
+        )
+        monkeypatch.setattr(
+            InstallMarketplacePluginsEnvironment, "__init__", lambda self, **kw: None
+        )
+        monkeypatch.setattr(
+            UnrealOpenJob, "_create_missing_extra_parameters_from_template", lambda self: None
+        )
+
+        existing_env = InstallMarketplacePluginsEnvironment()
+        job = UnrealOpenJob(environments=[existing_env])
+        count = sum(
+            1 for e in job._environments if isinstance(e, InstallMarketplacePluginsEnvironment)
+        )
+        assert count == 1

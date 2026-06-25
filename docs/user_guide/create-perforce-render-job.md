@@ -146,6 +146,7 @@ Set up an OpenJD Render Job that orchestrates the entire rendering workflow.
 | `CondaPackages` | Conda packages needed to render the job | ❌ | **Configure** - Use default for standard setups |
 | `CondaChannels` | Conda channels where packages are stored | ❌ | **Configure** - Use default for standard setups |
 | `ChunkSize` | Number of shots grouped in a single render session | ❌ | **Configure** - Default: 1 (tune for performance) |
+| `MarketplacePluginsDir` | Path to engine Marketplace plugins | ✅ | **Leave empty** - Auto-populated |
 
 > **📝 Legend**: ✅ = Auto-populated during submission, ❌ = No Auto-populated
 

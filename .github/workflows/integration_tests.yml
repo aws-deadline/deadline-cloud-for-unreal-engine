@@ -1,0 +1,45 @@
+name: Unreal Engine Integration Tests
+
+on:
+  push:
+    branches:
+      - mainline
+  workflow_dispatch:
+    inputs:
+      ref_type:
+        description: 'Reference type to test'
+        required: true
+        default: 'branch'
+        type: choice
+        options:
+          - branch
+          - tag
+      branch:
+        description: 'Branch to test (e.g., mainline, feature-branch)'
+        required: false
+        default: 'mainline'
+        type: string
+      tag:
+        description: 'Tag to test (only used when ref_type is "tag")'
+        required: false
+        type: string
+
+jobs:
+  IntegrationTests:
+    name: ${{ matrix.name }} Integration Tests
+    permissions:
+      id-token: write
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows
+            name: Windows
+    uses: aws-deadline/.github/.github/workflows/reusable_integration_test.yml@mainline
+    secrets: inherit
+    with:
+      repository: ${{ github.event.repository.name }}
+      branch: ${{ github.event.inputs.ref_type == 'branch' && github.event.inputs.branch || 'mainline' }}
+      tag: ${{ github.event.inputs.ref_type == 'tag' && github.event.inputs.tag || '' }}
+      os: ${{ matrix.os }}

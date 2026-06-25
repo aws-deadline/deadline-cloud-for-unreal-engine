@@ -397,7 +397,11 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         Record telemetry error event and raise given exception
         """
         self.telemetry_client.record_error(
-            event_details={"exit_code": exit_code, "exception_scope": exception_scope},
+            event_details={
+                "exit_code": exit_code,
+                "exception_scope": "caught",
+                "error_operation": exception_scope,
+            },
             exception_type=str(type(exc)),
             from_gui=False,
         )

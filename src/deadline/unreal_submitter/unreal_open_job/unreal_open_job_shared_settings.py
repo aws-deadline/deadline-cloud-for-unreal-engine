@@ -14,7 +14,7 @@ class JobSharedSettings:
         self,
         initial_state: str = "READY",
         max_failed_tasks_count: int = 1,
-        max_retries_per_task: int = 50,
+        max_retries_per_task: int = 2,
         priority: int = 50,
     ):
         self._initial_state = initial_state

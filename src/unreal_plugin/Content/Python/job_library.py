@@ -106,6 +106,19 @@ class DeadlineCloudJobBundleLibraryImplementation(unreal.DeadlineCloudJobBundleL
             logger.info(f"Updated Unreal Engine version in conda packages to: {current_version}")
             parameters[conda_packages_param_index] = conda_packages_param
 
+        # Allow overriding CondaChannels via environment variable
+        conda_channels_override = os.environ.get("DEADLINE_CONDA_CHANNELS")
+        logger.info(f"DEADLINE_CONDA_CHANNELS env var: {conda_channels_override!r}")
+        if conda_channels_override:
+            for i, p in enumerate(parameters):
+                if p.get_editor_property("Name") == "CondaChannels":
+                    p.value = conda_channels_override
+                    parameters[i] = p
+                    logger.info(
+                        f"Overriding CondaChannels from environment: {conda_channels_override}"
+                    )
+                    break
+
         return parameters
 
     @unreal.ufunction(override=True)
