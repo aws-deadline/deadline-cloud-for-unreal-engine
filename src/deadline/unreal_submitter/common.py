@@ -11,7 +11,6 @@ from pathlib import Path
 from deadline.unreal_logger import get_logger
 from deadline.unreal_submitter import exceptions
 
-
 logger = get_logger()
 
 
@@ -253,7 +252,7 @@ def get_mrq_job_cmd_args(mrq_job: unreal.MoviePipelineExecutorJob) -> list[str]:
     job_device_profile_cvars: list[str] = []
     job_exec_cmds: list[str] = []
     for setting in mrq_job.get_configuration().get_all_settings():
-        (job_url_params, job_cmd_args, job_device_profile_cvars, job_exec_cmds) = (
+        job_url_params, job_cmd_args, job_device_profile_cvars, job_exec_cmds = (
             setting.build_new_process_command_line_args(
                 out_unreal_url_params=job_url_params,
                 out_command_line_args=job_cmd_args,

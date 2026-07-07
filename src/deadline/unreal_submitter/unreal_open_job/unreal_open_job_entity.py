@@ -29,7 +29,6 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_parameters_consis
 from deadline.unreal_submitter import exceptions, settings
 from deadline.unreal_logger import get_logger
 
-
 logger = get_logger()
 
 

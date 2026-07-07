@@ -12,7 +12,6 @@ from deadline.unreal_adaptor.UnrealClient.step_handlers.unreal_custom_step_handl
     UnrealCustomStepHandler,
 )
 
-
 unreal_mock = MagicMock()
 sys.modules["unreal"] = unreal_mock
 

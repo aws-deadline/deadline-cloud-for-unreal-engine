@@ -1,3 +1,12 @@
+## 0.6.10 (2026-06-25)
+
+### Features
+* The adaptor now accepts the new render partitioning parameter names (`shots_per_task` and `task_index`) while maintaining backwards compatibility with the legacy names (`chunk_size` and `chunk_id`). (#324)
+* The default Conda channel for render job templates is now `deadline-cloud-v2`, with `deadline-cloud` retained as a fallback. Jobs will automatically prefer packages from the newer channel. (#323)
+
+### Bug Fixes
+* Fixed an issue where persistent Perforce workspaces with a changed Root directory would incorrectly report files as up-to-date, causing Unreal Engine to fail loading assets. Also optimized dependency sync to avoid redundantly syncing files on every launch. (#321)
+* The `build_plugin.py` script no longer requires `psutil` as a dependency; it now uses native Windows commands to detect running Unreal Editor processes. (#316)
 ## 0.6.9 (2026-05-26)
 
 ### Features
