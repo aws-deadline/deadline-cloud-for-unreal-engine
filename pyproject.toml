@@ -93,9 +93,13 @@ namespace_packages = true
 explicit_package_bases = true
 mypy_path = "src"
 
+# unreal.* is a UE4 stub that doesn't exist outside the engine.
+# _pytest/pytest: pytest 9+ uses Python 3.10 syntax (match statements) which
+# mypy cannot parse when python_version is set to 3.9.
 [[tool.mypy.overrides]]
-module = ["unreal.*"]
+module = ["unreal.*", "_pytest.*", "pytest.*"]
 ignore_missing_imports = true
+follow_imports = "skip"
 
 [tool.ruff]
 line-length = 100
@@ -108,6 +112,7 @@ known-first-party = ["deadline", "openjd"]
 
 [tool.black]
 line-length = 100
+target-version = ["py39", "py310", "py311", "py312"]
 
 [tool.pytest.ini_options]
 xfail_strict = true

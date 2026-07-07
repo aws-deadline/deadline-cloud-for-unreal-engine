@@ -5,7 +5,6 @@ import unreal
 from deadline.unreal_logger import get_logger
 from deadline.unreal_submitter.submitter import UnrealMrqJobSubmitter
 
-
 logger = get_logger()
 
 

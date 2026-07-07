@@ -24,7 +24,6 @@ from deadline.unreal_submitter.exceptions import UserException
 
 from ._version import version
 
-
 # Initialize telemetry client, opt-out is respected
 telemetry_client = get_deadline_cloud_library_telemetry_client()
 telemetry_client.update_common_details(

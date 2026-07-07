@@ -18,7 +18,6 @@ from typing import Optional
 from .base_step_handler import BaseStepHandler
 from deadline.unreal_logger import get_logger
 
-
 logger = get_logger()
 
 

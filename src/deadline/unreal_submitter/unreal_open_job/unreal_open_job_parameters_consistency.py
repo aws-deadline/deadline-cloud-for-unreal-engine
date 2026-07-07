@@ -5,7 +5,6 @@ from typing import Any
 from dataclasses import dataclass
 from deadline.unreal_logger import get_logger
 
-
 logger = get_logger()
 
 

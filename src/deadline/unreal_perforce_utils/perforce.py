@@ -8,7 +8,6 @@ from typing import Optional, Any
 from deadline.unreal_logger import get_logger
 from deadline.unreal_perforce_utils import exceptions, secret_manager
 
-
 logger = get_logger()
 
 

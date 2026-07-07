@@ -25,7 +25,6 @@ from pathlib import Path
 import boto3
 from botocore.config import Config
 
-
 UE_INSTALLERS = {
     "5.7": {
         "windows": {
