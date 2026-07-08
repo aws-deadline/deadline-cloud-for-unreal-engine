@@ -942,6 +942,12 @@ def run_unreal_test(request, reusable_farm_id, reusable_queue_id) -> Callable:
                 logger.warning(f"Could not determine test result for {test_path}")
                 success = False
 
+        # Emit full UE output on failure; real-time stdout is swallowed by pytest-xdist capture
+        if not success:
+            logger.error(
+                "Full Unreal Engine output for failed test %s:\n%s", test_path, output_text
+            )
+
         # Return both success status and output lines
         return success, full_output
 
