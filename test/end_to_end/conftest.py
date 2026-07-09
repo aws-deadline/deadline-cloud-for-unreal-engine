@@ -1487,6 +1487,12 @@ def reusable_fleet_id(
     fleet_response = None
     created_new = False
 
+    env_fleet_id = os.environ.get("UNREAL_WORKER_FLEET_ID")
+    if env_fleet_id:
+        logger.info(f"Using fleet_id {env_fleet_id} from UNREAL_WORKER_FLEET_ID env var")
+        yield env_fleet_id
+        return
+
     # First check if a test fleet already exists
     try:
         # List fleets in the farm
