@@ -299,8 +299,8 @@ class OpenJobStepParameterNames:
 
     :cvar ADAPTOR_HANDLER: Handler name to run the jobs on Adaptor (render/custom)
     :cvar FRAMES_PER_TASK: If set, each task will render this number of frames
-    :cvar TASK_CHUNK_SIZE: Count of the shots per OpenJD Step's Task unless FRAMES_PER_TASK set
-    :cvar TASK_CHUNK_ID: Chunk number that should be rendered at OpenJD Step's Task
+    :cvar SHOTS_PER_TASK: Count of the shots per OpenJD Step's Task unless FRAMES_PER_TASK set
+    :cvar TASK_INDEX: Index of the task (0-based) within the OpenJD Step's parameter space
     """
 
     QUEUE_MANIFEST_PATH = "QueueManifestPath"
@@ -312,5 +312,5 @@ class OpenJobStepParameterNames:
 
     ADAPTOR_HANDLER = "Handler"
     FRAMES_PER_TASK = "FramesPerTask"
-    TASK_CHUNK_SIZE = "ChunkSize"
-    TASK_CHUNK_ID = "ChunkId"
+    SHOTS_PER_TASK = "ShotsPerTask"
+    TASK_INDEX = "TaskIndex"

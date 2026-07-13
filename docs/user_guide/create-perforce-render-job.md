@@ -145,7 +145,7 @@ Set up an OpenJD Render Job that orchestrates the entire rendering workflow.
 | `Executable` | Unreal executable name for render node | ❌ | **Configure** - Use default for standard setups |
 | `CondaPackages` | Conda packages needed to render the job | ❌ | **Configure** - Use default for standard setups |
 | `CondaChannels` | Conda channels where packages are stored | ❌ | **Configure** - Use default for standard setups |
-| `ChunkSize` | Number of shots grouped in a single render session | ❌ | **Configure** - Default: 1 (tune for performance) |
+| `ShotsPerTask` | Number of shots grouped in a single render session | ❌ | **Configure** - Default: 1 (tune for performance) |
 | `MarketplacePluginsDir` | Path to engine Marketplace plugins | ✅ | **Leave empty** - Auto-populated |
 
 > **📝 Legend**: ✅ = Auto-populated during submission, ❌ = No Auto-populated
@@ -153,7 +153,7 @@ Set up an OpenJD Render Job that orchestrates the entire rendering workflow.
 **Parameter Configuration Guidelines:**
 - **Auto-populated parameters**: Leave these empty - they're filled automatically during job submission
 - **Manual parameters**: Review defaults and adjust based on your specific requirements
-- **ChunkSize**: Start with 1, increase for better performance with simple shots
+- **ShotsPerTask**: Start with 1, increase for better performance with simple shots
 
 ![Perforce Job Parameter Definition](./images/p4-job-parameter-definition.png)
 
@@ -181,9 +181,9 @@ Set up an OpenJD Render Job that orchestrates the entire rendering workflow.
 
 ### Performance Optimization
 
-**Chunk Size Configuration:**
+**Shots Per Task Configuration:**
 
-| Chunk Size | Use Case | Performance Impact |
+| Shots Per Task | Use Case | Performance Impact |
 |------------|----------|-------------------|
 | 1-2 shots | Complex shots, detailed review needed | Lower throughput, higher quality control |
 | 4-8 shots | Balanced workload, typical projects | Optimal balance of speed and manageability |
