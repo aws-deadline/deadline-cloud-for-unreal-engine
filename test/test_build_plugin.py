@@ -46,17 +46,31 @@ class TestInstallWhlToPlugin:
 class TestInstallWhlGlobal:
     @patch("scripts.build_plugin.subprocess.run")
     @patch("scripts.build_plugin.os.path.exists", return_value=True)
-    def test_pip_install_uses_eager_upgrade_strategy(self, mock_exists, mock_run):
+    def test_pip_install_two_pass_deps_then_force_reinstall(self, mock_exists, mock_run):
+        """
+        install_whl_global runs two `pip install` passes: (1) plain install so
+        dependencies get resolved, (2) --force-reinstall --no-deps so
+        iterative dev builds overwrite files even when the version string is
+        unchanged.
+        """
         mock_run.return_value = MagicMock(returncode=0)
 
         install_whl_global(FAKE_WHL_PATH)
 
-        mock_run.assert_called_once()
-        cmd = mock_run.call_args[0][0]
-        assert FAKE_WHL_PATH in cmd
-        assert "--upgrade" in cmd
-        assert "--upgrade-strategy" in cmd
-        assert cmd[cmd.index("--upgrade-strategy") + 1] == "eager"
+        assert mock_run.call_count == 2
+        first_cmd = mock_run.call_args_list[0][0][0]
+        second_cmd = mock_run.call_args_list[1][0][0]
+
+        # Pass 1: plain install — resolves deps.
+        assert FAKE_WHL_PATH in first_cmd
+        assert "install" in first_cmd
+        assert "--force-reinstall" not in first_cmd
+        assert "--no-deps" not in first_cmd
+
+        # Pass 2: --force-reinstall --no-deps overwrites the package itself.
+        assert FAKE_WHL_PATH in second_cmd
+        assert "--force-reinstall" in second_cmd
+        assert "--no-deps" in second_cmd
 
 
 class TestInstallWorkerDependencies:

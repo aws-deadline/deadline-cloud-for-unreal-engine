@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import ast
 import sys
@@ -758,3 +759,404 @@ class TestUnrealAdaptor_on_cancel:
         # THEN
         assert "CANCEL REQUESTED" in caplog.text
         assert "Nothing to cancel because Unreal is not running" in caplog.text
+
+
+class TestUnrealAdaptor_maybe_submit_renders_to_perforce:
+    """Tests for the post-render Perforce submit hook."""
+
+    def _adaptor(self, init_data: dict) -> UnrealAdaptor:
+        # The hook only reads run_data and imports app lazily, so we don't
+        # actually need on_start to have run.
+        return UnrealAdaptor(init_data)
+
+    def _full_run_data(self, output_path: str, mode: str = "submit") -> dict:
+        """Helper: a run_data dict with all fields the staging path needs."""
+        return {
+            "submit_mode": mode,
+            "output_path": output_path,
+            "project_name": "MyProject",
+            "project_relative_path": "MyProject/MyProject.uproject",
+        }
+
+    def _populated_session_output(self, tmp_path):
+        """
+        Build a fake session output dir under tmp_path with a couple of files
+        for the per-file shutil.copy2 staging loop to pick up.
+        """
+        session_output = tmp_path / "session" / "assetroot" / "MovieRenders"
+        session_output.mkdir(parents=True)
+        (session_output / "frame.0001.png").write_bytes(b"x" * 16)
+        (session_output / "frame.0002.png").write_bytes(b"x" * 16)
+        return session_output
+
+    # --- early-out cases (no P4 contact, no copy) ---
+
+    def test_no_op_when_submit_mode_missing(self, init_data: dict):
+        adaptor = self._adaptor(init_data)
+        run_data = {"output_path": "C:/renders/MyProject"}  # no submit_mode
+
+        with patch("deadline.unreal_perforce_utils.app.submit_renders") as submit_mock:
+            adaptor._maybe_submit_renders_to_perforce(run_data)
+
+        submit_mock.assert_not_called()
+
+    def test_no_op_when_submit_mode_empty_string(self, init_data: dict):
+        adaptor = self._adaptor(init_data)
+        run_data = {"submit_mode": "", "output_path": "C:/renders/MyProject"}
+
+        with patch("deadline.unreal_perforce_utils.app.submit_renders") as submit_mock:
+            adaptor._maybe_submit_renders_to_perforce(run_data)
+
+        submit_mock.assert_not_called()
+
+    # Missing-prerequisite tests: SubmitMode disables JA output upload
+    # upstream, so any missing input means the frames would land nowhere.
+    # These paths must RAISE (task fails, Deadline retries), not warn-and-
+    # skip (silent data loss).
+
+    def test_raises_when_output_path_missing(self, init_data: dict):
+        adaptor = self._adaptor(init_data)
+        run_data = {"submit_mode": "submit"}  # no output_path
+
+        with patch("deadline.unreal_perforce_utils.app.submit_renders") as submit_mock:
+            with pytest.raises(RuntimeError, match="no output_path"):
+                adaptor._maybe_submit_renders_to_perforce(run_data)
+
+        submit_mock.assert_not_called()
+
+    def test_raises_when_project_name_missing(self, init_data: dict):
+        adaptor = self._adaptor(init_data)
+        run_data = {
+            "submit_mode": "submit",
+            "output_path": "C:/Perforce/ws/MyProject/Saved/MovieRenders",
+        }
+
+        with patch("deadline.unreal_perforce_utils.app.submit_renders") as submit_mock:
+            with pytest.raises(RuntimeError, match="no project_name"):
+                adaptor._maybe_submit_renders_to_perforce(run_data)
+
+        submit_mock.assert_not_called()
+
+    def test_raises_when_project_relative_path_missing(self, init_data: dict):
+        adaptor = self._adaptor(init_data)
+        run_data = {
+            "submit_mode": "submit",
+            "output_path": "C:/renders/MyProject",
+            "project_name": "MyProject",
+            # project_relative_path missing
+        }
+
+        with patch("deadline.unreal_perforce_utils.app.submit_renders") as submit_mock:
+            with pytest.raises(RuntimeError, match="no.*project_relative_path"):
+                adaptor._maybe_submit_renders_to_perforce(run_data)
+
+        submit_mock.assert_not_called()
+
+    def test_raises_when_p4_client_directory_env_unset(self, init_data: dict, tmp_path):
+        # GIVEN P4_CLIENT_DIRECTORY env var is unset (P4 sync env didn't run)
+        adaptor = self._adaptor(init_data)
+        session_output = self._populated_session_output(tmp_path)
+        run_data = self._full_run_data(str(session_output))
+
+        env_no_p4 = {k: v for k, v in os.environ.items() if k != "P4_CLIENT_DIRECTORY"}
+        with (
+            patch.dict(os.environ, env_no_p4, clear=True),
+            patch("deadline.unreal_perforce_utils.app.submit_renders") as submit_mock,
+        ):
+            with pytest.raises(RuntimeError, match="P4_CLIENT_DIRECTORY env var"):
+                adaptor._maybe_submit_renders_to_perforce(run_data)
+
+        submit_mock.assert_not_called()
+
+    # --- staging + submit happy path ---
+
+    def test_stages_into_workspace_then_submits(self, init_data: dict, tmp_path):
+        # GIVEN session-side output and a fake P4_CLIENT_DIRECTORY
+        adaptor = self._adaptor(init_data)
+        session_output = self._populated_session_output(tmp_path)
+        p4_client_dir = tmp_path / "Perforce" / "ws-1"
+        p4_client_dir.mkdir(parents=True)
+        run_data = self._full_run_data(str(session_output))
+
+        # WHEN
+        with (
+            patch.dict(os.environ, {"P4_CLIENT_DIRECTORY": str(p4_client_dir)}, clear=False),
+            patch("deadline.unreal_perforce_utils.app.submit_renders") as submit_mock,
+        ):
+            adaptor._maybe_submit_renders_to_perforce(run_data)
+
+        # THEN — files were copied into the workspace at
+        # <P4_CLIENT_DIR>/MyProject/Saved/MovieRenders/
+        expected_dest = p4_client_dir / "MyProject" / "Saved" / "MovieRenders"
+        assert (expected_dest / "frame.0001.png").exists()
+        assert (expected_dest / "frame.0002.png").exists()
+        # session originals are still there for JA
+        assert (session_output / "frame.0001.png").exists()
+
+        # AND submit_renders was called with the workspace path, not the session path.
+        # The adaptor now always shelves internally regardless of user's SubmitMode
+        # ('submit' or 'shelve'); AssembleShelves is the step that finalizes the
+        # aggregate CL based on user's SubmitMode. So mode='shelve' here even
+        # though run_data submit_mode='submit'.
+        #
+        # The adaptor also scopes each task's shelve to the exact files it
+        # produced (identified via pre/post-render mtime diff) rather than
+        # reconciling the whole output_directories tree, so output_directories
+        # is empty and explicit_files holds the per-file staged paths.
+        submit_mock.assert_called_once()
+        kwargs = submit_mock.call_args.kwargs
+        assert kwargs["unreal_project_name"] == "MyProject"
+        assert kwargs["mode"] == "shelve"
+        assert kwargs["output_directories"] == []
+        assert set(kwargs["explicit_files"]) == {
+            str(expected_dest / "frame.0001.png"),
+            str(expected_dest / "frame.0002.png"),
+        }
+
+    def test_preserves_custom_output_dir_leaf_name(self, init_data: dict, tmp_path):
+        # GIVEN customer renamed their MRQ output to ShotA_Renders rather than
+        # the default MovieRenders. The destination should match.
+        adaptor = self._adaptor(init_data)
+        session_output = tmp_path / "session" / "assetroot" / "ShotA_Renders"
+        session_output.mkdir(parents=True)
+        (session_output / "frame.png").write_bytes(b"x")
+        p4_client_dir = tmp_path / "Perforce" / "ws-1"
+        p4_client_dir.mkdir(parents=True)
+        run_data = self._full_run_data(str(session_output))
+
+        with (
+            patch.dict(os.environ, {"P4_CLIENT_DIRECTORY": str(p4_client_dir)}, clear=False),
+            patch("deadline.unreal_perforce_utils.app.submit_renders") as submit_mock,
+        ):
+            adaptor._maybe_submit_renders_to_perforce(run_data)
+
+        expected_dest = p4_client_dir / "MyProject" / "Saved" / "ShotA_Renders"
+        assert (expected_dest / "frame.png").exists()
+        assert submit_mock.call_args.kwargs["output_directories"] == []
+        assert submit_mock.call_args.kwargs["explicit_files"] == [str(expected_dest / "frame.png")]
+
+    def test_calls_submit_renders_when_mode_is_shelve(self, init_data: dict, tmp_path):
+        adaptor = self._adaptor(init_data)
+        session_output = self._populated_session_output(tmp_path)
+        p4_client_dir = tmp_path / "Perforce" / "ws-1"
+        p4_client_dir.mkdir(parents=True)
+        run_data = self._full_run_data(str(session_output), mode="shelve")
+
+        with (
+            patch.dict(os.environ, {"P4_CLIENT_DIRECTORY": str(p4_client_dir)}, clear=False),
+            patch("deadline.unreal_perforce_utils.app.submit_renders") as submit_mock,
+        ):
+            adaptor._maybe_submit_renders_to_perforce(run_data)
+
+        submit_mock.assert_called_once()
+        assert submit_mock.call_args.kwargs["mode"] == "shelve"
+
+    # --- failure handling ---
+
+    def test_raises_when_all_copy2_fail(
+        self, init_data: dict, caplog: pytest.LogCaptureFixture, tmp_path
+    ):
+        # GIVEN every per-file staging copy raises (e.g., destination disk full).
+        # SubmitMode is active, so JA output upload is disabled upstream —
+        # silent-success would drop every frame on the floor. The task must
+        # fail so Deadline retries or surfaces the failure.
+        import logging
+
+        adaptor = self._adaptor(init_data)
+        session_output = self._populated_session_output(tmp_path)
+        p4_client_dir = tmp_path / "Perforce" / "ws-1"
+        p4_client_dir.mkdir(parents=True)
+        run_data = self._full_run_data(str(session_output))
+
+        with (
+            patch.dict(os.environ, {"P4_CLIENT_DIRECTORY": str(p4_client_dir)}, clear=False),
+            patch("shutil.copy2", side_effect=OSError("No space left on device")),
+            patch("deadline.unreal_perforce_utils.app.submit_renders") as submit_mock,
+            caplog.at_level(logging.WARNING),
+        ):
+            with pytest.raises(RuntimeError, match="failed to stage to the P4 workspace"):
+                adaptor._maybe_submit_renders_to_perforce(run_data)
+
+        # submit_renders was never called because staging failed.
+        submit_mock.assert_not_called()
+        # Per-file failures still logged at WARNING for postmortem visibility.
+        assert "No space left on device" in caplog.text
+
+    def test_raises_on_partial_copy2_failure(
+        self, init_data: dict, caplog: pytest.LogCaptureFixture, tmp_path
+    ):
+        # GIVEN some per-file staging copies succeed and one fails. SubmitMode
+        # is the sole delivery path in this mode, so a partial stage would
+        # silently drop the un-staged frames — the render task would report
+        # success, downstream `assemble_shelves` would aggregate an incomplete
+        # set, and no one would be alerted. Must fail instead.
+        import logging
+
+        adaptor = self._adaptor(init_data)
+        session_output = self._populated_session_output(tmp_path)  # produces 2 files
+        p4_client_dir = tmp_path / "Perforce" / "ws-1"
+        p4_client_dir.mkdir(parents=True)
+        run_data = self._full_run_data(str(session_output))
+
+        # First copy2 succeeds, second raises. That's the partial-failure case:
+        # one frame is delivered, one is dropped — the exact scenario the
+        # reviewer flagged.
+        import shutil
+
+        real_copy2 = shutil.copy2
+        call_count = {"n": 0}
+
+        def flaky_copy2(src, dst, *args, **kwargs):
+            call_count["n"] += 1
+            if call_count["n"] == 2:
+                raise OSError("PermissionError on frame.0002.png")
+            return real_copy2(src, dst, *args, **kwargs)
+
+        with (
+            patch.dict(os.environ, {"P4_CLIENT_DIRECTORY": str(p4_client_dir)}, clear=False),
+            patch("shutil.copy2", side_effect=flaky_copy2),
+            patch("deadline.unreal_perforce_utils.app.submit_renders") as submit_mock,
+            caplog.at_level(logging.WARNING),
+        ):
+            with pytest.raises(
+                RuntimeError, match=r"1 of 2 task-produced file\(s\) failed to stage"
+            ):
+                adaptor._maybe_submit_renders_to_perforce(run_data)
+
+        # Critically, submit_renders was NOT called with the partial file list —
+        # we raised before reaching the shelve step so no incomplete CL is
+        # produced.
+        submit_mock.assert_not_called()
+        # Per-file failure detail is preserved in the WARNING log.
+        assert "PermissionError on frame.0002.png" in caplog.text
+
+    def test_p4_failure_raises_when_submit_mode_active(
+        self, init_data: dict, caplog: pytest.LogCaptureFixture, tmp_path
+    ):
+        # BEHAVIOR CHANGE: with the JA-skip feature, when SubmitMode is set the
+        # frames go through P4 exclusively. If shelve fails, silent success
+        # would mean render outputs vanish. Fail the task so Deadline retries
+        # or surfaces the failure — matches the customer's explicit opt-in.
+        import logging
+
+        adaptor = self._adaptor(init_data)
+        session_output = self._populated_session_output(tmp_path)
+        p4_client_dir = tmp_path / "Perforce" / "ws-1"
+        p4_client_dir.mkdir(parents=True)
+        run_data = self._full_run_data(str(session_output))
+
+        with (
+            patch.dict(os.environ, {"P4_CLIENT_DIRECTORY": str(p4_client_dir)}, clear=False),
+            patch(
+                "deadline.unreal_perforce_utils.app.submit_renders",
+                side_effect=RuntimeError("p4 server unreachable"),
+            ),
+            caplog.at_level(logging.ERROR),
+        ):
+            with pytest.raises(RuntimeError, match="p4 server unreachable"):
+                adaptor._maybe_submit_renders_to_perforce(run_data)
+
+        # Staging still happened before the shelve attempt, and the error
+        # was logged loudly before propagating.
+        expected_dest = p4_client_dir / "MyProject" / "Saved" / "MovieRenders"
+        assert (expected_dest / "frame.0001.png").exists()
+        assert "Perforce shelve failed" in caplog.text
+
+    # --- positive confirmation logging on success ---
+
+    def test_logs_confirmation_with_cl_number_when_submit_mode_is_submit(
+        self, init_data: dict, caplog: pytest.LogCaptureFixture, tmp_path
+    ):
+        # GIVEN submit_renders returns the shelved CL number. The user's
+        # SubmitMode='submit' — the aggregate is what will get submitted; each
+        # task shelves so AssembleShelves can gather them.
+        import logging
+
+        adaptor = self._adaptor(init_data)
+        session_output = self._populated_session_output(tmp_path)
+        p4_client_dir = tmp_path / "Perforce" / "ws-1"
+        p4_client_dir.mkdir(parents=True)
+        run_data = self._full_run_data(str(session_output), mode="submit")
+
+        with (
+            patch.dict(os.environ, {"P4_CLIENT_DIRECTORY": str(p4_client_dir)}, clear=False),
+            patch("deadline.unreal_perforce_utils.app.submit_renders", return_value=42),
+            caplog.at_level(logging.INFO),
+        ):
+            adaptor._maybe_submit_renders_to_perforce(run_data)
+
+        # Task-level log always says "shelve complete" now — the final submit
+        # decision is deferred to the AssembleShelves step. Log includes both
+        # the shelved CL and the user-facing SubmitMode for traceability.
+        assert "Perforce shelve complete: CL 42 shelved" in caplog.text
+        assert "SHELVED_CL=42" in caplog.text
+        assert "SubmitMode='submit'" in caplog.text
+
+    def test_logs_confirmation_with_cl_number_after_shelve(
+        self, init_data: dict, caplog: pytest.LogCaptureFixture, tmp_path
+    ):
+        import logging
+
+        adaptor = self._adaptor(init_data)
+        session_output = self._populated_session_output(tmp_path)
+        p4_client_dir = tmp_path / "Perforce" / "ws-1"
+        p4_client_dir.mkdir(parents=True)
+        run_data = self._full_run_data(str(session_output), mode="shelve")
+
+        with (
+            patch.dict(os.environ, {"P4_CLIENT_DIRECTORY": str(p4_client_dir)}, clear=False),
+            patch("deadline.unreal_perforce_utils.app.submit_renders", return_value=99),
+            caplog.at_level(logging.INFO),
+        ):
+            adaptor._maybe_submit_renders_to_perforce(run_data)
+
+        # THEN
+        assert "Perforce shelve complete: CL 99 shelved" in caplog.text
+
+    def test_logs_confirmation_when_nothing_changed(
+        self, init_data: dict, caplog: pytest.LogCaptureFixture, tmp_path
+    ):
+        # GIVEN submit_renders returns None — reconcile found nothing to commit
+        import logging
+
+        adaptor = self._adaptor(init_data)
+        session_output = self._populated_session_output(tmp_path)
+        p4_client_dir = tmp_path / "Perforce" / "ws-1"
+        p4_client_dir.mkdir(parents=True)
+        run_data = self._full_run_data(str(session_output))
+
+        with (
+            patch.dict(os.environ, {"P4_CLIENT_DIRECTORY": str(p4_client_dir)}, clear=False),
+            patch("deadline.unreal_perforce_utils.app.submit_renders", return_value=None),
+            caplog.at_level(logging.INFO),
+        ):
+            adaptor._maybe_submit_renders_to_perforce(run_data)
+
+        # THEN — operator gets a clear "no CL was created" message, not silence
+        assert "Perforce shelve complete" in caplog.text
+        assert "no files changed" in caplog.text
+
+    def test_clears_readonly_on_destination_files_before_copy2(self, init_data: dict, tmp_path):
+        # GIVEN a prior P4 submit left files read-only at the destination
+        import stat
+
+        adaptor = self._adaptor(init_data)
+        session_output = self._populated_session_output(tmp_path)
+        p4_client_dir = tmp_path / "Perforce" / "ws-1"
+        prior_dest = p4_client_dir / "MyProject" / "Saved" / "MovieRenders"
+        prior_dest.mkdir(parents=True)
+        # Simulate previously-submitted frames marked read-only by P4 sync
+        prior_frame = prior_dest / "frame.0001.png"
+        prior_frame.write_bytes(b"old")
+        prior_frame.chmod(stat.S_IREAD)
+        run_data = self._full_run_data(str(session_output))
+
+        with (
+            patch.dict(os.environ, {"P4_CLIENT_DIRECTORY": str(p4_client_dir)}, clear=False),
+            patch("deadline.unreal_perforce_utils.app.submit_renders"),
+        ):
+            # WHEN — must NOT raise PermissionError on the read-only file
+            adaptor._maybe_submit_renders_to_perforce(run_data)
+
+        # THEN — file was overwritten (new content from session_output)
+        assert prior_frame.read_bytes() == b"x" * 16

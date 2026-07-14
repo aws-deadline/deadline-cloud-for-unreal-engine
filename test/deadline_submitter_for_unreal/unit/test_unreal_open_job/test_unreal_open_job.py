@@ -30,6 +30,7 @@ sys.modules["unreal"] = unreal_mock
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job import (  # noqa: E402
     UnrealOpenJob,
     RenderUnrealOpenJob,
+    P4RenderUnrealOpenJob,
     UgsUnrealOpenJobEnvironment,
     UnrealOpenJobParameterDefinition,
     TransferProjectFilesStrategy,
@@ -742,3 +743,153 @@ class TestRenderUnrealOpenJob:
             1 for e in job._environments if isinstance(e, InstallMarketplacePluginsEnvironment)
         )
         assert count == 1
+
+
+class TestP4RenderUnrealOpenJobSubmitModeSkipsJA:
+    """
+    When SubmitMode is set (submit/shelve), the customer has explicitly opted
+    into pushing renders through Perforce and does NOT want the same bytes
+    also going to S3 as Job Attachments. Verify get_asset_references clears
+    output_directories in that case only.
+    """
+
+    def _make_job(self, submit_mode_value):
+        """Build a P4RenderUnrealOpenJob with just enough state to exercise
+        _submit_mode_active + get_asset_references. Bypass __init__ which
+        needs a live Unreal MRQ Job."""
+        job = P4RenderUnrealOpenJob.__new__(P4RenderUnrealOpenJob)
+        if submit_mode_value is None:
+            job._extra_parameters = []
+        else:
+            job._extra_parameters = [
+                UnrealOpenJobParameterDefinition(
+                    name="SubmitMode", type="STRING", value=submit_mode_value
+                )
+            ]
+        # get_asset_references gates the "add MRQ overrides" and "add
+        # dependencies" branches on state we haven't set up here; providing
+        # sane defaults lets us focus the test on the SubmitMode clear.
+        job._transfer_files_strategy = None  # type: ignore[assignment]
+        job._mrq_job = None
+        return job
+
+    def _refs_with_outputs(self):
+        refs = AssetReferences()
+        refs.output_directories.add("C:/renders/MyProject/Saved/MovieRenders")
+        refs.output_directories.add("C:/renders/MyProject/Saved/Logs")
+        return refs
+
+    def test_submit_mode_active_returns_false_when_param_missing(self):
+        job = self._make_job(submit_mode_value=None)
+        assert job._submit_mode_active() is False
+
+    def test_submit_mode_active_returns_false_for_empty_string(self):
+        # empty string is the "off" default
+        job = self._make_job(submit_mode_value="")
+        assert job._submit_mode_active() is False
+
+    @pytest.mark.parametrize("mode", ["submit", "shelve"])
+    def test_submit_mode_active_returns_true_for_submit_or_shelve(self, mode):
+        job = self._make_job(submit_mode_value=mode)
+        assert job._submit_mode_active() is True
+
+    def test_get_asset_references_preserves_outputs_when_mode_empty(self):
+        # Patch UnrealOpenJob (grandparent) so RenderUnrealOpenJob's logic
+        # (including the SubmitMode reroute) still runs.
+        job = self._make_job(submit_mode_value="")
+        refs = self._refs_with_outputs()
+        with patch.object(UnrealOpenJob, "get_asset_references", return_value=refs):
+            result = job.get_asset_references()
+        assert len(result.output_directories) == 2
+        assert len(result.referenced_paths) == 0
+
+    @pytest.mark.parametrize("mode", ["submit", "shelve"])
+    def test_get_asset_references_moves_outputs_to_referenced_when_mode_set(self, mode):
+        # SubmitMode active: output dirs must move to referenced_paths so
+        # OpenJD still creates path-mapping rules for them, but the worker
+        # doesn't upload them to S3 as Job Attachments outputs.
+        job = self._make_job(submit_mode_value=mode)
+        refs = self._refs_with_outputs()
+        original = set(refs.output_directories)
+        with patch.object(UnrealOpenJob, "get_asset_references", return_value=refs):
+            result = job.get_asset_references()
+        assert result.output_directories == set()
+        assert result.referenced_paths == original
+
+    def test_get_asset_references_leaves_input_directories_untouched(self):
+        # Skipping JA output upload must not affect input attachments —
+        # the render still needs its project files.
+        job = self._make_job(submit_mode_value="submit")
+        refs = AssetReferences()
+        refs.input_directories.add("C:/project/input")
+        refs.input_filenames.add("C:/project/input/foo.txt")
+        refs.output_directories.add("C:/renders/output")
+        with patch.object(UnrealOpenJob, "get_asset_references", return_value=refs):
+            result = job.get_asset_references()
+        assert result.output_directories == set()
+        assert result.referenced_paths == {"C:/renders/output"}
+        assert len(result.input_directories) == 1
+        assert len(result.input_filenames) == 1
+
+
+class TestP4RenderUnrealOpenJobAssembleShelvesInjection:
+    """
+    When SubmitMode is set, an AssembleShelves step gets appended to the
+    job so all render tasks' shelved CLs are aggregated into one final CL.
+    Verify the injection logic: added when needed, not when not, idempotent.
+    """
+
+    def _make_job(self, submit_mode_value, existing_steps=None):
+        job = P4RenderUnrealOpenJob.__new__(P4RenderUnrealOpenJob)
+        if submit_mode_value is None:
+            job._extra_parameters = []
+        else:
+            job._extra_parameters = [
+                UnrealOpenJobParameterDefinition(
+                    name="SubmitMode", type="STRING", value=submit_mode_value
+                )
+            ]
+        job._steps = list(existing_steps or [])
+        return job
+
+    def test_no_step_injected_when_submit_mode_empty(self):
+        from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step import (
+            P4AssembleShelvesUnrealOpenJobStep,
+        )
+
+        job = self._make_job(submit_mode_value="")
+        job._ensure_assemble_shelves_step()
+        assert not any(isinstance(s, P4AssembleShelvesUnrealOpenJobStep) for s in job._steps)
+
+    @pytest.mark.parametrize("mode", ["submit", "shelve"])
+    def test_step_injected_when_submit_mode_set(self, mode):
+        from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step import (
+            P4AssembleShelvesUnrealOpenJobStep,
+        )
+
+        # Bypass the __init__ chain that reads yaml files off disk
+        with patch.object(P4AssembleShelvesUnrealOpenJobStep, "__init__", lambda self: None):
+            job = self._make_job(submit_mode_value=mode)
+            job._ensure_assemble_shelves_step()
+        assemble_steps = [
+            s for s in job._steps if isinstance(s, P4AssembleShelvesUnrealOpenJobStep)
+        ]
+        assert len(assemble_steps) == 1
+
+    def test_step_injection_is_idempotent(self):
+        # Calling _ensure_assemble_shelves_step twice must not stack
+        # duplicates — _build_template can be called more than once during
+        # a submission flow.
+        from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step import (
+            P4AssembleShelvesUnrealOpenJobStep,
+        )
+
+        with patch.object(P4AssembleShelvesUnrealOpenJobStep, "__init__", lambda self: None):
+            job = self._make_job(submit_mode_value="submit")
+            job._ensure_assemble_shelves_step()
+            job._ensure_assemble_shelves_step()
+            job._ensure_assemble_shelves_step()
+        assemble_steps = [
+            s for s in job._steps if isinstance(s, P4AssembleShelvesUnrealOpenJobStep)
+        ]
+        assert len(assemble_steps) == 1
