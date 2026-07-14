@@ -33,6 +33,7 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step import (
     UnrealOpenJobStep,
     RenderUnrealOpenJobStep,
     UnrealOpenJobStepParameterDefinition,
+    P4AssembleShelvesUnrealOpenJobStep,
 )
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment import (
     InstallMarketplacePluginsEnvironment,
@@ -1535,7 +1536,79 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             # Render output path
             asset_references.output_directories.add(self._get_mrq_job_output_directory())
 
+        # When SubmitMode is set on a Perforce job template, render outputs are
+        # delivered to Perforce and MUST NOT be re-uploaded to S3 as Job
+        # Attachments. But we can't just drop the output paths: OpenJD derives
+        # path-mapping rules from them so the worker knows to remap the
+        # submitter-side output path (e.g. C:/Users/Administrator/Perforce/...)
+        # to its local session/workspace path. Move them to referenced_paths
+        # instead, which participates in path-mapping without triggering the
+        # post-task S3 output upload.
+        #
+        # Gate on the SubmitMode parameter existing + being non-empty so non-P4
+        # templates (which don't declare SubmitMode) are unaffected.
+        if self._submit_mode_active():
+            asset_references.referenced_paths.update(asset_references.output_directories)
+            asset_references.output_directories.clear()
+
         return asset_references
+
+    def _submit_mode_active(self) -> bool:
+        """
+        True if the SubmitMode parameter is set to a non-empty value ('submit'
+        or 'shelve'). Only Perforce render templates declare this parameter;
+        other templates return False.
+        """
+        param = self._find_extra_parameter("SubmitMode", "STRING")
+        if param is None:
+            return False
+        return bool(param.value) and param.value != ""
+
+    def _has_assemble_shelves_step(self) -> bool:
+        return any(isinstance(s, P4AssembleShelvesUnrealOpenJobStep) for s in self._steps)
+
+    def _ensure_assemble_shelves_step(self) -> None:
+        """
+        Add the AssembleShelves step to the job when SubmitMode is set.
+        Idempotent — re-runs of _build_template won't stack duplicates.
+
+        Every render task shelves its own CL; AssembleShelves runs once
+        after all Render tasks and merges them into one final CL.
+        """
+        param = self._find_extra_parameter("SubmitMode", "STRING")
+        active = self._submit_mode_active()
+        has_step = self._has_assemble_shelves_step()
+        logger.info(
+            "RenderUnrealOpenJob._ensure_assemble_shelves_step: "
+            "class=%s, SubmitMode param exists=%s, value=%r, active=%s, "
+            "has_step=%s, steps_before=%s",
+            type(self).__name__,
+            param is not None,
+            getattr(param, "value", None),
+            active,
+            has_step,
+            [type(s).__name__ for s in self._steps],
+        )
+        if not active:
+            return
+        if has_step:
+            return
+        self._steps.append(P4AssembleShelvesUnrealOpenJobStep())
+        logger.info(
+            "RenderUnrealOpenJob._ensure_assemble_shelves_step: "
+            "appended AssembleShelves step; steps_after=%s",
+            [type(s).__name__ for s in self._steps],
+        )
+
+    def _build_template(self) -> JobTemplate:
+        # Inject AssembleShelves before the base builds the template so it
+        # ends up in the emitted `steps` list.
+        logger.info(
+            "RenderUnrealOpenJob._build_template called; class=%s",
+            type(self).__name__,
+        )
+        self._ensure_assemble_shelves_step()
+        return super()._build_template()
 
 
 # UGS Jobs
@@ -1547,6 +1620,14 @@ class UgsRenderUnrealOpenJob(RenderUnrealOpenJob):
 
 # Perforce (non UGS) Jobs
 class P4RenderUnrealOpenJob(RenderUnrealOpenJob):
-    """Class for predefined Perforce Render Job"""
+    """Class for predefined Perforce Render Job.
+
+    The MRQ submit UI actually instantiates the parent RenderUnrealOpenJob and
+    picks the template from the data asset, so the SubmitMode-driven behavior
+    (AssembleShelves injection + JA output skip) lives on the parent. This
+    subclass exists for the programmatic submission path (see
+    submit_actions/p4_render_job_submission.py), which constructs a P4 job
+    explicitly and relies on default_template_path.
+    """
 
     default_template_path = settings.P4_RENDER_JOB_TEMPLATE_DEFAULT_PATH

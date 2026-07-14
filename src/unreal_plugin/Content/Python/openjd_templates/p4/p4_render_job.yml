@@ -50,3 +50,20 @@ parameterDefinitions:
   default: ''
   userInterface:
    control: HIDDEN
+- name: SubmitMode
+  description: >-
+    Optional Perforce submit for render outputs. Job Attachments still uploads
+    outputs as configured on the queue regardless of this setting. Leave empty
+    (default) to skip the Perforce write. Set to 'submit' to commit each task's
+    outputs to a new changelist on the worker that produced them, or 'shelve'
+    to create a shelved changelist (CL number emitted as SHELVED_CL for
+    downstream assembly tasks).
+  type: STRING
+  default: ''
+  allowedValues:
+  - ''
+  - submit
+  - shelve
+  userInterface:
+   control: DROPDOWN_LIST
+   label: Submit Renders to Perforce
