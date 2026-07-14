@@ -860,6 +860,11 @@ def run_unreal_test(request, reusable_farm_id, reusable_queue_id) -> Callable:
 
         logger.info(f"Running unreal test with farm {reusable_farm_id} queue {reusable_queue_id}")
 
+        # Populate the Deadline config so the plugin's startup precache warms the
+        # credential/S3 session; -testparams alone does not write these defaults.
+        config.set_setting("defaults.farm_id", reusable_farm_id)
+        config.set_setting("defaults.queue_id", reusable_queue_id)
+
         test_params_str = f"-testparams=farm_id={reusable_farm_id};queue_id={reusable_queue_id}"
 
         engine_root = find_engine_root(request.config.getoption("--ueversion"))
@@ -941,6 +946,12 @@ def run_unreal_test(request, reusable_farm_id, reusable_queue_id) -> Callable:
             if not re.search(failure_pattern, output_text):
                 logger.warning(f"Could not determine test result for {test_path}")
                 success = False
+
+        # Emit full UE output on failure; real-time stdout is swallowed by pytest-xdist capture
+        if not success:
+            logger.error(
+                "Full Unreal Engine output for failed test %s:\n%s", test_path, output_text
+            )
 
         # Return both success status and output lines
         return success, full_output
@@ -1476,6 +1487,12 @@ def reusable_fleet_id(
     fleet_response = None
     created_new = False
 
+    env_fleet_id = os.environ.get("UNREAL_WORKER_FLEET_ID")
+    if env_fleet_id:
+        logger.info(f"Using fleet_id {env_fleet_id} from UNREAL_WORKER_FLEET_ID env var")
+        yield env_fleet_id
+        return
+
     # First check if a test fleet already exists
     try:
         # List fleets in the farm
@@ -1746,7 +1763,7 @@ def stop_queue_fleet_associations_and_wait(
 
 @pytest.fixture(scope="session")
 def deadline_worker_agent(
-    reusable_farm_id: str, reusable_fleet_id: str
+    request, reusable_farm_id: str, reusable_fleet_id: str
 ) -> Generator[Tuple[subprocess.Popen, str], None, None]:
     """
     Launch deadline-worker-agent as a subprocess using the farm ID and fleet ID from our tests.
@@ -1754,6 +1771,7 @@ def deadline_worker_agent(
     This fixture is session-scoped and ensures the worker agent is stopped during cleanup.
 
     Args:
+        request: The pytest request object (used to read the --ueversion option)
         reusable_farm_id: The farm ID to use
         reusable_fleet_id: The fleet ID to use
 
@@ -1835,8 +1853,13 @@ def deadline_worker_agent(
     env["TERM"] = "dumb"
     env["NO_COLOR"] = "1"
 
-    # Add UE binaries to PATH so the adaptor can find UnrealEditor-Cmd
-    ue_bin_dir = os.path.join(find_engine_root(None), "Engine", "Binaries", "Win64")
+    # Add UE binaries to PATH so the adaptor can find UnrealEditor-Cmd.
+    ue_bin_dir = os.path.join(
+        find_engine_root(request.config.getoption("--ueversion")),
+        "Engine",
+        "Binaries",
+        "Win64",
+    )
     if os.path.isdir(ue_bin_dir):
         env["PATH"] = ue_bin_dir + os.pathsep + env.get("PATH", "")
 
