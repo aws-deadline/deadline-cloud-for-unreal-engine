@@ -232,17 +232,36 @@ def install_plugin(engine_root: str, output_folder: str, whl_path: str, binaries
 
 def install_whl_global(whl_path: str):
     """
-    Installs the given .whl file to the global python interpreter
+    Installs the given .whl file to the global python interpreter.
+
+    Done in two passes so iterative dev builds reliably overwrite installed
+    files without paying the dependency-resolve cost on every build:
+
+    1. ``pip install <whl>`` — resolves and installs deps the first time;
+       on subsequent builds where deps are already satisfied this is a fast
+       metadata check.
+    2. ``pip install <whl> --force-reinstall --no-deps`` — overwrites the
+       package's own files even when the version string is unchanged, which
+       the previous --upgrade strategy would silently skip.
 
     :param whl_path: Path to whl file
     """
 
     if not os.path.exists(whl_path):
         raise Exception(f"Could not find .whl file at {whl_path}")
-    # Pip install the .whl file to the global python interpreter
-    logger.info(f"Installing {whl_path} to global interpreter")
+
+    # Pass 1: ensure dependencies are present.
+    logger.info(f"Installing {whl_path} dependencies to global interpreter")
+    subprocess.run(
+        ["python", "-m", "pip", "install", whl_path],
+        check=True,
+    )
+
+    # Pass 2: force-overwrite the package itself so iterative builds with the
+    # same version string actually replace files on disk.
+    logger.info(f"Force-reinstalling {whl_path} to global interpreter")
     result = subprocess.run(
-        ["python", "-m", "pip", "install", whl_path, "--upgrade", "--upgrade-strategy", "eager"],
+        ["python", "-m", "pip", "install", whl_path, "--force-reinstall", "--no-deps"],
         check=True,
     )
     logger.info(f"Install result: {result.returncode}")

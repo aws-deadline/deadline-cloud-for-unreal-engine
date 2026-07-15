@@ -696,3 +696,35 @@ class UgsRenderUnrealOpenJobStep(RenderUnrealOpenJobStep):
 class P4RenderUnrealOpenJobStep(RenderUnrealOpenJobStep):
 
     default_template_path = settings.P4_RENDER_STEP_TEMPLATE_DEFAULT_PATH
+
+
+class P4AssembleShelvesUnrealOpenJobStep(UnrealOpenJobStep):
+    """
+    Downstream step that runs once after all Render tasks and aggregates
+    every task's shelved CL into one final CL. See
+    ``deadline.unreal_perforce_utils.app.assemble_shelves`` for the P4
+    protocol details.
+
+    Only added to a job when SubmitMode is set (submit or shelve). The
+    step name ``AssembleShelves`` and dependency on ``Render`` are fixed
+    — customers don't configure them.
+    """
+
+    default_template_path = settings.P4_ASSEMBLE_SHELVES_STEP_TEMPLATE_DEFAULT_PATH
+
+    def __init__(
+        self,
+        file_path: Optional[str] = None,
+        name: Optional[str] = None,
+        environments: Optional[list[UnrealOpenJobEnvironment]] = None,
+        extra_parameters: Optional[list[UnrealOpenJobStepParameterDefinition]] = None,
+        host_requirements: Optional[HostRequirementsTemplate] = None,
+    ):
+        super().__init__(
+            file_path=file_path,
+            name=name,
+            step_dependencies=["Render"],
+            environments=environments,
+            extra_parameters=extra_parameters,
+            host_requirements=host_requirements,
+        )

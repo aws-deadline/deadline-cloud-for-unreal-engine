@@ -25,6 +25,13 @@ script:
       chunk_size: {{Param.ChunkSize}}
       chunk_id: {{Task.Param.ChunkId}}
       output_path: {{Task.Param.OutputPath}}
+      # Quote the substitution so an empty default (`SubmitMode=""`) expands to
+      # `submit_mode: ""` — YAML would otherwise parse the bare `submit_mode:`
+      # as null, which fails the run-data schema's `"type": "string"` check on
+      # every P4 render task that doesn't opt into P4 submission.
+      submit_mode: "{{Param.SubmitMode}}"
+      project_name: "{{Param.ProjectName}}"
+      project_relative_path: "{{Param.ProjectRelativePath}}"
   actions:
     onRun:
       command: unreal-engine-openjd

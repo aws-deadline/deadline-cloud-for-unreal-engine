@@ -1,0 +1,29 @@
+name: AssembleShelves
+# The dependency on 'Render' is added by the P4AssembleShelvesUnrealOpenJobStep
+# Python class, not this yaml — the base class ignores yaml `dependencies:`
+# and reads them from step_dependencies at build time.
+parameterSpace:
+  taskParameterDefinitions:
+  # Single-task step — no fan-out. Each render task shelved its own CL and
+  # emitted a machine-parseable marker in the CL description; this step
+  # discovers all of them via `p4 changes -s shelved` server-side and
+  # aggregates them into one final CL. That final CL is submitted or left
+  # shelved based on the user's SubmitMode.
+  - name: AggregateId
+    type: INT
+    range: [0]
+script:
+  actions:
+    onRun:
+      command: unreal-engine-p4-utils
+      args:
+      - assemble_shelves
+      - -UnrealProjectName
+      - '{{Param.ProjectName}}'
+      - -FinalMode
+      - '{{Param.SubmitMode}}'
+      # -DeadlineJobId is optional; the CLI reads $DEADLINE_JOB_ID which the
+      # worker agent injects into every session. Kept explicit-flag support
+      # in case someone needs to override it in a test harness.
+      cancelation:
+        mode: NOTIFY_THEN_TERMINATE

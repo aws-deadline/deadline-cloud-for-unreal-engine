@@ -147,6 +147,7 @@ Set up an OpenJD Render Job that orchestrates the entire rendering workflow.
 | `CondaChannels` | Conda channels where packages are stored | ❌ | **Configure** - Use default for standard setups |
 | `ChunkSize` | Number of shots grouped in a single render session | ❌ | **Configure** - Default: 1 (tune for performance) |
 | `MarketplacePluginsDir` | Path to engine Marketplace plugins | ✅ | **Leave empty** - Auto-populated |
+| `SubmitMode` | Push render outputs into Perforce (`''`, `submit`, or `shelve`) | ❌ | **Optional** - Default `''` disables P4 output submission (Job Attachments still runs) |
 
 > **📝 Legend**: ✅ = Auto-populated during submission, ❌ = No Auto-populated
 
@@ -169,6 +170,37 @@ Set up an OpenJD Render Job that orchestrates the entire rendering workflow.
 
 6. **Add Render Step**: Add "P4RenderStep" to the Steps section
    ![Add Environments And Steps](./images/p4-add-environments-and-steps.png)
+
+## Submitting Render Outputs Back to Perforce (`SubmitMode`)
+
+By default a P4 render job only uploads outputs through Job Attachments. The `SubmitMode` parameter opts in to also pushing those outputs into Perforce.
+
+| `SubmitMode` value | Behavior |
+|--------------------|----------|
+| `''` (default) | Job Attachments only. No P4 write occurs. Existing jobs behave unchanged. |
+| `submit` | Each render task shelves the files it produced under its output directory. When every task has finished, an `AssembleShelves` step unshelves all task shelves into a single aggregate changelist and submits it. The final CL number is emitted as `openjd_status: Submitted CL <n>`. |
+| `shelve` | Same aggregation as `submit`, but the final aggregate CL is shelved instead of submitted. Useful when a human should review the aggregate before commit. The shelved CL is emitted as `openjd_env: SHELVED_CL=<n>`. |
+
+> **Note on downloading outputs.** When `SubmitMode` is set to `submit` or `shelve`, Job Attachments does **not** upload render outputs to S3 — Perforce becomes the sole delivery path for the frames. This means:
+>
+> - The Deadline Monitor "download outputs" feature will not find the frames.
+> - Downstream Deadline jobs that consume outputs via Job Attachments will not see them either; they must have a Perforce client and `p4 sync` the outputs themselves.
+>
+> Input attachments (project files, plugins, and other assets) are still uploaded via Job Attachments as normal; only render outputs move to Perforce.
+
+**How task shelves are aggregated.** Each render task tags its shelved CL description with a machine-readable marker line:
+
+```
+DeadlineCloudRenderShelve/<deadline-job-id>
+```
+
+`AssembleShelves` runs a single `p4 changes -s shelved -u <p4-user> -l` query and filters by that marker. There is no client-side coordination — worker crashes mid-job simply reduce the aggregate file count.
+
+**Assumption:** every render worker for a given job must authenticate to Perforce as the same P4 user. `AssembleShelves` filters shelved CLs by owner (`-u`), so per-worker P4 users would cause the aggregation step to miss shelves. In practice this is already how the [Perforce credentials guide](./perforce-credentials-management.md) recommends configuring worker credentials (single shared secret).
+
+**What ends up in the CL.** Only files that actually changed since the last sync. Each task runs `p4 reconcile -e -a` scoped to the exact files it produced (identified by a pre-/post-render mtime diff), then `p4 revert -a` strips opens whose content is bit-identical to depot. Re-rendering a frame that already exists in Perforce with the same bytes produces no CL entry for that frame.
+
+**Where outputs must live.** Files must be written under `output_path` on the worker (the standard MRQ output directory). The adaptor stages that directory into the P4 client root before reconcile, so any renderer output layout works as long as it lands under `output_path`.
 
 ## Best Practices
 

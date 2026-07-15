@@ -864,6 +864,7 @@ def run_unreal_test(request, reusable_farm_id, reusable_queue_id) -> Callable:
         # credential/S3 session; -testparams alone does not write these defaults.
         config.set_setting("defaults.farm_id", reusable_farm_id)
         config.set_setting("defaults.queue_id", reusable_queue_id)
+        config.set_setting("settings.deadline_regions", TEST_TARGET_REGION)
 
         test_params_str = f"-testparams=farm_id={reusable_farm_id};queue_id={reusable_queue_id}"
 

@@ -487,6 +487,14 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
             Action("set_handler", {"handler": run_data.get("handler", "base")})
         )
 
+        # Snapshot output_path contents BEFORE the render runs. Chunked tasks
+        # share one session (and therefore one output_path); the render only
+        # writes into the shot subdirs for *this* chunk, but the session dir
+        # also contains prior chunks' output. Without this snapshot we'd
+        # re-shelve every prior task's frames on every task. See the diff-
+        # against-snapshot logic in _maybe_submit_renders_to_perforce.
+        pre_render_snapshot = self._snapshot_output_files(run_data.get("output_path"))
+
         self._unreal_is_rendering = True
         self._action_queue.enqueue_action(Action("run_script", run_data))
 
@@ -514,6 +522,313 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
                     exception_scope="on_run",
                     exit_code=exit_code,
                 )
+
+        # Render succeeded. If the customer requested it (SubmitMode set),
+        # push the outputs into the worker's Perforce client. This runs
+        # same-worker (we're inside the task's on_run, on the worker that
+        # produced the files), so OutputPath paths in run_data resolve to
+        # local files that exist.
+        #
+        # When SubmitMode is active, the submitter's
+        # `RenderUnrealOpenJob.get_asset_references` moves output_directories
+        # into referenced_paths, so Job Attachments no longer uploads render
+        # outputs — the P4 shelve here is the sole delivery path for the
+        # frames. Any failure inside `_maybe_submit_renders_to_perforce`
+        # therefore raises so the task fails and Deadline retries; a silent
+        # skip would drop the frames on the floor.
+        #
+        # When SubmitMode is unset, this call is a no-op and JA runs
+        # normally as configured by the queue.
+        self._maybe_submit_renders_to_perforce(run_data, pre_render_snapshot)
+
+    @staticmethod
+    def _snapshot_output_files(output_path: Optional[str]) -> dict:
+        """
+        Record every file's mtime under ``output_path``. Used to identify
+        which files were produced (or modified) by *this* task's render, so
+        subsequent chunked tasks in the same session don't re-shelve prior
+        tasks' frames.
+
+        Returns an empty dict if the path is missing or unreadable — the
+        diff step then treats every post-render file as new.
+        """
+        from pathlib import Path
+
+        if not output_path:
+            return {}
+        root = Path(output_path)
+        if not root.exists():
+            return {}
+        snapshot: dict = {}
+        for child in root.rglob("*"):
+            if not child.is_file():
+                continue
+            try:
+                snapshot[str(child)] = child.stat().st_mtime_ns
+            except OSError:
+                # A file that vanished between rglob and stat is not this
+                # task's problem — skip it.
+                continue
+        return snapshot
+
+    def _maybe_submit_renders_to_perforce(
+        self, run_data: dict, pre_render_snapshot: Optional[dict] = None
+    ) -> None:
+        """
+        Optional post-render Perforce commit/shelve, gated by run_data['submit_mode'].
+
+        ``pre_render_snapshot`` is the {path -> mtime_ns} map captured just
+        before the render ran, used to determine which files under
+        ``output_path`` are *this* task's output vs. leftovers from prior
+        chunks in the same session. When None (unexpected), we fall back to
+        treating every post-render file as new — that reproduces the
+        pre-snapshot behavior of over-shelving in chunked jobs.
+
+        Empty/missing ``submit_mode`` → no-op. When ``submit_mode`` IS set,
+        this method is the only delivery path for render outputs: the
+        submitter clears ``output_directories`` in that mode so Job
+        Attachments no longer uploads render outputs to S3. Any failure
+        (missing prerequisites, staging error, or P4 shelve failure)
+        therefore raises so the task fails and Deadline can retry — a
+        silent skip would drop the frames on the floor.
+        """
+        submit_mode = (run_data.get("submit_mode") or "").strip()
+        if not submit_mode:
+            return
+
+        output_path = run_data.get("output_path")
+        if not output_path:
+            # submit_mode is set → this is the only delivery path (see
+            # docstring). Missing output_path means we have nothing to
+            # deliver anywhere. Fail loudly.
+            raise RuntimeError(
+                f"submit_mode={submit_mode!r} but run_data has no output_path; "
+                "cannot deliver render outputs. Job Attachments upload of "
+                "outputs is disabled when SubmitMode is active, so the "
+                "frames would land nowhere. Check the render step template."
+            )
+
+        # Imported lazily so the adaptor doesn't pull in p4python on render-only
+        # workers that never set submit_mode.
+        try:
+            from deadline.unreal_perforce_utils import app as p4_app
+        except ImportError as e:
+            raise RuntimeError(
+                f"submit_mode={submit_mode!r} requested but unreal_perforce_utils "
+                f"is unavailable (import failed: {e}). This worker cannot "
+                "deliver render outputs via Perforce."
+            ) from e
+
+        project_name = (run_data.get("project_name") or "").strip()
+        if not project_name:
+            raise RuntimeError(
+                f"submit_mode={submit_mode!r} but run_data has no project_name. "
+                "The P4 render step template must pass project_name through "
+                "run-data — make sure the template is from this version of "
+                "the plugin. Failing the task instead of silently dropping "
+                "render outputs (JA upload is disabled in SubmitMode)."
+            )
+
+        project_relative_path = (run_data.get("project_relative_path") or "").strip()
+        if not project_relative_path:
+            raise RuntimeError(
+                f"submit_mode={submit_mode!r} but run_data has no "
+                "project_relative_path. The P4 render step template must "
+                "pass project_relative_path through run-data. Failing the "
+                "task instead of silently dropping render outputs (JA "
+                "upload is disabled in SubmitMode)."
+            )
+
+        p4_client_directory = os.environ.get("P4_CLIENT_DIRECTORY", "").strip()
+        if not p4_client_directory:
+            raise RuntimeError(
+                f"submit_mode={submit_mode!r} but P4_CLIENT_DIRECTORY env var "
+                "is unset. This env var is set by create_workspace at the "
+                "start of the P4 sync environment, so its absence means the "
+                "P4 environment didn't run or its output wasn't propagated. "
+                "Failing the task — JA output upload is disabled in "
+                "SubmitMode, so the frames would land nowhere."
+            )
+
+        # Identify files this task produced. Chunked tasks share output_path,
+        # so a bare `copytree(output_path, ...)` picks up every prior task's
+        # frames too. Diff against the pre-render snapshot: a file is "ours"
+        # if it was absent before or its mtime changed.
+        from pathlib import Path
+        import shutil
+        import stat
+
+        session_output_root = Path(output_path)
+        snapshot = pre_render_snapshot or {}
+        this_task_files: list[Path] = []
+        if session_output_root.exists():
+            for child in session_output_root.rglob("*"):
+                if not child.is_file():
+                    continue
+                try:
+                    current_mtime = child.stat().st_mtime_ns
+                except OSError:
+                    continue
+                prior_mtime = snapshot.get(str(child))
+                if prior_mtime is None or prior_mtime != current_mtime:
+                    this_task_files.append(child)
+
+        if not this_task_files:
+            logger.info(
+                "submit_mode=%r: no new/modified files under %r since render "
+                "started (pre-snapshot: %d files, post-render walk: %d files). "
+                "Nothing to shelve for this task.",
+                submit_mode,
+                output_path,
+                len(snapshot),
+                0,
+            )
+            return
+
+        logger.info(
+            "submit_mode=%r: %d file(s) attributable to this task's render "
+            "(pre-snapshot had %d file(s) under %r).",
+            submit_mode,
+            len(this_task_files),
+            len(snapshot),
+            output_path,
+        )
+
+        # Stage those files into the P4 workspace at their canonical location
+        # (Saved/<output_leaf>/...). We preserve the relative layout so the
+        # depot path matches: e.g. session/.../MovieRenders/shot0010/frame.exr
+        # lands at workspace/.../Saved/MovieRenders/shot0010/frame.exr.
+        # `submit_renders` reconciles only these specific paths, so prior
+        # chunks' files sitting in the same workspace dir don't leak into
+        # this task's shelve.
+        project_dir_relative = Path(project_relative_path).parent
+        output_leaf = Path(output_path).name or "MovieRenders"
+        workspace_output_dir = (
+            Path(p4_client_directory) / project_dir_relative / "Saved" / output_leaf
+        )
+
+        # Clear read-only on files we're about to overwrite. P4 syncs files
+        # read-only (noallwrite); without this, copying over a previously-
+        # submitted frame fails with PermissionError. Only touch destinations
+        # that exist and correspond to files we're staging.
+        #
+        # All-or-nothing staging: SubmitMode is the sole delivery path for
+        # render outputs (JA output upload is disabled in `get_asset_references`),
+        # so a partial stage would silently drop the frames that failed to
+        # copy — the task would report success and downstream `assemble_shelves`
+        # would aggregate an incomplete set with no operator alert. Collect
+        # every failure and raise once the loop finishes, so operators see
+        # the full failure list in one shot.
+        workspace_paths_for_reconcile: list[str] = []
+        staging_failures: list[tuple[str, str, str]] = []  # (src, dst, error)
+        for src in this_task_files:
+            try:
+                rel = src.relative_to(session_output_root)
+            except ValueError:
+                # rglob under session_output_root should always be relative,
+                # but skip if not.
+                continue
+            dst = workspace_output_dir / rel
+            if dst.exists() and dst.is_file():
+                try:
+                    dst.chmod(stat.S_IWRITE | stat.S_IREAD)
+                except OSError:
+                    # Best-effort clearing of the P4-set read-only bit; if the
+                    # OS refuses (e.g. ACL-restricted, foreign filesystem), the
+                    # subsequent copy2 will surface a clearer error.
+                    pass
+            try:
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dst)
+                workspace_paths_for_reconcile.append(str(dst))
+            except Exception as e:
+                logger.warning(
+                    "Failed to stage %r -> %r for Perforce submit: %s.",
+                    str(src),
+                    str(dst),
+                    e,
+                )
+                staging_failures.append((str(src), str(dst), str(e)))
+
+        if staging_failures:
+            # Any single failed copy is a task failure. Report enough detail
+            # for postmortem: the count, the first N examples, and a pointer
+            # to the per-file WARNING logs above.
+            preview = staging_failures[:5]
+            preview_lines = "\n".join(f"  {src} -> {dst}: {err}" for (src, dst, err) in preview)
+            more = (
+                f"\n  ...and {len(staging_failures) - len(preview)} more"
+                if len(staging_failures) > len(preview)
+                else ""
+            )
+            raise RuntimeError(
+                f"submit_mode={submit_mode!r}: {len(staging_failures)} of "
+                f"{len(this_task_files)} task-produced file(s) failed to stage "
+                f"to the P4 workspace. Failing the task — JA output upload is "
+                f"disabled in SubmitMode, so partial staging would silently drop "
+                f"the un-staged frames. First failures:\n{preview_lines}{more}"
+            )
+
+        logger.info(
+            "Render succeeded; submit_mode=%r — staged %d file(s) under %r "
+            "and shelving to Perforce (project %r).",
+            submit_mode,
+            len(workspace_paths_for_reconcile),
+            str(workspace_output_dir),
+            project_name,
+        )
+        # Always shelve at the task level, even when submit_mode='submit'.
+        # In chunked/distributed jobs, one AssembleShelves step downstream
+        # collects every task's shelved CL and produces a single aggregated
+        # CL (submitted or left shelved based on the user's SubmitMode).
+        # The 'submit' vs 'shelve' distinction is now a *final-mode* choice
+        # applied by AssembleShelves, not something individual tasks decide.
+        # Emitting the CL as shelved on every task is the uniform contract
+        # the assemble step consumes.
+        try:
+            cl_number = p4_app.submit_renders(
+                unreal_project_name=project_name,
+                output_directories=[],
+                explicit_files=workspace_paths_for_reconcile,
+                mode="shelve",
+                deadline_job_id=os.environ.get("DEADLINE_JOB_ID"),
+            )
+        except Exception as e:
+            # Customer opted into P4 delivery via SubmitMode; JA output upload
+            # is skipped in this mode (see P4RenderUnrealOpenJob.get_asset_
+            # references). If the shelve fails, the frames go nowhere — silent
+            # success would be worse than a failed task the operator can retry.
+            # Let it raise; Deadline's maxRetriesPerTask handles transient
+            # failures and maxFailedTasksCount caps the overall damage.
+            logger.error(
+                "Perforce shelve failed (submit_mode=%r, staged path=%r): %s. "
+                "Failing the task so Deadline retries or surfaces the failure.",
+                submit_mode,
+                str(workspace_output_dir),
+                e,
+            )
+            raise
+
+        # Positive confirmation so operators can grep one line to verify a
+        # successful shelve, without scrolling through the interleaved render
+        # output to find the submit_renders log lines.
+        if cl_number is None:
+            # Render produced no diffs vs depot (e.g. deterministic re-render
+            # of already-committed frames). Nothing to aggregate for this task.
+            logger.info(
+                "Perforce shelve complete (submit_mode=%r): no files changed "
+                "since last sync, no changelist created for this task.",
+                submit_mode,
+            )
+        else:
+            logger.info(
+                "Perforce shelve complete: CL %d shelved for aggregation. "
+                "SHELVED_CL=%d emitted for downstream AssembleShelves step. "
+                "Final mode from SubmitMode=%r.",
+                cl_number,
+                cl_number,
+                submit_mode,
+            )
 
     def on_stop(self) -> None:
         """
