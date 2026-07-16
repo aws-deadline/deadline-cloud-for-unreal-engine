@@ -7,7 +7,6 @@ import configparser
 from deadline.unreal_logger import get_logger
 from deadline.unreal_perforce_utils import exceptions
 
-
 logger = get_logger()
 
 

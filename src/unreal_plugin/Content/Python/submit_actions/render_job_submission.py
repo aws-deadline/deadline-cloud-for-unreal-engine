@@ -21,7 +21,6 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment impor
 )
 from deadline.unreal_logger import get_logger
 
-
 logger = get_logger()
 
 
@@ -48,8 +47,8 @@ def main():
             steps=[
                 RenderUnrealOpenJobStep(
                     extra_parameters=[
-                        # Override ChunkSize parameter value
-                        UnrealOpenJobStepParameterDefinition("ChunkSize", "INT", [10])
+                        # Override ShotsPerTask parameter value
+                        UnrealOpenJobStepParameterDefinition("ShotsPerTask", "INT", [10])
                     ]
                 )
             ],

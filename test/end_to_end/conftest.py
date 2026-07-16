@@ -246,6 +246,12 @@ def pytest_addoption(parser) -> None:
         help="Override the CondaChannels default in the render job template",
     )
     parser.addoption(
+        "--render-offscreen",
+        action="store_true",
+        default=False,
+        help="Use -RenderOffScreen instead of -nullrhi (requires GPU)",
+    )
+    parser.addoption(
         "--no-prerun-checks",
         action="store_true",
         default=False,
@@ -854,18 +860,27 @@ def run_unreal_test(request, reusable_farm_id, reusable_queue_id) -> Callable:
 
         logger.info(f"Running unreal test with farm {reusable_farm_id} queue {reusable_queue_id}")
 
+        # Populate the Deadline config so the plugin's startup precache warms the
+        # credential/S3 session; -testparams alone does not write these defaults.
+        config.set_setting("defaults.farm_id", reusable_farm_id)
+        config.set_setting("defaults.queue_id", reusable_queue_id)
+        config.set_setting("settings.deadline_regions", TEST_TARGET_REGION)
+
         test_params_str = f"-testparams=farm_id={reusable_farm_id};queue_id={reusable_queue_id}"
 
         engine_root = find_engine_root(request.config.getoption("--ueversion"))
 
         unrealeditor_cmd_path = os.path.join(engine_root, "Engine", "Binaries", "Win64")
+        rhi_flag = (
+            "-RenderOffScreen" if request.config.getoption("--render-offscreen") else "-nullrhi"
+        )
         test_args = [
             os.path.join(unrealeditor_cmd_path, "UnrealEditor-Cmd.exe"),
             uproject_file,
             f"-ExecCmds=Automation RunTests {test_path}",
             "-stdout",
             "-unattended",
-            "-nullrhi",
+            rhi_flag,
             "-nosplash",
             "-nosound",
             "-nocontentbrowser",
@@ -932,6 +947,12 @@ def run_unreal_test(request, reusable_farm_id, reusable_queue_id) -> Callable:
             if not re.search(failure_pattern, output_text):
                 logger.warning(f"Could not determine test result for {test_path}")
                 success = False
+
+        # Emit full UE output on failure; real-time stdout is swallowed by pytest-xdist capture
+        if not success:
+            logger.error(
+                "Full Unreal Engine output for failed test %s:\n%s", test_path, output_text
+            )
 
         # Return both success status and output lines
         return success, full_output
@@ -1446,7 +1467,6 @@ def delete_fleets_util(deadline_client: BaseClient, fleet_responses: List[Dict[s
 
 @pytest.fixture(scope="session")
 def reusable_fleet_id(
-    worker_id: str,
     deadline_client: BaseClient,
     reusable_farm_id: str,
     worker_role_arn: str,
@@ -1456,7 +1476,6 @@ def reusable_fleet_id(
     Fixture that provides a fleet ID, creating one if it doesn't exist.
 
     Args:
-        worker_id: The pytest worker ID
         deadline_client: The Deadline Cloud client
         reusable_farm_id: The farm ID
         worker_role_arn: The ARN of the IAM role to use for the fleet
@@ -1468,6 +1487,12 @@ def reusable_fleet_id(
     fleet_id = None
     fleet_response = None
     created_new = False
+
+    env_fleet_id = os.environ.get("UNREAL_WORKER_FLEET_ID")
+    if env_fleet_id:
+        logger.info(f"Using fleet_id {env_fleet_id} from UNREAL_WORKER_FLEET_ID env var")
+        yield env_fleet_id
+        return
 
     # First check if a test fleet already exists
     try:
@@ -1739,7 +1764,7 @@ def stop_queue_fleet_associations_and_wait(
 
 @pytest.fixture(scope="session")
 def deadline_worker_agent(
-    reusable_farm_id: str, reusable_fleet_id: str
+    request, reusable_farm_id: str, reusable_fleet_id: str
 ) -> Generator[Tuple[subprocess.Popen, str], None, None]:
     """
     Launch deadline-worker-agent as a subprocess using the farm ID and fleet ID from our tests.
@@ -1747,6 +1772,7 @@ def deadline_worker_agent(
     This fixture is session-scoped and ensures the worker agent is stopped during cleanup.
 
     Args:
+        request: The pytest request object (used to read the --ueversion option)
         reusable_farm_id: The farm ID to use
         reusable_fleet_id: The fleet ID to use
 
@@ -1802,6 +1828,10 @@ def deadline_worker_agent(
         log_dir, f"worker-agent-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.log"
     )
 
+    # Create persistence dir for worker agent state
+    persistence_dir = os.path.join(os.getcwd(), "worker-agent-state")
+    os.makedirs(persistence_dir, exist_ok=True)
+
     # Start the worker agent process
     cmd = [
         "deadline-worker-agent",
@@ -1809,64 +1839,74 @@ def deadline_worker_agent(
         reusable_farm_id,
         "--fleet-id",
         reusable_fleet_id,
-        # Disable rich console output to avoid encoding errors
-        "--structured-logs",  # Use structured logs instead of rich console output
+        "--structured-logs",
         "--run-jobs-as-agent-user",
+        "--no-shutdown",
+        "--logs-dir",
+        log_dir,
+        "--persistence-dir",
+        persistence_dir,
     ]
 
-    # Environment variables to disable rich console output
+    # Environment variables for the worker agent
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
-    env["TERM"] = "dumb"  # Disable terminal features
-    env["NO_COLOR"] = "1"  # Disable color output
+    env["TERM"] = "dumb"
+    env["NO_COLOR"] = "1"
+
+    # Add UE binaries to PATH so the adaptor can find UnrealEditor-Cmd.
+    ue_bin_dir = os.path.join(
+        find_engine_root(request.config.getoption("--ueversion")),
+        "Engine",
+        "Binaries",
+        "Win64",
+    )
+    if os.path.isdir(ue_bin_dir):
+        env["PATH"] = ue_bin_dir + os.pathsep + env.get("PATH", "")
 
     logger.info(f"Starting worker agent with command: {' '.join(cmd)}")
     logger.info(f"Worker agent logs will be written to: {log_file}")
 
+    log_fh = open(log_file, "w")
+
     # Use different process creation flags based on platform
     if sys.platform == "win32":
-        # On Windows, create a new process group so we can terminate it and all children
-        with open(log_file, "w") as f:
-            process = subprocess.Popen(
-                cmd,
-                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
-                stdout=f,
-                stderr=f,
-                env=env,
-                text=True,
-            )
+        process = subprocess.Popen(
+            cmd,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+            stdout=log_fh,
+            stderr=log_fh,
+            env=env,
+            text=True,
+        )
     else:
-        # On Unix-like systems, use process groups if available
-        with open(log_file, "w") as f:
-            if hasattr(os, "setsid"):
-                process = subprocess.Popen(
-                    cmd,
-                    preexec_fn=os.setsid,  # Create a new session
-                    stdout=f,
-                    stderr=f,
-                    env=env,
-                    text=True,
-                )
-            else:
-                # Fallback if setsid is not available
-                process = subprocess.Popen(
-                    cmd,
-                    stdout=f,
-                    stderr=f,
-                    env=env,
-                    text=True,
-                )
+        process = subprocess.Popen(
+            cmd,
+            preexec_fn=os.setsid if hasattr(os, "setsid") else None,
+            stdout=log_fh,
+            stderr=log_fh,
+            env=env,
+            text=True,
+        )
 
-    # Give the worker agent time to start and register
-    time.sleep(10)  # Increased to give more time to register
+    # Give the worker agent time to start and register with the fleet
+    for i in range(6):
+        time.sleep(5)
+        if process.poll() is not None:
+            log_fh.flush()
+            with open(log_file, "r") as f:
+                log_content = f.read()
+            pytest.fail(
+                f"Worker agent exited during startup (exit code {process.returncode}):\n{log_content}"
+            )
+        logger.info(f"Worker agent startup check {i+1}/6 — still running (PID {process.pid})")
 
-    # Check if process is still running
+    # Final check
     if process.poll() is not None:
-        # Process exited prematurely
+        log_fh.flush()
         with open(log_file, "r") as f:
             log_content = f.read()
-        error_msg = f"Worker agent failed to start: exit code {process.returncode}\nLog content: {log_content}"
-        pytest.fail(error_msg)
+        pytest.fail(f"Worker agent failed to start: exit code {process.returncode}\n{log_content}")
 
     logger.info(f"Worker agent started successfully with PID: {process.pid}")
     logger.info(f"To view worker agent logs, check: {log_file}")
@@ -1906,6 +1946,8 @@ def deadline_worker_agent(
                     process.kill()
     except Exception as e:
         logger.error(f"Error stopping worker agent: {str(e)}")
+    finally:
+        log_fh.close()
 
     logger.info("Worker agent stopped")
 

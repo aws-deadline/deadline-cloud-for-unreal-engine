@@ -1,3 +1,11 @@
+## 0.7.0 (2026-07-16)
+
+### BREAKING CHANGES
+* The render partitioning parameters have been renamed: `ChunkSize` is now `ShotsPerTask` and `ChunkId` is now `TaskIndex`. The corresponding run_data keys changed from `chunk_size`/`chunk_id` to `shots_per_task`/`task_index`. Adaptors from Phase 1+ accept both legacy and new keys, so existing workers will continue to function, but newly submitted jobs will use the new names. (#338)
+* The minimum required version of `deadline-cloud` has been raised from 0.57 to 0.59, and `openjd-model` from 0.9.0 to 0.10.0. Users must update these dependencies to continue using the plugin. (#330)
+
+### Features
+* Added a `SubmitMode` parameter to the Perforce render job template that can push render outputs into Perforce as part of the job. Set it to `submit` to aggregate all render task outputs into a single changelist and submit, or `shelve` to leave the aggregate changelist shelved for review. The default (empty string) preserves existing behavior with Job Attachments only. (#337)
 ## 0.6.10 (2026-06-25)
 
 ### Features

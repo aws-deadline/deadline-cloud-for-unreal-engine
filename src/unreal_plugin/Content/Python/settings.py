@@ -15,7 +15,6 @@ from deadline.job_attachments.models import FileConflictResolution
 
 from deadline.unreal_logger import get_logger
 
-
 logger = get_logger()
 
 

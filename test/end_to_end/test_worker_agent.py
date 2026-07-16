@@ -17,6 +17,7 @@ def test_create_job_with_worker_agent(
     build_plugin,
     create_readonly_test_project,
     run_unreal_test,
+    reusable_queue_fleet_association,
     deadline_worker_agent,
 ):
     """
@@ -60,6 +61,7 @@ def test_worker_agent_project_plugins(
     build_plugin,
     create_readonly_test_project,
     run_unreal_test,
+    reusable_queue_fleet_association,
     deadline_worker_agent,
 ):
 

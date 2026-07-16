@@ -14,7 +14,20 @@
         "chunk_id": { "type": "integer" },
         "shots_per_task": { "type": "integer" },
         "task_index": { "type": "integer" },
-        "output_path": { "type":  "string" }
+        "output_path": { "type":  "string" },
+        "submit_mode": {
+            "type": "string",
+            "enum": ["", "submit", "shelve"],
+            "description": "If non-empty, after a successful render, also commit ('submit') or shelve ('shelve') the task's outputs into the worker's Perforce client. '' (default) is a no-op so adding this field is safe."
+        },
+        "project_name": {
+            "type": "string",
+            "description": "Unreal project name. Used by the optional Perforce submit hook to resolve the persistent workspace (workspace name is <user>_<host>_<project_name>[_<worker_id>]). Pass the same value the submitter put on the render job's ProjectName parameter."
+        },
+        "project_relative_path": {
+            "type": "string",
+            "description": "Path to the .uproject from the workspace root, e.g. 'MyProject/MyProject.uproject'. Used by the Perforce submit hook to compute where renders should be staged inside the workspace (P4_CLIENT_DIRECTORY/<project_dir>/Saved/MovieRenders) before commit. Pass the same value the submitter put on the render job's ProjectRelativePath parameter."
+        }
     },
     "required": [
         "handler"

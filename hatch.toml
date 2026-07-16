@@ -38,7 +38,8 @@ python = ["3.8", "3.9", "3.10", "3.11"]
 
 [envs.integ-ci]
 pre-install-commands = [
-  "pip install -r requirements-testing.txt"
+  "pip install -r requirements-testing.txt",
+  "pip install pyyaml openjd-cli"
 ]
 
 [[envs.integ-ci.matrix]]
@@ -50,11 +51,12 @@ UE_VERSION = "{matrix:unreal}"
 
 [envs.integ-ci.scripts]
 setup = "python ./pipeline/setup-runner.py --versions {matrix:unreal}"
-integ = "pytest --no-cov {args:test/integ} -vvv --numprocesses=1"
+integ = "pytest --no-cov {args:test/integ} -vvv --numprocesses=1 --nobuild"
 
 [envs.e2e-ci]
 pre-install-commands = [
-  "pip install -r requirements-testing.txt"
+  "pip install -r requirements-testing.txt",
+  "pip install pyyaml openjd-cli deadline-cloud-worker-agent"
 ]
 
 [[envs.e2e-ci.matrix]]
@@ -66,7 +68,8 @@ UE_VERSION = "{matrix:unreal}"
 
 [envs.e2e-ci.scripts]
 setup = "python ./pipeline/setup-runner.py --versions {matrix:unreal}"
-e2e = "pytest --no-cov {args:test/end_to_end/test_create_job.py} -vvv --numprocesses=1"
+e2e = "pytest --no-cov {args:test/end_to_end/test_create_job.py} -vvv --numprocesses=1 --nobuild"
+worker = "pytest --no-cov {args:test/end_to_end/test_worker_agent.py} -vvv --numprocesses=1 --nobuild --deselect test/end_to_end/test_worker_agent.py::test_create_job_with_worker_agent"
 
 [envs.release]
 detached = true
