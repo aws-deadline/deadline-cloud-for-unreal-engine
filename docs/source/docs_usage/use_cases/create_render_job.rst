@@ -18,15 +18,15 @@ Render Step data asset
 
    a. Handler - specify which UnrealAdaptor’s handler will process the script commands. Handler "render" used for usual pipeline of MRQ  render **Filled automatically during the submission**
    #. QueueManifestPath - path to the serialized MRQ manifest where render job is described. **Filled automatically during the submission**
-   #. TaskChunkSize - Number of shots of Level Sequence to render per OpenJob Task. Set this value according to what number of tasks you want Deadline Cloud to generate
-      For example, if Level Sequence has 10 shots and TaskChunkSize = 3 that means 4 OpenJob Tasks will be introduced:
+   #. ShotsPerTask - Number of shots of Level Sequence to render per OpenJob Task. Set this value according to what number of tasks you want Deadline Cloud to generate
+      For example, if Level Sequence has 10 shots and ShotsPerTask = 3 that means 4 OpenJob Tasks will be introduced:
 
        i. Task 0 - shots 0, 1, 2
        #. Task 1 - shots 3, 4, 5
        #. Task 2 - shots 6, 7, 8
        #. Task 3 - shot 9
 
-   #. TaskChunkId - list of chunk ids. This example will consist of 0, 1, 2, 3 (task ids). **Filled automatically during the submission**
+   #. TaskIndex - list of task indices. This example will consist of 0, 1, 2, 3 (task ids). **Filled automatically during the submission**
 
 
 Launch UE Environment data asset
@@ -63,7 +63,7 @@ Render Job data asset
       of frames.
 
       .. note::
-         When chunking a render across multiple tasks, MRQ writes one output file per task.
+         When a render is split across multiple tasks, MRQ writes one output file per task.
          For image sequences (PNG/EXR/etc.) the default ``FileNameFormat`` already includes
          ``{frame_number}``, so each task's output is unique. For video containers such as
          ``.mov`` the default format is just ``{sequence_name}`` and every task will write to

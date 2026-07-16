@@ -24,8 +24,8 @@ class TestOpenJobStepParameterNamesFramesPerTask:
             OpenJobStepParameterNames.OUTPUT_PATH,
             OpenJobStepParameterNames.ADAPTOR_HANDLER,
             OpenJobStepParameterNames.FRAMES_PER_TASK,
-            OpenJobStepParameterNames.TASK_CHUNK_SIZE,
-            OpenJobStepParameterNames.TASK_CHUNK_ID,
+            OpenJobStepParameterNames.SHOTS_PER_TASK,
+            OpenJobStepParameterNames.TASK_INDEX,
         ]
 
         # WHEN/THEN
@@ -44,8 +44,8 @@ class TestOpenJobStepParameterNamesFramesPerTask:
             OpenJobStepParameterNames.OUTPUT_PATH,
             OpenJobStepParameterNames.ADAPTOR_HANDLER,
             OpenJobStepParameterNames.FRAMES_PER_TASK,
-            OpenJobStepParameterNames.TASK_CHUNK_SIZE,
-            OpenJobStepParameterNames.TASK_CHUNK_ID,
+            OpenJobStepParameterNames.SHOTS_PER_TASK,
+            OpenJobStepParameterNames.TASK_INDEX,
         ]
 
         # WHEN/THEN - All parameter values should be unique

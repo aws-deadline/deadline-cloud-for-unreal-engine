@@ -10,10 +10,10 @@ parameterSpace:
   - name: FramesPerTask
     type: INT
     range: []
-  - name: ChunkSize
+  - name: ShotsPerTask
     type: INT
     range: []
-  - name: ChunkId
+  - name: TaskIndex
     type: INT
     range: []
 script:
@@ -25,8 +25,8 @@ script:
       handler: {{Task.Param.Handler}}
       queue_manifest_path: {{Task.Param.QueueManifestPath}}
       frames_per_task: {{Task.Param.FramesPerTask}}
-      chunk_size: {{Task.Param.ChunkSize}}
-      chunk_id: {{Task.Param.ChunkId}}
+      shots_per_task: {{Task.Param.ShotsPerTask}}
+      task_index: {{Task.Param.TaskIndex}}
   actions:
     onRun:
       command: unreal-engine-openjd

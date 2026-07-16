@@ -4,7 +4,6 @@ import sys
 import pytest
 from unittest.mock import MagicMock, patch
 
-
 unreal_mock = MagicMock()
 unreal_mock.log = MagicMock()
 sys.modules["unreal"] = unreal_mock

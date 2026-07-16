@@ -246,12 +246,16 @@ class TestWorkspaceInfoFileProperties:
 class TestCreateWorkspaceFromTemplatePersistence:
     """Unit tests for reusable workspace behavior in create_perforce_workspace_from_template."""
 
-    # --- Task 3.2: Non-reusable behavior unchanged ---
+    # --- Task 3.2: Fallback-root (~/Perforce) applies persistent semantics ---
+    # When P4_CLIENTS_ROOT_DIRECTORY is unset, `create_perforce_workspace_from_template`
+    # falls back to ~/Perforce and treats the workspace as reusable (same code path
+    # as when the env var is set). We patch `_default_clients_root` to a tmp path
+    # so tests don't touch the real user home.
 
     @patch("deadline.unreal_perforce_utils.app.perforce")
     @patch("deadline.unreal_perforce_utils.app.get_workspace_name", return_value="user_host_proj")
-    def test_no_clients_root_creates_new_workspace(self, mock_get_name, mock_perforce):
-        """When P4_CLIENTS_ROOT_DIRECTORY is not set, existing behavior is preserved."""
+    def test_no_clients_root_creates_new_workspace(self, mock_get_name, mock_perforce, tmp_path):
+        """When P4_CLIENTS_ROOT_DIRECTORY is not set, ~/Perforce fallback is used."""
         mock_client = MagicMock()
         mock_perforce.PerforceClient.return_value = mock_client
         mock_perforce.PerforceConnection.return_value = MagicMock()
@@ -262,20 +266,28 @@ class TestCreateWorkspaceFromTemplatePersistence:
             "Stream": "//MeerkatDemo/Mainline",
         }
 
-        with patch.dict(os.environ, {}, clear=True):
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch(
+                "deadline.unreal_perforce_utils.app._default_clients_root",
+                return_value=str(tmp_path / "Perforce"),
+            ),
+        ):
             result = create_perforce_workspace_from_template(template, "MeerkatDemo")
 
-        mock_get_name.assert_called_once_with(project_name="MeerkatDemo")
+        # For stream workspaces the fallback path uses the stream-derived
+        # workspace-name component, not the raw project name.
+        mock_get_name.assert_called_once()
         mock_perforce.PerforceClient.assert_called_once()
         mock_client.save.assert_called_once()
         assert result is mock_client
 
     @patch("deadline.unreal_perforce_utils.app.perforce")
     @patch("deadline.unreal_perforce_utils.app.get_workspace_name", return_value="user_host_proj")
-    def test_no_clients_root_does_not_read_or_write_workspace_info(
-        self, mock_get_name, mock_perforce
+    def test_no_clients_root_uses_home_perforce_fallback(
+        self, mock_get_name, mock_perforce, tmp_path
     ):
-        """When P4_CLIENTS_ROOT_DIRECTORY is not set, no workspace_info.json I/O occurs."""
+        """Fallback root is <clients_root>/<workspace_name>."""
         mock_perforce.PerforceClient.return_value = MagicMock()
         mock_perforce.PerforceConnection.return_value = MagicMock()
 
@@ -285,10 +297,19 @@ class TestCreateWorkspaceFromTemplatePersistence:
             "Stream": "//MeerkatDemo/Mainline",
         }
 
-        with patch.dict(os.environ, {}, clear=True):
-            with patch("builtins.open", side_effect=AssertionError("should not open files")):
-                # open() should never be called for workspace_info.json
-                create_perforce_workspace_from_template(template, "MeerkatDemo")
+        fake_home_perforce = str(tmp_path / "Perforce")
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch(
+                "deadline.unreal_perforce_utils.app._default_clients_root",
+                return_value=fake_home_perforce,
+            ),
+        ):
+            create_perforce_workspace_from_template(template, "MeerkatDemo")
+
+        expected_root = f"{fake_home_perforce}/user_host_proj".replace("\\", "/")
+        actual_root = str(template["Root"]).replace("\\", "/")
+        assert actual_root == expected_root
 
     # --- Task 3.3: Stream workspace reuse flow ---
 
@@ -541,8 +562,14 @@ class TestCreateWorkspaceFromTemplatePersistence:
 
     @patch("deadline.unreal_perforce_utils.app.perforce")
     @patch("deadline.unreal_perforce_utils.app.get_workspace_name", return_value="new_ws")
-    def test_no_clients_root_does_not_clear_host_field(self, mock_get_name, mock_perforce):
-        """When P4_CLIENTS_ROOT_DIRECTORY is not set, Host field is not touched."""
+    def test_no_clients_root_clears_host_field_via_fallback(
+        self, mock_get_name, mock_perforce, tmp_path
+    ):
+        """
+        With the ~/Perforce fallback in place, workspaces are always treated as
+        reusable, which means Host is cleared to allow the workspace to be used
+        from any host. Pins the fallback's persistent semantics.
+        """
         mock_client = MagicMock()
         mock_perforce.PerforceClient.return_value = mock_client
         mock_perforce.PerforceConnection.return_value = MagicMock()
@@ -553,8 +580,14 @@ class TestCreateWorkspaceFromTemplatePersistence:
             "Stream": "//MeerkatDemo/Mainline",
         }
 
-        with patch.dict(os.environ, {}, clear=True):
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch(
+                "deadline.unreal_perforce_utils.app._default_clients_root",
+                return_value=str(tmp_path / "Perforce"),
+            ),
+        ):
             create_perforce_workspace_from_template(template, "MeerkatDemo")
 
         call_kwargs = mock_perforce.PerforceClient.call_args[1]
-        assert "Host" not in call_kwargs["specification"]
+        assert call_kwargs["specification"]["Host"] == ""

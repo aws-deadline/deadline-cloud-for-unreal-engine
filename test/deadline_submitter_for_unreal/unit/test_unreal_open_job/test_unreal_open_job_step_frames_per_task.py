@@ -33,7 +33,7 @@ class TestRenderUnrealOpenJobStepFramesPerTask:
             (100, 50, 1),  # More frames per task than total
         ],
     )
-    def test_get_chunk_ids_count_frames_per_task_custom_range(
+    def test_get_task_count_frames_per_task_custom_range(
         self, frames_per_task, total_frames, expected_task_count
     ):
         # GIVEN
@@ -54,7 +54,7 @@ class TestRenderUnrealOpenJobStepFramesPerTask:
 
         with patch.object(render_step, "_load_output_settings", return_value=output_settings_mock):
             # WHEN
-            task_count = render_step._get_chunk_ids_count()
+            task_count = render_step._get_task_count()
 
             # THEN
             assert task_count == expected_task_count
@@ -68,7 +68,7 @@ class TestRenderUnrealOpenJobStepFramesPerTask:
             (50, 10, 30, 1),  # 20 frames (30-10), 50 per task = ceil(0.4) = 1
         ],
     )
-    def test_get_chunk_ids_count_frames_per_task_sequence_range(
+    def test_get_task_count_frames_per_task_sequence_range(
         self, frames_per_task, sequence_start, sequence_end, expected_task_count
     ):
         # GIVEN
@@ -97,21 +97,23 @@ class TestRenderUnrealOpenJobStepFramesPerTask:
         ):
 
             # WHEN
-            task_count = render_step._get_chunk_ids_count()
+            task_count = render_step._get_task_count()
 
             # THEN
             assert task_count == expected_task_count
 
-    def test_get_chunk_ids_count_frames_per_task_precedence_over_chunk_size(self):
-        # GIVEN - Both FramesPerTask and ChunkSize provided, FramesPerTask should take precedence
+    def test_get_task_count_frames_per_task_precedence_over_shots_per_task(self):
+        # GIVEN - Both FramesPerTask and ShotsPerTask provided, FramesPerTask should take precedence
         frames_per_task_param = UnrealOpenJobParameterDefinition(
             OpenJobStepParameterNames.FRAMES_PER_TASK, "INT", 25
         )
-        chunk_size_param = UnrealOpenJobParameterDefinition(
-            OpenJobStepParameterNames.TASK_CHUNK_SIZE, "INT", 5
+        shots_per_task_param = UnrealOpenJobParameterDefinition(
+            OpenJobStepParameterNames.SHOTS_PER_TASK, "INT", 5
         )
         job = UnrealOpenJob(
-            file_path="", name="TestJob", extra_parameters=[frames_per_task_param, chunk_size_param]
+            file_path="",
+            name="TestJob",
+            extra_parameters=[frames_per_task_param, shots_per_task_param],
         )
 
         mrq_job_mock = MagicMock()
@@ -126,21 +128,23 @@ class TestRenderUnrealOpenJobStepFramesPerTask:
 
         with patch.object(render_step, "_load_output_settings", return_value=output_settings_mock):
             # WHEN
-            task_count = render_step._get_chunk_ids_count()
+            task_count = render_step._get_task_count()
 
             # THEN - Should use FramesPerTask: 99 frames / 25 per task = 4 tasks (math.ceil(3.96))
             assert task_count == 4
 
-    def test_get_chunk_ids_count_frames_per_task_fallback_to_chunk_size(self):
-        # GIVEN - FramesPerTask is 0, should fall back to ChunkSize
+    def test_get_task_count_frames_per_task_fallback_to_shots_per_task(self):
+        # GIVEN - FramesPerTask is 0, should fall back to ShotsPerTask
         frames_per_task_param = UnrealOpenJobParameterDefinition(
             OpenJobStepParameterNames.FRAMES_PER_TASK, "INT", 0
         )
-        chunk_size_param = UnrealOpenJobParameterDefinition(
-            OpenJobStepParameterNames.TASK_CHUNK_SIZE, "INT", 5
+        shots_per_task_param = UnrealOpenJobParameterDefinition(
+            OpenJobStepParameterNames.SHOTS_PER_TASK, "INT", 5
         )
         job = UnrealOpenJob(
-            file_path="", name="TestJob", extra_parameters=[frames_per_task_param, chunk_size_param]
+            file_path="",
+            name="TestJob",
+            extra_parameters=[frames_per_task_param, shots_per_task_param],
         )
 
         # Mock MRQ job with shots
@@ -157,13 +161,13 @@ class TestRenderUnrealOpenJobStepFramesPerTask:
         render_step.open_job = job
 
         # WHEN
-        task_count = render_step._get_chunk_ids_count()
+        task_count = render_step._get_task_count()
 
-        # THEN - Should use chunk size logic: 10 shots / 5 per chunk = 2 tasks
+        # THEN - Should use shots-per-task logic: 10 shots / 5 per task = 2 tasks
         assert task_count == 2
 
-    def test_get_chunk_ids_count_frames_per_task_no_fallback_error(self):
-        # GIVEN - FramesPerTask is 0 and no ChunkSize parameter
+    def test_get_task_count_frames_per_task_no_fallback_error(self):
+        # GIVEN - FramesPerTask is 0 and no ShotsPerTask parameter
         frames_per_task_param = UnrealOpenJobParameterDefinition(
             OpenJobStepParameterNames.FRAMES_PER_TASK, "INT", 0
         )
@@ -177,7 +181,7 @@ class TestRenderUnrealOpenJobStepFramesPerTask:
 
         # WHEN/THEN - Should raise ValueError about missing parameters
         with pytest.raises(ValueError) as exception_info:
-            render_step._get_chunk_ids_count()
+            render_step._get_task_count()
 
-        assert OpenJobStepParameterNames.TASK_CHUNK_SIZE in str(exception_info.value)
+        assert OpenJobStepParameterNames.SHOTS_PER_TASK in str(exception_info.value)
         assert OpenJobStepParameterNames.FRAMES_PER_TASK in str(exception_info.value)

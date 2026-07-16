@@ -1,0 +1,20 @@
+name: Unreal Engine E2E Tests
+
+on:
+  push:
+    branches:
+      - mainline
+  workflow_dispatch:
+
+jobs:
+  MainlineWindowsE2ETest:
+    name: Windows E2E Test
+    permissions:
+      id-token: write
+      contents: read
+    uses: aws-deadline/.github/.github/workflows/reusable_e2e_test.yml@mainline
+    secrets: inherit
+    with:
+      repository: ${{ github.event.repository.name }}
+      environment: mainline
+      os: windows

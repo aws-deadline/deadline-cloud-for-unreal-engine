@@ -18,7 +18,6 @@ import sys
 import pytest
 from unittest.mock import MagicMock, patch
 
-
 # Ensure ``unreal`` is in ``sys.modules`` before the source module first
 # imports it -- consistent with the other test files in this directory.
 sys.modules.setdefault("unreal", MagicMock())
