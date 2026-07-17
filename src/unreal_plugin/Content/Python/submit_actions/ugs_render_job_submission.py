@@ -48,8 +48,8 @@ def main():
             steps=[
                 UgsRenderUnrealOpenJobStep(
                     extra_parameters=[
-                        # Override ChunkSize parameter value
-                        UnrealOpenJobStepParameterDefinition("ChunkSize", "INT", [10])
+                        # Override ShotsPerTask parameter value
+                        UnrealOpenJobStepParameterDefinition("ShotsPerTask", "INT", [10])
                     ]
                 )
             ],

@@ -450,21 +450,22 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
     def mrq_job(self, value: unreal.MoviePipelineExecutorJob):
         self._mrq_job = value
 
-    def _get_chunk_ids_count(self) -> int:
+    def _get_task_count(self) -> int:
         """
-        Get number of shot chunks
-        as count of total number of frames divided by FramesPerTask if set, or
-        as count of enabled shots in level sequence divided by chuck size parameter value.
-        If no chunk size parameter value is 0, return 1
+        Get the number of tasks the render Step will be split into:
+        total number of frames divided by FramesPerTask if set, or
+        the number of enabled shots in the level sequence divided by
+        ShotsPerTask. If ShotsPerTask is <= 0, defaults to 1.
 
         Example:
             - LevelSequence shots: [sh1 - enabled, sh2 - disabled, sh3 - enabled, sh4 - enabled]
-            - ChunkSize: 2
-            - ChunkIds count: 2 (sh1, sh3; sh4)
+            - ShotsPerTask: 2
+            - Task count: 2 (sh1, sh3; sh4)
 
-        :raises ValueError: When no chunk size parameter is set
+        :raises ValueError: When `FramesPerTask` is unset or <= 0 AND
+            `ShotsPerTask` is unset
 
-        :return: ChunkIds count
+        :return: Number of tasks
         :rtype: int
         """
 
@@ -476,8 +477,8 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         if not self.open_job:
             raise exceptions.OpenJobIsMissingError("Render Job must be provided")
 
-        chunk_size_parameter = self.open_job._find_extra_parameter(
-            parameter_name=OpenJobStepParameterNames.TASK_CHUNK_SIZE, parameter_type="INT"
+        shots_per_task_parameter = self.open_job._find_extra_parameter(
+            parameter_name=OpenJobStepParameterNames.SHOTS_PER_TASK, parameter_type="INT"
         )
         frames_per_task_parameter = self.open_job._find_extra_parameter(
             parameter_name=OpenJobStepParameterNames.FRAMES_PER_TASK, parameter_type="INT"
@@ -503,22 +504,22 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
                 logger.info(
                     f"Level sequence at submission has range {level_sequence.get_playback_range()} ({total_frame_range} frames)"
                 )
-            task_chunk_ids_count = math.ceil(total_frame_range / frames_per_task_parameter.value)
-            return task_chunk_ids_count
-        if chunk_size_parameter is None:
+            task_count = math.ceil(total_frame_range / frames_per_task_parameter.value)
+            return task_count
+        if shots_per_task_parameter is None:
             raise ValueError(
-                f'Render Job\'s parameter "{OpenJobStepParameterNames.TASK_CHUNK_SIZE}"'
+                f'Render Job\'s parameter "{OpenJobStepParameterNames.SHOTS_PER_TASK}"'
                 f' or "{OpenJobStepParameterNames.FRAMES_PER_TASK}" '
                 f"must be provided in extra parameters or template"
             )
 
-        chunk_size = int(chunk_size_parameter.value)
-        if chunk_size <= 0:
-            chunk_size = 1  # by default 1 chunk consist of 1 shot
+        shots_per_task = int(shots_per_task_parameter.value)
+        if shots_per_task <= 0:
+            shots_per_task = 1  # by default each task renders 1 shot
 
-        task_chunk_ids_count = math.ceil(len(enabled_shots) / chunk_size)
+        task_count = math.ceil(len(enabled_shots) / shots_per_task)
 
-        return task_chunk_ids_count
+        return task_count
 
     def _load_level_sequence(self, mrq_job):
         """Load the level sequence asset from the MRQ job."""
@@ -585,12 +586,12 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
                 f"{OpenJobStepParameterNames.MRQ_JOB_CONFIGURATION_PATH})\n"
             )
 
-        task_chunk_id_param_definition = UnrealOpenJobStepParameterDefinition(
-            OpenJobStepParameterNames.TASK_CHUNK_ID,
+        task_index_param_definition = UnrealOpenJobStepParameterDefinition(
+            OpenJobStepParameterNames.TASK_INDEX,
             TaskParameterType.INT.value,
-            [i for i in range(self._get_chunk_ids_count())],
+            [i for i in range(self._get_task_count())],
         )
-        self._update_extra_parameter(task_chunk_id_param_definition)
+        self._update_extra_parameter(task_index_param_definition)
 
         handler_param_definition = UnrealOpenJobStepParameterDefinition(
             OpenJobStepParameterNames.ADAPTOR_HANDLER, TaskParameterType.STRING.value, ["render"]

@@ -231,7 +231,7 @@ class TestUnrealOpenJobStep:
 class TestRenderUnrealOpenJobStep:
 
     @pytest.mark.parametrize(
-        "chunk_size, shots_count, expected_chunk_ids",
+        "shots_per_task, shots_count, expected_task_indices",
         [
             (1, 15, [i for i in range(15)]),
             (2, 15, [i for i in range(8)]),
@@ -240,7 +240,7 @@ class TestRenderUnrealOpenJobStep:
             (100000, 100, [0]),
         ],
     )
-    def test__get_chunk_ids_count(self, chunk_size, shots_count, expected_chunk_ids):
+    def test__get_task_count(self, shots_per_task, shots_count, expected_task_indices):
         # GIVEN
         shot_info = []
         for _ in range(shots_count):
@@ -251,29 +251,29 @@ class TestRenderUnrealOpenJobStep:
         mrq_job_mock = MagicMock()
         mrq_job_mock.shot_info = shot_info
 
-        chunk_size_param = UnrealOpenJobParameterDefinition(
-            OpenJobStepParameterNames.TASK_CHUNK_SIZE, "INT", chunk_size
+        shots_per_task_param = UnrealOpenJobParameterDefinition(
+            OpenJobStepParameterNames.SHOTS_PER_TASK, "INT", shots_per_task
         )
-        job = UnrealOpenJob(file_path="", name="TestJob", extra_parameters=[chunk_size_param])
+        job = UnrealOpenJob(file_path="", name="TestJob", extra_parameters=[shots_per_task_param])
 
         render_step = RenderUnrealOpenJobStep(file_path="", mrq_job=mrq_job_mock)
         render_step.open_job = job
         # WHEN
-        ids_count = render_step._get_chunk_ids_count()
+        task_count = render_step._get_task_count()
 
         # THEN
-        assert [i for i in range(ids_count)] == expected_chunk_ids
+        assert [i for i in range(task_count)] == expected_task_indices
 
-    def test__get_chunk_ids_count_no_mrq_job(self):
+    def test__get_task_count_no_mrq_job(self):
         # GIVEN
         render_step = RenderUnrealOpenJobStep(file_path="")
 
         with pytest.raises(exceptions.MrqJobIsMissingError) as exception_info:
-            render_step._get_chunk_ids_count()
+            render_step._get_task_count()
 
         assert str(exception_info.value) == "MRQ Job must be provided"
 
-    def test__get_chunk_ids_count_no_open_job(self):
+    def test__get_task_count_no_open_job(self):
         # GIVEN
         shot_info = []
         for _ in range(2):
@@ -287,11 +287,11 @@ class TestRenderUnrealOpenJobStep:
         render_step = RenderUnrealOpenJobStep(file_path="", mrq_job=mrq_job_mock)
 
         with pytest.raises(exceptions.OpenJobIsMissingError) as exception_info:
-            render_step._get_chunk_ids_count()
+            render_step._get_task_count()
 
         assert str(exception_info.value) == "Render Job must be provided"
 
-    def test__get_chunk_ids_count_no_chunk_size_param(self):
+    def test__get_task_count_no_shots_per_task_param(self):
         # GIVEN
         mrq_job_mock = MagicMock()
         mrq_job_mock.shot_info = []
@@ -302,11 +302,11 @@ class TestRenderUnrealOpenJobStep:
         render_step.open_job = job
         # WHEN
         with pytest.raises(ValueError) as exception_info:
-            render_step._get_chunk_ids_count()
+            render_step._get_task_count()
 
         # THEN
         assert (
-            f'Render Job\'s parameter "{OpenJobStepParameterNames.TASK_CHUNK_SIZE}" or '
+            f'Render Job\'s parameter "{OpenJobStepParameterNames.SHOTS_PER_TASK}" or '
             f'"{OpenJobStepParameterNames.FRAMES_PER_TASK}" '
             f"must be provided" in str(exception_info.value)
         )

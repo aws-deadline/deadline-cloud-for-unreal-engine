@@ -38,7 +38,7 @@ parameterDefinitions:
   default: deadline-cloud-v2 deadline-cloud
   userInterface: 
    control: LINE_EDIT
-- name: ChunkSize
+- name: ShotsPerTask
   type: INT
   default: 1
   userInterface: 

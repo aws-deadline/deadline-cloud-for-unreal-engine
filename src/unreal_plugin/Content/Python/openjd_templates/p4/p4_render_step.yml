@@ -1,7 +1,7 @@
 name: Render
 parameterSpace:
   taskParameterDefinitions:
-  - name: ChunkId
+  - name: TaskIndex
     type: INT
     range: []
   - name: Handler
@@ -22,8 +22,8 @@ script:
       handler: {{Task.Param.Handler}}
       queue_manifest_path: {{Task.Param.QueueManifestPath}}
       frames_per_task: {{Param.FramesPerTask}}
-      chunk_size: {{Param.ChunkSize}}
-      chunk_id: {{Task.Param.ChunkId}}
+      shots_per_task: {{Param.ShotsPerTask}}
+      task_index: {{Task.Param.TaskIndex}}
       output_path: {{Task.Param.OutputPath}}
       # Quote the substitution so an empty default (`SubmitMode=""`) expands to
       # `submit_mode: ""` — YAML would otherwise parse the bare `submit_mode:`
