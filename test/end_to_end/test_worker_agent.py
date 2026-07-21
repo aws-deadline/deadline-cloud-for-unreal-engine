@@ -2,7 +2,12 @@
 
 import logging
 from conftest import (
+    DEFAULT_ENV_ENTER_TIMEOUT_SECONDS,
+    DEFAULT_ENV_EXIT_TIMEOUT_SECONDS,
     extract_job_info_from_test_output,
+    get_openjd_templates_directory,
+    openjd_templates_with_env_enter_timeout,
+    read_launch_environment_template,
     wait_for_job_state,
     get_last_session_project_plugins,
     add_content_plugins_to_project,
@@ -19,6 +24,7 @@ def test_create_job_with_worker_agent(
     run_unreal_test,
     reusable_queue_fleet_association,
     deadline_worker_agent,
+    request,
 ):
     """
     Run CreateJob automation test from within Unreal with a local worker agent running.
@@ -29,6 +35,16 @@ def test_create_job_with_worker_agent(
     # and will stop it after the test completes
 
     _, uproject_file = create_readonly_test_project
+
+    # Verify the LaunchUnrealEditor environment template used for submission
+    # defines the default OpenJD action timeouts, so the job submitted below
+    # runs with (and completes within) those defaults.
+    templates_directory = get_openjd_templates_directory(request.config.getoption("--ueversion"))
+    launch_environment_actions = read_launch_environment_template(templates_directory)["script"][
+        "actions"
+    ]
+    assert launch_environment_actions["onEnter"]["timeout"] == DEFAULT_ENV_ENTER_TIMEOUT_SECONDS
+    assert launch_environment_actions["onExit"]["timeout"] == DEFAULT_ENV_EXIT_TIMEOUT_SECONDS
 
     logger.info(f"Creating job from project {uproject_file}")
     success, output_lines = run_unreal_test("DeadlineCloud.Integration.CreateJob", uproject_file)
@@ -121,3 +137,64 @@ def test_worker_agent_project_plugins(
     else:
         logger.warning("Could not extract job ID or farm ID from test output")
         assert False, "Could not extract job information from test output"
+
+
+def test_worker_agent_environment_enter_timeout(
+    deadline_client,
+    build_plugin,
+    create_readonly_test_project,
+    run_unreal_test,
+    reusable_queue_fleet_association,
+    deadline_worker_agent,
+    request,
+):
+    """
+    Submit a job whose LaunchUnrealEditor environment onEnter timeout is far
+    too short for the Unreal Editor to start on the worker, and verify the
+    worker agent enforces the OpenJD action timeout by failing the job.
+    """
+
+    # The deadline_worker_agent fixture will start the worker agent before this test runs
+    # and will stop it after the test completes
+
+    _, uproject_file = create_readonly_test_project
+
+    # The environment enter (adaptor daemon start + Unreal Editor launch) takes
+    # far longer than this, so the worker agent must cancel the action when the
+    # timeout elapses and fail the job.
+    short_enter_timeout_seconds = 5
+
+    with openjd_templates_with_env_enter_timeout(
+        enter_timeout_seconds=short_enter_timeout_seconds,
+        ue_version=request.config.getoption("--ueversion"),
+    ):
+        logger.info(
+            f"Creating job with {short_enter_timeout_seconds}s environment enter timeout "
+            f"from project {uproject_file}"
+        )
+        success, output_lines = run_unreal_test(
+            "DeadlineCloud.Integration.CreateJob", uproject_file
+        )
+        assert success, "Create job test failed"
+
+    # Extract job ID and farm ID from the output
+    job_id, farm_id, queue_id = extract_job_info_from_test_output(output_lines)
+
+    assert job_id and farm_id and queue_id, "Could not extract job information from test output"
+
+    success, status, message = wait_for_job_state(
+        deadline_client=deadline_client,
+        farm_id=farm_id,
+        job_id=job_id,
+        queue_id=queue_id,
+        expected_states=["FAILED"],
+        max_wait_time=600,
+        wait_interval=10,
+    )
+
+    assert success, (
+        f"Expected job {job_id} to FAIL because the environment enter exceeds its "
+        f"{short_enter_timeout_seconds}s timeout: {message}"
+    )
+
+    logger.info(f"Job {job_id} FAILED as expected due to environment enter timeout")
