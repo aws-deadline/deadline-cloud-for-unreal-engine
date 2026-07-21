@@ -934,7 +934,10 @@ def run_unreal_test(request, reusable_farm_id, reusable_queue_id) -> Callable:
     """
 
     def _run_unreal_test(
-        test_path: str, uproject_file: str, deadlineargs: Optional[str] = None
+        test_path: str,
+        uproject_file: str,
+        deadlineargs: Optional[str] = None,
+        job_name: Optional[str] = None,
     ) -> Tuple[bool, List[str]]:
         """
         Runs an Unreal Engine automation test and determines success or failure by analyzing output patterns
@@ -944,6 +947,8 @@ def run_unreal_test(request, reusable_farm_id, reusable_queue_id) -> Callable:
             test_path: Automation test path (e.g. "DeadlineCloud.Integration.CreateJob")
             uproject_file: Path to the uproject file
             deadlineargs: Optional arguments to pass to Deadline, defaults to basic settings if None
+            job_name: Optional name for the submitted Deadline Cloud job. Defaults to the
+                requesting pytest test's name so each job can be traced back to its test
 
         Returns:
             Tuple of (success, output_lines) where success is a boolean indicating whether the test passed,
@@ -951,6 +956,12 @@ def run_unreal_test(request, reusable_farm_id, reusable_queue_id) -> Callable:
         """
         if deadlineargs is None:
             deadlineargs = "-NoLoadingScreen -FixedSeed -log -Unattended -MRQInstance -deterministicaudio -audiomixer"
+
+        if job_name is None:
+            job_name = request.node.name
+        # testparams is a ';'-separated 'key=value' list, so strip characters that
+        # would break its parsing. Deadline Cloud job names are capped at 128 chars.
+        job_name = re.sub(r"[;=]", "_", job_name)[:128]
 
         logger.info(f"Running unreal test with farm {reusable_farm_id} queue {reusable_queue_id}")
 
@@ -960,7 +971,10 @@ def run_unreal_test(request, reusable_farm_id, reusable_queue_id) -> Callable:
         config.set_setting("defaults.queue_id", reusable_queue_id)
         config.set_setting("settings.deadline_regions", TEST_TARGET_REGION)
 
-        test_params_str = f"-testparams=farm_id={reusable_farm_id};queue_id={reusable_queue_id}"
+        test_params_str = (
+            f"-testparams=farm_id={reusable_farm_id};queue_id={reusable_queue_id}"
+            f";job_name={job_name}"
+        )
 
         engine_root = find_engine_root(request.config.getoption("--ueversion"))
 
