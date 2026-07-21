@@ -310,8 +310,23 @@ class ParametersConsistencyChecker:
             yaml_parameters=[
                 (p["name"], p["type"])
                 for p in step_template["parameterSpace"]["taskParameterDefinitions"]
+                # CHUNK[INT] (OpenJD TASK_CHUNKING extension) has no equivalent in
+                # Unreal's ValueType enum, so Data Assets cannot hold it by design
+                # (open_job_template_api.py skips it when building the Data Asset).
+                # Excluding it here keeps a valid dynamic-chunking Data Asset from
+                # failing the consistency check.
+                if not p["type"].startswith("CHUNK[")
             ],
-            data_asset_parameters=[(p["name"], p["type"]) for p in step_parameters],
+            # Excluded from the Data Asset side too: a Data Asset can carry a
+            # stale CHUNK[INT] row (e.g. added by the Fix Consistency action of
+            # an older plugin build). The YAML is authoritative for CHUNK
+            # parameters and the submitter never applies Data Asset overrides
+            # to them, so such a row is harmless and must not fail submission.
+            data_asset_parameters=[
+                (p["name"], p["type"])
+                for p in step_parameters
+                if not p["type"].startswith("CHUNK[")
+            ],
         )
 
     @staticmethod
@@ -340,15 +355,31 @@ class ParametersConsistencyChecker:
             left=[
                 (p["name"], p["type"])
                 for p in step_template["parameterSpace"]["taskParameterDefinitions"]
+                # CHUNK[INT] cannot be represented in a Data Asset (see
+                # check_step_parameters_consistency) - never try to "fix" it in,
+                # and never try to "fix" a stale Data Asset CHUNK row out.
+                if not p["type"].startswith("CHUNK[")
             ],
-            right=[(p["name"], p["type"]) for p in step_parameters],
+            right=[
+                (p["name"], p["type"])
+                for p in step_parameters
+                if not p["type"].startswith("CHUNK[")
+            ],
         )
 
         fixed_parameters = ParametersConsistencyChecker.fix_parameters_consistency(
             missed_in_yaml=missed_in_yaml,
             missed_in_data_asset=missed_in_data_asset,
-            yaml_parameters=step_template["parameterSpace"]["taskParameterDefinitions"],
-            data_asset_parameters=step_parameters,
+            yaml_parameters=[
+                p
+                for p in step_template["parameterSpace"]["taskParameterDefinitions"]
+                if not p["type"].startswith("CHUNK[")
+            ],
+            # Stale CHUNK rows are dropped from the Data Asset here, so running
+            # Fix Consistency cleans up Data Assets written by older builds.
+            data_asset_parameters=[
+                p for p in step_parameters if not p["type"].startswith("CHUNK[")
+            ],
         )
 
         logger.info(f"Fixed OpenJobStep parameters: {fixed_parameters}")
