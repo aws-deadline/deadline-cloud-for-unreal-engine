@@ -30,7 +30,7 @@ classifiers = [
 dependencies = [
     "deadline >= 0.59,< 0.61",
     "openjd-adaptor-runtime >= 0.9.4,< 0.10",
-    "openjd-model >= 0.10.0, < 0.11",
+    "openjd-model >= 0.10.0, < 0.12",
     'p4python == 2026.1.2974490; python_version >= "3.10"',
     'p4python == 2025.1.2767466; python_version <  "3.10"',
 ]
