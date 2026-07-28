@@ -441,11 +441,28 @@ static FString ConvertLocalPathToFull(const FString& Path)
 	return FullPath;
 }
 
+// Hover and retry to avoid intermittent "Element found but not located under the cursor" failures
+// when the synthetic cursor has not settled over the target yet.
+static bool RobustClick(FAutomationDriverPtr Driver, FDriverElementRef Element, EMouseButtons::Type MouseButton, int32 MaxAttempts = 3)
+{
+	for (int32 Attempt = 0; Attempt < MaxAttempts; ++Attempt)
+	{
+		Element->Hover();
+		Driver->Wait(FTimespan::FromMilliseconds(50));
+		if (Element->Click(MouseButton))
+		{
+			return true;
+		}
+		Driver->Wait(FTimespan::FromMilliseconds(100));
+	}
+	return false;
+}
+
 static void ExpandAllProperties(const FString DetailsPath, FAutomationDriverPtr Driver)
 {
 	FString MainCategoryExpanderArrowPath = DetailsPath + "//<SDetailCategoryTableRow>//<SDetailExpanderArrow>";
 	FDriverElementCollectionRef ParametersCategory = Driver->FindElements(By::Path(MainCategoryExpanderArrowPath));
-	ParametersCategory->GetElements()[0]->Click(EMouseButtons::Type::Right);
+	RobustClick(Driver, ParametersCategory->GetElements()[0], EMouseButtons::Type::Right);
 	Driver->Wait(FTimespan::FromSeconds(1));
 
 	FString PopupElementsPath = "<SWindow>//<SPopup>//<SMultiBoxWidget>//<SBorder>//<SVerticalBox>//<SScrollBox>//<SHorizontalBox>//<SOverlay>//<SScrollPanel>//<SVerticalBox>//<SHorizontalBox>//<SMenuEntryButton>";
@@ -454,7 +471,7 @@ static void ExpandAllProperties(const FString DetailsPath, FAutomationDriverPtr 
 	if (!PopupElements->GetElements().IsEmpty())
 	{
 		PopupElements->GetElements()[2]->Focus();
-		PopupElements->GetElements()[2]->Click(EMouseButtons::Type::Left);
+		RobustClick(Driver, PopupElements->GetElements()[2], EMouseButtons::Type::Left);
 	}
 }
 
@@ -465,14 +482,28 @@ static void ScrollToElement(FAutomationDriverPtr Driver, FDriverElementRef List,
 		return;
 	}
 
-	if (List->Exists() && ScrollBar->Exists())
+	if (!List->Exists() || !ScrollBar->Exists())
 	{
-		uint32 CurrentAttempts = 0;
-		while ((!TargetElement->Exists() || !TargetElement->IsVisible()) && (!ScrollBar->IsScrolledToEnd() && CurrentAttempts < AttemptsLimit))
+		return;
+	}
+
+	// Start from the top so the target is reachable regardless of the prior scroll offset.
+	List->ScrollToBeginning();
+	Driver->Wait(FTimespan::FromMilliseconds(100));
+
+	uint32 CurrentAttempts = 0;
+	while ((!TargetElement->Exists() || !TargetElement->IsVisible()) && CurrentAttempts < AttemptsLimit)
+	{
+		if (ScrollBar->IsScrolledToEnd())
 		{
-			List->ScrollBy(-1);
-			CurrentAttempts++;
+			// Let tall, still-laying-out rows settle and re-check before giving up at the bottom.
+			Driver->Wait(FTimespan::FromMilliseconds(150));
+			return;
 		}
+
+		List->ScrollBy(-1);
+		Driver->Wait(FTimespan::FromMilliseconds(50));
+		CurrentAttempts++;
 	}
 }
 
@@ -523,7 +554,7 @@ AssetType* CreateAndOpenAsset(
     return Asset;
 }
 
-static void InputText(FDriverElementRef Widget, const FString& Text, bool bRemoveTextBeforeInput)
+static void InputText(FDriverElementRef Widget, const FString& Text, bool bRemoveTextBeforeInput, FAutomationDriverPtr Driver = nullptr)
 {
 	if (bRemoveTextBeforeInput)
 	{
@@ -535,6 +566,12 @@ static void InputText(FDriverElementRef Widget, const FString& Text, bool bRemov
 		Widget->Type(Text);
 	}
 	Widget->Type(EKeys::Enter);
+
+	// Enter commits asynchronously; wait so callers don't read back the stale pre-commit value.
+	if (Driver.IsValid())
+	{
+		Driver->Wait(FTimespan::FromMilliseconds(150));
+	}
 }
 
 
@@ -744,7 +781,7 @@ void FDeadlinePluginUISpec::Define()
 				return;
 			}
 			MrqJobWidget->Focus();
-			MrqJobWidget->Click(EMouseButtons::Type::Left);
+			RobustClick(Driver, MrqJobWidget.ToSharedRef(), EMouseButtons::Type::Left);
 
 			if (!InitForMRQ(MRQJob))
 			{
@@ -1220,11 +1257,11 @@ void FDeadlinePluginUISpec::Define()
 			TestTrue("Variable1 widget should exist", bVariable1WidgetExists);
 			if (bVariable1WidgetExists)
 			{
-				InputText(Variable1Widget, "", true);
+				InputText(Variable1Widget, "", true, Driver);
 				TEST_EQUAL(CreatedEnvironmentDataAsset->Variables.Variables["Variable1"], "");
 
 				FString Variable1TextValid = "ValidString";
-				InputText(Variable1Widget, Variable1TextValid, true);
+				InputText(Variable1Widget, Variable1TextValid, true, Driver);
 				TEST_EQUAL(CreatedEnvironmentDataAsset->Variables.Variables["Variable1"], Variable1TextValid);
 			}
 

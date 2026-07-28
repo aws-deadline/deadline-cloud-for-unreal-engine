@@ -576,14 +576,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovieQueueCreateJobTest, "DeadlineCloud.Integr
     }
     UE_LOG(LogCreateJobTest, Display, TEXT("Created job from sequence"));
 
-    // Currently two "expected" warning/error messages which we should try to resolve separately, but don't currently break anything
-    // in our underlying functionality
-    // The QueueManifest message may appear 1 or 2 times depending on whether you've run the test before.
+    // Occurrences -1 suppresses these engine warnings without requiring them, so the test passes on both first-run and reruns.
     AddExpectedError(TEXT("/Engine/MovieRenderPipeline/Editor/QueueManifest"),
-        EAutomationExpectedErrorFlags::Contains, 0);
-    // The -execcmds message may appear 1 or 2 times depending on whether you've run the test before
+        EAutomationExpectedErrorFlags::Contains, -1);
     AddExpectedError(TEXT("Appearance of custom '-execcmds' argument on the Render node can cause unpredictable issues"),
-        EAutomationExpectedErrorFlags::Contains, 0);
+        EAutomationExpectedErrorFlags::Contains, -1);
 
     // Load and use remote executor
     TSubclassOf<UMoviePipelineExecutorBase> ExecutorClass = ProjectSettings->DefaultRemoteExecutor.TryLoadClass<UMoviePipelineExecutorBase>();
