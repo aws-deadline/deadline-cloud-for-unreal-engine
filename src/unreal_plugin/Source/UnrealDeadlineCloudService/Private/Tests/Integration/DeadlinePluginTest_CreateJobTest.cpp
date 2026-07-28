@@ -547,6 +547,27 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovieQueueCreateJobTest, "DeadlineCloud.Integr
     NewJob->SetSequence(Sequence);
     NewJob->JobName = NewJob->Sequence.GetAssetName();
 
+    // Optionally override the submitted job name via '-testparams=...;job_name=<name>'
+    // so each automation/E2E test can be identified by its Deadline Cloud job name.
+    // The preset override name has the highest priority in the Python submitter's
+    // job name resolution, so it wins over the job template's default name.
+    FString TestParamsString;
+    if (FParse::Value(FCommandLine::Get(), TEXT("testparams="), TestParamsString))
+    {
+        TArray<FString> TestParamPairs;
+        TestParamsString.ParseIntoArray(TestParamPairs, TEXT(";"), true);
+        for (const FString& Pair : TestParamPairs)
+        {
+            FString Key, Value;
+            if (Pair.Split(TEXT("="), &Key, &Value) && Key == TEXT("job_name") && !Value.IsEmpty())
+            {
+                UE_LOG(LogCreateJobTest, Display, TEXT("Overriding job name with '%s'"), *Value);
+                NewJob->JobName = Value;
+                NewJob->PresetOverrides.JobSharedSettings.Name = Value;
+            }
+        }
+    }
+
     UMoviePipelineExecutorJob* QueueJob = ActiveQueue->DuplicateJob(NewJob);
     if (!QueueJob)
     {

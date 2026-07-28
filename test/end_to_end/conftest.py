@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "../
 # Now all other imports, including those from your project
 import boto3
 import botocore
+import contextlib
 import deadline.client.config as config
 import json
 import logging
@@ -20,6 +21,7 @@ import signal
 import subprocess
 import tempfile
 import time
+import yaml
 from scripts.build_plugin import find_engine_root
 
 # Import typing information
@@ -417,6 +419,98 @@ def get_build_script_args() -> List[str]:
         List of command line arguments for the build script
     """
     return ["--install", "--test", "--worker"]
+
+
+# Default OpenJD action timeouts (in seconds) of the LaunchUnrealEditor
+# environment, as defined in
+# src/unreal_plugin/Content/Python/openjd_templates/launch_ue_environment.yml:
+# - Enter: server start timeout (30s) + Unreal start timeout (86400s) + 10 minute buffer
+# - Exit: server end timeout (30s) + Unreal end timeout (30s) + 1 minute buffer
+DEFAULT_ENV_ENTER_TIMEOUT_SECONDS = 87030
+DEFAULT_ENV_EXIT_TIMEOUT_SECONDS = 120
+
+
+def get_openjd_templates_directory(ue_version: Optional[str] = None) -> str:
+    """
+    Return the OpenJD templates directory of the plugin installed in the
+    Unreal Engine.
+
+    The plugin's default OpenJD data assets store engine-relative template
+    paths (e.g. '../../Plugins/UnrealDeadlineCloudService/Content/Python/
+    openjd_templates/launch_ue_environment.yml'), so this directory is what
+    MRQ job submissions actually read their environment templates from.
+
+    Args:
+        ue_version: Optional Unreal Engine version used to locate the engine root
+
+    Returns:
+        The absolute path to the installed plugin's OpenJD templates directory
+    """
+    engine_root = find_engine_root(ue_version)
+    return os.path.join(
+        engine_root,
+        "Engine",
+        "Plugins",
+        "UnrealDeadlineCloudService",
+        "Content",
+        "Python",
+        "openjd_templates",
+    )
+
+
+def read_launch_environment_template(templates_directory: str) -> Dict[str, Any]:
+    """
+    Load and parse the LaunchUnrealEditor environment template.
+
+    Args:
+        templates_directory: The OpenJD templates directory to read from
+
+    Returns:
+        The parsed launch_ue_environment.yml template as a dictionary
+    """
+    with open(os.path.join(templates_directory, "launch_ue_environment.yml")) as f:
+        return yaml.safe_load(f)
+
+
+@contextlib.contextmanager
+def openjd_templates_with_env_enter_timeout(
+    enter_timeout_seconds: int, ue_version: Optional[str] = None
+) -> Generator[str, None, None]:
+    """
+    Temporarily override the onEnter timeout of the LaunchUnrealEditor
+    environment template of the plugin installed in the Unreal Engine, so jobs
+    submitted from Unreal embed the overridden timeout.
+
+    The template file is patched in place because the plugin's default OpenJD
+    data assets reference it by engine-relative path; redirecting
+    OPENJD_TEMPLATES_DIRECTORY has no effect on MRQ job submissions. The
+    original file is backed up and restored on exit.
+
+    Args:
+        enter_timeout_seconds: The onEnter action timeout to write into the template
+        ue_version: Optional Unreal Engine version used to locate the engine root
+
+    Yields:
+        The path to the patched template file
+    """
+    template_path = os.path.join(
+        get_openjd_templates_directory(ue_version), "launch_ue_environment.yml"
+    )
+    backup_path = template_path + ".bak"
+    shutil.copy2(template_path, backup_path)
+
+    with open(template_path) as f:
+        template = yaml.safe_load(f)
+    template["script"]["actions"]["onEnter"]["timeout"] = enter_timeout_seconds
+    with open(template_path, "w") as f:
+        yaml.safe_dump(template, f, sort_keys=False)
+    logger.info(f"Patched {template_path} with onEnter timeout of {enter_timeout_seconds} seconds")
+
+    try:
+        yield template_path
+    finally:
+        shutil.move(backup_path, template_path)
+        logger.info(f"Restored original template at {template_path}")
 
 
 def add_content_plugins_to_project(project_path: str, plugins: List[str], enabled: bool) -> None:
@@ -840,7 +934,10 @@ def run_unreal_test(request, reusable_farm_id, reusable_queue_id) -> Callable:
     """
 
     def _run_unreal_test(
-        test_path: str, uproject_file: str, deadlineargs: Optional[str] = None
+        test_path: str,
+        uproject_file: str,
+        deadlineargs: Optional[str] = None,
+        job_name: Optional[str] = None,
     ) -> Tuple[bool, List[str]]:
         """
         Runs an Unreal Engine automation test and determines success or failure by analyzing output patterns
@@ -850,6 +947,8 @@ def run_unreal_test(request, reusable_farm_id, reusable_queue_id) -> Callable:
             test_path: Automation test path (e.g. "DeadlineCloud.Integration.CreateJob")
             uproject_file: Path to the uproject file
             deadlineargs: Optional arguments to pass to Deadline, defaults to basic settings if None
+            job_name: Optional name for the submitted Deadline Cloud job. Defaults to the
+                requesting pytest test's name so each job can be traced back to its test
 
         Returns:
             Tuple of (success, output_lines) where success is a boolean indicating whether the test passed,
@@ -857,6 +956,12 @@ def run_unreal_test(request, reusable_farm_id, reusable_queue_id) -> Callable:
         """
         if deadlineargs is None:
             deadlineargs = "-NoLoadingScreen -FixedSeed -log -Unattended -MRQInstance -deterministicaudio -audiomixer"
+
+        if job_name is None:
+            job_name = request.node.name
+        # testparams is a ';'-separated 'key=value' list, so strip characters that
+        # would break its parsing. Deadline Cloud job names are capped at 128 chars.
+        job_name = re.sub(r"[;=]", "_", job_name)[:128]
 
         logger.info(f"Running unreal test with farm {reusable_farm_id} queue {reusable_queue_id}")
 
@@ -866,7 +971,10 @@ def run_unreal_test(request, reusable_farm_id, reusable_queue_id) -> Callable:
         config.set_setting("defaults.queue_id", reusable_queue_id)
         config.set_setting("settings.deadline_regions", TEST_TARGET_REGION)
 
-        test_params_str = f"-testparams=farm_id={reusable_farm_id};queue_id={reusable_queue_id}"
+        test_params_str = (
+            f"-testparams=farm_id={reusable_farm_id};queue_id={reusable_queue_id}"
+            f";job_name={job_name}"
+        )
 
         engine_root = find_engine_root(request.config.getoption("--ueversion"))
 

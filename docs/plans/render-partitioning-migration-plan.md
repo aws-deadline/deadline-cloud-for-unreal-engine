@@ -25,9 +25,9 @@ independently (run_data keys are their contract), we use an **expand/contract
 ## Compatibility model
 
 - Submitter writes run_data keys; adaptor reads them. Key names are the contract.
-- **SMF:** adaptor version pinned by `CondaPackages` in the job template
-  (`unrealengine-openjd=0.6.*`). The glob continues to match the next
-  0.6.x patch automatically.
+- **SMF:** adaptor version pinned by `CondaPackages` in the job template.
+  As of Phase 2 this default is `unrealengine-openjd=0.7.*` (bumped from
+  `0.6.*`); the glob matches the latest 0.7.x patch automatically.
 - **CMF:** adaptor pip-installed manually, must be kept version-matched to the
   submitter (per `setup-cmf-worker.md`).
 - run_data fields are optional in `run_data.schema.json` (only `handler` is
@@ -48,14 +48,16 @@ independently (run_data keys are their contract), we use an **expand/contract
   0.6.10+). ✅ met. After this, any deployed adaptor handles both old and new
   templates.
 
-### Phase 2 — Submitter switches to new names 🚧 this change
+### Phase 2 — Submitter switches to new names ✅ merged (#338, 0.7.0)
 
 - Rename on submitter side: `OpenJobStepParameterNames`, bundled templates,
   sample scripts, user docs.
-- **No `CondaPackages` pin bump.** The existing `unrealengine-openjd=0.6.*`
-  glob already matches 0.6.10 (Phase 1) as the latest 0.6.x, so SMF
-  workers install a Phase-1+ adaptor on the next job execution without an
-  explicit pin change.
+- **`CondaPackages` pin bump (final Phase 2 step).** With 0.7.0 published to
+  the SMF conda channel and validated, the default `CondaPackages` pin is
+  bumped `unrealengine-openjd=0.6.*` → `0.7.*` in the render job templates
+  (this change) so SMF workers install the 0.7.x adaptor by default. This
+  merge is gated on 0.7 being available in the production conda channel — a
+  new-names default must not resolve on a fleet that lacks a Phase-1+ adaptor.
 - **Release:** breaking (`refactor!` + `BREAKING CHANGE:` footer), minor bump
   (0.6 → 0.7).
 - **Precondition:** Phase 1 (0.6.10) deployed to the entire fleet. ✅ met.
@@ -64,6 +66,10 @@ independently (run_data keys are their contract), we use an **expand/contract
 - **User migration:** update saved Data Assets, custom templates, and
   submission scripts that reference `ChunkSize`/`ChunkId`; regenerate old job
   bundles. (Find-and-replace details in the Phase-2 PR description.)
+- **Status:** submitter rename merged and released as 0.7.0; adaptor 0.7 built
+  and validated in the conda channel's pre-production stage; production
+  promotion in progress; default `CondaPackages` pin bump prepared (this
+  change), to merge once 0.7 reaches the production channel.
 - **Exit criterion:** all submitters in use emit new names.
 
 ### Phase 3 — Drop legacy support from the adaptor
@@ -94,7 +100,8 @@ lists.
 ```
 Phase 1  feat       adaptor accepts both names           (non-breaking)  ✅ merged (#324, 0.6.10)
    |       fleet rolled out to 0.6.10  ✅
-Phase 2  refactor!  submitter emits new names            (breaking)      <-- this PR (0.7.0)
+Phase 2  refactor!  submitter emits new names            (breaking)      ✅ merged (#338, 0.7.0)
+   |       + default CondaPackages pin bumped 0.6.* -> 0.7.*  <-- this change
    |       all submitters updated
 Phase 3  refactor!  adaptor drops legacy-name support    (breaking)
    |
