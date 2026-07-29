@@ -17,6 +17,8 @@ Follow these guides to set up and use AWS Deadline Cloud with Unreal Engine:
 - Perforce Integration
     - **[Perforce Credentials Management](./perforce-credentials-management.md)** - Secure credential management for Perforce integration.
     - **[Submit jobs with Perforce](./create-perforce-render-job.md)** - Create and submit Perforce-integrated render jobs.
+- Dynamic Frame Chunking
+    - **[Submit jobs with dynamic chunking](./create-dynamic-chunking-render-job.md)** - Let Deadline Cloud form and adjust contiguous frame chunks at dispatch time.
 - Customer Managed Fleet (CMF)
     - **[Set up CMF worker](./setup-cmf-worker.md)** - Configure an EC2 instance as a CMF worker.
 
