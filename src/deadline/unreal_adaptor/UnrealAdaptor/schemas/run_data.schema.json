@@ -14,6 +14,10 @@
         "chunk_id": { "type": "integer" },
         "shots_per_task": { "type": "integer" },
         "task_index": { "type": "integer" },
+        "dynamic_chunked_frames": {
+            "type": "string",
+            "description": "Contiguous frame range chunk '<start>-<end>' (inclusive) computed by the OpenJD TASK_CHUNKING extension. Mutually exclusive with frames_per_task/shots_per_task."
+        },
         "output_path": { "type":  "string" },
         "submit_mode": {
             "type": "string",

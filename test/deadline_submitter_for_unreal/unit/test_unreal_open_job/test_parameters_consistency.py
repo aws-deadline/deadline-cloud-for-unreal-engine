@@ -289,3 +289,111 @@ class TestParametersConsistencyChecker:
 
         # THEN
         assert fixed == fixtures.f_environment_template_default()["variables"]
+
+    def _f_dynamic_chunking_step_template(self) -> dict:
+        """Step template with a CHUNK[INT] task parameter (TASK_CHUNKING extension)."""
+        template = fixtures.f_step_template_default()
+        template["parameterSpace"]["taskParameterDefinitions"] = list(
+            template["parameterSpace"]["taskParameterDefinitions"]
+        ) + [
+            {
+                "name": "DynamicChunking",
+                "type": "CHUNK[INT]",
+                "range": "{{Param.Frames}}",
+                "chunks": {
+                    "defaultTaskCount": "{{Param.ChunkSize}}",
+                    "rangeConstraint": "CONTIGUOUS",
+                },
+            }
+        ]
+        return template
+
+    def test_check_step_parameters_consistency_ignores_chunk_int(self):
+        """
+        A Data Asset can never hold a CHUNK[INT] parameter (Unreal's ValueType
+        enum has no such type; open_job_template_api.py skips it), so the
+        consistency check must not report it as missing from the Data Asset.
+        """
+        # GIVEN
+        checker = ParametersConsistencyChecker()
+        template = self._f_dynamic_chunking_step_template()
+        data_asset_parameters = [
+            {"name": p["name"], "type": p["type"]}
+            for p in fixtures.f_step_template_default()["parameterSpace"][
+                "taskParameterDefinitions"
+            ]
+        ]
+
+        # WHEN
+        with patch("yaml.safe_load", MagicMock(side_effect=[template])):
+            with patch("builtins.open", MagicMock()):
+                result = checker.check_step_parameters_consistency("", data_asset_parameters)
+
+        # THEN
+        assert result.passed, result.reason
+
+    def test_fix_step_parameters_consistency_does_not_add_chunk_int(self):
+        """The fix path must never inject a CHUNK[INT] parameter into a Data Asset."""
+        # GIVEN
+        checker = ParametersConsistencyChecker()
+        template = self._f_dynamic_chunking_step_template()
+
+        # WHEN
+        with patch("yaml.safe_load", MagicMock(side_effect=[template])):
+            with patch("builtins.open", MagicMock()):
+                fixed = checker.fix_step_parameters_consistency("", [])
+
+        # THEN
+        assert all(not p["type"].startswith("CHUNK[") for p in fixed)
+        assert [p["name"] for p in fixed] == [
+            p["name"]
+            for p in fixtures.f_step_template_default()["parameterSpace"][
+                "taskParameterDefinitions"
+            ]
+        ]
+
+    def test_check_step_parameters_consistency_ignores_stale_chunk_int_in_data_asset(self):
+        """
+        A Data Asset written by an older plugin build can carry a stale
+        CHUNK[INT] row (e.g. inserted by that build's Fix Consistency action).
+        The YAML is authoritative for CHUNK parameters and Data Asset
+        overrides are never applied to them, so the row must not fail the
+        consistency check.
+        """
+        # GIVEN
+        checker = ParametersConsistencyChecker()
+        template = self._f_dynamic_chunking_step_template()
+        data_asset_parameters = [
+            {"name": p["name"], "type": p["type"]}
+            for p in fixtures.f_step_template_default()["parameterSpace"][
+                "taskParameterDefinitions"
+            ]
+        ] + [{"name": "DynamicChunking", "type": "CHUNK[INT]"}]
+
+        # WHEN
+        with patch("yaml.safe_load", MagicMock(side_effect=[template])):
+            with patch("builtins.open", MagicMock()):
+                result = checker.check_step_parameters_consistency("", data_asset_parameters)
+
+        # THEN
+        assert result.passed, result.reason
+
+    def test_fix_step_parameters_consistency_drops_stale_chunk_int_from_data_asset(self):
+        """Fix Consistency must clean a stale CHUNK[INT] row out of the Data Asset."""
+        # GIVEN
+        checker = ParametersConsistencyChecker()
+        template = self._f_dynamic_chunking_step_template()
+        data_asset_parameters = [
+            {"name": p["name"], "type": p["type"]}
+            for p in fixtures.f_step_template_default()["parameterSpace"][
+                "taskParameterDefinitions"
+            ]
+        ] + [{"name": "DynamicChunking", "type": "CHUNK[INT]"}]
+
+        # WHEN
+        with patch("yaml.safe_load", MagicMock(side_effect=[template])):
+            with patch("builtins.open", MagicMock()):
+                fixed = checker.fix_step_parameters_consistency("", data_asset_parameters)
+
+        # THEN
+        assert all(not p["type"].startswith("CHUNK[") for p in fixed)

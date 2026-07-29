@@ -19,6 +19,7 @@ from openjd.model.v2023_09 import (
     FloatTaskParameterDefinition,
     StringTaskParameterDefinition,
     PathTaskParameterDefinition,
+    ChunkIntTaskParameterDefinition,
 )
 
 from deadline.client.job_bundle.submission import AssetReferences
@@ -211,31 +212,36 @@ class ParameterDefinitionDescriptor:
     """
     Data class for converting C++, OpenJD and generic Python classes between each other
 
-    :cvar type_name: OpenJD type (INT, FLOAT, STRING, PATH)
+    :cvar type_name: OpenJD type (INT, FLOAT, STRING, PATH, CHUNK[INT])
     :cvar job_parameter_openjd_class: OpenJD class for int, float, string, path Job parameter
     :cvar task_parameter_openjd_class: OpenJD class for int, float, string, path Step parameter
     :cvar python_class: Appropriate python class (int, float, string, path)
     """
 
-    type_name: Literal["INT", "FLOAT", "STRING", "PATH"]
-    job_parameter_openjd_class: type[
-        Union[
-            JobIntParameterDefinition,
-            JobFloatParameterDefinition,
-            JobStringParameterDefinition,
-            JobPathParameterDefinition,
+    type_name: Literal["INT", "FLOAT", "STRING", "PATH", "CHUNK[INT]"]
+    job_parameter_openjd_class: Optional[
+        type[
+            Union[
+                JobIntParameterDefinition,
+                JobFloatParameterDefinition,
+                JobStringParameterDefinition,
+                JobPathParameterDefinition,
+            ]
         ]
     ]
-    job_parameter_attribute_name: Literal["int_value", "float_value", "string_value", "path_value"]
+    job_parameter_attribute_name: Optional[
+        Literal["int_value", "float_value", "string_value", "path_value"]
+    ]
     task_parameter_openjd_class: type[
         Union[
             IntTaskParameterDefinition,
             FloatTaskParameterDefinition,
             StringTaskParameterDefinition,
             PathTaskParameterDefinition,
+            ChunkIntTaskParameterDefinition,
         ]
     ]
-    python_class: type[Union[int, float, str]]
+    python_class: Optional[type[Union[int, float, str]]]
 
 
 PARAMETER_DEFINITION_MAPPING = {
@@ -250,6 +256,10 @@ PARAMETER_DEFINITION_MAPPING = {
     ),
     "PATH": ParameterDefinitionDescriptor(
         "PATH", JobPathParameterDefinition, "path_value", PathTaskParameterDefinition, str
+    ),
+    # CHUNK[INT] is a task-only parameter type (no job-level equivalent, no Python conversion)
+    "CHUNK[INT]": ParameterDefinitionDescriptor(
+        "CHUNK[INT]", None, None, ChunkIntTaskParameterDefinition, None
     ),
 }
 
@@ -268,6 +278,10 @@ class OpenJobParameterNames:
     :cvar UNREAL_EXECUTABLE_RELATIVE_PATH: UE executable path relative to P4 workspace root
     :cvar PERFORCE_STREAM_PATH: P4 stream path, e.g. //MyProject/Mainline
     :cvar PERFORCE_CHANGELIST_NUMBER: P4 changelist to sync workspace to
+
+    :cvar FRAMES: Frame range expression for dynamic chunking (e.g., "1-100", "1,3,5-10:2")
+    :cvar TARGET_RUNTIME_SECONDS: Target runtime in seconds per chunk for dynamic chunking
+    :cvar RANGE_CONSTRAINT: Whether frames in a chunk must be CONTIGUOUS or NONCONTIGUOUS
     """
 
     UNREAL_PROJECT_PATH = "ProjectFilePath"
@@ -283,6 +297,11 @@ class OpenJobParameterNames:
     PERFORCE_STREAM_PATH = "PerforceStreamPath"
     PERFORCE_CHANGELIST_NUMBER = "PerforceChangelistNumber"
     PERFORCE_WORKSPACE_SPECIFICATION_TEMPLATE = "PerforceWorkspaceSpecificationTemplate"
+
+    # Dynamic chunking (TASK_CHUNKING extension) job-level parameters
+    FRAMES = "Frames"
+    TARGET_RUNTIME_SECONDS = "TargetRuntimeSeconds"
+    RANGE_CONSTRAINT = "RangeConstraint"
 
 
 class OpenJobStepParameterNames:
@@ -301,6 +320,8 @@ class OpenJobStepParameterNames:
     :cvar FRAMES_PER_TASK: If set, each task will render this number of frames
     :cvar SHOTS_PER_TASK: Count of the shots per OpenJD Step's Task unless FRAMES_PER_TASK set
     :cvar TASK_INDEX: Index of the task (0-based) within the OpenJD Step's parameter space
+
+    :cvar DYNAMIC_CHUNKING: Task parameter name for CHUNK[INT] type in dynamic chunking templates
     """
 
     QUEUE_MANIFEST_PATH = "QueueManifestPath"
@@ -314,3 +335,6 @@ class OpenJobStepParameterNames:
     FRAMES_PER_TASK = "FramesPerTask"
     SHOTS_PER_TASK = "ShotsPerTask"
     TASK_INDEX = "TaskIndex"
+
+    # Dynamic chunking (TASK_CHUNKING extension) step-level task parameter
+    DYNAMIC_CHUNKING = "DynamicChunking"
