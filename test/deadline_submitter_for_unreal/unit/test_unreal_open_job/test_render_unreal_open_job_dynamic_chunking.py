@@ -180,17 +180,18 @@ class TestRenderUnrealOpenJobBuildFramesParameterValue:
         "UnrealOpenJobEntity.get_template_object",
         return_value={"parameterDefinitions": []},
     )
-    def test_returns_unchanged_when_no_mrq_job(self, get_template_object_mock):
-        """Test that parameter values are unchanged when MRQ job is not set."""
-        # GIVEN
+    def test_rejects_dynamic_template_without_mrq_job(self, get_template_object_mock):
+        """Reject a dynamic job template when its Frames value cannot be derived."""
+        # GIVEN - an unresolved Frames parameter identifies the selected dynamic template
         render_job = RenderUnrealOpenJob(file_path="", name="TestJob")
         parameter_values = [{"name": OpenJobParameterNames.FRAMES, "value": None}]
 
-        # WHEN
-        result = render_job._build_frames_parameter_value(parameter_values)
+        # WHEN / THEN
+        with pytest.raises(SubmitterInputValidationError) as exc_info:
+            render_job._build_frames_parameter_value(parameter_values)
 
-        # THEN
-        assert result[0]["value"] is None
+        assert "MRQ job is not set" in str(exc_info.value)
+        assert "Dynamic chunking requires frame range" in str(exc_info.value)
 
     @patch(
         "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
@@ -311,9 +312,11 @@ class TestRenderUnrealOpenJobBuildFramesParameterValue:
         "UnrealOpenJobEntity.get_template_object",
         return_value={"parameterDefinitions": []},
     )
-    def test_returns_unchanged_when_level_sequence_not_found(self, get_template_object_mock):
-        """Test that parameter values are unchanged when level sequence cannot be loaded."""
-        # GIVEN
+    def test_rejects_dynamic_template_when_level_sequence_cannot_be_loaded(
+        self, get_template_object_mock
+    ):
+        """Reject a dynamic job template that cannot supply an MRQ frame range."""
+        # GIVEN - the dynamic template has unresolved Frames and an invalid sequence reference
         config_mock = MagicMock()
         config_mock.find_setting_by_class.return_value = MagicMock()
 
@@ -330,11 +333,12 @@ class TestRenderUnrealOpenJobBuildFramesParameterValue:
             "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.EditorAssetLibrary.load_asset",
             return_value=None,
         ):
-            # WHEN
-            result = render_job._build_frames_parameter_value(parameter_values)
+            # WHEN / THEN
+            with pytest.raises(SubmitterInputValidationError) as exc_info:
+                render_job._build_frames_parameter_value(parameter_values)
 
-        # THEN
-        assert result[0]["value"] is None
+        assert "Level sequence could not be loaded" in str(exc_info.value)
+        assert "valid MRQ level sequence" in str(exc_info.value)
 
     @patch(
         "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."

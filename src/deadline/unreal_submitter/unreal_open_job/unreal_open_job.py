@@ -1212,11 +1212,10 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         # Need MRQ job to extract frame range
         if not self._mrq_job:
-            logger.warning(
+            raise exceptions.SubmitterInputValidationError(
                 "Cannot populate Frames parameter: MRQ job is not set. "
                 "Dynamic chunking requires frame range from MRQ settings."
             )
-            return parameter_values
 
         # Load output settings and level sequence from MRQ job
         output_settings = self._mrq_job.get_configuration().find_setting_by_class(
@@ -1229,11 +1228,10 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         )
 
         if not level_sequence:
-            logger.warning(
-                "Cannot populate Frames parameter: Level sequence not found. "
-                "Dynamic chunking requires frame range from level sequence."
+            raise exceptions.SubmitterInputValidationError(
+                "Cannot populate Frames parameter: Level sequence could not be loaded. "
+                "Dynamic chunking requires frame range from a valid MRQ level sequence."
             )
-            return parameter_values
 
         # Extract frame range from MRQ settings
         if output_settings and output_settings.use_custom_playback_range:
