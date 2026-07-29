@@ -95,7 +95,7 @@ In Modes 1 and 2, each generated task is assigned a 0-based `TaskIndex` identify
 
 ### Output file naming
 
-When a render is split across multiple tasks, MRQ writes one output file per task. For image sequences (PNG/EXR/etc.) the default `FileNameFormat` includes `{frame_number}`, so each task's output is already unique. For video containers such as `.mov`, the default format is just `{sequence_name}` and every task would write to the same filename. To disambiguate, add the `{task_index}` token to the MRQ Output Setting's `FileNameFormat` (for example `{sequence_name}_{task_index}`); the submitter substitutes it at render time with a zero-padded value: the per-task index (Modes 1 and 2) or the chunk's start frame (Mode 3).
+When a render is split across multiple tasks, MRQ writes one output file per task. For image sequences (PNG/EXR/etc.) the default `FileNameFormat` includes `{frame_number}`, so each task's output is already unique. For video containers such as `.mov`, the default format is just `{sequence_name}` and every task would write to the same filename. To disambiguate, add the `{task_index}` token to the MRQ Output Setting's `FileNameFormat` (for example `{sequence_name}_{task_index}`); the adaptor substitutes it at render time with a zero-padded value: the per-task index (Modes 1 and 2) or the chunk's start frame (Mode 3).
 
 ## Version compatibility
 
@@ -107,7 +107,7 @@ The submitter (Unreal plugin) and the adaptor (worker-side `unrealengine-openjd`
 | 0.7.x | new names (`shots_per_task`/`task_index`) | **both** legacy and new |
 | 0.8.x | new names | new names only |
 
-Any submitter/adaptor pairing within one minor version of each other keeps working. Because run_data fields are optional in the adaptor's schema (only `handler` is required), a mismatched pairing fails **silently with wrong output** — the task renders the full sequence instead of its partition — rather than loudly. The two mismatches to avoid:
+Any submitter/adaptor pairing within one minor version of each other keeps working, provided a 0.6.x adaptor is at least 0.6.10. Because run_data fields are optional in the adaptor's schema (only `handler` is required), a mismatched pairing fails **silently with wrong output** — the task renders the full sequence instead of its partition — rather than loudly. The two mismatches to avoid:
 
 - A 0.7+ submitter's template reaching a pre-0.6.10 adaptor (adaptor doesn't know the new keys).
 - A legacy (pre-0.7) template reaching a 0.8+ adaptor (adaptor no longer accepts the old keys). Regenerate old job bundles and update custom templates or submission scripts that still reference `ChunkSize`/`ChunkId`.

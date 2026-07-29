@@ -28,7 +28,7 @@ independently (run_data keys are their contract), we use an **expand/contract
 - **SMF:** adaptor version pinned by `CondaPackages` in the job template.
   As of Phase 2 this default is `unrealengine-openjd=0.7.*` (bumped from
   `0.6.*`); the glob matches the latest 0.7.x patch automatically.
-- **CMF:** adaptor pip-installed manually, must be kept version-matched to the
+- **Customer-managed fleets:** adaptor pip-installed manually, must be kept version-matched to the
   submitter (per `setup-cmf-worker.md`).
 - run_data fields are optional in `run_data.schema.json` (only `handler` is
   required). A mismatch therefore fails **silently with wrong output** (a task
@@ -48,9 +48,9 @@ The durable copy of this matrix lives in
 | 0.8.x | new names | new names only |
 
 Any submitter/adaptor pairing within one minor version of each other keeps
-working; the silent wrong-output failure mode only occurs when a 0.7+
-submitter's template reaches a pre-0.6.10 adaptor, or a legacy template
-reaches a 0.8+ adaptor.
+working, provided a 0.6.x adaptor is at least 0.6.10. The silent wrong-output
+failure mode occurs when a 0.7+ submitter's template reaches a pre-0.6.10
+adaptor, or a legacy template reaches a 0.8+ adaptor.
 
 ## Phases
 
@@ -61,7 +61,7 @@ reaches a 0.8+ adaptor.
   keys via `_apply_param_aliases` (new wins). Schema permits all four keys.
 - Submitter, templates, and user-facing names are unchanged.
 - **Release:** non-breaking (`feat`) — ships as 0.6.10.
-- **Exit criterion:** rolled out to fleet (SMF conda channel + CMF hosts on
+- **Exit criterion:** rolled out to fleet (SMF conda channel + customer-managed fleet hosts on
   0.6.10+). ✅ met. After this, any deployed adaptor handles both old and new
   templates.
 
@@ -84,9 +84,8 @@ reaches a 0.8+ adaptor.
   bundles. (Find-and-replace details in the Phase-2 PR description.)
   - Includes internal canary/test job bundles that hand-author OpenJD
     templates rather than going through the submitter — these are just as
-    exposed to Phase 4 dropping legacy support as any customer template.
-    See `BealineTestJobBundles` CR-290057236 (conda branch) and
-    CR-290945992 (mainline branch) for the Unreal fountain canaries.
+    exposed to Phase 4 dropping legacy support as any customer template and
+    are tracked internally.
 - **Exit criterion:** all submitters in use emit new names.
 
 ### Phase 3 — Adopt OpenJD native chunking 🚧 in progress (this change)
@@ -209,8 +208,7 @@ them.
 - **Preconditions (⛔ not yet met):**
   - No submitter in use emits legacy names; no old job bundles in flight.
   - All internal test/canary bundles across all DCC integrations (not just
-    Unreal) audited for hand-authored legacy names — including the CMF-side
-    canaries found in `BealineTestJobBundles` (see CR-290057236).
+    Unreal) audited for hand-authored legacy names (tracked internally).
   - A soak period on 0.7.x with no observed legacy-name usage, or an
     explicit customer communication + waiting period.
   - Re-review these preconditions with the team before merging.
@@ -226,7 +224,7 @@ them.
 Phase 1  feat       adaptor accepts both names           (non-breaking)  ✅ merged (#324, 0.6.10)
    |       fleet rolled out to 0.6.10  ✅
 Phase 2  refactor!  submitter emits new names            (breaking, 0.7.0) ✅ merged (#338)
-   |       0.7.0 deployed everywhere (Gamma + Prod)  ✅
+   |       0.7.0 deployed to all production environments  ✅
    |       + default CondaPackages pin bump 0.6.* -> 0.7.*  ✅ merged (#343)
    |       all submitters updated
 Phase 3  feat       adopt OpenJD native chunking         (non-breaking, 0.7.x) 🚧 this change

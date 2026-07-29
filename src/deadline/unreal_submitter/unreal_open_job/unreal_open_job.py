@@ -1254,7 +1254,14 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         # integer range expressions are INCLUSIVE on both ends ("10-20" is 11
         # frames) - subtract 1 so the last chunk doesn't render a frame past
         # the end of the sequence.
-        frames_value = f"{start_frame}-{end_frame - 1}"
+        inclusive_end_frame = end_frame - 1
+        if inclusive_end_frame < start_frame:
+            raise exceptions.SubmitterInputValidationError(
+                "Cannot populate Frames parameter from an empty or descending MRQ frame range: "
+                f"[{start_frame}, {end_frame})."
+            )
+
+        frames_value = f"{start_frame}-{inclusive_end_frame}"
 
         parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
             job_parameter_values=parameter_values,

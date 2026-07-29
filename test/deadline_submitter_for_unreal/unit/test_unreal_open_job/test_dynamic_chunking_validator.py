@@ -242,6 +242,23 @@ class TestValidateFramesParameter:
         assert "IntRangeList" in str(exc_info.value)
         assert "IntRangeExpr" in str(exc_info.value)
 
+    @pytest.mark.parametrize(
+        ("invalid_frames", "expected_reason"),
+        [
+            ("10-9", "Range start must not exceed range end"),
+            ("1-10:0", "Range step must be at least 1"),
+        ],
+    )
+    def test_validate_frames_parameter_rejects_invalid_range_values(
+        self, invalid_frames, expected_reason
+    ):
+        """Reject syntactically valid ranges that OpenJD cannot instantiate."""
+        with pytest.raises(SubmitterInputValidationError) as exc_info:
+            DynamicChunkingHelper.validate_frames_parameter(invalid_frames)
+
+        assert f'Invalid Frames parameter value "{invalid_frames}"' in str(exc_info.value)
+        assert expected_reason in str(exc_info.value)
+
 
 class TestSubstituteChunkParameterValues:
     """Tests for the _substitute_chunk_parameter_values method in UnrealOpenJobStep."""

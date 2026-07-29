@@ -260,6 +260,19 @@ def test_dynamic_chunking_render_job_succeeds(
             f"Expected {expected_chunk_count} chunk dispatches (taskRun session actions) "
             f"for Frames=1-10 with ChunkSize=5, got {len(task_run_actions)}"
         )
+
+        actual_chunk_windows = {
+            action["definition"]["taskRun"]
+            .get("parameters", {})
+            .get("DynamicChunking", {})
+            .get("chunkInt")
+            for action in task_run_actions
+        }
+        expected_chunk_windows = {"1-5", "6-10"}
+        assert actual_chunk_windows == expected_chunk_windows, (
+            f"Expected dispatched DynamicChunking windows {expected_chunk_windows}, "
+            f"got {actual_chunk_windows}"
+        )
     finally:
         logger.info(f"Cleaning up: canceling job {job_id}")
         cancel_job(deadline_client, farm_id, queue_id, job_id)

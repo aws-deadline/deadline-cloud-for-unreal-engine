@@ -194,9 +194,10 @@ class DynamicChunkingHelper:
         # - Comma-separated list: "1,2,3", "1-10,15,20-30"
         # - Mixed: "1-10:2,15,20-30"
         #
-        # The range alternation mirrors the adaptor's parse_dynamic_chunked_frames
-        # pattern (r"^(-?\d+)-(-?\d+)$") so submitter and adaptor accept the same
-        # expressions.
+        # This validates the job-level OpenJD integer range expression. With
+        # rangeConstraint CONTIGUOUS, the scheduler canonicalizes each dispatched
+        # chunk as "<start>-<end>", including singleton chunks such as "5-5".
+        # The adaptor therefore intentionally accepts a narrower runtime shape.
         single_int = r"-?\d+"
         range_with_optional_step = r"-?\d+--?\d+(?::\d+)?"
         int_range_element_pattern = rf"(?:{range_with_optional_step}|{single_int})"
@@ -212,3 +213,21 @@ class DynamicChunkingHelper:
                 f"Valid formats include: integers ('5', '-10'), ranges ('1-100', '-10-49'), "
                 f"ranges with step ('1-100:2'), or comma-separated combinations."
             )
+
+        range_element_pattern = re.compile(r"^(-?\d+)-(-?\d+)(?::(\d+))?$")
+        for element in frames.split(","):
+            range_match = range_element_pattern.match(element)
+            if not range_match:
+                continue
+
+            start_frame, end_frame, step = range_match.groups()
+            if int(start_frame) > int(end_frame):
+                raise SubmitterInputValidationError(
+                    f'Invalid Frames parameter value "{frames}". '
+                    f'Range start must not exceed range end in "{element}".'
+                )
+            if step is not None and int(step) < 1:
+                raise SubmitterInputValidationError(
+                    f'Invalid Frames parameter value "{frames}". '
+                    f'Range step must be at least 1 in "{element}".'
+                )
