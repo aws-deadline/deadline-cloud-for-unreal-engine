@@ -31,6 +31,7 @@ nav:
   - Submitter Installation: setup-submitter.md
   - Perforce - Credentials Management: perforce-credentials-management.md
   - Perforce - Submit Jobs: create-perforce-render-job.md
+  - Dynamic Chunking - Submit Jobs: create-dynamic-chunking-render-job.md
   - Set up CMF Worker: setup-cmf-worker.md
 
 plugins:

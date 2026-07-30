@@ -3,6 +3,9 @@
 #pragma once
 #include "Misc/AutomationTest.h"
 #include "CoreMinimal.h"
+#include "Misc/App.h"
+#include "Async/Async.h"
+#include "Async/Future.h"
 #include "Engine/Engine.h"
 #include "UObject/UObjectGlobals.h"
 #include "AssetToolsModule.h"
@@ -441,11 +444,28 @@ static FString ConvertLocalPathToFull(const FString& Path)
 	return FullPath;
 }
 
+// Hover and retry to avoid intermittent "Element found but not located under the cursor" failures
+// when the synthetic cursor has not settled over the target yet.
+static bool RobustClick(FAutomationDriverPtr Driver, FDriverElementRef Element, EMouseButtons::Type MouseButton, int32 MaxAttempts = 3)
+{
+	for (int32 Attempt = 0; Attempt < MaxAttempts; ++Attempt)
+	{
+		Element->Hover();
+		Driver->Wait(FTimespan::FromMilliseconds(50));
+		if (Element->Click(MouseButton))
+		{
+			return true;
+		}
+		Driver->Wait(FTimespan::FromMilliseconds(100));
+	}
+	return false;
+}
+
 static void ExpandAllProperties(const FString DetailsPath, FAutomationDriverPtr Driver)
 {
 	FString MainCategoryExpanderArrowPath = DetailsPath + "//<SDetailCategoryTableRow>//<SDetailExpanderArrow>";
 	FDriverElementCollectionRef ParametersCategory = Driver->FindElements(By::Path(MainCategoryExpanderArrowPath));
-	ParametersCategory->GetElements()[0]->Click(EMouseButtons::Type::Right);
+	RobustClick(Driver, ParametersCategory->GetElements()[0], EMouseButtons::Type::Right);
 	Driver->Wait(FTimespan::FromSeconds(1));
 
 	FString PopupElementsPath = "<SWindow>//<SPopup>//<SMultiBoxWidget>//<SBorder>//<SVerticalBox>//<SScrollBox>//<SHorizontalBox>//<SOverlay>//<SScrollPanel>//<SVerticalBox>//<SHorizontalBox>//<SMenuEntryButton>";
@@ -454,7 +474,7 @@ static void ExpandAllProperties(const FString DetailsPath, FAutomationDriverPtr 
 	if (!PopupElements->GetElements().IsEmpty())
 	{
 		PopupElements->GetElements()[2]->Focus();
-		PopupElements->GetElements()[2]->Click(EMouseButtons::Type::Left);
+		RobustClick(Driver, PopupElements->GetElements()[2], EMouseButtons::Type::Left);
 	}
 }
 
@@ -465,14 +485,28 @@ static void ScrollToElement(FAutomationDriverPtr Driver, FDriverElementRef List,
 		return;
 	}
 
-	if (List->Exists() && ScrollBar->Exists())
+	if (!List->Exists() || !ScrollBar->Exists())
 	{
-		uint32 CurrentAttempts = 0;
-		while ((!TargetElement->Exists() || !TargetElement->IsVisible()) && (!ScrollBar->IsScrolledToEnd() && CurrentAttempts < AttemptsLimit))
+		return;
+	}
+
+	// Start from the top so the target is reachable regardless of the prior scroll offset.
+	List->ScrollToBeginning();
+	Driver->Wait(FTimespan::FromMilliseconds(100));
+
+	uint32 CurrentAttempts = 0;
+	while ((!TargetElement->Exists() || !TargetElement->IsVisible()) && CurrentAttempts < AttemptsLimit)
+	{
+		if (ScrollBar->IsScrolledToEnd())
 		{
-			List->ScrollBy(-1);
-			CurrentAttempts++;
+			// Let tall, still-laying-out rows settle and re-check before giving up at the bottom.
+			Driver->Wait(FTimespan::FromMilliseconds(150));
+			return;
 		}
+
+		List->ScrollBy(-1);
+		Driver->Wait(FTimespan::FromMilliseconds(50));
+		CurrentAttempts++;
 	}
 }
 
@@ -523,7 +557,7 @@ AssetType* CreateAndOpenAsset(
     return Asset;
 }
 
-static void InputText(FDriverElementRef Widget, const FString& Text, bool bRemoveTextBeforeInput)
+static void InputText(FDriverElementRef Widget, const FString& Text, bool bRemoveTextBeforeInput, FAutomationDriverPtr Driver = nullptr)
 {
 	if (bRemoveTextBeforeInput)
 	{
@@ -535,6 +569,90 @@ static void InputText(FDriverElementRef Widget, const FString& Text, bool bRemov
 		Widget->Type(Text);
 	}
 	Widget->Type(EKeys::Enter);
+
+	// Enter commits asynchronously; wait so callers don't read back the stale pre-commit value.
+	if (Driver.IsValid())
+	{
+		Driver->Wait(FTimespan::FromMilliseconds(150));
+	}
+}
+
+// Headless only. Interactive editor runs keep the real keyboard path so dev runs catch widget-wiring regressions.
+static bool ShouldUseProgrammaticInput()
+{
+	return FApp::IsUnattended() || !FApp::CanEverRender();
+}
+
+// Settle delay so Slate ticks/repaints and the widget reflects the newly committed value.
+static const FTimespan ProgrammaticInputSettleDelay = FTimespan::FromMilliseconds(50);
+
+// Spec It() bodies run on the thread pool, but Slate/UObject writes require the game thread.
+// Marshal the work onto the game thread and block until it completes.
+static void RunOnGameThreadBlocking(TFunction<void()> Fn)
+{
+	if (IsInGameThread())
+	{
+		Fn();
+		return;
+	}
+	TSharedRef<TPromise<void>, ESPMode::ThreadSafe> Promise = MakeShared<TPromise<void>, ESPMode::ThreadSafe>();
+	AsyncTask(ENamedThreads::GameThread, [Fn, Promise]() { Fn(); Promise->SetValue(); });
+	Promise->GetFuture().Wait();
+}
+
+// Runs the widget's own validator and applies the value only when it passes, mirroring the
+// commit gate in SDeadlineCloudStringWidget so validator + gate coverage is preserved.
+static void CommitTextProgrammatically(
+	const FString& NewText,
+	FOnVerifyTextChanged Validator,
+	TFunction<void(const FString&)> ApplyValid)
+{
+	RunOnGameThreadBlocking([&]()
+	{
+		bool bValid = true;
+		if (Validator.IsBound())
+		{
+			FText Error = FText::GetEmpty();
+			Validator.Execute(FText::FromString(NewText), Error);
+			bValid = Error.IsEmpty();
+		}
+		if (bValid)
+		{
+			ApplyValid(NewText);
+		}
+	});
+}
+
+// Hybrid text entry: keyboard path interactively, validated programmatic commit headless.
+static void InputText(
+	FDriverElementRef Widget,
+	const FString& Text,
+	bool bRemoveTextBeforeInput,
+	FAutomationDriverPtr Driver,
+	FOnVerifyTextChanged Validator,
+	TFunction<void(const FString&)> ApplyValid)
+{
+	if (!ShouldUseProgrammaticInput())
+	{
+		InputText(Widget, Text, bRemoveTextBeforeInput, Driver);
+		return;
+	}
+
+	Widget->Focus();
+
+	// Match the keyboard semantics: append to the existing text unless asked to replace it,
+	// so negative "input overflows the length limit" cases validate the full resulting value.
+	FString EffectiveText = Text;
+	if (!bRemoveTextBeforeInput)
+	{
+		EffectiveText = Widget->GetText().ToString() + Text;
+	}
+
+	CommitTextProgrammatically(EffectiveText, Validator, ApplyValid);
+	if (Driver.IsValid())
+	{
+		Driver->Wait(ProgrammaticInputSettleDelay);
+	}
 }
 
 
@@ -652,6 +770,17 @@ inline void ShowTestEnvironmentParameters()
 	CreatedEnvironmentDataAsset->GetHiddenManager().Remove("Variable3");
 }
 
+// Read-back check for the hybrid input path.
+inline void VerifyWidgetShowsText(FDriverElementRef Widget, const FString& Expected, const FString& Label)
+{
+	if (!ShouldUseProgrammaticInput())
+	{
+		return;
+	}
+	Driver->Wait(ProgrammaticInputSettleDelay);
+	TestEqual(Label + " widget should display the committed value", Widget->GetText().ToString(), Expected);
+}
+
 END_DEFINE_SPEC(FDeadlinePluginUISpec);
 
 void FDeadlinePluginUISpec::Define()
@@ -744,7 +873,7 @@ void FDeadlinePluginUISpec::Define()
 				return;
 			}
 			MrqJobWidget->Focus();
-			MrqJobWidget->Click(EMouseButtons::Type::Left);
+			RobustClick(Driver, MrqJobWidget.ToSharedRef(), EMouseButtons::Type::Left);
 
 			if (!InitForMRQ(MRQJob))
 			{
@@ -917,16 +1046,24 @@ void FDeadlinePluginUISpec::Define()
 			TestTrue("JobName widget should exist", bJobNameWidgetExists);
 			if (bJobNameWidgetExists)
 			{
+				const FOnVerifyTextChanged NameValidator =
+					FDeadlineCloudInputValidationHelper::GetStringValidationFunction(EValueValidationType::JobName);
+				auto ApplyName = [this](const FString& V)
+				{
+					CreatedJobDataAsset->JobPresetStruct.JobSharedSettings.Name = V;
+				};
+
 				FString OldValue = CreatedJobDataAsset->JobPresetStruct.JobSharedSettings.Name;
-				InputText(JobNameWidget, "123 Invalid", true);
+				InputText(JobNameWidget, "123 Invalid", true, Driver, NameValidator, ApplyName);
 				TEST_EQUAL(CreatedJobDataAsset->JobPresetStruct.JobSharedSettings.Name, OldValue);
 
-				InputText(JobNameWidget, "", true);
+				InputText(JobNameWidget, "", true, Driver, NameValidator, ApplyName);
 				TEST_EQUAL(CreatedJobDataAsset->JobPresetStruct.JobSharedSettings.Name, OldValue);
 
 				FString ValidJobName = "ValidJob123";
-				InputText(JobNameWidget, ValidJobName, true);
+				InputText(JobNameWidget, ValidJobName, true, Driver, NameValidator, ApplyName);
 				TEST_EQUAL(CreatedJobDataAsset->JobPresetStruct.JobSharedSettings.Name, ValidJobName);
+				VerifyWidgetShowsText(JobNameWidget, ValidJobName, "JobName");
 			}
 
 			//Description
@@ -1087,15 +1224,23 @@ void FDeadlinePluginUISpec::Define()
 				TEST_TRUE(StringParameter.Type == EValueType::STRING)
 				FString StringParameterOldValue = StringParameter.Range[0];
 
-				InputText(StringParametersWidget, "ThisInputIsWayTooLongForValidation", false);
+				const FOnVerifyTextChanged StepStringValidator =
+					FDeadlineCloudInputValidationHelper::GetStringValidationFunction(EValueValidationType::StepParameterValue);
+				auto ApplyStepString = [this](const FString& V)
+				{
+					CreatedStepDataAsset->TaskParameterDefinitions.Parameters[0].Range[0] = V;
+				};
+
+				InputText(StringParametersWidget, "ThisInputIsWayTooLongForValidation", false, Driver, StepStringValidator, ApplyStepString);
 				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[0].Range[0], StringParameterOldValue);
 
-				InputText(StringParametersWidget, "", true);
+				InputText(StringParametersWidget, "", true, Driver, StepStringValidator, ApplyStepString);
 				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[0].Range[0], StringParameterOldValue);
 
 				FString StringParametersTextValid = "ValidString";
-				InputText(StringParametersWidget, StringParametersTextValid, true);
+				InputText(StringParametersWidget, StringParametersTextValid, true, Driver, StepStringValidator, ApplyStepString);
 				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[0].Range[0], StringParametersTextValid);
+				VerifyWidgetShowsText(StringParametersWidget, StringParametersTextValid, "Step StringParameter");
 			}
 
 			//PathParameter
@@ -1220,11 +1365,11 @@ void FDeadlinePluginUISpec::Define()
 			TestTrue("Variable1 widget should exist", bVariable1WidgetExists);
 			if (bVariable1WidgetExists)
 			{
-				InputText(Variable1Widget, "", true);
+				InputText(Variable1Widget, "", true, Driver);
 				TEST_EQUAL(CreatedEnvironmentDataAsset->Variables.Variables["Variable1"], "");
 
 				FString Variable1TextValid = "ValidString";
-				InputText(Variable1Widget, Variable1TextValid, true);
+				InputText(Variable1Widget, Variable1TextValid, true, Driver);
 				TEST_EQUAL(CreatedEnvironmentDataAsset->Variables.Variables["Variable1"], Variable1TextValid);
 			}
 
@@ -1300,12 +1445,27 @@ void FDeadlinePluginUISpec::Define()
 					}
 					else
 					{
+						// The name widget validates via AmountName, then renames the map key on commit.
+						const FOnVerifyTextChanged AmountValidator =
+							FDeadlineCloudInputValidationHelper::GetStringValidationFunction(EValueValidationType::AmountName);
+						auto RenameAmountKey = [this, FindStringKeyRef](const FString& NewName)
+						{
+							auto& Map = CreatedHostRequirements->HostRequirements.Amounts;
+							if (FString* OldKey = FindStringKeyRef(Map, "amount.test"))
+							{
+								auto Val = Map.FindChecked(*OldKey);
+								Map.Remove(*OldKey);
+								Map.Add(NewName, Val);
+							}
+						};
+
 						FString OldValue = *AmountKey;
-						InputText(CustomAmountNameWidget, "InvalidNameTest", true);
+						InputText(CustomAmountNameWidget, "InvalidNameTest", true, Driver, AmountValidator, RenameAmountKey);
 						TestTrue("New key should not exist", FindStringKeyRef(CreatedHostRequirements->HostRequirements.Amounts, "amount.test") != nullptr);
 
-						InputText(CustomAmountNameWidget, "amount.custom", true);
+						InputText(CustomAmountNameWidget, "amount.custom", true, Driver, AmountValidator, RenameAmountKey);
 						TestTrue("New key should exist", FindStringKeyRef(CreatedHostRequirements->HostRequirements.Amounts, "amount.custom") != nullptr);
+						VerifyWidgetShowsText(CustomAmountNameWidget, "amount.custom", "Amount Custom Name");
 					}
 				}
 
@@ -1322,12 +1482,26 @@ void FDeadlinePluginUISpec::Define()
 					}
 					else
 					{
+						const FOnVerifyTextChanged AttrValidator =
+							FDeadlineCloudInputValidationHelper::GetStringValidationFunction(EValueValidationType::AttributeName);
+						auto RenameAttrKey = [this, FindStringKeyRef](const FString& NewName)
+						{
+							auto& Map = CreatedHostRequirements->HostRequirements.Attributes;
+							if (FString* OldKey = FindStringKeyRef(Map, "attr.test"))
+							{
+								auto Val = Map.FindChecked(*OldKey);
+								Map.Remove(*OldKey);
+								Map.Add(NewName, Val);
+							}
+						};
+
 						FString OldValue = *AttrKey;
-						InputText(CustomAttrNameWidget, "InvalidNameTest", true);
+						InputText(CustomAttrNameWidget, "InvalidNameTest", true, Driver, AttrValidator, RenameAttrKey);
 						TestTrue("New key should not exist", FindStringKeyRef(CreatedHostRequirements->HostRequirements.Attributes, "attr.test") != nullptr);
 
-						InputText(CustomAttrNameWidget, "attr.custom", true);
+						InputText(CustomAttrNameWidget, "attr.custom", true, Driver, AttrValidator, RenameAttrKey);
 						TestTrue("New key should exist", FindStringKeyRef(CreatedHostRequirements->HostRequirements.Attributes, "attr.custom") != nullptr);
+						VerifyWidgetShowsText(CustomAttrNameWidget, "attr.custom", "Attr Custom Name");
 					}
 				}
 

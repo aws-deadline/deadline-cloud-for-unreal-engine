@@ -402,6 +402,45 @@ class UnrealRenderStepHandler(BaseStepHandler):
         )
 
     @staticmethod
+    def parse_dynamic_chunked_frames(dynamic_chunked_frames: str) -> tuple[int, int]:
+        """
+        Parse a contiguous frame chunk expression into start and end frames.
+
+        IMPORTANT: Only CONTIGUOUS rangeConstraint is supported. Non-contiguous frame lists
+        (e.g., "1,5,10" or "1-5,10-15") are NOT supported because Unreal Engine's Movie Render
+        Queue (MRQ) only accepts contiguous frame ranges via custom_start_frame/custom_end_frame.
+        MRQ does not provide an API to render arbitrary non-contiguous frames in a single job.
+
+        Supported format:
+            Range: "<start>-<end>" (e.g., "1-10", "5-5", "0-100", "-100--76", "-50-10")
+
+        :param dynamic_chunked_frames: Frame chunk expression string from TASK_CHUNKING extension
+            (must be CONTIGUOUS rangeConstraint)
+        :return: Tuple of (start_frame, end_frame)
+        :raises ValueError: If dynamic_chunked_frames is empty, malformed, or not in range format
+        """
+        if not dynamic_chunked_frames or not dynamic_chunked_frames.strip():
+            raise ValueError("dynamic_chunked_frames cannot be empty")
+
+        dynamic_chunked_frames = dynamic_chunked_frames.strip()
+
+        # CONTIGUOUS mode always returns range format: "<start>-<end>"
+        match = re.match(r"^(-?\d+)-(-?\d+)$", dynamic_chunked_frames)
+        if match:
+            start = int(match.group(1))
+            end = int(match.group(2))
+            if start > end:
+                raise ValueError(
+                    f"Invalid frame range: start ({start}) cannot be greater than end ({end})"
+                )
+            return (start, end)
+
+        raise ValueError(
+            f"Invalid dynamic_chunked_frames format: '{dynamic_chunked_frames}'. "
+            "Expected range format '<start>-<end>' (e.g., '1-10', '5-5', '-100-100')"
+        )
+
+    @staticmethod
     def _apply_param_aliases(args: dict) -> dict:
         """Accept both the legacy and new run_data keys for the render
         partitioning parameters, for backwards compatibility during the
@@ -471,7 +510,50 @@ class UnrealRenderStepHandler(BaseStepHandler):
         if "task_index" in args:
             task_index: int = args["task_index"]
         for job in subsystem.get_queue().get_jobs():
-            if args.get("frames_per_task") and "task_index" in args:
+            # Dynamic chunking, frame-based and shot-based chunking are mutually
+            # exclusive modes, checked in that priority order.
+            dynamic_chunk_start_frame: Optional[int] = None
+            if "dynamic_chunked_frames" in args:
+                # Dynamic chunking: the scheduler (TASK_CHUNKING extension) computes the
+                # frame range and passes it pre-computed via dynamic_chunked_frames.
+                start_frame, end_frame = self.parse_dynamic_chunked_frames(
+                    args["dynamic_chunked_frames"]
+                )
+                # The scheduler returns inclusive frame ranges (e.g., "10-10" means 1 frame),
+                # but Unreal's custom_end_frame is exclusive. Add 1 to convert the
+                # inclusive scheduler end to Unreal's exclusive end.
+                end_frame = end_frame + 1
+                dynamic_chunk_start_frame = start_frame
+                # Always resolve output settings for the CURRENT job - caching
+                # across the queue loop would apply the first job's settings
+                # object to every subsequent job in the queue.
+                output_settings = job.get_configuration().find_or_add_setting_by_class(
+                    unreal.MoviePipelineOutputSetting
+                )
+                level_sequence = unreal.EditorAssetLibrary.load_asset(
+                    unreal.SystemLibrary.conv_soft_object_reference_to_string(
+                        unreal.SystemLibrary.conv_soft_obj_path_to_soft_obj_ref(job.sequence)
+                    )
+                )
+                # Dynamic chunking requires explicit custom playback range
+                output_settings.use_custom_playback_range = True
+                output_settings.custom_start_frame = start_frame
+                output_settings.custom_end_frame = end_frame
+
+                if level_sequence is not None:
+                    level_sequence.set_playback_start(start_frame)
+                    level_sequence.set_playback_end(end_frame)
+                    logger.info(
+                        f"Rendering custom frame range from {output_settings.custom_start_frame} to {output_settings.custom_end_frame} with sequence playback start {level_sequence.get_playback_start()} end {level_sequence.get_playback_end()}"
+                    )
+                else:
+                    logger.warning(
+                        "Rendering dynamic chunk frame range "
+                        f"[{output_settings.custom_start_frame}, "
+                        f"{output_settings.custom_end_frame}] without a resolved "
+                        "LevelSequence; relying on output_settings.use_custom_playback_range"
+                    )
+            elif args.get("frames_per_task") and "task_index" in args:
                 frames_per_task: int = args["frames_per_task"]
                 if not output_settings:
                     output_settings = job.get_configuration().find_or_add_setting_by_class(
@@ -527,7 +609,20 @@ class UnrealRenderStepHandler(BaseStepHandler):
                     task_index=task_index,
                 )
 
-            if "task_index" in args and (args.get("frames_per_task") or "shots_per_task" in args):
+            if "dynamic_chunked_frames" in args and dynamic_chunk_start_frame is not None:
+                # Dynamic chunking has no task_index in args (chunks are not indexed that
+                # way). Chunk start frames are unique across chunks of a CONTIGUOUS range,
+                # so substitute the chunk start frame for the {task_index} filename token
+                # to keep per-task output filenames from colliding.
+                logger.info(
+                    "Dynamic chunking provides no task index; substituting the chunk "
+                    f"start frame ({dynamic_chunk_start_frame}) for the {{task_index}} "
+                    "filename token to disambiguate per-task output"
+                )
+                UnrealRenderStepHandler._apply_task_index_to_filename(
+                    job, dynamic_chunk_start_frame
+                )
+            elif "task_index" in args and (args.get("frames_per_task") or "shots_per_task" in args):
                 UnrealRenderStepHandler._apply_task_index_to_filename(job, task_index)
 
             if "output_path" in args:

@@ -1,3 +1,12 @@
+## 0.7.1 (2026-07-29)
+
+### Features
+* Updated the default `CondaPackages` adaptor pin in render job templates from `unrealengine-openjd=0.6.*` to `0.7.*`, so Service-Managed Fleets install the 0.7.x adaptor by default. The 0.7.x adaptor continues to accept both legacy (`chunk_size`/`chunk_id`) and current (`shots_per_task`/`task_index`) run-data keys. (#343)
+* Added OpenJD TASK_CHUNKING dynamic chunking support as a third chunking mode alongside shot-based (ShotsPerTask) and frame-based (FramesPerTask) modes. Chunk boundaries are now computed by Deadline Cloud at dispatch time, enabling scheduler-level task chunking via the OpenJD TASK_CHUNKING extension. (#353)
+
+### Bug Fixes
+* The submitter now raises a validation error when a selected dynamic chunking template cannot derive Frames because its MRQ job or level sequence is missing, instead of deferring the error to OpenJD validation. (#355)
+* Added timeouts to the adaptor environment's onEnter and onExit actions so the worker agent will enforce a timeout if the adaptor daemon start or stop gets stuck. (#347)
 ## 0.7.0 (2026-07-16)
 
 ### BREAKING CHANGES

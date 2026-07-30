@@ -2,7 +2,7 @@
 
 import yaml
 import unreal
-from typing import Any
+from typing import Any, Optional
 
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job import (
     UnrealOpenJobParameterDefinition,
@@ -76,18 +76,27 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
     @staticmethod
     def step_parameter_to_u_step_task_parameter(
         step_parameter: dict[str, str],
-    ) -> unreal.StepTaskParameterDefinition:
+    ) -> Optional[unreal.StepTaskParameterDefinition]:
         """
         Convert given Step Parameter definition dictionary to unreal.StepTaskParameterDefinition.
+
+        Returns None for parameter types not supported by Unreal's ValueType enum
+        (e.g., CHUNK[INT] from OpenJD TASK_CHUNKING extension).
 
         :param step_parameter: Step Parameter definition dictionary.
         :type step_parameter: dict[str, Any]
 
-        :return: unreal.StepTaskParameterDefinition
+        :return: unreal.StepTaskParameterDefinition or None if type not supported
         """
+        param_type = step_parameter["type"]
+
+        # Skip OpenJD extension types not supported by Unreal's ValueType enum
+        if not hasattr(unreal.ValueType, param_type):
+            return None
+
         u_step_task_parameter_definition = unreal.StepTaskParameterDefinition()
         u_step_task_parameter_definition.name = step_parameter["name"]
-        u_step_task_parameter_definition.type = getattr(unreal.ValueType, step_parameter["type"])
+        u_step_task_parameter_definition.type = getattr(unreal.ValueType, param_type)
         u_step_task_parameter_definition.range = [str(v) for v in step_parameter.get("range", [])]
 
         return u_step_task_parameter_definition
@@ -433,7 +442,9 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
             u_param = PythonYamlLibraryImplementation.step_parameter_to_u_step_task_parameter(
                 param_definition
             )
-            u_step_task_parameter_definitions.append(u_param.copy())
+            # Skip unsupported parameter types (e.g., CHUNK[INT])
+            if u_param is not None:
+                u_step_task_parameter_definitions.append(u_param.copy())
 
         u_step_struct = unreal.StepStruct()
         u_step_struct.name = step_template["name"]

@@ -1,0 +1,74 @@
+specificationVersion: jobtemplate-2023-09
+extensions:
+  - REDACTED_ENV_VARS
+  - TASK_CHUNKING
+name: RenderJob
+parameterDefinitions:
+- name: ProjectFilePath
+  type: PATH
+  objectType: FILE
+  dataFlow: IN
+  userInterface: 
+   control: HIDDEN
+- name: ExtraCmdArgs
+  type: STRING
+  default: '-log'
+  userInterface: 
+   control: LINE_EDIT
+- name: ExtraCmdArgsFile
+  type: PATH
+  objectType: FILE
+  dataFlow: IN
+  userInterface: 
+   control: HIDDEN
+- name: Executable
+  type: STRING
+  default: 'UnrealEditor-Cmd'
+  userInterface: 
+   control: HIDDEN
+- name: Frames
+  type: STRING
+  description: 'Frame range from MRQ settings. Populated by submitter at submission time.'
+  userInterface: 
+   control: HIDDEN
+- name: ChunkSize
+  type: INT
+  default: 50
+  minValue: 1
+  description: 'Default number of frames to include in a dynamic chunk'
+  userInterface: 
+   control: SPIN_BOX
+   label: Default Dynamic Chunk Size
+- name: TargetRuntimeSeconds
+  type: INT
+  default: 0
+  minValue: 0
+  description: 'Optional target runtime in seconds per chunk. When 0 (default), chunking uses Default Dynamic Chunk Size for all chunks.'
+  userInterface: 
+   control: SPIN_BOX
+   label: Target Runtime Seconds
+- name: CondaPackages
+  type: STRING
+  # Dynamic chunking requires an adaptor that understands the
+  # dynamic_chunked_frames run_data key (ships in the same release as this
+  # template). The 0.7.* glob resolves to the latest 0.7.x in the conda
+  # channel; a pre-release adaptor would silently render the full sequence
+  # per chunk. Do not use this template against a fleet pinned to an older
+  # 0.7.x adaptor.
+  default: unrealengine=5.7 unrealengine-openjd=0.7.*
+  userInterface: 
+   control: LINE_EDIT
+   label: Conda Packages
+- name: CondaChannels
+  type: STRING
+  default: deadline-cloud-v2 deadline-cloud
+  userInterface: 
+   control: LINE_EDIT
+   label: Conda Channels
+- name: MarketplacePluginsDir
+  type: PATH
+  objectType: DIRECTORY
+  dataFlow: IN
+  default: ''
+  userInterface:
+   control: HIDDEN
