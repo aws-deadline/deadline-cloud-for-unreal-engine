@@ -18,7 +18,7 @@ Select the appropriate branch for your deployment:
 If you’re setting up on a brand new Windows EC2 Instance as your submitter, a g5.2xlarge instance with 200 GB of storage will likely be reasonable minimum:
 
 1. Launch EC2 instance with a valid Instance Profile. This is required to download NVIDIA GRID drivers as instructed below.
-1. Download the Epic Installer and install a supported version of Unreal (5.4 - 5.7).
+1. Download the Epic Installer and install a supported version of Unreal Engine (5.4 through 5.8).
     - UE 5.5 has a known crash bug when running with the DirectX 11 plugin, see UI issue #UE-276282. If you need DirectX support on UE 5.5, use DirectX 12+.
 1. NVIDIA GRID drivers - Follow Windows instructions - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/install-nvidia-driver.html#nvidia-GRID-driver
 
