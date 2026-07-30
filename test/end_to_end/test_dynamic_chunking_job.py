@@ -250,23 +250,35 @@ def test_dynamic_chunking_render_job_succeeds(
                 sessionId=session["sessionId"],
             ).get("sessionActions", [])
             task_run_actions.extend(a for a in actions if a.get("definition", {}).get("taskRun"))
-        for action in task_run_actions:
+        assert len(task_run_actions) == expected_chunk_count, (
+            f"Expected {expected_chunk_count} chunk dispatches (taskRun session actions) "
+            f"for Frames=1-10 with ChunkSize=5, got {len(task_run_actions)}"
+        )
+
+        # ListSessionActions returns summary definitions that omit taskRun parameters.
+        # Fetch each action's details before validating the dispatched chunk windows.
+        task_run_action_details = [
+            deadline_client.get_session_action(
+                farmId=farm_id,
+                queueId=queue_id,
+                jobId=job_id,
+                sessionActionId=action["sessionActionId"],
+            )
+            for action in task_run_actions
+        ]
+        for action in task_run_action_details:
             logger.info(
                 "Chunk taskRun action %s parameters: %s",
                 action["sessionActionId"],
                 action["definition"]["taskRun"].get("parameters"),
             )
-        assert len(task_run_actions) == expected_chunk_count, (
-            f"Expected {expected_chunk_count} chunk dispatches (taskRun session actions) "
-            f"for Frames=1-10 with ChunkSize=5, got {len(task_run_actions)}"
-        )
 
         actual_chunk_windows = {
             action["definition"]["taskRun"]
             .get("parameters", {})
             .get("DynamicChunking", {})
             .get("chunkInt")
-            for action in task_run_actions
+            for action in task_run_action_details
         }
         expected_chunk_windows = {"1-5", "6-10"}
         assert actual_chunk_windows == expected_chunk_windows, (
