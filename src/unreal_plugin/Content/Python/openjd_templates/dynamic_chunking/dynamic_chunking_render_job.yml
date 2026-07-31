@@ -55,7 +55,7 @@ parameterDefinitions:
   # channel; a pre-release adaptor would silently render the full sequence
   # per chunk. Do not use this template against a fleet pinned to an older
   # 0.7.x adaptor.
-  default: unrealengine=5.7 unrealengine-openjd=0.7.*
+  default: unrealengine=5.8 unrealengine-openjd=0.7.*
   userInterface: 
    control: LINE_EDIT
    label: Conda Packages

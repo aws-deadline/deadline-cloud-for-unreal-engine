@@ -48,8 +48,8 @@ def find_unreal_engine(folder: str, version: Optional[str] = None) -> str:
     if version:
         check_version = version
     else:
-        # Default to 5.7 if no other versions are found
-        check_version = "5.7"
+        # Default to 5.8 if no other versions are found
+        check_version = "5.8"
         for subfolder in os.listdir(folder):
             if subfolder.startswith("UE_"):
                 version = subfolder.split("_")[1]
