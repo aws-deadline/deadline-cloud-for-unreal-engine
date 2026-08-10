@@ -6,7 +6,7 @@
 #include "Misc/Paths.h"
 #include "PythonAPILibraries/DeadlineCloudJobBundleLibrary.h"
 
-BEGIN_DEFINE_SPEC(FDeadlinePluginDependenciesSpec, "DeadlineCloud",
+BEGIN_DEFINE_SPEC(FDeadlinePluginDependenciesSpec, "DeadlineCloud.Offline",
     EAutomationTestFlags::ProductFilter | EAutomationTestFlags::EditorContext);
 END_DEFINE_SPEC(FDeadlinePluginDependenciesSpec);
 

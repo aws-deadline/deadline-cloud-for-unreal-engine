@@ -19,7 +19,7 @@
 #include "PythonAPILibraries/PythonParametersConsistencyChecker.h"
 
 
-BEGIN_DEFINE_SPEC(FDeadlinePluginJobSpec, "DeadlineCloud",
+BEGIN_DEFINE_SPEC(FDeadlinePluginJobSpec, "DeadlineCloud.Offline",
     EAutomationTestFlags::ProductFilter | EAutomationTestFlags::EditorContext);
 
 UDeadlineCloudJob* CreatedJobDataAsset;
