@@ -89,6 +89,17 @@ class TestInstallWorkerDependencies:
         assert "--upgrade-strategy" in cmd
         assert cmd[cmd.index("--upgrade-strategy") + 1] == "eager"
 
+    @patch("scripts.build_plugin.subprocess.run")
+    @patch("scripts.build_plugin.os.path.exists", return_value=True)
+    def test_pywin32_install_is_pinned_to_a_binary_wheel(self, mock_exists, mock_run):
+        mock_run.return_value = MagicMock(returncode=0)
+
+        install_worker_dependencies(FAKE_ENGINE_ROOT)
+
+        cmd = mock_run.call_args_list[0][0][0]
+        assert "pywin32==310" in cmd
+        assert "--only-binary=:all:" in cmd
+
 
 class TestBuildAndInstall:
     @patch("scripts.build_plugin.install_worker_dependencies")

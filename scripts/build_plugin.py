@@ -18,6 +18,7 @@ from typing import Tuple, Optional
 
 DEFAULT_UE_INSTALL_ROOT = "C:\\Program Files\\Epic Games"
 PLUGIN_FOLDER_NAME = "UnrealDeadlineCloudService"
+PYWIN32_REQUIREMENT = "pywin32==310"
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -389,10 +390,10 @@ def install_worker_dependencies(engine_root: str):
             + "the folder where Unreal is installed (Should contain UE_VERSION.NUM subfolders)"
         )
 
-    worker_dependencies = ["pywin32"]
+    worker_dependencies = [PYWIN32_REQUIREMENT]
     for dep in worker_dependencies:
         subprocess.run(
-            [python_path, "-m", "pip", "install", dep],
+            [python_path, "-m", "pip", "install", "--only-binary=:all:", dep],
             check=True,
         )
 

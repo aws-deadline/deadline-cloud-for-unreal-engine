@@ -1,0 +1,23 @@
+{
+    "FileVersion": 3,
+    "Category": "Tests",
+    "Description": "Content-free project for Unreal editor automation",
+    "Plugins": [
+        {
+            "Name": "UnrealDeadlineCloudService",
+            "Enabled": true
+        },
+        {
+            "Name": "MovieRenderPipeline",
+            "Enabled": true
+        },
+        {
+            "Name": "AutomationDriverTests",
+            "Enabled": true
+        },
+        {
+            "Name": "PythonAutomationTest",
+            "Enabled": true
+        }
+    ]
+}

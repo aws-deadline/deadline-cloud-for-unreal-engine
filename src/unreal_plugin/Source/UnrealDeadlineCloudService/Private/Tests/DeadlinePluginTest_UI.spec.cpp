@@ -93,7 +93,7 @@ static void CleanupCreatedAssets(const FString& FolderPath, FAutomationTestBase*
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSaveAsJobPreset_BasicCreation,
-	"DeadlineCloud.SaveAsJobPreset.BasicCreation",
+	"DeadlineCloud.Offline.SaveAsJobPreset.BasicCreation",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FSaveAsJobPreset_BasicCreation::RunTest(const FString& Parameters)
@@ -139,7 +139,7 @@ bool FSaveAsJobPreset_BasicCreation::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSaveAsJobPreset_OverwritesExisting,
-	"DeadlineCloud.SaveAsJobPreset.OverwritesExisting",
+	"DeadlineCloud.Offline.SaveAsJobPreset.OverwritesExisting",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FSaveAsJobPreset_OverwritesExisting::RunTest(const FString& Parameters)
@@ -168,7 +168,7 @@ bool FSaveAsJobPreset_OverwritesExisting::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIsValidLength_RangeOK, "DeadlineCloud.Validation.IsValidLength.RangeOK", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIsValidLength_RangeOK, "DeadlineCloud.Offline.Validation.IsValidLength.RangeOK", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FIsValidLength_RangeOK::RunTest(const FString& Parameters)
 {
     FText Error;
@@ -181,7 +181,7 @@ bool FIsValidLength_RangeOK::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIsValidLength_TooShort, "DeadlineCloud.Validation.IsValidLength.TooShort", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIsValidLength_TooShort, "DeadlineCloud.Offline.Validation.IsValidLength.TooShort", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FIsValidLength_TooShort::RunTest(const FString& Parameters)
 {
     FText Error;
@@ -194,7 +194,7 @@ bool FIsValidLength_TooShort::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FContainsNoControlChars_Valid, "DeadlineCloud.Validation.ControlChars.Valid", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FContainsNoControlChars_Valid, "DeadlineCloud.Offline.Validation.ControlChars.Valid", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FContainsNoControlChars_Valid::RunTest(const FString& Parameters)
 {
     FString Input = TEXT("Hello\nWorld\t!");
@@ -208,7 +208,7 @@ bool FContainsNoControlChars_Valid::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FContainsNoControlChars_Invalid, "DeadlineCloud.Validation.ControlChars.Invalid", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FContainsNoControlChars_Invalid, "DeadlineCloud.Offline.Validation.ControlChars.Invalid", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FContainsNoControlChars_Invalid::RunTest(const FString& Parameters)
 {
     FString Input;
@@ -222,7 +222,7 @@ bool FContainsNoControlChars_Invalid::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FValidIdentifier, "DeadlineCloud.Validation.Identifier.Valid", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FValidIdentifier, "DeadlineCloud.Offline.Validation.Identifier.Valid", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FValidIdentifier::RunTest(const FString& Parameters)
 {
     FText Error;
@@ -235,7 +235,7 @@ bool FValidIdentifier::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FInvalidIdentifier_StartsWithNumber, "DeadlineCloud.Validation.Identifier.InvalidStart", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FInvalidIdentifier_StartsWithNumber, "DeadlineCloud.Offline.Validation.Identifier.InvalidStart", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FInvalidIdentifier_StartsWithNumber::RunTest(const FString& Parameters)
 {
     FText Error;
@@ -248,7 +248,7 @@ bool FInvalidIdentifier_StartsWithNumber::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FInvalidIdentifier_IllegalChar, "DeadlineCloud.Validation.Identifier.IllegalChar", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FInvalidIdentifier_IllegalChar, "DeadlineCloud.Offline.Validation.Identifier.IllegalChar", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FInvalidIdentifier_IllegalChar::RunTest(const FString& Parameters)
 {
     FText Error;
@@ -261,7 +261,7 @@ bool FInvalidIdentifier_IllegalChar::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJobParameterValue_Valid, "DeadlineCloud.Validation.String.JobParam.Valid", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJobParameterValue_Valid, "DeadlineCloud.Offline.Validation.String.JobParam.Valid", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FJobParameterValue_Valid::RunTest(const FString& Parameters)
 {
     const auto Validator = FDeadlineCloudInputValidationHelper::GetStringValidationFunction(EValueValidationType::JobParameterValue);
@@ -273,7 +273,7 @@ bool FJobParameterValue_Valid::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPathValidator_ValidStepParameter, "DeadlineCloud.Validation.Path.StepParam.Valid", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPathValidator_ValidStepParameter, "DeadlineCloud.Offline.Validation.Path.StepParam.Valid", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FPathValidator_ValidStepParameter::RunTest(const FString& Parameters)
 {
     const auto Validator = FDeadlineCloudInputValidationHelper::GetPathValidationFunction(EValueValidationType::StepParameterValue);
@@ -285,7 +285,7 @@ bool FPathValidator_ValidStepParameter::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FInvalidLengthTest, "DeadlineCloud.Validation.InvalidLength", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FInvalidLengthTest, "DeadlineCloud.Offline.Validation.InvalidLength", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FInvalidLengthTest::RunTest(const FString& Parameters)
 {
@@ -299,7 +299,7 @@ bool FInvalidLengthTest::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FInvalidIdentifierTest, "DeadlineCloud.Validation.InvalidIdentifier", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FInvalidIdentifierTest, "DeadlineCloud.Offline.Validation.InvalidIdentifier", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FInvalidIdentifierTest::RunTest(const FString& Parameters)
 {
@@ -316,7 +316,7 @@ bool FInvalidIdentifierTest::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FControlCharacterTest, "DeadlineCloud.Validation.ControlCharacters", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FControlCharacterTest, "DeadlineCloud.Offline.Validation.ControlCharacters", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FControlCharacterTest::RunTest(const FString& Parameters)
 {
@@ -333,7 +333,7 @@ bool FControlCharacterTest::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FValidationFunction_JobName_Invalid, "DeadlineCloud.Validation.JobName.InvalidCases", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FValidationFunction_JobName_Invalid, "DeadlineCloud.Offline.Validation.JobName.InvalidCases", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FValidationFunction_JobName_Invalid::RunTest(const FString& Parameters)
 {
@@ -350,7 +350,7 @@ bool FValidationFunction_JobName_Invalid::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FValidationFunction_JobDescription_Invalid, "DeadlineCloud.Validation.JobDescription.ControlChar", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FValidationFunction_JobDescription_Invalid, "DeadlineCloud.Offline.Validation.JobDescription.ControlChar", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FValidationFunction_JobDescription_Invalid::RunTest(const FString& Parameters)
 {
@@ -367,7 +367,7 @@ bool FValidationFunction_JobDescription_Invalid::RunTest(const FString& Paramete
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FIsValidAttributeName_Test,
-	"DeadlineCloud.Validation.AttributeName.Integration",
+	"DeadlineCloud.Offline.Validation.AttributeName.Integration",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter
 )
 
@@ -402,7 +402,7 @@ bool FIsValidAttributeName_Test::RunTest(const FString& Parameters)
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FIsValidAmountName_Test,
-	"DeadlineCloud.Validation.AmountName.Integration",
+	"DeadlineCloud.Offline.Validation.AmountName.Integration",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter
 )
 
@@ -492,7 +492,7 @@ static void ScrollToElement(FAutomationDriverPtr Driver, FDriverElementRef List,
 
 	// Start from the top so the target is reachable regardless of the prior scroll offset.
 	List->ScrollToBeginning();
-	Driver->Wait(FTimespan::FromMilliseconds(100));
+	FPlatformProcess::Sleep(0.1f);
 
 	uint32 CurrentAttempts = 0;
 	while ((!TargetElement->Exists() || !TargetElement->IsVisible()) && CurrentAttempts < AttemptsLimit)
@@ -500,14 +500,85 @@ static void ScrollToElement(FAutomationDriverPtr Driver, FDriverElementRef List,
 		if (ScrollBar->IsScrolledToEnd())
 		{
 			// Let tall, still-laying-out rows settle and re-check before giving up at the bottom.
-			Driver->Wait(FTimespan::FromMilliseconds(150));
+			FPlatformProcess::Sleep(0.15f);
 			return;
 		}
 
 		List->ScrollBy(-1);
-		Driver->Wait(FTimespan::FromMilliseconds(50));
+		FPlatformProcess::Sleep(0.05f);
 		CurrentAttempts++;
 	}
+}
+
+static FDriverElementPtr FindVisibleElementByPath(
+	FAutomationDriverPtr Driver,
+	FDriverElementRef List,
+	FDriverElementRef ScrollBar,
+	const FString& ElementPath,
+	uint32 AttemptsLimit,
+	bool bRequireInteractable = false)
+{
+	if (!List->Exists() || !ScrollBar->Exists())
+	{
+		return nullptr;
+	}
+
+	List->ScrollToBeginning();
+	FPlatformProcess::Sleep(0.1f);
+
+	auto FindCandidate = [&]() -> FDriverElementPtr
+	{
+		const TArray<FDriverElementRef> Candidates =
+			Driver->FindElements(By::Path(ElementPath))->GetElements();
+		for (const FDriverElementRef& Candidate : Candidates)
+		{
+			if (Candidate->Exists() && Candidate->IsVisible() &&
+				(!bRequireInteractable || Candidate->IsInteractable()))
+			{
+				return Candidate;
+			}
+		}
+		return FDriverElementPtr();
+	};
+
+	auto Scan = [&](float ScrollAmount, TFunctionRef<bool()> ReachedBoundary) -> FDriverElementPtr
+	{
+		for (uint32 Attempt = 0; Attempt < AttemptsLimit; ++Attempt)
+		{
+			if (FDriverElementPtr Candidate = FindCandidate())
+			{
+				return Candidate;
+			}
+
+			if (ReachedBoundary())
+			{
+				FPlatformProcess::Sleep(0.2f);
+				return FindCandidate();
+			}
+
+			List->ScrollBy(ScrollAmount);
+			FPlatformProcess::Sleep(0.05f);
+		}
+		return FDriverElementPtr();
+	};
+
+	if (FDriverElementPtr Candidate =
+		Scan(-1, [&ScrollBar]() { return ScrollBar->IsScrolledToEnd(); }))
+	{
+		return Candidate;
+	}
+
+	// The virtualized details list can omit short rows during downward traversal.
+	// Sweep back from the bottom at half-step offsets to materialize those rows.
+	List->ScrollBy(0.5f);
+	FPlatformProcess::Sleep(0.05f);
+	if (FDriverElementPtr Candidate =
+		Scan(1, [&ScrollBar]() { return ScrollBar->IsScrolledToBeginning(); }))
+	{
+		return Candidate;
+	}
+
+	return nullptr;
 }
 
 template<typename AssetType>
@@ -638,8 +709,6 @@ static void InputText(
 		return;
 	}
 
-	Widget->Focus();
-
 	// Match the keyboard semantics: append to the existing text unless asked to replace it,
 	// so negative "input overflows the length limit" cases validate the full resulting value.
 	FString EffectiveText = Text;
@@ -649,15 +718,12 @@ static void InputText(
 	}
 
 	CommitTextProgrammatically(EffectiveText, Validator, ApplyValid);
-	if (Driver.IsValid())
-	{
-		Driver->Wait(ProgrammaticInputSettleDelay);
-	}
+	FPlatformProcess::Sleep(static_cast<float>(ProgrammaticInputSettleDelay.GetTotalSeconds()));
 }
 
 
 
-BEGIN_DEFINE_SPEC(FDeadlinePluginUISpec, "DeadlineCloud",
+BEGIN_DEFINE_SPEC(FDeadlinePluginUISpec, "DeadlineCloud.Offline",
     EAutomationTestFlags::ProductFilter | EAutomationTestFlags::EditorContext | EAutomationTestFlags::NonNullRHI);
 
 FAutomationDriverPtr Driver;
@@ -777,7 +843,7 @@ inline void VerifyWidgetShowsText(FDriverElementRef Widget, const FString& Expec
 	{
 		return;
 	}
-	Driver->Wait(ProgrammaticInputSettleDelay);
+	FPlatformProcess::Sleep(static_cast<float>(ProgrammaticInputSettleDelay.GetTotalSeconds()));
 	TestEqual(Label + " widget should display the committed value", Widget->GetText().ToString(), Expected);
 }
 
@@ -881,37 +947,13 @@ void FDeadlinePluginUISpec::Define()
 			}
 
 			ExpandAllProperties(MRQDetailsPath, Driver);
+			FPlatformProcess::Sleep(0.5f);
 
-			FDriverElementRef StringParametersWidget = Driver->FindElement(By::Path(StringParametersPath));
-			FDriverElementRef PathParametersWidget = Driver->FindElement(By::Path(PathParametersPath));
-			FDriverElementRef FloatParametersWidget = Driver->FindElement(By::Path(FloatParametersPath));
-			FDriverElementRef IntParametersWidget = Driver->FindElement(By::Path(IntParametersPath));
-			FDriverElementRef HiddenParametersWidget = Driver->FindElement(By::Path(HiddenParametersPath));
-
-			FDriverElementRef StepStringParametersWidget = Driver->FindElement(By::Path(StepStringParametersPath));
-			FDriverElementRef StepPathParametersWidget = Driver->FindElement(By::Path(StepPathParametersPath));
-			FDriverElementRef StepFloatParametersWidget = Driver->FindElement(By::Path(StepFloatParametersPath));
-			FDriverElementRef StepIntParametersWidget = Driver->FindElement(By::Path(StepIntParametersPath));
-			FDriverElementRef StepHiddenParametersWidget = Driver->FindElement(By::Path(StepHiddenParametersPath));
-
-			FDriverElementRef Variable1Widget = Driver->FindElement(By::Path(Variable1Path));
-			FDriverElementRef Variable2Widget = Driver->FindElement(By::Path(Variable2Path));
-			FDriverElementRef Variable3Widget = Driver->FindElement(By::Path(Variable3Path));
-			FDriverElementRef HiddenVariableWidget = Driver->FindElement(By::Path(HiddenVariablePath));
-
-			FDriverElementRef DefaultStepCategory = Driver->FindElement(By::Path("#MRQStepHeader.Render"));
-			FDriverElementRef EmptyStepCategory = Driver->FindElement(By::Path("#MRQStepHeader.Empty"));
-			FDriverElementRef DefaultEnvCategory = Driver->FindElement(By::Path("#MRQEnvHeader.LaunchUnrealEditor"));
-			FDriverElementRef EmptyStepEnvCategory = Driver->FindElement(By::Path("#MRQStepEnvHeader.Empty"));
-
-			FDriverElementRef SavePresetButton = Driver->FindElement(By::Path("#MRQJobSavePresetButton"));
-			FDriverElementRef FileArrayElementText = Driver->FindElement(By::Path("#AttachmentArrayElement.Value//<SFilePathPicker>//<SEditableTextBox>"));
-			FDriverElementRef DirArrayElementText = Driver->FindElement(By::Path("#AttachmentArrayElement.Value//<SPropertyEditorText>//<SEditableTextBox>"));
-
-			auto VisibilityTest = [this](const FString& ParameterName, FDriverElementRef Widget, bool bShouldBeVisible)
+			auto VisibilityTest = [this](const FString& ParameterName, const FString& WidgetPath, bool bShouldBeVisible)
 				{
-					ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), Widget, 50);
-					bool bIsVisible = Widget->IsVisible();
+					const FDriverElementPtr Widget = FindVisibleElementByPath(
+						Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), WidgetPath, 50);
+					const bool bIsVisible = Widget.IsValid();
 					if (bShouldBeVisible)
 					{
 						TestTrue(ParameterName + " widget should be visible", bIsVisible);
@@ -922,12 +964,16 @@ void FDeadlinePluginUISpec::Define()
 					}
 				};
 
-			auto EditableTextTest = [this](const FString& ParameterName, FDriverElementRef Widget, const FString& ExpectedValue)
+			auto EditableTextTest = [this](
+				const FString& ParameterName,
+				const FString& WidgetPath,
+				const FString& ExpectedValue)
 				{
-					ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), Widget, 50);
-					if (Widget->IsVisible() && Widget->IsInteractable())
+					const FDriverElementPtr Widget = FindVisibleElementByPath(
+						Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), WidgetPath, 50, true);
+					if (Widget.IsValid())
 					{
-						InputText(Widget, "Test", true);
+						InputText(Widget.ToSharedRef(), "Test", true, Driver);
 						TestTrue(ParameterName + " should be editable", "Test" == ExpectedValue);
 					}
 					else
@@ -936,34 +982,93 @@ void FDeadlinePluginUISpec::Define()
 					}
 				};
 
-			VisibilityTest("SavePresetButton", SavePresetButton, true);
+			VisibilityTest("SavePresetButton", "#MRQJobSavePresetButton", true);
 
-			EditableTextTest("File Array Element Text", FileArrayElementText, MRQJob->PresetOverrides.JobAttachments.InputFiles.Files.Paths[0].FilePath);
-			EditableTextTest("Dir Array Element Text", DirArrayElementText, MRQJob->PresetOverrides.JobAttachments.InputDirectories.Directories.Paths[0].Path);
+			// Attachment array widgets do not expose a validated programmatic commit path.
+			// Keep their real keyboard coverage for interactive editor development.
+			if (!ShouldUseProgrammaticInput())
+			{
+				EditableTextTest(
+					"File Array Element Text",
+					"#AttachmentArrayElement.Value//<SFilePathPicker>//<SEditableTextBox>",
+					MRQJob->PresetOverrides.JobAttachments.InputFiles.Files.Paths[0].FilePath);
+				EditableTextTest(
+					"Dir Array Element Text",
+					"#AttachmentArrayElement.Value//<SPropertyEditorText>//<SEditableTextBox>",
+					MRQJob->PresetOverrides.JobAttachments.InputDirectories.Directories.Paths[0].Path);
+			}
 
-			VisibilityTest("StringParameters", StringParametersWidget, true);
-			VisibilityTest("PathParameters", PathParametersWidget, true);
-			VisibilityTest("FloatParameters", FloatParametersWidget, true);
-			VisibilityTest("IntParameters", IntParametersWidget, true);
-			VisibilityTest("HiddenParameters", HiddenParametersWidget, false);
+			VisibilityTest("StringParameters", StringParametersPath, true);
+			VisibilityTest("PathParameters", PathParametersPath, true);
+			VisibilityTest("FloatParameters", FloatParametersPath, true);
+			VisibilityTest("IntParameters", IntParametersPath, true);
 
-			VisibilityTest("StepStringParameters", StepStringParametersWidget, true);
-			VisibilityTest("StepPathParameters", StepPathParametersWidget, true);
-			VisibilityTest("StepFloatParameters", StepFloatParametersWidget, true);
-			VisibilityTest("StepIntParameters", StepIntParametersWidget, true);
-			VisibilityTest("StepHiddenParameters", StepHiddenParametersWidget, false);
+			VisibilityTest("StepStringParameters", StepStringParametersPath, true);
+			VisibilityTest("StepPathParameters", StepPathParametersPath, true);
+			VisibilityTest("StepFloatParameters", StepFloatParametersPath, true);
+			VisibilityTest("StepIntParameters", StepIntParametersPath, true);
 
-			VisibilityTest("Variable1", Variable1Widget, true);
-			VisibilityTest("Variable2", Variable2Widget, true);
-			VisibilityTest("Variable3", Variable3Widget, true);
-			VisibilityTest("HiddenVariable", HiddenVariableWidget, false);
+			VisibilityTest("Variable1", Variable1Path, true);
+			VisibilityTest("Variable2", Variable2Path, true);
+			VisibilityTest("Variable3", Variable3Path, true);
 			
 			// always visible with host reqs
-			//VisibilityTest("Default Step category", DefaultStepCategory, true);
-			//VisibilityTest("Empty Step category", EmptyStepCategory, false);
-			VisibilityTest("Default Environment category", DefaultEnvCategory, true);
-			VisibilityTest("Empty Step Environment category", EmptyStepEnvCategory, false);
+			//VisibilityTest("Default Step category", "#MRQStepHeader.Render", true);
+			//VisibilityTest("Empty Step category", "#MRQStepHeader.Empty", false);
+			VisibilityTest("Default Environment category", "#MRQEnvHeader.LaunchUnrealEditor", true);
 
+			VisibilityTest("HiddenParameters", HiddenParametersPath, false);
+			VisibilityTest("StepHiddenParameters", StepHiddenParametersPath, false);
+			VisibilityTest("HiddenVariable", HiddenVariablePath, false);
+			VisibilityTest("Empty Step Environment category", "#MRQStepEnvHeader.Empty", false);
+
+			});
+
+		It("MRQJobUIHiddenSelectorCoverage", EAsyncExecution::ThreadPool, FTimespan::FromSeconds(120), [this]() {
+			// Expose the normally hidden controls before AutomationDriver starts traversing Slate.
+			// Refreshing a details tree during traversal invalidates the driver's active element state.
+			RunOnGameThreadBlocking([this]()
+				{
+					CreatedRenderJobDataAsset->GetHiddenManager().Remove("HiddenParameter");
+					CreatedStepDataAsset->GetHiddenManager().Remove("HiddenParameters");
+					CreatedEnvironmentDataAsset->GetHiddenManager().Remove("HiddenVariable");
+					CreatedEmptyEnvironmentDataAsset->GetHiddenManager().Remove("HiddenVariable");
+					MRQJob->ReloadDataFromJobPreset();
+					MRQJob->OnRequestDetailsRefresh.ExecuteIfBound();
+				});
+			FPlatformProcess::Sleep(0.5f);
+
+			Driver->Wait(FTimespan::FromSeconds(1));
+			FDriverElementPtr MrqJobWidget = Driver->FindElement(By::Path("<SMoviePipelineQueueEditor>//<SQueueJobListRow>//<SExpanderArrow>"));
+			Driver->Wait(Until::ElementExists(MrqJobWidget.ToSharedRef(), FWaitTimeout::InSeconds(2.f)));
+
+			if (!MrqJobWidget->Exists())
+			{
+				TestTrue(TEXT("MRQ Job widget should exist"), false);
+				return;
+			}
+			MrqJobWidget->Focus();
+			RobustClick(Driver, MrqJobWidget.ToSharedRef(), EMouseButtons::Type::Left);
+
+			if (!InitForMRQ(MRQJob))
+			{
+				return;
+			}
+
+			ExpandAllProperties(MRQDetailsPath, Driver);
+			FPlatformProcess::Sleep(0.5f);
+
+			auto SelectorShouldBeVisible = [this](const FString& ParameterName, const FString& WidgetPath)
+				{
+					const FDriverElementPtr Widget = FindVisibleElementByPath(
+						Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), WidgetPath, 50);
+					TestTrue(ParameterName + " selector should resolve when exposed", Widget.IsValid());
+				};
+
+			SelectorShouldBeVisible("HiddenParameters", HiddenParametersPath);
+			SelectorShouldBeVisible("StepHiddenParameters", StepHiddenParametersPath);
+			SelectorShouldBeVisible("HiddenVariable", HiddenVariablePath);
+			SelectorShouldBeVisible("Empty Step Environment category", "#MRQStepEnvHeader.Empty");
 			});
 
 		AfterEach([this]()
@@ -1593,4 +1698,3 @@ void FDeadlinePluginUISpec::Define()
 		IAutomationDriverModule::Get().Disable();
 		});
 }
-
