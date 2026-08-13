@@ -38,6 +38,8 @@
 
 #include "PropertyEditorModule.h"
 #include "IDetailsView.h"
+#include "PropertyHandle.h"
+#include "ISinglePropertyView.h"
 #include "PackageTools.h"
 #include "AssetViewUtils.h"
 
@@ -739,6 +741,36 @@ static void InputText(
 	FPlatformProcess::Sleep(static_cast<float>(ProgrammaticInputSettleDelay.GetTotalSeconds()));
 }
 
+static TSharedPtr<IPropertyHandle> GetAttachmentPathHandle(
+	const TSharedPtr<IPropertyHandle>& PresetOverridesHandle,
+	bool bFileAttachment)
+{
+	if (!PresetOverridesHandle.IsValid())
+	{
+		return nullptr;
+	}
+
+	TSharedPtr<IPropertyHandle> Handle = PresetOverridesHandle->GetChildHandle(
+		GET_MEMBER_NAME_CHECKED(FDeadlineCloudJobPresetStruct, JobAttachments));
+	Handle = Handle.IsValid() ? Handle->GetChildHandle(
+		bFileAttachment
+			? GET_MEMBER_NAME_CHECKED(FDeadlineCloudAttachmentsStruct, InputFiles)
+			: GET_MEMBER_NAME_CHECKED(FDeadlineCloudAttachmentsStruct, InputDirectories)) : nullptr;
+	Handle = Handle.IsValid() ? Handle->GetChildHandle(
+		bFileAttachment
+			? GET_MEMBER_NAME_CHECKED(FDeadlineCloudFileAttachmentsStruct, Files)
+			: GET_MEMBER_NAME_CHECKED(FDeadlineCloudDirectoryAttachmentsStruct, Directories)) : nullptr;
+	Handle = Handle.IsValid() ? Handle->GetChildHandle(TEXT("Paths")) : nullptr;
+	const TSharedPtr<IPropertyHandleArray> Paths = Handle.IsValid() ? Handle->AsArray() : nullptr;
+	if (!Paths.IsValid())
+	{
+		return nullptr;
+	}
+
+	Handle = Paths->GetElement(0);
+	return Handle->GetChildHandle(bFileAttachment ? TEXT("FilePath") : TEXT("Path"));
+}
+
 
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -1080,6 +1112,7 @@ void FDeadlinePluginUISpec::Define()
 			auto AttachmentWidgetTest = [this](
 				const FString& ParameterName,
 				const FString& WidgetPath,
+				const TSharedPtr<IPropertyHandle>& PropertyHandle,
 				TFunction<FString()> ReadBack)
 				{
 					bool bSearchConclusive = false;
@@ -1094,7 +1127,29 @@ void FDeadlinePluginUISpec::Define()
 						true);
 					TestTrue(ParameterName + " widget search should be conclusive", bSearchConclusive);
 					TestTrue(ParameterName + " widget should be visible and interactable", Widget.IsValid());
-					if (Widget.IsValid() && !ShouldUseProgrammaticInput())
+					if (!Widget.IsValid())
+					{
+						return;
+					}
+
+					if (ShouldUseProgrammaticInput())
+					{
+						bool bCommitted = false;
+						RunOnGameThreadBlocking([&]()
+							{
+								bCommitted = PropertyHandle.IsValid() &&
+									PropertyHandle->SetValue(FString(TEXT("Test"))) ==
+										FPropertyAccess::Result::Success;
+							});
+						TestTrue(ParameterName + " should update through its property handle", bCommitted);
+						FPlatformProcess::Sleep(
+							static_cast<float>(ProgrammaticInputSettleDelay.GetTotalSeconds()));
+						TestEqual(ParameterName + " model should contain the committed value",
+							ReadBack(), FString(TEXT("Test")));
+						TestEqual(ParameterName + " widget should display the committed value",
+							Widget->GetText().ToString(), FString(TEXT("Test")));
+					}
+					else
 					{
 						InputText(Widget.ToSharedRef(), "Test", true, Driver);
 						TestEqual(ParameterName + " should be editable", ReadBack(), FString(TEXT("Test")));
@@ -1114,9 +1169,39 @@ void FDeadlinePluginUISpec::Define()
 				return;
 			}
 
+			TSharedPtr<ISinglePropertyView> PresetOverridesView;
+			TSharedPtr<IPropertyHandle> FileAttachmentPathHandle;
+			TSharedPtr<IPropertyHandle> DirectoryAttachmentPathHandle;
+			if (ShouldUseProgrammaticInput())
+			{
+				RunOnGameThreadBlocking([&]()
+					{
+						FSinglePropertyParams Params;
+						PresetOverridesView =
+							FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor")
+								.CreateSingleProperty(
+									MRQJob,
+									GET_MEMBER_NAME_CHECKED(
+										UMoviePipelineDeadlineCloudExecutorJob, PresetOverrides),
+									Params);
+						if (PresetOverridesView.IsValid())
+						{
+							const TSharedPtr<IPropertyHandle> PresetOverridesHandle =
+								PresetOverridesView->GetPropertyHandle();
+							FileAttachmentPathHandle =
+								GetAttachmentPathHandle(PresetOverridesHandle, true);
+							DirectoryAttachmentPathHandle =
+								GetAttachmentPathHandle(PresetOverridesHandle, false);
+						}
+					});
+				TestTrue(TEXT("MRQ preset overrides property view should be available"),
+					PresetOverridesView.IsValid());
+			}
+
 			AttachmentWidgetTest(
 				"File Array Element Text",
 				"#AttachmentArrayElement.Value//<SFilePathPicker>//<SEditableTextBox>",
+				FileAttachmentPathHandle,
 				[this]()
 				{
 					return MRQJob->PresetOverrides.JobAttachments.InputFiles.Files.Paths[0].FilePath;
@@ -1124,6 +1209,7 @@ void FDeadlinePluginUISpec::Define()
 			AttachmentWidgetTest(
 				"Dir Array Element Text",
 				"#AttachmentArrayElement.Value//<SPropertyEditorText>//<SEditableTextBox>",
+				DirectoryAttachmentPathHandle,
 				[this]()
 				{
 					return MRQJob->PresetOverrides.JobAttachments.InputDirectories.Directories.Paths[0].Path;
