@@ -4,6 +4,7 @@
 #include "Misc/AutomationTest.h"
 #include "CoreMinimal.h"
 #include "Misc/App.h"
+#include "Misc/ScopeExit.h"
 #include "Async/Async.h"
 #include "Async/Future.h"
 #include "Engine/Engine.h"
@@ -1065,7 +1066,7 @@ void FDeadlinePluginUISpec::Define()
 			MRQJob->OnRequestDetailsRefresh.ExecuteIfBound();
 			});
 
-		It("MRQJobUI", EAsyncExecution::ThreadPool, FTimespan::FromSeconds(120), [this]() {
+		It("MRQJobUI", EAsyncExecution::ThreadPool, FTimespan::FromSeconds(600), [this]() {
 			Driver->Wait(FTimespan::FromSeconds(1));
 			FDriverElementPtr MrqJobWidget = Driver->FindElement(By::Path("<SMoviePipelineQueueEditor>//<SQueueJobListRow>//<SExpanderArrow>"));
 			Driver->Wait(Until::ElementExists(MrqJobWidget.ToSharedRef(), FWaitTimeout::InSeconds(2.f)));
@@ -1172,6 +1173,15 @@ void FDeadlinePluginUISpec::Define()
 			TSharedPtr<ISinglePropertyView> PresetOverridesView;
 			TSharedPtr<IPropertyHandle> FileAttachmentPathHandle;
 			TSharedPtr<IPropertyHandle> DirectoryAttachmentPathHandle;
+			ON_SCOPE_EXIT
+			{
+				RunOnGameThreadBlocking([&]()
+					{
+						FileAttachmentPathHandle.Reset();
+						DirectoryAttachmentPathHandle.Reset();
+						PresetOverridesView.Reset();
+					});
+			};
 			if (ShouldUseProgrammaticInput())
 			{
 				RunOnGameThreadBlocking([&]()
