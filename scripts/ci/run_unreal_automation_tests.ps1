@@ -128,21 +128,6 @@ try {
         throw "The stripped automation fixture was not found at $fixtureRoot"
     }
 
-    $normalizedEngineRoot = [System.IO.Path]::GetFullPath($EngineRoot)
-    Get-Process "UnrealEditor", "UnrealEditor-Cmd" -ErrorAction SilentlyContinue |
-        Where-Object {
-            try {
-                $_.Path -and [System.IO.Path]::GetFullPath($_.Path).StartsWith(
-                    $normalizedEngineRoot,
-                    [System.StringComparison]::OrdinalIgnoreCase
-                )
-            }
-            catch {
-                $false
-            }
-        } |
-        Stop-Process -Force -ErrorAction SilentlyContinue
-
     New-Item -ItemType Directory -Force -Path $runRoot | Out-Null
     Copy-Item $fixtureRoot $projectRoot -Recurse -Force
     $project = Get-Item (Join-Path $projectRoot "UnrealAutomationTest.uproject")
@@ -224,28 +209,24 @@ try {
         }
     }
 
-    if ($null -eq $editorExitCode) {
-        throw "UnrealEditor-Cmd exit code was never captured"
-    }
-    if ($editorExitCode -ne 0) {
-        if ($processFailure) {
-            throw $processFailure
-        }
-        throw "UnrealEditor-Cmd exited with code $editorExitCode"
-    }
     $ueLog = Get-ChildItem $logDirectory -Filter "*.log" -File -ErrorAction SilentlyContinue |
         Sort-Object LastWriteTime -Descending |
         Select-Object -First 1
-    if (-not $ueLog) {
-        throw "No Unreal Editor log was produced in $logDirectory"
-    }
 
-    $started = @(
-        Select-String -Path $ueLog.FullName -Pattern "Test Started\..*DeadlineCloud"
-    )
-    $completed = @(
-        Select-String -Path $ueLog.FullName -Pattern "Test Completed\. Result=\{[^}]+\}.*DeadlineCloud"
-    )
+    $started = @()
+    $completed = @()
+    $queueSummary = $null
+    if ($ueLog) {
+        $started = @(
+            Select-String -Path $ueLog.FullName -Pattern "Test Started\..*DeadlineCloud"
+        )
+        $completed = @(
+            Select-String -Path $ueLog.FullName -Pattern "Test Completed\. Result=\{[^}]+\}.*DeadlineCloud"
+        )
+        $queueSummary = Select-String -Path $ueLog.FullName `
+            -Pattern "Automation Test Queue Empty ([0-9]+) tests performed\." |
+            Select-Object -Last 1
+    }
     $failed = @(
         $completed | Where-Object { $_.Line -notmatch "Result=\{Success\}" }
     )
@@ -260,9 +241,6 @@ try {
     } else {
         @()
     }
-    $queueSummary = Select-String -Path $ueLog.FullName `
-        -Pattern "Automation Test Queue Empty ([0-9]+) tests performed\." |
-        Select-Object -Last 1
     $queueDrained = $null -ne $queueSummary
     $performedCount = if ($queueDrained) {
         [int]$queueSummary.Matches[0].Groups[1].Value
@@ -279,6 +257,18 @@ try {
     )
     Write-Host "=== END UNREAL AUTOMATION RESULTS ==="
 
+    if ($null -eq $editorExitCode) {
+        throw "UnrealEditor-Cmd exit code was never captured"
+    }
+    if ($processFailure) {
+        throw $processFailure
+    }
+    if ($editorExitCode -ne 0) {
+        throw "UnrealEditor-Cmd exited with code $editorExitCode"
+    }
+    if (-not $ueLog) {
+        throw "No Unreal Editor log was produced in $logDirectory"
+    }
     if ($started.Count -eq 0) {
         throw "No DeadlineCloud automation tests started"
     }

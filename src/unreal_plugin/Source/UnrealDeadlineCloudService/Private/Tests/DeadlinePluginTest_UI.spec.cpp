@@ -55,6 +55,8 @@
 #define EPIC_TEST_BOOLEAN_(text, expression, expected) \
 	TestEqual(text, expression, expected);
 
+static constexpr uint32 UISearchAttemptLimit = 200;
+
 static void BuildMinimalPreset(UMoviePipelineDeadlineCloudExecutorJob* ExecJob)
 {
     const FString Path = TEXT("/UnrealDeadlineCloudService/OpenJD_DataAssets/Default/OpenJD_Default_RenderJob.OpenJD_Default_RenderJob");
@@ -1061,7 +1063,7 @@ void FDeadlinePluginUISpec::Define()
 						ScrollBar.ToSharedRef(),
 						MRQListPath,
 						WidgetPath,
-						50,
+						UISearchAttemptLimit,
 						bSearchConclusive);
 					TestTrue(ParameterName + " widget search should be conclusive", bSearchConclusive);
 					const bool bIsVisible = Widget.IsValid();
@@ -1078,7 +1080,7 @@ void FDeadlinePluginUISpec::Define()
 			auto AttachmentWidgetTest = [this](
 				const FString& ParameterName,
 				const FString& WidgetPath,
-				const FString& ExpectedValue)
+				TFunction<FString()> ReadBack)
 				{
 					bool bSearchConclusive = false;
 					const FDriverElementPtr Widget = FindVisibleElementByPath(
@@ -1087,7 +1089,7 @@ void FDeadlinePluginUISpec::Define()
 						ScrollBar.ToSharedRef(),
 						MRQListPath,
 						WidgetPath,
-						50,
+						UISearchAttemptLimit,
 						bSearchConclusive,
 						true);
 					TestTrue(ParameterName + " widget search should be conclusive", bSearchConclusive);
@@ -1095,21 +1097,37 @@ void FDeadlinePluginUISpec::Define()
 					if (Widget.IsValid() && !ShouldUseProgrammaticInput())
 					{
 						InputText(Widget.ToSharedRef(), "Test", true, Driver);
-						TestTrue(ParameterName + " should be editable", "Test" == ExpectedValue);
+						TestEqual(ParameterName + " should be editable", ReadBack(), FString(TEXT("Test")));
 					}
 				};
 
 			VisibilityTest("SavePresetButton", "#MRQJobSavePresetButton", true);
 
-			// Attachment editing remains keyboard-only in interactive runs.
+			const bool bHasFileAttachment = TestTrue(
+				TEXT("MRQ file attachment override should be populated"),
+				MRQJob->PresetOverrides.JobAttachments.InputFiles.Files.Paths.Num() > 0);
+			const bool bHasDirectoryAttachment = TestTrue(
+				TEXT("MRQ directory attachment override should be populated"),
+				MRQJob->PresetOverrides.JobAttachments.InputDirectories.Directories.Paths.Num() > 0);
+			if (!bHasFileAttachment || !bHasDirectoryAttachment)
+			{
+				return;
+			}
+
 			AttachmentWidgetTest(
 				"File Array Element Text",
 				"#AttachmentArrayElement.Value//<SFilePathPicker>//<SEditableTextBox>",
-				MRQJob->PresetOverrides.JobAttachments.InputFiles.Files.Paths[0].FilePath);
+				[this]()
+				{
+					return MRQJob->PresetOverrides.JobAttachments.InputFiles.Files.Paths[0].FilePath;
+				});
 			AttachmentWidgetTest(
 				"Dir Array Element Text",
 				"#AttachmentArrayElement.Value//<SPropertyEditorText>//<SEditableTextBox>",
-				MRQJob->PresetOverrides.JobAttachments.InputDirectories.Directories.Paths[0].Path);
+				[this]()
+				{
+					return MRQJob->PresetOverrides.JobAttachments.InputDirectories.Directories.Paths[0].Path;
+				});
 
 			VisibilityTest("StringParameters", StringParametersPath, true);
 			VisibilityTest("PathParameters", PathParametersPath, true);
@@ -1188,7 +1206,7 @@ void FDeadlinePluginUISpec::Define()
 						ScrollBar.ToSharedRef(),
 						MRQListPath,
 						WidgetPath,
-						50,
+						UISearchAttemptLimit,
 						bSearchConclusive);
 					TestTrue(ParameterName + " selector search should be conclusive", bSearchConclusive);
 					TestTrue(ParameterName + " selector should resolve when exposed", Widget.IsValid());

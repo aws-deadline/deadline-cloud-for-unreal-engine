@@ -41,11 +41,6 @@ UE_INSTALL_PATHS = {
     },
 }
 
-PYWIN32_VERSION = (
-    Path(__file__).resolve().parents[1] / "scripts" / "ci" / "pywin32-version.txt"
-).read_text(encoding="utf-8").strip()
-PYWIN32_REQUIREMENT = f"pywin32=={PYWIN32_VERSION}"
-
 
 def run(cmd, check=True):
     """Run a shell command, exiting on failure if check is True."""
@@ -189,8 +184,21 @@ def extract_zip(zip_path, dest_dir):
     run([seven_zip, "x", str(zip_path), f"-o{dest_dir}", "-y"])
 
 
+def get_pywin32_requirement():
+    """Read the shared pywin32 pin when the Windows dependency is needed."""
+    version_file = Path(__file__).resolve().parents[1] / "scripts" / "ci" / "pywin32-version.txt"
+    try:
+        version = version_file.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        raise RuntimeError(f"Unable to read pywin32 version from {version_file}: {exc}") from exc
+    if not version.isdigit():
+        raise RuntimeError(f"Invalid pywin32 version in {version_file}: {version!r}")
+    return version, f"pywin32=={version}"
+
+
 def ensure_ue_python_dependencies(install_dir):
     """Install Windows modules required by the adaptor inside UE's Python."""
+    pywin32_version, pywin32_requirement = get_pywin32_requirement()
     python_exe = (
         install_dir / "Engine" / "Binaries" / "ThirdParty" / "Python3" / "Win64" / "python.exe"
     )
@@ -204,17 +212,17 @@ def ensure_ue_python_dependencies(install_dir):
             "-c",
             (
                 "import importlib.metadata; import win32file; "
-                f"assert importlib.metadata.version('pywin32') == '{PYWIN32_VERSION}'"
+                f"assert importlib.metadata.version('pywin32') == '{pywin32_version}'"
             ),
         ],
         capture_output=True,
         text=True,
     )
     if result.returncode == 0:
-        print(f"UE Python dependency {PYWIN32_REQUIREMENT} is already installed")
+        print(f"UE Python dependency {pywin32_requirement} is already installed")
         return
 
-    print(f"Installing {PYWIN32_REQUIREMENT} into UE Python...")
+    print(f"Installing {pywin32_requirement} into UE Python...")
     run(
         [
             str(python_exe),
@@ -222,7 +230,7 @@ def ensure_ue_python_dependencies(install_dir):
             "pip",
             "install",
             "--only-binary=:all:",
-            PYWIN32_REQUIREMENT,
+            pywin32_requirement,
         ]
     )
     run(
@@ -231,7 +239,7 @@ def ensure_ue_python_dependencies(install_dir):
             "-c",
             (
                 "import importlib.metadata; import win32file; "
-                f"assert importlib.metadata.version('pywin32') == '{PYWIN32_VERSION}'"
+                f"assert importlib.metadata.version('pywin32') == '{pywin32_version}'"
             ),
         ]
     )
