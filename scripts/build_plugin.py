@@ -14,6 +14,7 @@ import os
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 from typing import Tuple, Optional
 
 DEFAULT_UE_INSTALL_ROOT = "C:\\Program Files\\Epic Games"
@@ -28,6 +29,18 @@ stream_handler.setLevel(logging.INFO)
 stream_handler.setFormatter(formatter)
 
 logger.addHandler(stream_handler)
+
+
+def get_pywin32_requirement() -> str:
+    """Read the shared pywin32 pin when worker dependencies are installed."""
+    version_file = Path(__file__).resolve().parent / "ci" / "pywin32-version.txt"
+    try:
+        version = version_file.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        raise RuntimeError(f"Unable to read pywin32 version from {version_file}: {exc}") from exc
+    if not version.isdigit():
+        raise RuntimeError(f"Invalid pywin32 version in {version_file}: {version!r}")
+    return f"pywin32=={version}"
 
 
 def find_unreal_engine(folder: str, version: Optional[str] = None) -> str:
@@ -389,10 +402,10 @@ def install_worker_dependencies(engine_root: str):
             + "the folder where Unreal is installed (Should contain UE_VERSION.NUM subfolders)"
         )
 
-    worker_dependencies = ["pywin32"]
+    worker_dependencies = [get_pywin32_requirement()]
     for dep in worker_dependencies:
         subprocess.run(
-            [python_path, "-m", "pip", "install", dep],
+            [python_path, "-m", "pip", "install", "--only-binary=:all:", dep],
             check=True,
         )
 

@@ -2,8 +2,11 @@
 
 from unittest.mock import patch, MagicMock
 
+import pytest
+
 from scripts.build_plugin import (
     build_and_install,
+    get_pywin32_requirement,
     install_whl_to_plugin,
     install_whl_global,
     install_worker_dependencies,
@@ -74,6 +77,16 @@ class TestInstallWhlGlobal:
 
 
 class TestInstallWorkerDependencies:
+    @patch("scripts.build_plugin.Path.read_text", side_effect=OSError("not found"))
+    def test_missing_pywin32_version_has_clear_error(self, mock_read_text):
+        with pytest.raises(RuntimeError, match="Unable to read pywin32 version"):
+            get_pywin32_requirement()
+
+    @patch("scripts.build_plugin.Path.read_text", return_value="")
+    def test_empty_pywin32_version_has_clear_error(self, mock_read_text):
+        with pytest.raises(RuntimeError, match="Invalid pywin32 version"):
+            get_pywin32_requirement()
+
     @patch("scripts.build_plugin.subprocess.run")
     @patch("scripts.build_plugin.os.path.exists", return_value=True)
     def test_worker_agent_install_uses_eager_upgrade_strategy(self, mock_exists, mock_run):
@@ -88,6 +101,17 @@ class TestInstallWorkerDependencies:
         assert "--upgrade" in cmd
         assert "--upgrade-strategy" in cmd
         assert cmd[cmd.index("--upgrade-strategy") + 1] == "eager"
+
+    @patch("scripts.build_plugin.subprocess.run")
+    @patch("scripts.build_plugin.os.path.exists", return_value=True)
+    def test_pywin32_install_is_pinned_to_a_binary_wheel(self, mock_exists, mock_run):
+        mock_run.return_value = MagicMock(returncode=0)
+
+        install_worker_dependencies(FAKE_ENGINE_ROOT)
+
+        cmd = mock_run.call_args_list[0][0][0]
+        assert "pywin32==310" in cmd
+        assert "--only-binary=:all:" in cmd
 
 
 class TestBuildAndInstall:

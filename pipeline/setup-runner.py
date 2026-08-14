@@ -184,6 +184,67 @@ def extract_zip(zip_path, dest_dir):
     run([seven_zip, "x", str(zip_path), f"-o{dest_dir}", "-y"])
 
 
+def get_pywin32_requirement():
+    """Read the shared pywin32 pin when the Windows dependency is needed."""
+    version_file = Path(__file__).resolve().parents[1] / "scripts" / "ci" / "pywin32-version.txt"
+    try:
+        version = version_file.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        raise RuntimeError(f"Unable to read pywin32 version from {version_file}: {exc}") from exc
+    if not version.isdigit():
+        raise RuntimeError(f"Invalid pywin32 version in {version_file}: {version!r}")
+    return version, f"pywin32=={version}"
+
+
+def ensure_ue_python_dependencies(install_dir):
+    """Install Windows modules required by the adaptor inside UE's Python."""
+    pywin32_version, pywin32_requirement = get_pywin32_requirement()
+    python_exe = (
+        install_dir / "Engine" / "Binaries" / "ThirdParty" / "Python3" / "Win64" / "python.exe"
+    )
+    if not python_exe.exists():
+        print(f"ERROR: Unreal Python not found at {python_exe}")
+        sys.exit(1)
+
+    result = subprocess.run(
+        [
+            str(python_exe),
+            "-c",
+            (
+                "import importlib.metadata; import win32file; "
+                f"assert importlib.metadata.version('pywin32') == '{pywin32_version}'"
+            ),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        print(f"UE Python dependency {pywin32_requirement} is already installed")
+        return
+
+    print(f"Installing {pywin32_requirement} into UE Python...")
+    run(
+        [
+            str(python_exe),
+            "-m",
+            "pip",
+            "install",
+            "--only-binary=:all:",
+            pywin32_requirement,
+        ]
+    )
+    run(
+        [
+            str(python_exe),
+            "-c",
+            (
+                "import importlib.metadata; import win32file; "
+                f"assert importlib.metadata.version('pywin32') == '{pywin32_version}'"
+            ),
+        ]
+    )
+
+
 def setup_windows(versions):
     """Install Unreal Engine and build dependencies on Windows."""
     # Install build tools first (needed for plugin compilation)
@@ -196,6 +257,7 @@ def setup_windows(versions):
 
         if marker.exists() and editor_exe.exists():
             print(f"UE {version} already installed at {install_dir}")
+            ensure_ue_python_dependencies(install_dir)
             continue
 
         print(f"Installing UE {version}...")
@@ -236,6 +298,7 @@ def setup_windows(versions):
                 shutil.rmtree(uat_cache, ignore_errors=True)
 
         marker.touch()
+        ensure_ue_python_dependencies(install_dir)
         print(f"UE {version} installed successfully at {install_dir}")
 
 

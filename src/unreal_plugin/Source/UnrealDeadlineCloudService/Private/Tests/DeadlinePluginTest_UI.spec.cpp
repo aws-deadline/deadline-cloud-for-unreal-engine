@@ -4,6 +4,7 @@
 #include "Misc/AutomationTest.h"
 #include "CoreMinimal.h"
 #include "Misc/App.h"
+#include "Misc/ScopeExit.h"
 #include "Async/Async.h"
 #include "Async/Future.h"
 #include "Engine/Engine.h"
@@ -38,6 +39,8 @@
 
 #include "PropertyEditorModule.h"
 #include "IDetailsView.h"
+#include "PropertyHandle.h"
+#include "ISinglePropertyView.h"
 #include "PackageTools.h"
 #include "AssetViewUtils.h"
 
@@ -54,6 +57,8 @@
 
 #define EPIC_TEST_BOOLEAN_(text, expression, expected) \
 	TestEqual(text, expression, expected);
+
+static constexpr uint32 UISearchAttemptLimit = 200;
 
 static void BuildMinimalPreset(UMoviePipelineDeadlineCloudExecutorJob* ExecJob)
 {
@@ -93,7 +98,7 @@ static void CleanupCreatedAssets(const FString& FolderPath, FAutomationTestBase*
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSaveAsJobPreset_BasicCreation,
-	"DeadlineCloud.SaveAsJobPreset.BasicCreation",
+	"DeadlineCloud.Offline.SaveAsJobPreset.BasicCreation",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FSaveAsJobPreset_BasicCreation::RunTest(const FString& Parameters)
@@ -139,7 +144,7 @@ bool FSaveAsJobPreset_BasicCreation::RunTest(const FString& Parameters)
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSaveAsJobPreset_OverwritesExisting,
-	"DeadlineCloud.SaveAsJobPreset.OverwritesExisting",
+	"DeadlineCloud.Offline.SaveAsJobPreset.OverwritesExisting",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FSaveAsJobPreset_OverwritesExisting::RunTest(const FString& Parameters)
@@ -168,7 +173,7 @@ bool FSaveAsJobPreset_OverwritesExisting::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIsValidLength_RangeOK, "DeadlineCloud.Validation.IsValidLength.RangeOK", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIsValidLength_RangeOK, "DeadlineCloud.Offline.Validation.IsValidLength.RangeOK", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FIsValidLength_RangeOK::RunTest(const FString& Parameters)
 {
     FText Error;
@@ -181,7 +186,7 @@ bool FIsValidLength_RangeOK::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIsValidLength_TooShort, "DeadlineCloud.Validation.IsValidLength.TooShort", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIsValidLength_TooShort, "DeadlineCloud.Offline.Validation.IsValidLength.TooShort", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FIsValidLength_TooShort::RunTest(const FString& Parameters)
 {
     FText Error;
@@ -194,7 +199,7 @@ bool FIsValidLength_TooShort::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FContainsNoControlChars_Valid, "DeadlineCloud.Validation.ControlChars.Valid", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FContainsNoControlChars_Valid, "DeadlineCloud.Offline.Validation.ControlChars.Valid", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FContainsNoControlChars_Valid::RunTest(const FString& Parameters)
 {
     FString Input = TEXT("Hello\nWorld\t!");
@@ -208,7 +213,7 @@ bool FContainsNoControlChars_Valid::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FContainsNoControlChars_Invalid, "DeadlineCloud.Validation.ControlChars.Invalid", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FContainsNoControlChars_Invalid, "DeadlineCloud.Offline.Validation.ControlChars.Invalid", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FContainsNoControlChars_Invalid::RunTest(const FString& Parameters)
 {
     FString Input;
@@ -222,7 +227,7 @@ bool FContainsNoControlChars_Invalid::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FValidIdentifier, "DeadlineCloud.Validation.Identifier.Valid", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FValidIdentifier, "DeadlineCloud.Offline.Validation.Identifier.Valid", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FValidIdentifier::RunTest(const FString& Parameters)
 {
     FText Error;
@@ -235,7 +240,7 @@ bool FValidIdentifier::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FInvalidIdentifier_StartsWithNumber, "DeadlineCloud.Validation.Identifier.InvalidStart", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FInvalidIdentifier_StartsWithNumber, "DeadlineCloud.Offline.Validation.Identifier.InvalidStart", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FInvalidIdentifier_StartsWithNumber::RunTest(const FString& Parameters)
 {
     FText Error;
@@ -248,7 +253,7 @@ bool FInvalidIdentifier_StartsWithNumber::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FInvalidIdentifier_IllegalChar, "DeadlineCloud.Validation.Identifier.IllegalChar", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FInvalidIdentifier_IllegalChar, "DeadlineCloud.Offline.Validation.Identifier.IllegalChar", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FInvalidIdentifier_IllegalChar::RunTest(const FString& Parameters)
 {
     FText Error;
@@ -261,7 +266,7 @@ bool FInvalidIdentifier_IllegalChar::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJobParameterValue_Valid, "DeadlineCloud.Validation.String.JobParam.Valid", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJobParameterValue_Valid, "DeadlineCloud.Offline.Validation.String.JobParam.Valid", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FJobParameterValue_Valid::RunTest(const FString& Parameters)
 {
     const auto Validator = FDeadlineCloudInputValidationHelper::GetStringValidationFunction(EValueValidationType::JobParameterValue);
@@ -273,7 +278,7 @@ bool FJobParameterValue_Valid::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPathValidator_ValidStepParameter, "DeadlineCloud.Validation.Path.StepParam.Valid", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPathValidator_ValidStepParameter, "DeadlineCloud.Offline.Validation.Path.StepParam.Valid", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FPathValidator_ValidStepParameter::RunTest(const FString& Parameters)
 {
     const auto Validator = FDeadlineCloudInputValidationHelper::GetPathValidationFunction(EValueValidationType::StepParameterValue);
@@ -285,7 +290,7 @@ bool FPathValidator_ValidStepParameter::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FInvalidLengthTest, "DeadlineCloud.Validation.InvalidLength", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FInvalidLengthTest, "DeadlineCloud.Offline.Validation.InvalidLength", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FInvalidLengthTest::RunTest(const FString& Parameters)
 {
@@ -299,7 +304,7 @@ bool FInvalidLengthTest::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FInvalidIdentifierTest, "DeadlineCloud.Validation.InvalidIdentifier", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FInvalidIdentifierTest, "DeadlineCloud.Offline.Validation.InvalidIdentifier", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FInvalidIdentifierTest::RunTest(const FString& Parameters)
 {
@@ -316,7 +321,7 @@ bool FInvalidIdentifierTest::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FControlCharacterTest, "DeadlineCloud.Validation.ControlCharacters", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FControlCharacterTest, "DeadlineCloud.Offline.Validation.ControlCharacters", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FControlCharacterTest::RunTest(const FString& Parameters)
 {
@@ -333,7 +338,7 @@ bool FControlCharacterTest::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FValidationFunction_JobName_Invalid, "DeadlineCloud.Validation.JobName.InvalidCases", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FValidationFunction_JobName_Invalid, "DeadlineCloud.Offline.Validation.JobName.InvalidCases", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FValidationFunction_JobName_Invalid::RunTest(const FString& Parameters)
 {
@@ -350,7 +355,7 @@ bool FValidationFunction_JobName_Invalid::RunTest(const FString& Parameters)
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FValidationFunction_JobDescription_Invalid, "DeadlineCloud.Validation.JobDescription.ControlChar", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FValidationFunction_JobDescription_Invalid, "DeadlineCloud.Offline.Validation.JobDescription.ControlChar", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FValidationFunction_JobDescription_Invalid::RunTest(const FString& Parameters)
 {
@@ -367,7 +372,7 @@ bool FValidationFunction_JobDescription_Invalid::RunTest(const FString& Paramete
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FIsValidAttributeName_Test,
-	"DeadlineCloud.Validation.AttributeName.Integration",
+	"DeadlineCloud.Offline.Validation.AttributeName.Integration",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter
 )
 
@@ -402,7 +407,7 @@ bool FIsValidAttributeName_Test::RunTest(const FString& Parameters)
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FIsValidAmountName_Test,
-	"DeadlineCloud.Validation.AmountName.Integration",
+	"DeadlineCloud.Offline.Validation.AmountName.Integration",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter
 )
 
@@ -492,7 +497,7 @@ static void ScrollToElement(FAutomationDriverPtr Driver, FDriverElementRef List,
 
 	// Start from the top so the target is reachable regardless of the prior scroll offset.
 	List->ScrollToBeginning();
-	Driver->Wait(FTimespan::FromMilliseconds(100));
+	FPlatformProcess::Sleep(0.1f);
 
 	uint32 CurrentAttempts = 0;
 	while ((!TargetElement->Exists() || !TargetElement->IsVisible()) && CurrentAttempts < AttemptsLimit)
@@ -500,14 +505,101 @@ static void ScrollToElement(FAutomationDriverPtr Driver, FDriverElementRef List,
 		if (ScrollBar->IsScrolledToEnd())
 		{
 			// Let tall, still-laying-out rows settle and re-check before giving up at the bottom.
-			Driver->Wait(FTimespan::FromMilliseconds(150));
+			FPlatformProcess::Sleep(0.15f);
 			return;
 		}
 
 		List->ScrollBy(-1);
-		Driver->Wait(FTimespan::FromMilliseconds(50));
+		FPlatformProcess::Sleep(0.05f);
 		CurrentAttempts++;
 	}
+}
+
+static FDriverElementPtr FindVisibleElementByPath(
+	FAutomationDriverPtr Driver,
+	FDriverElementRef List,
+	FDriverElementRef ScrollBar,
+	const FString& ContainerPath,
+	const FString& ElementPath,
+	uint32 AttemptsLimit,
+	bool& bOutSearchConclusive,
+	bool bRequireInteractable = false)
+{
+	bOutSearchConclusive = false;
+	if (!List->Exists() || !ScrollBar->Exists())
+	{
+		return nullptr;
+	}
+
+	List->ScrollToBeginning();
+	FPlatformProcess::Sleep(0.1f);
+
+	auto FindCandidate = [&]() -> FDriverElementPtr
+	{
+		const TArray<FDriverElementRef> Candidates =
+			Driver->FindElements(By::Path(ContainerPath + "//" + ElementPath))->GetElements();
+		for (const FDriverElementRef& Candidate : Candidates)
+		{
+			if (Candidate->Exists() && Candidate->IsVisible() &&
+				(!bRequireInteractable || Candidate->IsInteractable()))
+			{
+				return Candidate;
+			}
+		}
+		return FDriverElementPtr();
+	};
+
+	auto Scan = [&](
+		float ScrollAmount,
+		TFunctionRef<bool()> ReachedBoundary,
+		bool& bOutReachedBoundary) -> FDriverElementPtr
+	{
+		bOutReachedBoundary = false;
+		for (uint32 Attempt = 0; Attempt < AttemptsLimit; ++Attempt)
+		{
+			if (FDriverElementPtr Candidate = FindCandidate())
+			{
+				return Candidate;
+			}
+
+			if (ReachedBoundary())
+			{
+				bOutReachedBoundary = true;
+				FPlatformProcess::Sleep(0.2f);
+				return FindCandidate();
+			}
+
+			List->ScrollBy(ScrollAmount);
+			FPlatformProcess::Sleep(0.05f);
+		}
+		return FDriverElementPtr();
+	};
+
+	bool bReachedEnd = false;
+	if (FDriverElementPtr Candidate =
+		Scan(-1, [&ScrollBar]() { return ScrollBar->IsScrolledToEnd(); }, bReachedEnd))
+	{
+		bOutSearchConclusive = true;
+		return Candidate;
+	}
+	if (!bReachedEnd)
+	{
+		return nullptr;
+	}
+
+	// Reverse traversal materializes rows skipped by downward virtualization.
+	List->ScrollBy(0.5f);
+	FPlatformProcess::Sleep(0.05f);
+	bool bReachedBeginning = false;
+	if (FDriverElementPtr Candidate =
+		Scan(1, [&ScrollBar]() { return ScrollBar->IsScrolledToBeginning(); }, bReachedBeginning))
+	{
+		bOutSearchConclusive = true;
+		return Candidate;
+	}
+
+	bOutSearchConclusive = bReachedBeginning;
+	return nullptr;
 }
 
 template<typename AssetType>
@@ -638,8 +730,6 @@ static void InputText(
 		return;
 	}
 
-	Widget->Focus();
-
 	// Match the keyboard semantics: append to the existing text unless asked to replace it,
 	// so negative "input overflows the length limit" cases validate the full resulting value.
 	FString EffectiveText = Text;
@@ -649,15 +739,128 @@ static void InputText(
 	}
 
 	CommitTextProgrammatically(EffectiveText, Validator, ApplyValid);
-	if (Driver.IsValid())
+	FPlatformProcess::Sleep(static_cast<float>(ProgrammaticInputSettleDelay.GetTotalSeconds()));
+}
+
+static TSharedPtr<IPropertyHandle> GetAttachmentPathHandle(
+	const TSharedPtr<IPropertyHandle>& PresetOverridesHandle,
+	bool bFileAttachment)
+{
+	if (!PresetOverridesHandle.IsValid())
 	{
-		Driver->Wait(ProgrammaticInputSettleDelay);
+		return nullptr;
 	}
+
+	TSharedPtr<IPropertyHandle> Handle = PresetOverridesHandle->GetChildHandle(
+		GET_MEMBER_NAME_CHECKED(FDeadlineCloudJobPresetStruct, JobAttachments));
+	Handle = Handle.IsValid() ? Handle->GetChildHandle(
+		bFileAttachment
+			? GET_MEMBER_NAME_CHECKED(FDeadlineCloudAttachmentsStruct, InputFiles)
+			: GET_MEMBER_NAME_CHECKED(FDeadlineCloudAttachmentsStruct, InputDirectories)) : nullptr;
+	Handle = Handle.IsValid() ? Handle->GetChildHandle(
+		bFileAttachment
+			? GET_MEMBER_NAME_CHECKED(FDeadlineCloudFileAttachmentsStruct, Files)
+			: GET_MEMBER_NAME_CHECKED(FDeadlineCloudDirectoryAttachmentsStruct, Directories)) : nullptr;
+	Handle = Handle.IsValid() ? Handle->GetChildHandle(TEXT("Paths")) : nullptr;
+	const TSharedPtr<IPropertyHandleArray> Paths = Handle.IsValid() ? Handle->AsArray() : nullptr;
+	if (!Paths.IsValid())
+	{
+		return nullptr;
+	}
+
+	Handle = Paths->GetElement(0);
+	return Handle->GetChildHandle(bFileAttachment ? TEXT("FilePath") : TEXT("Path"));
 }
 
 
 
-BEGIN_DEFINE_SPEC(FDeadlinePluginUISpec, "DeadlineCloud",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FMRQAttachmentOverrides_RoundTrip,
+	"DeadlineCloud.Offline.MRQAttachmentOverrides.RoundTrip",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FMRQAttachmentOverrides_RoundTrip::RunTest(const FString& Parameters)
+{
+	const FString PresetFilePath = TEXT("C:/Temp/PresetInputFile.txt");
+	const FString PresetDirectoryPath = TEXT("C:/Temp/PresetInputDirectory");
+	const FString OverrideFilePath = TEXT("C:/Temp/OverrideInputFile.txt");
+	const FString OverrideDirectoryPath = TEXT("C:/Temp/OverrideInputDirectory");
+
+	UDeadlineCloudRenderJob* JobPreset = NewObject<UDeadlineCloudRenderJob>();
+	JobPreset->AddToRoot();
+	JobPreset->JobPresetStruct.JobAttachments.InputFiles.Files.Paths.Add(FFilePath(PresetFilePath));
+	JobPreset->JobPresetStruct.JobAttachments.InputDirectories.Directories.Paths.Add(
+		FDirectoryPath(PresetDirectoryPath));
+
+	UMoviePipelineDeadlineCloudExecutorJob* MRQAttachmentJob =
+		NewObject<UMoviePipelineDeadlineCloudExecutorJob>();
+	MRQAttachmentJob->AddToRoot();
+	auto Cleanup = [MRQAttachmentJob, JobPreset]()
+	{
+		MRQAttachmentJob->RemoveFromRoot();
+		JobPreset->RemoveFromRoot();
+	};
+	MRQAttachmentJob->JobPreset = JobPreset;
+	MRQAttachmentJob->ReloadDataFromJobPreset();
+
+	const bool bFileOverrideLoaded = TestEqual(
+		TEXT("MRQ file attachment overrides should load from the preset"),
+		MRQAttachmentJob->PresetOverrides.JobAttachments.InputFiles.Files.Paths.Num(),
+		1);
+	const bool bDirectoryOverrideLoaded = TestEqual(
+		TEXT("MRQ directory attachment overrides should load from the preset"),
+		MRQAttachmentJob->PresetOverrides.JobAttachments.InputDirectories.Directories.Paths.Num(),
+		1);
+	if (!bFileOverrideLoaded || !bDirectoryOverrideLoaded)
+	{
+		Cleanup();
+		return false;
+	}
+
+	TestEqual(
+		TEXT("MRQ file attachment override should load from the preset"),
+		MRQAttachmentJob->PresetOverrides.JobAttachments.InputFiles.Files.Paths[0].FilePath,
+		PresetFilePath);
+	TestEqual(
+		TEXT("MRQ directory attachment override should load from the preset"),
+		MRQAttachmentJob->PresetOverrides.JobAttachments.InputDirectories.Directories.Paths[0].Path,
+		PresetDirectoryPath);
+
+	MRQAttachmentJob->PresetOverrides.JobAttachments.InputFiles.Files.Paths[0].FilePath =
+		OverrideFilePath;
+	MRQAttachmentJob->PresetOverrides.JobAttachments.InputDirectories.Directories.Paths[0].Path =
+		OverrideDirectoryPath;
+
+	const FDeadlineCloudJobPresetStruct EffectivePreset =
+		MRQAttachmentJob->GetDeadlineJobPresetStructWithOverrides();
+	const bool bEffectiveFileOverridePresent = TestEqual(
+		TEXT("Effective preset should contain the file attachment override"),
+		EffectivePreset.JobAttachments.InputFiles.Files.Paths.Num(),
+		1);
+	const bool bEffectiveDirectoryOverridePresent = TestEqual(
+		TEXT("Effective preset should contain the directory attachment override"),
+		EffectivePreset.JobAttachments.InputDirectories.Directories.Paths.Num(),
+		1);
+	if (!bEffectiveFileOverridePresent || !bEffectiveDirectoryOverridePresent)
+	{
+		Cleanup();
+		return false;
+	}
+
+	TestEqual(
+		TEXT("Effective preset should include the MRQ file attachment override"),
+		EffectivePreset.JobAttachments.InputFiles.Files.Paths[0].FilePath,
+		OverrideFilePath);
+	TestEqual(
+		TEXT("Effective preset should include the MRQ directory attachment override"),
+		EffectivePreset.JobAttachments.InputDirectories.Directories.Paths[0].Path,
+		OverrideDirectoryPath);
+
+	Cleanup();
+	return true;
+}
+
+BEGIN_DEFINE_SPEC(FDeadlinePluginUISpec, "DeadlineCloud.Offline",
     EAutomationTestFlags::ProductFilter | EAutomationTestFlags::EditorContext | EAutomationTestFlags::NonNullRHI);
 
 FAutomationDriverPtr Driver;
@@ -777,7 +980,7 @@ inline void VerifyWidgetShowsText(FDriverElementRef Widget, const FString& Expec
 	{
 		return;
 	}
-	Driver->Wait(ProgrammaticInputSettleDelay);
+	FPlatformProcess::Sleep(static_cast<float>(ProgrammaticInputSettleDelay.GetTotalSeconds()));
 	TestEqual(Label + " widget should display the committed value", Widget->GetText().ToString(), Expected);
 }
 
@@ -799,6 +1002,7 @@ void FDeadlinePluginUISpec::Define()
 	Describe("DeadlineCloudMRQJobUI", [this]()
 	{
 		BeforeEach([this]() {
+			MRQJob = nullptr;
 			CreatedRenderJobDataAsset = CreateAsset<UDeadlineCloudRenderJob>(JobTemplate, PathToJobTemplate);
 			CreatedRenderJobDataAsset->AddToRoot();
 			CreatedStepDataAsset = CreateAsset<UDeadlineCloudStep>(StepTemplate, PathToStepTemplate);
@@ -862,7 +1066,7 @@ void FDeadlinePluginUISpec::Define()
 			MRQJob->OnRequestDetailsRefresh.ExecuteIfBound();
 			});
 
-		It("MRQJobUI", EAsyncExecution::ThreadPool, FTimespan::FromSeconds(120), [this]() {
+		It("MRQJobUI", EAsyncExecution::ThreadPool, FTimespan::FromSeconds(600), [this]() {
 			Driver->Wait(FTimespan::FromSeconds(1));
 			FDriverElementPtr MrqJobWidget = Driver->FindElement(By::Path("<SMoviePipelineQueueEditor>//<SQueueJobListRow>//<SExpanderArrow>"));
 			Driver->Wait(Until::ElementExists(MrqJobWidget.ToSharedRef(), FWaitTimeout::InSeconds(2.f)));
@@ -881,37 +1085,21 @@ void FDeadlinePluginUISpec::Define()
 			}
 
 			ExpandAllProperties(MRQDetailsPath, Driver);
+			FPlatformProcess::Sleep(0.5f);
 
-			FDriverElementRef StringParametersWidget = Driver->FindElement(By::Path(StringParametersPath));
-			FDriverElementRef PathParametersWidget = Driver->FindElement(By::Path(PathParametersPath));
-			FDriverElementRef FloatParametersWidget = Driver->FindElement(By::Path(FloatParametersPath));
-			FDriverElementRef IntParametersWidget = Driver->FindElement(By::Path(IntParametersPath));
-			FDriverElementRef HiddenParametersWidget = Driver->FindElement(By::Path(HiddenParametersPath));
-
-			FDriverElementRef StepStringParametersWidget = Driver->FindElement(By::Path(StepStringParametersPath));
-			FDriverElementRef StepPathParametersWidget = Driver->FindElement(By::Path(StepPathParametersPath));
-			FDriverElementRef StepFloatParametersWidget = Driver->FindElement(By::Path(StepFloatParametersPath));
-			FDriverElementRef StepIntParametersWidget = Driver->FindElement(By::Path(StepIntParametersPath));
-			FDriverElementRef StepHiddenParametersWidget = Driver->FindElement(By::Path(StepHiddenParametersPath));
-
-			FDriverElementRef Variable1Widget = Driver->FindElement(By::Path(Variable1Path));
-			FDriverElementRef Variable2Widget = Driver->FindElement(By::Path(Variable2Path));
-			FDriverElementRef Variable3Widget = Driver->FindElement(By::Path(Variable3Path));
-			FDriverElementRef HiddenVariableWidget = Driver->FindElement(By::Path(HiddenVariablePath));
-
-			FDriverElementRef DefaultStepCategory = Driver->FindElement(By::Path("#MRQStepHeader.Render"));
-			FDriverElementRef EmptyStepCategory = Driver->FindElement(By::Path("#MRQStepHeader.Empty"));
-			FDriverElementRef DefaultEnvCategory = Driver->FindElement(By::Path("#MRQEnvHeader.LaunchUnrealEditor"));
-			FDriverElementRef EmptyStepEnvCategory = Driver->FindElement(By::Path("#MRQStepEnvHeader.Empty"));
-
-			FDriverElementRef SavePresetButton = Driver->FindElement(By::Path("#MRQJobSavePresetButton"));
-			FDriverElementRef FileArrayElementText = Driver->FindElement(By::Path("#AttachmentArrayElement.Value//<SFilePathPicker>//<SEditableTextBox>"));
-			FDriverElementRef DirArrayElementText = Driver->FindElement(By::Path("#AttachmentArrayElement.Value//<SPropertyEditorText>//<SEditableTextBox>"));
-
-			auto VisibilityTest = [this](const FString& ParameterName, FDriverElementRef Widget, bool bShouldBeVisible)
+			auto VisibilityTest = [this](const FString& ParameterName, const FString& WidgetPath, bool bShouldBeVisible)
 				{
-					ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), Widget, 50);
-					bool bIsVisible = Widget->IsVisible();
+					bool bSearchConclusive = false;
+					const FDriverElementPtr Widget = FindVisibleElementByPath(
+						Driver,
+						List.ToSharedRef(),
+						ScrollBar.ToSharedRef(),
+						MRQListPath,
+						WidgetPath,
+						UISearchAttemptLimit,
+						bSearchConclusive);
+					TestTrue(ParameterName + " widget search should be conclusive", bSearchConclusive);
+					const bool bIsVisible = Widget.IsValid();
 					if (bShouldBeVisible)
 					{
 						TestTrue(ParameterName + " widget should be visible", bIsVisible);
@@ -922,63 +1110,238 @@ void FDeadlinePluginUISpec::Define()
 					}
 				};
 
-			auto EditableTextTest = [this](const FString& ParameterName, FDriverElementRef Widget, const FString& ExpectedValue)
+			auto AttachmentWidgetTest = [this](
+				const FString& ParameterName,
+				const FString& WidgetPath,
+				const TSharedPtr<IPropertyHandle>& PropertyHandle,
+				TFunction<FString()> ReadBack)
 				{
-					ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), Widget, 50);
-					if (Widget->IsVisible() && Widget->IsInteractable())
+					bool bSearchConclusive = false;
+					const FDriverElementPtr Widget = FindVisibleElementByPath(
+						Driver,
+						List.ToSharedRef(),
+						ScrollBar.ToSharedRef(),
+						MRQListPath,
+						WidgetPath,
+						UISearchAttemptLimit,
+						bSearchConclusive,
+						true);
+					TestTrue(ParameterName + " widget search should be conclusive", bSearchConclusive);
+					TestTrue(ParameterName + " widget should be visible and interactable", Widget.IsValid());
+					if (!Widget.IsValid())
 					{
-						InputText(Widget, "Test", true);
-						TestTrue(ParameterName + " should be editable", "Test" == ExpectedValue);
+						return;
+					}
+
+					if (ShouldUseProgrammaticInput())
+					{
+						bool bCommitted = false;
+						RunOnGameThreadBlocking([&]()
+							{
+								bCommitted = PropertyHandle.IsValid() &&
+									PropertyHandle->SetValue(FString(TEXT("Test"))) ==
+										FPropertyAccess::Result::Success;
+							});
+						TestTrue(ParameterName + " should update through its property handle", bCommitted);
+						FPlatformProcess::Sleep(
+							static_cast<float>(ProgrammaticInputSettleDelay.GetTotalSeconds()));
+						TestEqual(ParameterName + " model should contain the committed value",
+							ReadBack(), FString(TEXT("Test")));
+						TestEqual(ParameterName + " widget should display the committed value",
+							Widget->GetText().ToString(), FString(TEXT("Test")));
 					}
 					else
 					{
-						TestTrue(ParameterName + " widget should be visible and interactable", false);
+						InputText(Widget.ToSharedRef(), "Test", true, Driver);
+						TestEqual(ParameterName + " should be editable", ReadBack(), FString(TEXT("Test")));
 					}
 				};
 
-			VisibilityTest("SavePresetButton", SavePresetButton, true);
+			VisibilityTest("SavePresetButton", "#MRQJobSavePresetButton", true);
 
-			EditableTextTest("File Array Element Text", FileArrayElementText, MRQJob->PresetOverrides.JobAttachments.InputFiles.Files.Paths[0].FilePath);
-			EditableTextTest("Dir Array Element Text", DirArrayElementText, MRQJob->PresetOverrides.JobAttachments.InputDirectories.Directories.Paths[0].Path);
+			const bool bHasFileAttachment = TestTrue(
+				TEXT("MRQ file attachment override should be populated"),
+				MRQJob->PresetOverrides.JobAttachments.InputFiles.Files.Paths.Num() > 0);
+			const bool bHasDirectoryAttachment = TestTrue(
+				TEXT("MRQ directory attachment override should be populated"),
+				MRQJob->PresetOverrides.JobAttachments.InputDirectories.Directories.Paths.Num() > 0);
+			if (!bHasFileAttachment || !bHasDirectoryAttachment)
+			{
+				return;
+			}
 
-			VisibilityTest("StringParameters", StringParametersWidget, true);
-			VisibilityTest("PathParameters", PathParametersWidget, true);
-			VisibilityTest("FloatParameters", FloatParametersWidget, true);
-			VisibilityTest("IntParameters", IntParametersWidget, true);
-			VisibilityTest("HiddenParameters", HiddenParametersWidget, false);
+			TSharedPtr<ISinglePropertyView> PresetOverridesView;
+			TSharedPtr<IPropertyHandle> FileAttachmentPathHandle;
+			TSharedPtr<IPropertyHandle> DirectoryAttachmentPathHandle;
+			ON_SCOPE_EXIT
+			{
+				RunOnGameThreadBlocking([&]()
+					{
+						FileAttachmentPathHandle.Reset();
+						DirectoryAttachmentPathHandle.Reset();
+						PresetOverridesView.Reset();
+					});
+			};
+			if (ShouldUseProgrammaticInput())
+			{
+				RunOnGameThreadBlocking([&]()
+					{
+						FSinglePropertyParams Params;
+						PresetOverridesView =
+							FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor")
+								.CreateSingleProperty(
+									MRQJob,
+									GET_MEMBER_NAME_CHECKED(
+										UMoviePipelineDeadlineCloudExecutorJob, PresetOverrides),
+									Params);
+						if (PresetOverridesView.IsValid())
+						{
+							const TSharedPtr<IPropertyHandle> PresetOverridesHandle =
+								PresetOverridesView->GetPropertyHandle();
+							FileAttachmentPathHandle =
+								GetAttachmentPathHandle(PresetOverridesHandle, true);
+							DirectoryAttachmentPathHandle =
+								GetAttachmentPathHandle(PresetOverridesHandle, false);
+						}
+					});
+				TestTrue(TEXT("MRQ preset overrides property view should be available"),
+					PresetOverridesView.IsValid());
+			}
 
-			VisibilityTest("StepStringParameters", StepStringParametersWidget, true);
-			VisibilityTest("StepPathParameters", StepPathParametersWidget, true);
-			VisibilityTest("StepFloatParameters", StepFloatParametersWidget, true);
-			VisibilityTest("StepIntParameters", StepIntParametersWidget, true);
-			VisibilityTest("StepHiddenParameters", StepHiddenParametersWidget, false);
+			AttachmentWidgetTest(
+				"File Array Element Text",
+				"#AttachmentArrayElement.Value//<SFilePathPicker>//<SEditableTextBox>",
+				FileAttachmentPathHandle,
+				[this]()
+				{
+					return MRQJob->PresetOverrides.JobAttachments.InputFiles.Files.Paths[0].FilePath;
+				});
+			AttachmentWidgetTest(
+				"Dir Array Element Text",
+				"#AttachmentArrayElement.Value//<SPropertyEditorText>//<SEditableTextBox>",
+				DirectoryAttachmentPathHandle,
+				[this]()
+				{
+					return MRQJob->PresetOverrides.JobAttachments.InputDirectories.Directories.Paths[0].Path;
+				});
 
-			VisibilityTest("Variable1", Variable1Widget, true);
-			VisibilityTest("Variable2", Variable2Widget, true);
-			VisibilityTest("Variable3", Variable3Widget, true);
-			VisibilityTest("HiddenVariable", HiddenVariableWidget, false);
-			
-			// always visible with host reqs
-			//VisibilityTest("Default Step category", DefaultStepCategory, true);
-			//VisibilityTest("Empty Step category", EmptyStepCategory, false);
-			VisibilityTest("Default Environment category", DefaultEnvCategory, true);
-			VisibilityTest("Empty Step Environment category", EmptyStepEnvCategory, false);
+			VisibilityTest("StringParameters", StringParametersPath, true);
+			VisibilityTest("PathParameters", PathParametersPath, true);
+			VisibilityTest("FloatParameters", FloatParametersPath, true);
+			VisibilityTest("IntParameters", IntParametersPath, true);
 
+			VisibilityTest("StepStringParameters", StepStringParametersPath, true);
+			VisibilityTest("StepPathParameters", StepPathParametersPath, true);
+			VisibilityTest("StepFloatParameters", StepFloatParametersPath, true);
+			VisibilityTest("StepIntParameters", StepIntParametersPath, true);
+
+			VisibilityTest("Variable1", Variable1Path, true);
+			VisibilityTest("Variable2", Variable2Path, true);
+			VisibilityTest("Variable3", Variable3Path, true);
+
+			VisibilityTest("Default Environment category", "#MRQEnvHeader.LaunchUnrealEditor", true);
+
+			VisibilityTest("HiddenParameters", HiddenParametersPath, false);
+			VisibilityTest("StepHiddenParameters", StepHiddenParametersPath, false);
+			VisibilityTest("HiddenVariable", HiddenVariablePath, false);
+			VisibilityTest("Empty Step Environment category", "#MRQStepEnvHeader.Empty", false);
+
+			});
+
+		It("MRQJobUIHiddenSelectorCoverage", EAsyncExecution::ThreadPool, FTimespan::FromSeconds(120), [this]() {
+			const bool bFixtureValid =
+				IsValid(MRQJob) &&
+				IsValid(CreatedRenderJobDataAsset) &&
+				IsValid(CreatedStepDataAsset) &&
+				IsValid(CreatedEnvironmentDataAsset) &&
+				IsValid(CreatedEmptyEnvironmentDataAsset);
+			TestTrue(TEXT("MRQ job and preset assets should exist"), bFixtureValid);
+			if (!bFixtureValid)
+			{
+				return;
+			}
+
+			// Rebuild the details tree before AutomationDriver traversal.
+			RunOnGameThreadBlocking([this]()
+				{
+					CreatedRenderJobDataAsset->GetHiddenManager().Remove("HiddenParameter");
+					CreatedStepDataAsset->GetHiddenManager().Remove("HiddenParameters");
+					CreatedEnvironmentDataAsset->GetHiddenManager().Remove("HiddenVariable");
+					CreatedEmptyEnvironmentDataAsset->GetHiddenManager().Remove("HiddenVariable");
+					MRQJob->ReloadDataFromJobPreset();
+					MRQJob->OnRequestDetailsRefresh.ExecuteIfBound();
+				});
+			FPlatformProcess::Sleep(0.5f);
+
+			Driver->Wait(FTimespan::FromSeconds(1));
+			FDriverElementPtr MrqJobWidget = Driver->FindElement(By::Path("<SMoviePipelineQueueEditor>//<SQueueJobListRow>//<SExpanderArrow>"));
+			Driver->Wait(Until::ElementExists(MrqJobWidget.ToSharedRef(), FWaitTimeout::InSeconds(2.f)));
+
+			if (!MrqJobWidget->Exists())
+			{
+				TestTrue(TEXT("MRQ Job widget should exist"), false);
+				return;
+			}
+			MrqJobWidget->Focus();
+			RobustClick(Driver, MrqJobWidget.ToSharedRef(), EMouseButtons::Type::Left);
+
+			if (!InitForMRQ(MRQJob))
+			{
+				return;
+			}
+
+			ExpandAllProperties(MRQDetailsPath, Driver);
+			FPlatformProcess::Sleep(0.5f);
+
+			auto SelectorShouldBeVisible = [this](const FString& ParameterName, const FString& WidgetPath)
+				{
+					bool bSearchConclusive = false;
+					const FDriverElementPtr Widget = FindVisibleElementByPath(
+						Driver,
+						List.ToSharedRef(),
+						ScrollBar.ToSharedRef(),
+						MRQListPath,
+						WidgetPath,
+						UISearchAttemptLimit,
+						bSearchConclusive);
+					TestTrue(ParameterName + " selector search should be conclusive", bSearchConclusive);
+					TestTrue(ParameterName + " selector should resolve when exposed", Widget.IsValid());
+				};
+
+			SelectorShouldBeVisible("HiddenParameters", HiddenParametersPath);
+			SelectorShouldBeVisible("StepHiddenParameters", StepHiddenParametersPath);
+			SelectorShouldBeVisible("HiddenVariable", HiddenVariablePath);
+			SelectorShouldBeVisible("Empty Step Environment category", "#MRQStepEnvHeader.Empty");
 			});
 
 		AfterEach([this]()
 			{
-				CreatedRenderJobDataAsset->RemoveFromRoot();
+				if (IsValid(CreatedRenderJobDataAsset))
+				{
+					CreatedRenderJobDataAsset->RemoveFromRoot();
+				}
 				CreatedRenderJobDataAsset = nullptr;
-				CreatedStepDataAsset->RemoveFromRoot();
+				if (IsValid(CreatedStepDataAsset))
+				{
+					CreatedStepDataAsset->RemoveFromRoot();
+				}
 				CreatedStepDataAsset = nullptr;
-				CreatedEnvironmentDataAsset->RemoveFromRoot();
+				if (IsValid(CreatedEnvironmentDataAsset))
+				{
+					CreatedEnvironmentDataAsset->RemoveFromRoot();
+				}
 				CreatedEnvironmentDataAsset = nullptr;
 
-				CreatedEmptyStepDataAsset->RemoveFromRoot();
+				if (IsValid(CreatedEmptyStepDataAsset))
+				{
+					CreatedEmptyStepDataAsset->RemoveFromRoot();
+				}
 				CreatedEmptyStepDataAsset = nullptr;
 
-				CreatedEmptyEnvironmentDataAsset->RemoveFromRoot();
+				if (IsValid(CreatedEmptyEnvironmentDataAsset))
+				{
+					CreatedEmptyEnvironmentDataAsset->RemoveFromRoot();
+				}
 				CreatedEmptyEnvironmentDataAsset = nullptr;
 
 				FModuleManager::LoadModuleChecked<IModuleInterface>("MovieRenderPipelineEditor");
@@ -995,6 +1358,7 @@ void FDeadlinePluginUISpec::Define()
 						Queue->DeleteAllJobs();
 					}
 				}
+				MRQJob = nullptr;
 
 				const FName MRQTabName("MoviePipelineQueue");
 				TSharedPtr<SDockTab> Tab = FGlobalTabmanager::Get()->FindExistingLiveTab(MRQTabName);
@@ -1593,4 +1957,3 @@ void FDeadlinePluginUISpec::Define()
 		IAutomationDriverModule::Get().Disable();
 		});
 }
-

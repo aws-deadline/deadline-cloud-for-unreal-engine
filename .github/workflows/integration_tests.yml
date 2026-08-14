@@ -23,6 +23,11 @@ on:
         description: 'Tag to test (only used when ref_type is "tag")'
         required: false
         type: string
+      run_ui_automation:
+        description: 'Run the offline Unreal UI automation suite'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   IntegrationTests:
@@ -43,3 +48,4 @@ jobs:
       branch: ${{ github.event.inputs.ref_type == 'branch' && github.event.inputs.branch || 'mainline' }}
       tag: ${{ github.event.inputs.ref_type == 'tag' && github.event.inputs.tag || '' }}
       os: ${{ matrix.os }}
+      run_ui_automation: ${{ github.event_name == 'workflow_dispatch' && inputs.run_ui_automation || false }}
