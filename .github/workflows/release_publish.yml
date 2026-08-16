@@ -34,8 +34,37 @@ jobs:
     with:
       tag: ${{ needs.TagRelease.outputs.tag }}
 
+  IntegrationTests:
+    needs: [TagRelease]
+    name: Integration and UI Automation Tests
+    uses: aws-deadline/.github/.github/workflows/reusable_integration_test.yml@mainline
+    permissions:
+      id-token: write
+      contents: read
+    secrets: inherit
+    with:
+      repository: ${{ github.event.repository.name }}
+      environment: mainline
+      os: windows
+      tag: ${{ needs.TagRelease.outputs.tag }}
+      run_ui_automation: true
+
+  E2ETests:
+    needs: [TagRelease]
+    name: E2E Tests
+    uses: aws-deadline/.github/.github/workflows/reusable_e2e_test.yml@mainline
+    permissions:
+      id-token: write
+      contents: read
+    secrets: inherit
+    with:
+      repository: ${{ github.event.repository.name }}
+      environment: mainline
+      os: windows
+      tag: ${{ needs.TagRelease.outputs.tag }}
+
   ManualTestGate:
-    needs: [TagRelease, UnitTests]
+    needs: [TagRelease, UnitTests, IntegrationTests, E2ETests]
     runs-on: ubuntu-latest
     environment: release-gate
     steps:
