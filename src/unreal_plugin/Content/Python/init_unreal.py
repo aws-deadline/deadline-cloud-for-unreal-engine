@@ -184,21 +184,38 @@ if remote_execution != "True":
     # These unused imports are REQUIRED!!!
     # Unreal Engine loads any init_unreal.py it finds in its search paths.
     # These imports finish the setup for the plugin.
-    from settings import (
-        DeadlineCloudSettingsLibraryImplementation,  # noqa: F401
-        background_init_s3_client,
-    )
+    # `settings` is imported for background_init_s3_client (used below); importing the module also
+    # registers DeadlineCloudSettingsLibraryImplementation as a side effect.
+    from settings import background_init_s3_client
 
     # UNREAL 5.3 PATCH - Temp fix to maintain support for system default python
     # in Unreal 5.3 (3.9.7)
     _check_patch_pydantic_py397()
 
-    from job_library import DeadlineCloudJobBundleLibraryImplementation  # noqa: F401
-    from open_job_template_api import (  # noqa: F401
-        PythonYamlLibraryImplementation,
-        ParametersConsistencyCheckerImplementation,
-    )
-    import remote_executor  # noqa: F401
+    # These modules register the Python side of their C++ BlueprintImplementableEvent libraries as
+    # an import side effect (the @unreal.uclass()/@unreal.ufunction decorators run on import). Import
+    # them via importlib so no unused names are bound (avoids ruff F401 and CodeQL
+    # py/unused-import / py/unused-global-variable).
+    import importlib
+
+    # job_library, open_job_template_api and remote_executor are load-bearing: open_job_template_api
+    # registers PythonYamlLibrary / ParametersConsistencyChecker (without which UPythonYamlLibrary::Get()
+    # is null across the job/step/environment panels) and remote_executor registers the MRQ remote
+    # executor. A failure importing any of these must stay fatal (loud) — the editor cannot function
+    # without them, so we deliberately do NOT swallow it.
+    for _impl_module in ("job_library", "open_job_template_api", "remote_executor"):
+        importlib.import_module(_impl_module)
+
+    # Only the new pre_gui_hook_library is isolated: a version-skewed C++/Python pair (e.g. the C++
+    # struct a release behind the bundled Python) should degrade just this one feature to a no-op,
+    # not take down the load-bearing registrations above or the init steps below. Log the full
+    # traceback (exc_info) so a missing transitive dep is diagnosable instead of a bare message.
+    try:
+        importlib.import_module("pre_gui_hook_library")
+    except Exception:
+        logger.error(
+            "Failed to register Deadline Cloud module 'pre_gui_hook_library'", exc_info=True
+        )
 
     try:
         background_init_s3_client()

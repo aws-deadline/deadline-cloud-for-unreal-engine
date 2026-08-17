@@ -206,6 +206,33 @@ This example will use the Meerkat Demo from the Unreal Marketplace:
 1. You can go to Deadline Cloud Monitor and watch the progress of your job. 
 
 
+# Submission Hooks (Pre-GUI)
+
+The submitter runs **pre-GUI** submission hooks sourced from `DEADLINE_HOOKS_DIR`. A pre-GUI hook runs when a Deadline Cloud job's **Details panel is built**, letting a studio pre-populate the job's shared settings (name, description, priority, initial state, maximum failed tasks / retries) and template parameters *before* the artist reviews them.
+
+## Enable pre-GUI hooks
+
+1. Set `DEADLINE_HOOKS_DIR` to a directory containing a `hooks.yaml` with a `preGUI` entry (see the Deadline Cloud submission-hooks documentation for the file format). This environment variable must be set **before** you launch Unreal Editor.
+1. Allow environment-sourced hooks:
+	```
+	deadline config set settings.allow_environment_hooks true
+	```
+1. (Optional) Skip the per-run confirmation dialog:
+	```
+	deadline config set settings.auto_accept true
+	```
+	When `auto_accept` is `false` (the default), opening a job's Details panel shows a confirmation dialog listing the hooks that will run; the hook applies only after you accept.
+
+## When pre-GUI hooks run
+
+Pre-GUI hooks are **panel-tied** — they run when a job's Deadline Cloud Details panel is built:
+
+- **Data asset** — when you open a `DeadlineCloudRenderJob` (`UDeadlineCloudJob`) data asset in the editor.
+- **Movie Render Queue** — when you select a Deadline Cloud job in the Movie Render Queue so its **Preset Overrides** panel is shown. Because **Render (Remote)** submits every job in the queue, open each job you want hooked at least once; a job whose panel is never opened is submitted without the pre-GUI hook applied.
+
+A value a hook sets is skipped (and surfaced as an editor notification instead of written to the job) when it fails the panel's validation, matches no field, or names a parameter the submitter resolves itself at submit time (for example `ProjectFilePath`, `ExtraCmdArgs`, `Frames`, or Perforce settings).
+
+
 # Update Notifications
 
 The submitter plugin automatically checks for newer releases on GitHub when Unreal Editor starts. If an update is available, a dialog will prompt you to visit the release page.
