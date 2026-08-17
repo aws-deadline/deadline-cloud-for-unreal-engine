@@ -1,8 +1,10 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
+import os
 import sys
 import pytest
-from unittest.mock import MagicMock, patch
+from types import SimpleNamespace
+from unittest.mock import MagicMock, call, patch
 
 unreal_mock = MagicMock()
 unreal_mock.log = MagicMock()
@@ -15,6 +17,10 @@ def unreal_render_step_handler():
         UnrealRenderStepHandler,
     )
 
+    UnrealRenderStepHandler.cached_frame_range_start = None
+    UnrealRenderStepHandler.cached_frame_range_end = None
+    UnrealRenderStepHandler.active_executor = None
+    UnrealRenderStepHandler.render_wait_started = False
     return UnrealRenderStepHandler()
 
 
@@ -147,3 +153,614 @@ class TestApplyParamAliases:
     def test_returns_same_dict(self, unreal_render_step_handler):
         args = {"handler": "render", "chunk_size": 1}
         assert unreal_render_step_handler._apply_param_aliases(args) is args
+
+
+class TestCsvCaptureHelpers:
+    @pytest.mark.parametrize(
+        "args, expected",
+        [
+            ({}, 0),
+            ({"csv_capture_frames": 120}, 120),
+            ({"csv_capture_frames": "42"}, 42),
+            ({"csv_capture_frames": 0}, 0),
+            ({"csv_capture_frames": -5}, 0),
+        ],
+    )
+    def test_get_csv_capture_frames(self, unreal_render_step_handler, args, expected):
+        assert unreal_render_step_handler._get_csv_capture_frames(args) == expected
+
+    def test_stop_executor_csv_capture_calls_hook(self, unreal_render_step_handler):
+        executor = MagicMock()
+
+        unreal_render_step_handler._stop_executor_csv_capture(executor, "render completed")
+
+        executor._stop_csv_capture.assert_called_once_with("render completed")
+
+
+class TestExecutorProfilingLifecycle:
+    @staticmethod
+    def _executor(**overrides):
+        from deadline.unreal_adaptor.UnrealClient.step_handlers import (
+            unreal_render_step_handler,
+        )
+
+        executor = SimpleNamespace()
+        unreal_render_step_handler._initialize_executor_profiling_state(executor)
+        for name, value in overrides.items():
+            setattr(executor, name, value)
+        return executor
+
+    def test_disabled_profiling_completion_runs_no_console_commands(self):
+        from deadline.unreal_adaptor.UnrealClient.step_handlers import (
+            unreal_render_step_handler,
+        )
+
+        executor = self._executor()
+        with (
+            patch.object(
+                unreal_render_step_handler, "_execute_editor_console_command"
+            ) as execute_command,
+            patch.object(unreal_render_step_handler.logger, "info") as log_info,
+        ):
+            unreal_render_step_handler._handle_executor_render_completion(executor)
+
+        execute_command.assert_not_called()
+        log_info.assert_called_once_with("Render Executor: Rendering is complete")
+        assert executor.renderCompletionHandled is True
+        assert executor.csvFinished is True
+        assert executor.memreportGenerated is False
+
+    def test_csv_capture_stops_after_requested_render_frames(self):
+        from deadline.unreal_adaptor.UnrealClient.step_handlers import (
+            unreal_render_step_handler,
+        )
+
+        executor = self._executor(csvCaptureFrames=2)
+        with patch.object(
+            unreal_render_step_handler,
+            "_execute_editor_console_command",
+            return_value=True,
+        ) as execute_command:
+            unreal_render_step_handler._observe_executor_csv_frame(executor)
+            assert executor.csvStarted is True
+            assert executor.csvFramesObserved == 1
+
+            unreal_render_step_handler._observe_executor_csv_frame(executor)
+
+        assert execute_command.call_args_list == [
+            call("CsvProfile Start"),
+            call("CsvProfile Stop"),
+        ]
+        assert executor.csvFramesObserved == 2
+        assert executor.csvStarted is False
+        assert executor.csvFinished is True
+
+    def test_csv_capture_is_not_retried_when_start_fails(self):
+        from deadline.unreal_adaptor.UnrealClient.step_handlers import (
+            unreal_render_step_handler,
+        )
+
+        executor = self._executor(csvCaptureFrames=2)
+        with patch.object(
+            unreal_render_step_handler,
+            "_execute_editor_console_command",
+            return_value=False,
+        ) as execute_command:
+            unreal_render_step_handler._observe_executor_csv_frame(executor)
+            unreal_render_step_handler._observe_executor_csv_frame(executor)
+
+        execute_command.assert_called_once_with("CsvProfile Start")
+        assert executor.csvStarted is False
+        assert executor.csvFinished is True
+
+    def test_memreport_is_generated_only_once(self):
+        from deadline.unreal_adaptor.UnrealClient.step_handlers import (
+            unreal_render_step_handler,
+        )
+
+        executor = self._executor(memreportEnabled=True)
+        with patch.object(
+            unreal_render_step_handler,
+            "_execute_editor_console_command",
+            return_value=True,
+        ) as execute_command:
+            unreal_render_step_handler._generate_executor_memreport(executor)
+            unreal_render_step_handler._generate_executor_memreport(executor)
+
+        execute_command.assert_called_once_with("MemReport -full")
+        assert executor.memreportGenerated is True
+
+    def test_insights_trace_starts_and_stops_once(self):
+        from deadline.unreal_adaptor.UnrealClient.step_handlers import (
+            unreal_render_step_handler,
+        )
+
+        executor = self._executor(
+            insightsCategories="cpu,frame",
+            insightsTraceFile="C:/Project/Saved/Profiling/task-0.utrace",
+        )
+        with (
+            patch.object(
+                unreal_render_step_handler.os,
+                "makedirs",
+            ) as makedirs,
+            patch.object(
+                unreal_render_step_handler.tempfile,
+                "gettempdir",
+                return_value="C:/Temp",
+            ),
+            patch.object(
+                unreal_render_step_handler,
+                "_execute_editor_console_command",
+                return_value=True,
+            ) as execute_command,
+            patch.object(unreal_render_step_handler.shutil, "move") as move,
+        ):
+            unreal_render_step_handler._start_executor_insights_trace(executor)
+            unreal_render_step_handler._start_executor_insights_trace(executor)
+            unreal_render_step_handler._stop_executor_insights_trace(executor, "render completed")
+            unreal_render_step_handler._stop_executor_insights_trace(executor, "render completed")
+
+        makedirs.assert_called_once_with("C:/Project/Saved/Profiling", exist_ok=True)
+        assert execute_command.call_args_list == [
+            call("Trace.File C:/Temp/task-0.utrace cpu,frame"),
+            call("Trace.Stop"),
+        ]
+        move.assert_called_once_with(
+            os.path.join("C:/Temp", "task-0.utrace"),
+            "C:/Project/Saved/Profiling/task-0.utrace",
+        )
+        assert executor.insightsStarted is False
+        assert executor.insightsFinished is True
+
+    def test_insights_trace_is_not_started_when_directory_creation_fails(self):
+        from deadline.unreal_adaptor.UnrealClient.step_handlers import (
+            unreal_render_step_handler,
+        )
+
+        executor = self._executor(
+            insightsCategories="cpu,frame",
+            insightsTraceFile="C:/Project/Saved/Profiling/task-0.utrace",
+        )
+        with (
+            patch.object(
+                unreal_render_step_handler.os,
+                "makedirs",
+                side_effect=OSError("access denied"),
+            ) as makedirs,
+            patch.object(
+                unreal_render_step_handler,
+                "_execute_editor_console_command",
+            ) as execute_command,
+            patch.object(unreal_render_step_handler.logger, "warning") as log_warning,
+        ):
+            unreal_render_step_handler._start_executor_insights_trace(executor)
+            unreal_render_step_handler._start_executor_insights_trace(executor)
+
+        makedirs.assert_called_once_with("C:/Project/Saved/Profiling", exist_ok=True)
+        execute_command.assert_not_called()
+        log_warning.assert_called_once()
+        assert executor.insightsStarted is False
+        assert executor.insightsFinished is True
+
+    def test_reused_session_creates_an_independent_trace_for_each_task(self):
+        from deadline.unreal_adaptor.UnrealClient.step_handlers import (
+            unreal_render_step_handler,
+        )
+
+        task_zero = self._executor(
+            insightsCategories="cpu,frame",
+            insightsTraceFile="C:/Profiling/task-0.utrace",
+        )
+        task_one = self._executor(
+            insightsCategories="cpu,frame",
+            insightsTraceFile="C:/Profiling/task-1.utrace",
+        )
+        with (
+            patch.object(
+                unreal_render_step_handler.os,
+                "makedirs",
+            ) as makedirs,
+            patch.object(
+                unreal_render_step_handler.tempfile,
+                "gettempdir",
+                return_value="C:/Temp",
+            ),
+            patch.object(
+                unreal_render_step_handler,
+                "_execute_editor_console_command",
+                return_value=True,
+            ) as execute_command,
+            patch.object(unreal_render_step_handler.shutil, "move") as move,
+        ):
+            for executor in (task_zero, task_one):
+                unreal_render_step_handler._start_executor_insights_trace(executor)
+                unreal_render_step_handler._handle_executor_render_completion(executor)
+
+        assert makedirs.call_args_list == [
+            call("C:/Profiling", exist_ok=True),
+            call("C:/Profiling", exist_ok=True),
+        ]
+        assert execute_command.call_args_list == [
+            call("Trace.File C:/Temp/task-0.utrace cpu,frame"),
+            call("Trace.Stop"),
+            call("Trace.File C:/Temp/task-1.utrace cpu,frame"),
+            call("Trace.Stop"),
+        ]
+        assert move.call_args_list == [
+            call(os.path.join("C:/Temp", "task-0.utrace"), "C:/Profiling/task-0.utrace"),
+            call(os.path.join("C:/Temp", "task-1.utrace"), "C:/Profiling/task-1.utrace"),
+        ]
+
+    def test_insights_trace_uses_relative_working_file_when_temp_path_has_spaces(self):
+        from deadline.unreal_adaptor.UnrealClient.step_handlers import (
+            unreal_render_step_handler,
+        )
+
+        executor = self._executor(
+            insightsCategories="cpu,frame",
+            insightsTraceFile="C:/Project With Spaces/Saved/Profiling/task-0.utrace",
+        )
+        with (
+            patch.object(unreal_render_step_handler.os, "makedirs"),
+            patch.object(
+                unreal_render_step_handler.tempfile,
+                "gettempdir",
+                return_value="C:/Temp With Spaces",
+            ),
+            patch.object(
+                unreal_render_step_handler,
+                "unreal",
+                SimpleNamespace(
+                    Paths=SimpleNamespace(
+                        convert_relative_path_to_full=lambda _: (
+                            "C:/Working Directory/task-0.utrace"
+                        )
+                    )
+                ),
+            ),
+            patch.object(
+                unreal_render_step_handler,
+                "_execute_editor_console_command",
+                return_value=True,
+            ) as execute_command,
+            patch.object(unreal_render_step_handler.shutil, "move") as move,
+        ):
+            unreal_render_step_handler._start_executor_insights_trace(executor)
+            unreal_render_step_handler._stop_executor_insights_trace(executor, "render completed")
+
+        assert execute_command.call_args_list == [
+            call("Trace.File task-0.utrace cpu,frame"),
+            call("Trace.Stop"),
+        ]
+        move.assert_called_once_with(
+            "C:/Working Directory/task-0.utrace",
+            "C:/Project With Spaces/Saved/Profiling/task-0.utrace",
+        )
+
+    def test_insights_trace_move_retries_transient_windows_lock(self):
+        from deadline.unreal_adaptor.UnrealClient.step_handlers import (
+            unreal_render_step_handler,
+        )
+
+        with (
+            patch.object(
+                unreal_render_step_handler.shutil,
+                "move",
+                side_effect=[PermissionError("locked"), None],
+            ) as move,
+            patch.object(unreal_render_step_handler.time, "sleep") as sleep,
+        ):
+            moved = unreal_render_step_handler._move_finalized_insights_trace("source", "dest")
+
+        assert moved is True
+        assert move.call_count == 2
+        sleep.assert_called_once_with(0.1)
+
+    def test_completion_attempts_all_profilers_and_is_idempotent(self):
+        from deadline.unreal_adaptor.UnrealClient.step_handlers import (
+            unreal_render_step_handler,
+        )
+
+        executor = self._executor(
+            csvCaptureFrames=10,
+            csvStarted=True,
+            memreportEnabled=True,
+            insightsCategories="cpu,frame",
+            insightsTraceFile="C:/Project/Saved/Profiling/task-0.utrace",
+            insightsStarted=True,
+        )
+        with (
+            patch.object(
+                unreal_render_step_handler,
+                "_execute_editor_console_command",
+                return_value=True,
+            ) as execute_command,
+            patch.object(
+                unreal_render_step_handler,
+                "_move_finalized_insights_trace",
+                return_value=True,
+            ),
+        ):
+            unreal_render_step_handler._handle_executor_render_completion(executor)
+            unreal_render_step_handler._handle_executor_render_completion(executor)
+
+        assert execute_command.call_args_list == [
+            call("CsvProfile Stop"),
+            call("MemReport -full"),
+            call("Trace.Stop"),
+        ]
+        assert executor.csvFinished is True
+        assert executor.memreportGenerated is True
+        assert executor.insightsFinished is True
+        assert executor.renderCompletionHandled is True
+
+    def test_profiler_failure_cannot_suppress_render_completion(self):
+        from deadline.unreal_adaptor.UnrealClient.step_handlers import (
+            unreal_render_step_handler,
+        )
+
+        executor = self._executor(memreportEnabled=True)
+        with (
+            patch.object(
+                unreal_render_step_handler,
+                "_stop_executor_csv_capture",
+                side_effect=RuntimeError("CSV failure"),
+            ),
+            patch.object(
+                unreal_render_step_handler,
+                "_generate_executor_memreport",
+                side_effect=RuntimeError("MemReport failure"),
+            ),
+            patch.object(
+                unreal_render_step_handler,
+                "_stop_executor_insights_trace",
+                side_effect=RuntimeError("Insights failure"),
+            ),
+            patch.object(unreal_render_step_handler.logger, "info") as log_info,
+        ):
+            unreal_render_step_handler._handle_executor_render_completion(executor)
+
+        log_info.assert_called_once_with("Render Executor: Rendering is complete")
+        assert executor.renderCompletionHandled is True
+
+
+class TestMemreportHelpers:
+    @pytest.mark.parametrize(
+        "args, expected",
+        [
+            ({}, False),
+            ({"memreport": True}, True),
+            ({"memreport": 1}, True),
+            ({"memreport": "true"}, True),
+            ({"memreport": "false"}, False),
+            ({"memreport": 0}, False),
+        ],
+    )
+    def test_get_memreport_enabled(self, unreal_render_step_handler, args, expected):
+        assert unreal_render_step_handler._get_memreport_enabled(args) is expected
+
+    def test_generate_executor_memreport_calls_hook(self, unreal_render_step_handler):
+        executor = MagicMock()
+
+        unreal_render_step_handler._generate_executor_memreport(executor)
+
+        executor._generate_memreport.assert_called_once_with()
+
+    def test_handle_executor_completion_prefers_executor_hook(self, unreal_render_step_handler):
+        executor = MagicMock()
+
+        with patch(
+            "deadline.unreal_adaptor.UnrealClient.step_handlers.unreal_render_step_handler."
+            "UnrealRenderStepHandler._stop_executor_csv_capture"
+        ) as stop_capture_mock:
+            with patch(
+                "deadline.unreal_adaptor.UnrealClient.step_handlers.unreal_render_step_handler."
+                "UnrealRenderStepHandler._generate_executor_memreport"
+            ) as generate_memreport_mock:
+                unreal_render_step_handler._handle_executor_completion(executor)
+
+        executor._handle_render_completion.assert_called_once_with()
+        stop_capture_mock.assert_not_called()
+        generate_memreport_mock.assert_not_called()
+
+    def test_handle_executor_completion_falls_back_to_legacy_hooks(
+        self, unreal_render_step_handler
+    ):
+        executor = object()
+
+        with patch(
+            "deadline.unreal_adaptor.UnrealClient.step_handlers.unreal_render_step_handler."
+            "UnrealRenderStepHandler._stop_executor_csv_capture"
+        ) as stop_capture_mock:
+            with patch(
+                "deadline.unreal_adaptor.UnrealClient.step_handlers.unreal_render_step_handler."
+                "UnrealRenderStepHandler._generate_executor_memreport"
+            ) as generate_memreport_mock:
+                with patch(
+                    "deadline.unreal_adaptor.UnrealClient.step_handlers."
+                    "unreal_render_step_handler.UnrealRenderStepHandler."
+                    "_stop_executor_insights_trace"
+                ) as stop_insights_mock:
+                    unreal_render_step_handler._handle_executor_completion(executor)
+
+        stop_capture_mock.assert_called_once_with(executor, "render completed")
+        generate_memreport_mock.assert_called_once_with(executor)
+        stop_insights_mock.assert_called_once_with(executor, "render completed")
+
+    def test_executor_finished_callback_requests_memreport(self, unreal_render_step_handler):
+        executor = MagicMock()
+
+        with patch(
+            "deadline.unreal_adaptor.UnrealClient.step_handlers.unreal_render_step_handler."
+            "UnrealRenderStepHandler._handle_executor_completion"
+        ) as handle_completion_mock:
+            unreal_render_step_handler.executor_finished_callback(executor, True)
+
+        handle_completion_mock.assert_called_once_with(executor)
+
+    def test_executor_finished_callback_uses_active_executor(self, unreal_render_step_handler):
+        executor = MagicMock()
+        type(unreal_render_step_handler).active_executor = executor
+
+        with patch.object(
+            type(unreal_render_step_handler), "_handle_executor_completion"
+        ) as handle_completion:
+            unreal_render_step_handler.executor_finished_callback()
+
+        handle_completion.assert_called_once_with(executor)
+
+    def test_executor_failed_callback_uses_active_executor(self, unreal_render_step_handler):
+        executor = MagicMock()
+        type(unreal_render_step_handler).active_executor = executor
+
+        with (
+            patch.object(
+                type(unreal_render_step_handler), "_stop_executor_csv_capture"
+            ) as stop_csv,
+            patch.object(
+                type(unreal_render_step_handler), "_stop_executor_insights_trace"
+            ) as stop_insights,
+        ):
+            unreal_render_step_handler.executor_failed_callback(
+                None,
+                None,
+                True,
+                "failed",
+            )
+
+        stop_csv.assert_called_once_with(executor, "render error")
+        stop_insights.assert_called_once_with(executor, "render error")
+
+
+class TestRenderWaitResult:
+    def test_regex_pattern_complete_requires_explicit_render_completion(
+        self, unreal_render_step_handler
+    ):
+        regexes = unreal_render_step_handler.regex_pattern_complete()
+
+        assert regexes[0].search("Render Executor: Rendering is complete")
+        assert not regexes[0].search(
+            "LogMovieRenderPipeline: MoviePipelineLinearExecutorBase finished 1 jobs in +00:00:04.017."
+        )
+
+    def test_wait_result_ignores_executor_before_render_starts(self, unreal_render_step_handler):
+        executor = MagicMock()
+        executor.renderStarted = False
+        executor.renderCompletionHandled = False
+        executor.is_rendering.return_value = False
+        type(unreal_render_step_handler).active_executor = executor
+
+        with patch(
+            "deadline.unreal_adaptor.UnrealClient.step_handlers.unreal_render_step_handler."
+            "UnrealRenderStepHandler._handle_executor_completion"
+        ) as handle_completion_mock:
+            unreal_render_step_handler.wait_result()
+
+        handle_completion_mock.assert_not_called()
+        assert type(unreal_render_step_handler).active_executor is executor
+        assert type(unreal_render_step_handler).render_wait_started is True
+
+    def test_wait_result_ignores_executor_while_rendering(self, unreal_render_step_handler):
+        executor = MagicMock()
+        executor.renderStarted = True
+        executor.renderCompletionHandled = False
+        executor.is_rendering.return_value = True
+        type(unreal_render_step_handler).active_executor = executor
+
+        with patch(
+            "deadline.unreal_adaptor.UnrealClient.step_handlers.unreal_render_step_handler."
+            "UnrealRenderStepHandler._handle_executor_completion"
+        ) as handle_completion_mock:
+            unreal_render_step_handler.wait_result()
+
+        handle_completion_mock.assert_not_called()
+        assert type(unreal_render_step_handler).active_executor is executor
+        assert type(unreal_render_step_handler).render_wait_started is True
+
+    def test_wait_result_does_not_infer_completion_when_render_temporarily_stops(
+        self, unreal_render_step_handler
+    ):
+        executor = MagicMock()
+        executor.renderStarted = True
+        executor.renderCompletionHandled = False
+        executor.is_rendering.return_value = False
+        type(unreal_render_step_handler).active_executor = executor
+
+        with patch(
+            "deadline.unreal_adaptor.UnrealClient.step_handlers.unreal_render_step_handler."
+            "UnrealRenderStepHandler._handle_executor_completion"
+        ) as handle_completion_mock:
+            unreal_render_step_handler.wait_result()
+
+        handle_completion_mock.assert_not_called()
+        assert type(unreal_render_step_handler).active_executor is executor
+        assert type(unreal_render_step_handler).render_wait_started is True
+
+    def test_wait_result_finishes_after_delegate_handles_completion(
+        self, unreal_render_step_handler
+    ):
+        executor = MagicMock()
+        executor.renderCompletionHandled = True
+        type(unreal_render_step_handler).active_executor = executor
+        type(unreal_render_step_handler).render_wait_started = True
+
+        unreal_render_step_handler.wait_result()
+
+        assert type(unreal_render_step_handler).active_executor is None
+        assert type(unreal_render_step_handler).render_wait_started is False
+
+
+class TestConsoleCommandWorld:
+    @staticmethod
+    def _module():
+        from deadline.unreal_adaptor.UnrealClient.step_handlers import unreal_render_step_handler
+
+        unreal_render_step_handler.unreal = unreal_mock
+        unreal_mock.reset_mock()
+        return unreal_render_step_handler
+
+    def test_prefers_pie_world(self):
+        unreal_render_step_handler = self._module()
+        pie_world = object()
+        unreal_render_step_handler.unreal.EditorLevelLibrary.get_pie_worlds.return_value = [
+            pie_world
+        ]
+
+        assert unreal_render_step_handler._get_command_world() is pie_world
+
+    def test_falls_back_to_game_world(self):
+        unreal_render_step_handler = self._module()
+        game_world = object()
+        unreal_render_step_handler.unreal.EditorLevelLibrary.get_pie_worlds.return_value = []
+        unreal_render_step_handler.unreal.EditorLevelLibrary.get_game_world.return_value = (
+            game_world
+        )
+
+        assert unreal_render_step_handler._get_command_world() is game_world
+
+    def test_falls_back_to_editor_world(self):
+        unreal_render_step_handler = self._module()
+        editor_world = object()
+        unreal_render_step_handler.unreal.EditorLevelLibrary.get_pie_worlds.return_value = []
+        unreal_render_step_handler.unreal.EditorLevelLibrary.get_game_world.return_value = None
+        unreal_render_step_handler.unreal.get_editor_subsystem.return_value = None
+        unreal_render_step_handler.unreal.EditorLevelLibrary.get_editor_world.return_value = (
+            editor_world
+        )
+
+        assert unreal_render_step_handler._get_command_world() is editor_world
+
+    def test_console_command_failure_is_nonfatal(self):
+        unreal_render_step_handler = self._module()
+        pie_world = object()
+        unreal_render_step_handler.unreal.EditorLevelLibrary.get_pie_worlds.return_value = [
+            pie_world
+        ]
+        unreal_render_step_handler.unreal.SystemLibrary.execute_console_command.side_effect = (
+            RuntimeError("console unavailable")
+        )
+
+        assert (
+            unreal_render_step_handler._execute_editor_console_command("MemReport -full") is False
+        )

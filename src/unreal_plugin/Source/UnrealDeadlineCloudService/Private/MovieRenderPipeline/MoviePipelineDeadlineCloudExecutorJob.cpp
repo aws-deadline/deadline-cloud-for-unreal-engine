@@ -231,6 +231,12 @@ FDeadlineCloudJobPresetStruct UMoviePipelineDeadlineCloudExecutorJob::GetDeadlin
 		&PresetOverrides.JobAttachments.OutputDirectories,
 		&ReturnValue.JobAttachments.OutputDirectories
 	);
+
+	GetPresetStructWithOverrides(
+		FDeadlineCloudProfilingSettingsStruct::StaticStruct(),
+		&PresetOverrides.ProfilingSettings,
+		&ReturnValue.ProfilingSettings
+	);
 	return ReturnValue;
 }
 
@@ -440,6 +446,9 @@ void UMoviePipelineDeadlineCloudExecutorJob::ReloadDataFromJobPreset()
 	PresetOverrides.JobAttachments.OutputDirectories.Directories =
 		JobPreset->JobPresetStruct.JobAttachments.OutputDirectories.Directories;
 
+	PresetOverrides.ProfilingSettings =
+		JobPreset->JobPresetStruct.ProfilingSettings;
+
 	JobTemplateOverrides.Parameters = JobPreset->GetParametersDataToOverride();
 	JobTemplateOverrides.StepsOverrides = GetStepsToOverride(JobPreset);
 	JobTemplateOverrides.EnvironmentsOverrides = GetEnvironmentsToOverride(JobPreset);
@@ -635,6 +644,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::CopyJobOverrides(UDeadlineCloudRend
 	Job->JobPresetStruct.JobAttachments.InputFiles = PresetOverrides.JobAttachments.InputFiles;
 	Job->JobPresetStruct.JobAttachments.InputDirectories = PresetOverrides.JobAttachments.InputDirectories;
 	Job->JobPresetStruct.JobAttachments.OutputDirectories = PresetOverrides.JobAttachments.OutputDirectories;
+	Job->JobPresetStruct.ProfilingSettings = PresetOverrides.ProfilingSettings;
 	Job->ParameterDefinition.Parameters = JobTemplateOverrides.Parameters;
 }
 

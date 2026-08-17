@@ -158,6 +158,39 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudAttachmentsStruct
 };
 
 /**
+ * Profiling settings container struct
+ */
+USTRUCT(BlueprintType)
+struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudProfilingSettingsStruct
+{
+	GENERATED_BODY()
+
+	/** Enable Unreal Insights CPU tracing */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Profiling Settings", meta = (DisplayPriority = 0))
+	bool bInsightsCpu = false;
+
+	/** Enable Unreal Insights GPU tracing */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Profiling Settings", meta = (DisplayPriority = 1))
+	bool bInsightsGpu = false;
+
+	/** Enable Unreal Insights Memory tracing */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Profiling Settings", meta = (DisplayPriority = 2))
+	bool bInsightsMemory = false;
+
+	/** Enable Unreal CSV profiler capture */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Profiling Settings", meta = (DisplayPriority = 3))
+	bool bCsvProfiler = false;
+
+	/** Number of frames to capture for CSV profiler */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Profiling Settings", meta = (ClampMin = 1, DisplayPriority = 4))
+	int32 CsvCaptureFrames = 300;
+
+	/** Generate a MemReport -full after render completion */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Profiling Settings", meta = (DisplayPriority = 5))
+	bool bMemReport = false;
+};
+
+/**
  * All Deadline Cloud job settings container struct
  */
 USTRUCT(BlueprintType)
@@ -172,6 +205,10 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudJobPresetStruct
 	/** Job attachments */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Preset")
 	FDeadlineCloudAttachmentsStruct JobAttachments;
+
+	/** Profiling settings */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Preset")
+	FDeadlineCloudProfilingSettingsStruct ProfilingSettings;
 
 };
 

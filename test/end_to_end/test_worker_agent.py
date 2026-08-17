@@ -1,6 +1,14 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import logging
+
+from deadline.client.api import get_queue_user_boto3_session
+from deadline.job_attachments.download import (
+    OutputDownloader,
+    get_output_manifests_by_asset_root,
+)
+from deadline.job_attachments.models import JobAttachmentS3Settings
+
 from conftest import (
     DEFAULT_ENV_ENTER_TIMEOUT_SECONDS,
     DEFAULT_ENV_EXIT_TIMEOUT_SECONDS,
@@ -15,6 +23,33 @@ from conftest import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def get_job_output_manifest_paths(deadline_client, farm_id, queue_id, job_id):
+    """List the paths uploaded through a job's output attachment manifests."""
+    queue = deadline_client.get_queue(farmId=farm_id, queueId=queue_id)
+    queue_user_session = get_queue_user_boto3_session(
+        deadline=deadline_client,
+        farm_id=farm_id,
+        queue_id=queue_id,
+        queue_display_name=queue["displayName"],
+    )
+    manifests_by_root = get_output_manifests_by_asset_root(
+        s3_settings=JobAttachmentS3Settings(**queue["jobAttachmentSettings"]),
+        farm_id=farm_id,
+        queue_id=queue_id,
+        job_id=job_id,
+        session=queue_user_session,
+    )
+
+    output_paths = []
+    for root, manifests in manifests_by_root.items():
+        normalized_root = root.replace("\\", "/").rstrip("/")
+        for manifest in manifests:
+            for entry in manifest.paths:
+                normalized_path = entry.path.replace("\\", "/").lstrip("/")
+                output_paths.append(f"{normalized_root}/{normalized_path}")
+    return sorted(output_paths)
 
 
 def test_create_job_with_worker_agent(
@@ -66,10 +101,103 @@ def test_create_job_with_worker_agent(
 
         assert success, message
 
+        output_paths = get_job_output_manifest_paths(
+            deadline_client=deadline_client,
+            farm_id=farm_id,
+            queue_id=queue_id,
+            job_id=job_id,
+        )
+        assert not any(
+            "/saved/profiling/" in path.lower() for path in output_paths
+        ), f"Profiling outputs were produced for a profiling-disabled job: {output_paths}"
+
         logger.info(f"Job {job_id} SUCCEEDED")
     else:
         logger.warning("Could not extract job ID or farm ID from test output")
         assert False, "Could not extract job information from test output"
+
+
+def test_worker_agent_profiling_outputs_are_attached(
+    deadline_client,
+    build_plugin,
+    create_readonly_test_project,
+    run_unreal_test,
+    reusable_queue_fleet_association,
+    deadline_worker_agent,
+    tmp_path,
+):
+    """
+    Submit a profiling-enabled render and verify its Insights, CSV, and
+    MemReport artifacts are uploaded as Deadline job outputs.
+    """
+
+    _, uproject_file = create_readonly_test_project
+
+    success, output_lines = run_unreal_test(
+        "DeadlineCloud.Integration.CreateJob",
+        uproject_file,
+        extra_test_params={"profiling": "all", "csv_capture_frames": 10},
+    )
+    assert success, "Profiling job submission failed"
+
+    job_id, farm_id, queue_id = extract_job_info_from_test_output(output_lines)
+    assert job_id and farm_id and queue_id, "Could not extract profiling job information"
+
+    success, status, message = wait_for_job_state(
+        deadline_client=deadline_client,
+        farm_id=farm_id,
+        job_id=job_id,
+        queue_id=queue_id,
+        expected_states=["SUCCEEDED"],
+        max_wait_time=600,
+        wait_interval=10,
+    )
+    assert success, message
+
+    output_paths = get_job_output_manifest_paths(
+        deadline_client=deadline_client,
+        farm_id=farm_id,
+        queue_id=queue_id,
+        job_id=job_id,
+    )
+    profiling_paths = [path for path in output_paths if "/saved/profiling/" in path.lower()]
+
+    assert any(
+        "/deadlinecloud/" in path.lower() and path.lower().endswith(".utrace")
+        for path in profiling_paths
+    ), f"Insights trace missing from profiling outputs: {profiling_paths}"
+    assert any(
+        "/csv/" in path.lower() and path.lower().endswith(".csv") for path in profiling_paths
+    ), f"CSV profile missing from profiling outputs: {profiling_paths}"
+    assert any(
+        "/memreports/" in path.lower() and path.lower().endswith(".memreport")
+        for path in profiling_paths
+    ), f"MemReport missing from profiling outputs: {profiling_paths}"
+
+    queue = deadline_client.get_queue(farmId=farm_id, queueId=queue_id)
+    queue_user_session = get_queue_user_boto3_session(
+        deadline=deadline_client,
+        farm_id=farm_id,
+        queue_id=queue_id,
+        queue_display_name=queue["displayName"],
+    )
+    trace_downloader = OutputDownloader(
+        s3_settings=JobAttachmentS3Settings(**queue["jobAttachmentSettings"]),
+        farm_id=farm_id,
+        queue_id=queue_id,
+        job_id=job_id,
+        session=queue_user_session,
+        include_filters=["**/*.utrace"],
+    )
+    trace_download_dir = tmp_path / "profiling-outputs"
+    for root in trace_downloader.get_paths_by_root():
+        trace_downloader.set_root_path(root, str(trace_download_dir))
+    trace_downloader.download()
+
+    downloaded_traces = list(trace_download_dir.rglob("*.utrace"))
+    assert len(downloaded_traces) == 1
+    with downloaded_traces[0].open("rb") as trace_file:
+        assert trace_file.read(4) == b"2CRT"
 
 
 def test_worker_agent_project_plugins(

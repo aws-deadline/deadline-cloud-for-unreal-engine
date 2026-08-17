@@ -3,6 +3,8 @@
 import os
 import re
 import shutil
+import tempfile
+import time
 from pathlib import Path
 
 try:
@@ -21,12 +23,275 @@ from deadline.unreal_logger import get_logger
 logger = get_logger()
 
 
+def _get_command_world():
+    """Resolve the best available world for console commands during MRQ/PIE."""
+
+    if unreal is None:
+        return None
+
+    editor_level_library = getattr(unreal, "EditorLevelLibrary", None)
+    if editor_level_library is not None:
+        get_pie_worlds = getattr(editor_level_library, "get_pie_worlds", None)
+        if callable(get_pie_worlds):
+            try:
+                pie_worlds = get_pie_worlds(False)
+            except TypeError:
+                pie_worlds = get_pie_worlds()
+            if pie_worlds:
+                return pie_worlds[0]
+
+        get_game_world = getattr(editor_level_library, "get_game_world", None)
+        if callable(get_game_world):
+            game_world = get_game_world()
+            if game_world is not None:
+                return game_world
+
+    unreal_editor_subsystem_cls = getattr(unreal, "UnrealEditorSubsystem", None)
+    get_editor_subsystem = getattr(unreal, "get_editor_subsystem", None)
+    if unreal_editor_subsystem_cls is not None and callable(get_editor_subsystem):
+        subsystem = get_editor_subsystem(unreal_editor_subsystem_cls)
+        if subsystem is not None:
+            get_game_world = getattr(subsystem, "get_game_world", None)
+            if callable(get_game_world):
+                game_world = get_game_world()
+                if game_world is not None:
+                    return game_world
+
+            get_editor_world = getattr(subsystem, "get_editor_world", None)
+            if callable(get_editor_world):
+                editor_world = get_editor_world()
+                if editor_world is not None:
+                    return editor_world
+
+    if editor_level_library is not None:
+        get_editor_world = getattr(editor_level_library, "get_editor_world", None)
+        if callable(get_editor_world):
+            return get_editor_world()
+
+    return None
+
+
+def _execute_editor_console_command(command: str) -> bool:
+    """Execute a console command against the active PIE/game world."""
+
+    if unreal is None:
+        return False
+
+    try:
+        command_world = _get_command_world()
+    except Exception as exc:
+        logger.warning(
+            "Render Executor: Unable to resolve a world for console command '%s': %s",
+            command,
+            exc,
+        )
+        return False
+
+    if command_world is None:
+        logger.warning(
+            "Render Executor: Unable to execute console command '%s' because no active "
+            "editor or PIE world is available",
+            command,
+        )
+        return False
+
+    try:
+        unreal.SystemLibrary.execute_console_command(command_world, command)
+    except Exception as exc:
+        logger.warning(
+            "Render Executor: Console command '%s' failed: %s",
+            command,
+            exc,
+        )
+        return False
+
+    logger.info(f"Render Executor: Executed console command: {command}")
+    return True
+
+
+def _initialize_executor_profiling_state(executor) -> None:
+    executor.csvCaptureFrames = 0
+    executor.csvFramesObserved = 0
+    executor.csvStartAttempted = False
+    executor.csvStarted = False
+    executor.csvFinished = False
+    executor.renderStarted = False
+    executor.renderCompletionHandled = False
+    executor.memreportEnabled = False
+    executor.memreportGenerated = False
+    executor.insightsCategories = ""
+    executor.insightsTraceFile = ""
+    executor.insightsWorkingTraceFile = ""
+    executor.insightsStarted = False
+    executor.insightsFinished = False
+
+
+def _start_executor_csv_capture(executor) -> None:
+    if executor.csvCaptureFrames <= 0 or executor.csvStartAttempted or executor.csvFinished:
+        return
+
+    executor.csvStartAttempted = True
+    if not _execute_editor_console_command("CsvProfile Start"):
+        executor.csvFinished = True
+        return
+
+    executor.csvStarted = True
+    executor.csvFramesObserved = 0
+    logger.info(
+        f"Render Executor: Started CSV capture for {executor.csvCaptureFrames} render frame(s)"
+    )
+
+
+def _stop_executor_csv_capture(executor, reason: str) -> None:
+    if executor.csvFinished:
+        return
+
+    if executor.csvStarted:
+        if _execute_editor_console_command("CsvProfile Stop"):
+            logger.info(f"Render Executor: Stopped CSV capture ({reason})")
+
+    executor.csvStarted = False
+    executor.csvFinished = True
+
+
+def _observe_executor_csv_frame(executor) -> None:
+    _start_executor_csv_capture(executor)
+    if not executor.csvStarted or executor.csvFinished:
+        return
+
+    executor.csvFramesObserved += 1
+    if executor.csvFramesObserved >= executor.csvCaptureFrames:
+        _stop_executor_csv_capture(executor, "captured requested frame count")
+
+
+def _generate_executor_memreport(executor) -> None:
+    if not executor.memreportEnabled or executor.memreportGenerated:
+        return
+
+    executor.memreportGenerated = True
+    if _execute_editor_console_command("MemReport -full"):
+        logger.info("Render Executor: Requested MemReport -full")
+    else:
+        logger.warning("Render Executor: Unable to request MemReport -full")
+
+
+def _start_executor_insights_trace(executor) -> None:
+    if (
+        not executor.insightsCategories
+        or not executor.insightsTraceFile
+        or executor.insightsStarted
+        or executor.insightsFinished
+    ):
+        return
+
+    trace_directory = os.path.dirname(executor.insightsTraceFile)
+    if trace_directory:
+        try:
+            os.makedirs(trace_directory, exist_ok=True)
+        except OSError as exc:
+            logger.warning(
+                "Render Executor: Unable to create Insights trace directory '%s': %s",
+                trace_directory,
+                exc,
+            )
+            executor.insightsFinished = True
+            return
+
+    trace_filename = os.path.basename(executor.insightsTraceFile)
+    working_trace_file = os.path.join(tempfile.gettempdir(), trace_filename)
+    command_trace_file = working_trace_file
+    if any(character.isspace() for character in command_trace_file):
+        command_trace_file = trace_filename
+        working_trace_file = unreal.Paths.convert_relative_path_to_full(trace_filename)
+
+    command_trace_file = command_trace_file.replace("\\", "/")
+    command = f"Trace.File {command_trace_file} {executor.insightsCategories}"
+    if not _execute_editor_console_command(command):
+        executor.insightsFinished = True
+        return
+
+    executor.insightsWorkingTraceFile = working_trace_file
+    executor.insightsStarted = True
+    logger.info(f"Render Executor: Started Insights trace: {executor.insightsTraceFile}")
+
+
+def _move_finalized_insights_trace(source: str, destination: str) -> bool:
+    last_error = None
+    for attempt in range(50):
+        try:
+            shutil.move(source, destination)
+            return True
+        except OSError as exc:
+            last_error = exc
+            if attempt < 49:
+                time.sleep(0.1)
+
+    logger.warning(
+        "Render Executor: Unable to move finalized Insights trace from '%s' to '%s': %s",
+        source,
+        destination,
+        last_error,
+    )
+    return False
+
+
+def _stop_executor_insights_trace(executor, reason: str) -> None:
+    if executor.insightsFinished:
+        return
+
+    if executor.insightsStarted:
+        if _execute_editor_console_command("Trace.Stop"):
+            if _move_finalized_insights_trace(
+                executor.insightsWorkingTraceFile, executor.insightsTraceFile
+            ):
+                logger.info(f"Render Executor: Stopped Insights trace ({reason})")
+
+    executor.insightsStarted = False
+    executor.insightsFinished = True
+
+
+def _handle_executor_render_completion(executor) -> None:
+    if executor.renderCompletionHandled:
+        return
+
+    executor.renderCompletionHandled = True
+    for operation, description in (
+        (lambda: _stop_executor_csv_capture(executor, "render completed"), "stop CSV capture"),
+        (lambda: _generate_executor_memreport(executor), "generate MemReport"),
+        (
+            lambda: _stop_executor_insights_trace(executor, "render completed"),
+            "stop Insights trace",
+        ),
+    ):
+        try:
+            operation()
+        except Exception:
+            logger.exception("Render Executor: Failed to %s", description)
+
+    # Completion must not depend on optional profiling operations succeeding.
+    logger.info("Render Executor: Rendering is complete")
+
+
 if unreal:
 
     @unreal.uclass()
     class RemoteRenderMoviePipelineEditorExecutor(unreal.MoviePipelinePIEExecutor):
         totalFrameRange = unreal.uproperty(int)  # Total frame range of the job's level sequence
         currentFrame = unreal.uproperty(int)  # Current frame handler that will be updating later
+        csvCaptureFrames = unreal.uproperty(int)
+        csvFramesObserved = unreal.uproperty(int)
+        csvStartAttempted = unreal.uproperty(bool)
+        csvStarted = unreal.uproperty(bool)
+        csvFinished = unreal.uproperty(bool)
+        renderStarted = unreal.uproperty(bool)
+        renderCompletionHandled = unreal.uproperty(bool)
+        memreportEnabled = unreal.uproperty(bool)
+        memreportGenerated = unreal.uproperty(bool)
+        insightsCategories = unreal.uproperty(str)
+        insightsTraceFile = unreal.uproperty(str)
+        insightsWorkingTraceFile = unreal.uproperty(str)
+        insightsStarted = unreal.uproperty(bool)
+        insightsFinished = unreal.uproperty(bool)
 
         def _post_init(self):
             """
@@ -35,6 +300,25 @@ if unreal:
             """
             self.totalFrameRange = 0
             self.currentFrame = 0
+            _initialize_executor_profiling_state(self)
+
+        def _start_csv_capture(self):
+            _start_executor_csv_capture(self)
+
+        def _stop_csv_capture(self, reason: str):
+            _stop_executor_csv_capture(self, reason)
+
+        def _generate_memreport(self):
+            _generate_executor_memreport(self)
+
+        def _start_insights_trace(self):
+            _start_executor_insights_trace(self)
+
+        def _stop_insights_trace(self, reason: str):
+            _stop_executor_insights_trace(self, reason)
+
+        def _handle_render_completion(self):
+            _handle_executor_render_completion(self)
 
         @unreal.ufunction(override=True)
         def execute(self, queue: unreal.MoviePipelineQueue):
@@ -124,6 +408,8 @@ if unreal:
             # Since PIEExecutor launching Play in Editor before mrq is rendering, we should ensure, that
             # executor actually rendering the sequence.
             if self.is_rendering():
+                self.renderStarted = True
+                _observe_executor_csv_frame(self)
                 self.currentFrame += 1
                 progress = self.currentFrame / self.totalFrameRange * 100
 
@@ -136,6 +422,77 @@ if unreal:
 class UnrealRenderStepHandler(BaseStepHandler):
     cached_frame_range_start = None
     cached_frame_range_end = None
+    active_executor = None
+    render_wait_started = False
+
+    def __init__(self):
+        super().__init__()
+
+    @staticmethod
+    def _get_csv_capture_frames(args: dict) -> int:
+        value = args.get("csv_capture_frames")
+        if value is None:
+            return 0
+
+        try:
+            return max(0, int(value))
+        except (TypeError, ValueError):
+            logger.warning("Ignoring invalid csv_capture_frames value: %s", value)
+            return 0
+
+    @staticmethod
+    def _stop_executor_csv_capture(executor, reason: str) -> None:
+        stop_csv_capture = getattr(executor, "_stop_csv_capture", None)
+        if callable(stop_csv_capture):
+            stop_csv_capture(reason)
+
+    @staticmethod
+    def _get_memreport_enabled(args: dict) -> bool:
+        value = args.get("memreport")
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, int) and not isinstance(value, bool):
+            return value != 0
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"1", "true", "yes", "on"}:
+                return True
+            if normalized in {"", "0", "false", "no", "off"}:
+                return False
+
+        if value is not None:
+            logger.warning("Ignoring invalid memreport value: %s", value)
+        return False
+
+    @staticmethod
+    def _generate_executor_memreport(executor) -> None:
+        generate_memreport = getattr(executor, "_generate_memreport", None)
+        if callable(generate_memreport):
+            generate_memreport()
+
+    @staticmethod
+    def _start_executor_insights_trace(executor) -> None:
+        start_insights_trace = getattr(executor, "_start_insights_trace", None)
+        if callable(start_insights_trace):
+            start_insights_trace()
+
+    @staticmethod
+    def _stop_executor_insights_trace(executor, reason: str) -> None:
+        stop_insights_trace = getattr(executor, "_stop_insights_trace", None)
+        if callable(stop_insights_trace):
+            stop_insights_trace(reason)
+
+    @staticmethod
+    def _handle_executor_completion(executor) -> None:
+        handle_render_completion = getattr(executor, "_handle_render_completion", None)
+        if callable(handle_render_completion):
+            handle_render_completion()
+            return
+
+        UnrealRenderStepHandler._stop_executor_csv_capture(executor, "render completed")
+        UnrealRenderStepHandler._generate_executor_memreport(executor)
+        UnrealRenderStepHandler._stop_executor_insights_trace(executor, "render completed")
+        logger.info("Render Executor: Rendering is complete")
 
     @staticmethod
     def regex_pattern_progress() -> list[re.Pattern]:
@@ -155,10 +512,7 @@ class UnrealRenderStepHandler(BaseStepHandler):
         :return: A list of regular expression patterns
         :rtype: list[re.Pattern]
         """
-        return [
-            re.compile(".*Render Executor: Rendering is complete"),
-            re.compile(".* finished ([0-9]+) jobs in .*"),
-        ]
+        return [re.compile(".*Render Executor: Rendering is complete")]
 
     @staticmethod
     def regex_pattern_error() -> list[re.Pattern]:
@@ -180,6 +534,9 @@ class UnrealRenderStepHandler(BaseStepHandler):
         :param is_fatal: Whether the error is fatal or not
         :param error: The error message
         """
+        executor = executor or UnrealRenderStepHandler.active_executor
+        UnrealRenderStepHandler._stop_executor_csv_capture(executor, "render error")
+        UnrealRenderStepHandler._stop_executor_insights_trace(executor, "render error")
         logger.error(f"Render Executor: Error: {error}")
 
     @staticmethod
@@ -190,7 +547,8 @@ class UnrealRenderStepHandler(BaseStepHandler):
         :param pipeline_executor: The RemoteRenderMoviePipelineEditorExecutor instance
         :param success: Whether finished successfully or not
         """
-        logger.info("Render Executor: Rendering is complete")
+        executor = pipeline_executor or UnrealRenderStepHandler.active_executor
+        UnrealRenderStepHandler._handle_executor_completion(executor)
 
     @staticmethod
     def copy_pipeline_queue_from_manifest_file(
@@ -639,6 +997,23 @@ class UnrealRenderStepHandler(BaseStepHandler):
 
         # Initialize Render executor
         executor = RemoteRenderMoviePipelineEditorExecutor()
+        executor.csvCaptureFrames = self._get_csv_capture_frames(args)
+        if executor.csvCaptureFrames > 0:
+            logger.info(
+                "Render Executor: CSV capture will start when rendering begins for "
+                f"{executor.csvCaptureFrames} frame(s)"
+            )
+        executor.memreportEnabled = self._get_memreport_enabled(args)
+        if executor.memreportEnabled:
+            logger.info("Render Executor: MemReport -full will run after render completion")
+        executor.insightsCategories = str(args.get("insights_categories", ""))
+        executor.insightsTraceFile = str(args.get("insights_trace_file", ""))
+        if executor.insightsCategories and executor.insightsTraceFile:
+            logger.info(
+                f"Render Executor: Insights trace will capture this render task: "
+                f"{executor.insightsTraceFile}"
+            )
+            executor._start_insights_trace()
 
         # Add callbacks on complete and error actions to handle it and
         # provide output to the Deadline Adaptor
@@ -650,6 +1025,8 @@ class UnrealRenderStepHandler(BaseStepHandler):
         )
 
         # Render queue with the given executor
+        type(self).active_executor = executor
+        type(self).render_wait_started = False
         subsystem.render_queue_with_executor_instance(executor)
 
         return True
@@ -662,5 +1039,23 @@ class UnrealRenderStepHandler(BaseStepHandler):
         It is responsible for waiting result of the
         :meth:`deadline.unreal_adaptor.UnrealClient.step_handlers.unreal_render_step_handler.UnrealRenderStepHandler.run_script()`.
         """
-        logger.info("Render wait start")
-        logger.info("Render wait finish")
+        handler_cls = type(self)
+
+        if not handler_cls.render_wait_started:
+            logger.info("Render wait start")
+            handler_cls.render_wait_started = True
+
+        executor = handler_cls.active_executor
+        if executor is None:
+            handler_cls.render_wait_started = False
+            logger.info("Render wait finish")
+            return
+
+        if getattr(executor, "renderCompletionHandled", False):
+            handler_cls.active_executor = None
+            handler_cls.render_wait_started = False
+            logger.info("Render wait finish")
+            return
+
+        # The finished delegate is authoritative. is_rendering() may briefly be false
+        # between queued jobs and before MRQ has flushed all render output.

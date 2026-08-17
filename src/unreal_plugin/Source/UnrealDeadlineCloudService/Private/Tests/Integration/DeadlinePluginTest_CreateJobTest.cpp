@@ -547,10 +547,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovieQueueCreateJobTest, "DeadlineCloud.Integr
     NewJob->SetSequence(Sequence);
     NewJob->JobName = NewJob->Sequence.GetAssetName();
 
-    // Optionally override the submitted job name via '-testparams=...;job_name=<name>'
-    // so each automation/E2E test can be identified by its Deadline Cloud job name.
-    // The preset override name has the highest priority in the Python submitter's
-    // job name resolution, so it wins over the job template's default name.
+    bool bEnableAllProfiling = false;
+    int32 CsvCaptureFrames = 10;
     FString TestParamsString;
     if (FParse::Value(FCommandLine::Get(), TEXT("testparams="), TestParamsString))
     {
@@ -565,7 +563,31 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovieQueueCreateJobTest, "DeadlineCloud.Integr
                 NewJob->JobName = Value;
                 NewJob->PresetOverrides.JobSharedSettings.Name = Value;
             }
+            else if (Key == TEXT("profiling") && Value.Equals(TEXT("all"), ESearchCase::IgnoreCase))
+            {
+                bEnableAllProfiling = true;
+            }
+            else if (Key == TEXT("csv_capture_frames"))
+            {
+                const int32 ParsedCaptureFrames = FCString::Atoi(*Value);
+                if (ParsedCaptureFrames > 0)
+                {
+                    CsvCaptureFrames = ParsedCaptureFrames;
+                }
+            }
         }
+    }
+
+    if (bEnableAllProfiling)
+    {
+        FDeadlineCloudProfilingSettingsStruct& ProfilingSettings = NewJob->PresetOverrides.ProfilingSettings;
+        ProfilingSettings.bInsightsCpu = true;
+        ProfilingSettings.bInsightsGpu = true;
+        ProfilingSettings.bInsightsMemory = true;
+        ProfilingSettings.bCsvProfiler = true;
+        ProfilingSettings.CsvCaptureFrames = CsvCaptureFrames;
+        ProfilingSettings.bMemReport = true;
+        UE_LOG(LogCreateJobTest, Display, TEXT("Enabled all profiling settings with %d CSV capture frames"), CsvCaptureFrames);
     }
 
     UMoviePipelineExecutorJob* QueueJob = ActiveQueue->DuplicateJob(NewJob);
