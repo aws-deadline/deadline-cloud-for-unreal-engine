@@ -44,6 +44,7 @@ jobs:
     secrets: inherit
     with:
       repository: ${{ github.event.repository.name }}
+      # Unreal has no release integ/e2e projects; test the release tag using the mainline projects.
       environment: mainline
       os: windows
       tag: ${{ needs.TagRelease.outputs.tag }}
@@ -59,6 +60,7 @@ jobs:
     secrets: inherit
     with:
       repository: ${{ github.event.repository.name }}
+      # Unreal has no release integ/e2e projects; test the release tag using the mainline projects.
       environment: mainline
       os: windows
       tag: ${{ needs.TagRelease.outputs.tag }}

@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - mainline
+    paths-ignore:
+      - CHANGELOG.md
   workflow_dispatch:
 
 jobs:
