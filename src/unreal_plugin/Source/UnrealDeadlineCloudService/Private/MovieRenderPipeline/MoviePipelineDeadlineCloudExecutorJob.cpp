@@ -19,10 +19,13 @@
 #include "AssetToolsModule.h"
 #include "PackageTools.h"
 #include "PythonAPILibraries/PythonYamlLibrary.h"
+#include "PythonAPILibraries/DeadlineCloudPreGuiHookLibrary.h"
 #include "ObjectTools.h"
 #include "UObject/SavePackage.h"
 #include "Serialization/ArchiveReplaceObjectRef.h"
 #include "Framework/MetaData/DriverMetaData.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 namespace
 {
@@ -30,6 +33,7 @@ namespace
 	{
 		return OverridePath.IsValid() && OverridePath == FSoftObjectPath(SourceObj);
 	}
+
 }
 
 UMoviePipelineDeadlineCloudExecutorJob::UMoviePipelineDeadlineCloudExecutorJob()
@@ -443,7 +447,17 @@ void UMoviePipelineDeadlineCloudExecutorJob::ReloadDataFromJobPreset()
 	JobTemplateOverrides.Parameters = JobPreset->GetParametersDataToOverride();
 	JobTemplateOverrides.StepsOverrides = GetStepsToOverride(JobPreset);
 	JobTemplateOverrides.EnvironmentsOverrides = GetEnvironmentsToOverride(JobPreset);
-	
+
+	// Pre-GUI hooks: inherit the source preset's applied-state alongside the values just copied above.
+	// If a data-asset panel hook already applied to JobPreset (bPreGuiHooksApplied), the values now in
+	// PresetOverrides / JobTemplateOverrides are already hooked, so the MRQ panel must NOT re-run the
+	// hook — otherwise an "adjust" hook (e.g. +10 priority) applies twice for one submission. If the
+	// preset is un-hooked (the common MRQ workflow, or a freshly-picked preset), this re-arms the latch
+	// so the next panel build applies the hook onto the freshly-loaded values; without it, a preset
+	// change would wipe the previously-applied hook values while the latch blocked re-application.
+	bPreGuiHooksApplied = JobPreset->bPreGuiHooksApplied;
+
+
 	UDeadlineCloudJobBundleLibrary* Library = UDeadlineCloudJobBundleLibrary::Get();
 	if (Library)
 	{
@@ -928,6 +942,59 @@ void FMoviePipelineDeadlineCloudExecutorJobCustomization::CustomizeDetails(IDeta
 		{
 			DetailBuilder.ForceRefreshDetails();
 		});
+
+	/*
+	 * Pre-GUI hooks (MRQ path). The MRQ render submission serializes PresetOverrides (a snapshot of the
+	 * data asset taken at preset-assign time), NOT the live data asset, so the pre-GUI hook must apply
+	 * here to reach an MRQ render — running it only on the data-asset editor panel
+	 * (FDeadlineCloudJobDetails) misses this primary submission path. We run env-sourced hooks once per
+	 * executor-job instance and pre-populate PresetOverrides.JobSharedSettings (+ JobTemplateOverrides
+	 * parameters) before the field widgets below are built.
+	 *
+	 * Panel-tied by design: the hook fires when a job's Details panel is built (i.e. the job is opened in
+	 * the MRQ), matching the cross-DCC "pre-GUI" contract that hooks pre-populate the fields the artist
+	 * reviews before editing. A Render (Remote) submits every queue job (remote_executor iterates
+	 * pipeline_queue.get_jobs()), so a job that is never opened is submitted with its un-hooked
+	 * PresetOverrides. This is intentional — there is deliberately no submit-time hook entry point, as a
+	 * submit-time hook could not pre-populate what the artist reviews. The common single-job workflow
+	 * (open the job, review the hooked values, submit) is unaffected.
+	 *
+	 * The bPreGuiHooksApplied latch is set only INSIDE the Get() success branch (the Python impl only
+	 * exists once init_unreal has registered it) and BEFORE RunPreGuiHooks, so a panel rebuild triggered
+	 * while the confirmation modal is up re-enters with the latch already set and cannot double-run.
+	 */
+	// JobPreset must be non-null: we only pre-populate an MRQ job that has a preset (matching the JobPreset
+	// guards on the save/reset handlers); JobTemplateOverrides.Parameters is populated from the preset by
+	// ReloadDataFromJobPreset. A saved queue whose preset asset was deleted/failed to load, or a job
+	// constructed outside a live engine, can reach CustomizeDetails with a null preset.
+	if (MrqJob.IsValid() && MrqJob->JobPreset && !MrqJob->bPreGuiHooksApplied)
+	{
+		if (UDeadlineCloudPreGuiHookLibrary* HookLibrary = UDeadlineCloudPreGuiHookLibrary::Get())
+		{
+			MrqJob->bPreGuiHooksApplied = true;
+			// Pass the current job state (from the preset-override snapshot the MRQ render actually
+			// submits) so hooks can adjust (not just set) it — see RunPreGuiHooks. Seed the parameter
+			// context from JobTemplateOverrides.Parameters — the SAME hidden-item-filtered list
+			// ApplyOutputToParameters writes back to below — so a hook only sees parameters it can
+			// actually override. GetParameterDefinitionWithOverrides() would start from the unfiltered
+			// JobPreset->ParameterDefinition, so a hidden template parameter would be visible in the
+			// context yet absent from the apply list, producing a spurious "not applied" warning.
+			const FDeadlineCloudPreGuiHookOutput HookOutput =
+				HookLibrary->RunPreGuiHooks(
+					MrqJob->PresetOverrides.JobSharedSettings.Name,
+					MrqJob->PresetOverrides.JobSharedSettings.Priority,
+					MrqJob->JobTemplateOverrides.Parameters);
+			if (HookOutput.bRan)
+			{
+				TArray<FString> Unapplied = HookOutput.UnappliedKeys;
+				UDeadlineCloudPreGuiHookLibrary::ApplyOutputToSharedSettings(
+					MrqJob->PresetOverrides.JobSharedSettings, HookOutput, Unapplied);
+				UDeadlineCloudPreGuiHookLibrary::ApplyOutputToParameters(
+					MrqJob->JobTemplateOverrides.Parameters, HookOutput, Unapplied);
+				UDeadlineCloudPreGuiHookLibrary::NotifyUnappliedKeys(Unapplied);
+			}
+		}
+	}
 
 	for (auto& Property : OutMrpCategoryProperties)
 	{

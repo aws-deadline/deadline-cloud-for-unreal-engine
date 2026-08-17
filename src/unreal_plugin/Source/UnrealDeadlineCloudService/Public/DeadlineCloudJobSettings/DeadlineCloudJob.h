@@ -272,6 +272,24 @@ public:
 
 	FHiddenItemsManager& GetHiddenManager() { return HiddenVarsManager; }
 	const FHiddenItemsManager& GetHiddenManager() const { return HiddenVarsManager; }
+
+	/**
+	 * Guards the pre-GUI hook so it runs at most once per job instance (not on every
+	 * Details-panel rebuild). Transient: never serialized to the .uasset, so it resets
+	 * on load, and hooks re-run the first time a freshly-loaded job's panel is shown.
+	 * Set by FDeadlineCloudJobDetails::CustomizeDetails.
+	 *
+	 * By design the pre-GUI hook is an AUTHORITATIVE pre-populator: because this guard is transient
+	 * while JobSharedSettings is serialized, a hook re-applies its output the first time a saved
+	 * job's panel is opened in a new editor session (studio policy wins over stale saved values).
+	 * The hook mutates the in-memory data asset only — it does not Modify()/MarkPackageDirty(), so
+	 * it never silently dirties or persists the asset on its own. If a future requirement is instead
+	 * "the artist's saved edits must win", persist this guard (and call Modify()) rather than leaving
+	 * it transient.
+	 */
+	UPROPERTY(Transient)
+	bool bPreGuiHooksApplied = false;
+
 private:
 
 	UPROPERTY()

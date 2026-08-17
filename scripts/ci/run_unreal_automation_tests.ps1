@@ -157,8 +157,14 @@ try {
     Write-Host "Test selection: $testSelection"
 
     $previousMetadataDisabled = $env:AWS_EC2_METADATA_DISABLED
+    # Clear DEADLINE_HOOKS_DIR for the editor process. The fixture enables the plugin, so opening a job's
+    # Details panel (DeadlineCloudMRQJobUI / DeadlineCloudJobUI) triggers the pre-GUI hook path. A hooks dir
+    # inherited from the runner would fire real hooks mid-suite - the confirmation modal would block this
+    # headless run, or applied output would perturb the panel state those specs assert on.
+    $previousHooksDir = $env:DEADLINE_HOOKS_DIR
     try {
         $env:AWS_EC2_METADATA_DISABLED = "true"
+        Remove-Item Env:\DEADLINE_HOOKS_DIR -ErrorAction SilentlyContinue
         $startInfo = New-Object System.Diagnostics.ProcessStartInfo
         $startInfo.FileName = $editor
         $startInfo.Arguments = $arguments -join " "
@@ -206,6 +212,12 @@ try {
         }
         else {
             $env:AWS_EC2_METADATA_DISABLED = $previousMetadataDisabled
+        }
+        if ($null -eq $previousHooksDir) {
+            Remove-Item Env:\DEADLINE_HOOKS_DIR -ErrorAction SilentlyContinue
+        }
+        else {
+            $env:DEADLINE_HOOKS_DIR = $previousHooksDir
         }
     }
 
@@ -289,7 +301,8 @@ try {
         "DeadlineCloud.Offline.DeadlineCloudStepUI.StepUI",
         "DeadlineCloud.Offline.DeadlineCloudEnvironmentUI.EnvironmentUI",
         "DeadlineCloud.Offline.DeadlineCloudHostRequirementsUI.HostRequirementsUI",
-        "DeadlineCloud.Offline.DeadlineCloudSavePresetWidget.DeadlineCloudSavePresetWidget"
+        "DeadlineCloud.Offline.DeadlineCloudSavePresetWidget.DeadlineCloudSavePresetWidget",
+        "DeadlineCloud.Offline.FPreGuiHookApplyOutput.applies only the shared-setting fields the hook actually set"
     )
     foreach ($requiredTest in $requiredTests) {
         if ($startedPaths -notcontains $requiredTest) {

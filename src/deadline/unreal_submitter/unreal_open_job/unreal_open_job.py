@@ -191,6 +191,11 @@ class UnrealOpenJob(UnrealOpenJobEntity):
 
         self._transfer_files_strategy = TransferProjectFilesStrategy.S3
 
+        # Optional Job description; only emitted into the template when set. Populated from the
+        # UDeadlineCloudJob Details panel's Job Shared Settings (which a pre-GUI hook may have
+        # pre-populated) via :meth:`from_data_asset`.
+        self._description: str = ""
+
     @property
     def job_shared_settings(self) -> JobSharedSettings:
         return self._job_shared_settings
@@ -198,6 +203,30 @@ class UnrealOpenJob(UnrealOpenJobEntity):
     @job_shared_settings.setter
     def job_shared_settings(self, value: JobSharedSettings):
         self._job_shared_settings = value
+
+    @property
+    def description(self) -> str:
+        """Returns the Job description (empty unless set from the Details panel)."""
+        return self._description
+
+    @description.setter
+    def description(self, value: str):
+        self._description = value
+
+    @staticmethod
+    def _description_from_data_asset(shared_settings) -> str:
+        """Return the Details-panel Job description to carry into the Job, or "" if unset.
+
+        The description is set on the panel either by an artist or by a pre-GUI hook
+        (``FDeadlineCloudJobDetails`` runs the hook and writes ``JobSharedSettings.Description``
+        before the artist edits). ``"No description"`` is the C++ default (an unset sentinel), so
+        it maps to ``""``. Shared by both ``from_data_asset`` implementations so the description
+        reaches the template on the render (MRQ) path too — not only the base path.
+        """
+        description = shared_settings.description
+        if description and description != "No description":
+            return description
+        return ""
 
     @classmethod
     def from_data_asset(cls, data_asset: unreal.DeadlineCloudJob) -> "UnrealOpenJob":
@@ -230,6 +259,10 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             ),
         )
 
+        # Carry a non-default Job description from the Details panel into the Job (see
+        # _description_from_data_asset) so it reaches the job template.
+        result_job.description = cls._description_from_data_asset(shared_settings)
+
         for step in result_job._steps:
             step.open_job = result_job
 
@@ -253,6 +286,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             "specificationVersion",
             "extensions",
             "name",
+            "description",
             "parameterDefinitions",
             "jobEnvironments",
             "steps",
@@ -402,6 +436,13 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             "parameterDefinitions": parameter_definitions,
             "steps": [s.build_template() for s in self._steps],
         }
+
+        # Panel/hook description wins; otherwise fall back to a top-level `description` declared in
+        # the user's YAML job template (mirrors the `extensions` read-back below), so a
+        # template-author's description is not silently dropped.
+        description = self._description or self.get_template_object().get("description")
+        if description:
+            template_dict["description"] = description
 
         extension_list = self.get_template_object().get("extensions")
 
@@ -765,9 +806,20 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             and self._mrq_job.preset_overrides is not None
             and self._mrq_job.preset_overrides.job_shared_settings is not None
         ):
+            override_shared_settings = self._mrq_job.preset_overrides.job_shared_settings
             self.job_shared_settings = JobSharedSettings.from_u_deadline_cloud_job_shared_settings(
-                self._mrq_job.preset_overrides.job_shared_settings
+                override_shared_settings
             )
+            # Description lives in the same shared-settings struct. Mirror the name handling below:
+            # the MRQ preset override wins only when it actually carries a description; the default
+            # "No description" sentinel (mapped to "" by _description_from_data_asset) is treated as
+            # "unset" and leaves the underlying data-asset / pre-GUI-hook description in place rather
+            # than clearing it. PresetOverrides is a stale snapshot, so a description set (by an
+            # artist or the pre-GUI hook) after the preset was assigned would otherwise be silently
+            # erased while the name — which uses the same guard — survived.
+            override_description = self._description_from_data_asset(override_shared_settings)
+            if override_description:
+                self._description = override_description
 
         # Job name set order:
         #   0. Job preset override (high priority)
@@ -836,6 +888,10 @@ class RenderUnrealOpenJob(UnrealOpenJob):
                 shared_settings
             ),
         )
+
+        # Carry the panel/hook-set description on the render (MRQ) path too — this override does not
+        # call super().from_data_asset(), so it must apply the shared helper itself.
+        result_job.description = cls._description_from_data_asset(shared_settings)
 
         for step in result_job._steps:
             step.open_job = result_job

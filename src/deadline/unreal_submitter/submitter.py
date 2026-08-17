@@ -315,6 +315,12 @@ class UnrealSubmitter:
 
         del self.submitted_job_ids[:]
 
+        # Pre-GUI hooks are NOT run here. In Unreal the true "pre-GUI" point is the C++
+        # UDeadlineCloudJob Details panel (FDeadlineCloudJobDetails::CustomizeDetails), which runs
+        # the hooks and applies their output onto the data asset before the artist edits it. By
+        # submit time the job is already fully configured, so running hooks here would be too late
+        # to be "pre-GUI".
+
         # Get project root directory as absolute path
         project_dir = os.path.abspath(unreal.Paths.project_dir())
         for job in self._jobs:
