@@ -506,6 +506,13 @@ class TestUnrealAdaptor_on_start:
     )
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.logger")
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
+    @pytest.mark.parametrize(
+        ("insights_categories", "expected_trace_args"),
+        [
+            ("cpu,frame", []),
+            ("cpu,frame,memory", ["-trace=memory"]),
+        ],
+    )
     def test__start_unreal_client_defers_feature_insights(
         self,
         mock_subprocess: Mock,
@@ -515,6 +522,8 @@ class TestUnrealAdaptor_on_start:
         mock_os_path_exists: Mock,
         mock_os_makedirs: Mock,
         init_data: dict,
+        insights_categories: str,
+        expected_trace_args: list[str],
     ):
         mock_unreal_client_path.side_effect = ["UnrealClient.py"]
         init_data["extra_cmd_args_file"] = "path/to/args/file.txt"
@@ -523,7 +532,7 @@ class TestUnrealAdaptor_on_start:
         with patch(
             "builtins.open",
             new_callable=mock_open,
-            read_data="-DeadlineCloudInsights=cpu,frame -stdout",
+            read_data=f"-DeadlineCloudInsights={insights_categories} -stdout",
         ):
             adaptor._start_unreal_client()
 
@@ -534,9 +543,11 @@ class TestUnrealAdaptor_on_start:
         )
         launch_args = ast.literal_eval(launch_ue_with_message)
 
-        assert not any(arg.lower().startswith("-trace") for arg in launch_args)
+        assert [arg for arg in launch_args if arg.lower().startswith("-trace")] == (
+            expected_trace_args
+        )
         assert not any(arg.lower().startswith("-deadlinecloudinsights") for arg in launch_args)
-        assert adaptor._insights_categories == "cpu,frame"
+        assert adaptor._insights_categories == insights_categories
         mock_os_makedirs.assert_not_called()
 
     @patch("os.path.exists", return_value=True)

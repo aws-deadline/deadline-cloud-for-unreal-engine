@@ -181,23 +181,41 @@ def test_worker_agent_profiling_outputs_are_attached(
         queue_id=queue_id,
         queue_display_name=queue["displayName"],
     )
-    trace_downloader = OutputDownloader(
+    profiling_output_downloader = OutputDownloader(
         s3_settings=JobAttachmentS3Settings(**queue["jobAttachmentSettings"]),
         farm_id=farm_id,
         queue_id=queue_id,
         job_id=job_id,
         session=queue_user_session,
-        include_filters=["**/*.utrace"],
+        include_filters=["**/*.utrace", "**/*.csv", "**/*.memreport"],
     )
-    trace_download_dir = tmp_path / "profiling-outputs"
-    for root in trace_downloader.get_paths_by_root():
-        trace_downloader.set_root_path(root, str(trace_download_dir))
-    trace_downloader.download()
+    profiling_output_dir = tmp_path / "profiling-outputs"
+    for root in profiling_output_downloader.get_paths_by_root():
+        profiling_output_downloader.set_root_path(root, str(profiling_output_dir))
+    profiling_output_downloader.download()
 
-    downloaded_traces = list(trace_download_dir.rglob("*.utrace"))
+    downloaded_traces = list(profiling_output_dir.rglob("*.utrace"))
     assert len(downloaded_traces) == 1
-    with downloaded_traces[0].open("rb") as trace_file:
-        assert trace_file.read(4) == b"2CRT"
+    trace_data = downloaded_traces[0].read_bytes()
+    assert trace_data[:4] == b"2CRT"
+    assert b"Memory" in trace_data and b"Alloc" in trace_data
+
+    downloaded_csv_files = list(profiling_output_dir.rglob("*.csv"))
+    assert len(downloaded_csv_files) == 1
+    csv_lines = [
+        line
+        for line in downloaded_csv_files[0].read_text(errors="replace").splitlines()
+        if line.strip()
+    ]
+    assert len(csv_lines) > 1
+    assert any("," in line for line in csv_lines)
+
+    downloaded_memreports = list(profiling_output_dir.rglob("*.memreport"))
+    assert len(downloaded_memreports) == 1
+    memreport = downloaded_memreports[0].read_text(errors="replace")
+    assert 'MemReport: Begin command "Mem FromReport"' in memreport
+    assert "Platform Memory Stats" in memreport
+    assert 'MemReport: End command "Mem FromReport"' in memreport
 
 
 def test_worker_agent_project_plugins(

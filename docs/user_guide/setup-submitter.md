@@ -219,6 +219,8 @@ If you enable profiling settings on a remote render:
 - MemReport output is written under `Saved/Profiling/MemReports`
 - these artifacts are uploaded with the job outputs through Job Attachments
 
+Memory Insights instrumentation remains active for the Unreal process, while each task trace contains only events recorded during that task.
+
 When the remote job finishes, download the profiling artifacts from Deadline Cloud Monitor or your configured output storage. They are not copied back into your local Unreal project directory automatically.
 
 

@@ -37,5 +37,6 @@ To submit DeadlineCloud Job from Movie Render Queue, follow next steps:
    #. Enable **MemReport** to request ``MemReport -full`` after render completion.
    #. The submitter automatically adds the required Unreal launch arguments and profiling output directories for these options.
    #. Remote profiling artifacts are uploaded with the job outputs through Job Attachments. Unreal Insights traces are written under ``Saved/Profiling``, CSV output under ``Saved/Profiling/CSV``, and MemReport output under ``Saved/Profiling/MemReports`` on the worker.
+   #. Memory Insights instrumentation remains active for the Unreal process, while each task trace contains only events recorded during that task.
 
 #. Click “Render (Remote)” button

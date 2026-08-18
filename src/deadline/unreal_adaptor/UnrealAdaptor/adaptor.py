@@ -368,12 +368,17 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
             )
             self._insights_categories = None
         trace_file_arg = self._get_tracefile_arg(unreal_project_path, " ".join(extra_cmd_args))
+        memory_insights_enabled = self._insights_categories and any(
+            category.lower() == "memory" for category in self._insights_categories.split(",")
+        )
 
         args = [unreal_exe, unreal_project_path]
         args.extend(log_args)
         args.extend(extra_cmd_args)
         if trace_file_arg:
             args.append(trace_file_arg)
+        if memory_insights_enabled:
+            args.append("-trace=memory")
         args = [arg for arg in args if arg]  # Remove empty strings
         args = list(dict.fromkeys(args))  # Remove duplicates
 
