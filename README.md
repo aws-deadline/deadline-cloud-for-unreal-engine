@@ -29,6 +29,8 @@ This package provides a Unreal Engine plugin that creates Unreal Movie Render Qu
 
 See [Submitter Setup Guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-submitter.md) for instructions on setting up your Unreal Submitter plugin and Deadline Cloud Service Managed Fleets (SMF) or Customer Managed Fleets (CMF).
 
+For Deadline Cloud submission hooks (pre-GUI, pre/post-submission) from `DEADLINE_HOOKS_DIR`, see [Submission Hooks](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-submitter.md#submission-hooks).
+
 ## Adaptor
 
 The Unreal Engine Adaptor implements the [OpenJD][openjd-adaptor-runtime] interface that allows render workloads to launch Unreal Engine and feed it commands. This gives the following benefits:
