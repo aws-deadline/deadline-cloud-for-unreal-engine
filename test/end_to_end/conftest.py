@@ -263,6 +263,15 @@ def pytest_addoption(parser) -> None:
             "a legitimate production deadline-worker-agent service running)."
         ),
     )
+    parser.addoption(
+        "--use-installed-worker",
+        action="store_true",
+        default=False,
+        help=(
+            "Use and restart the installed DeadlineWorker service instead of "
+            "launching a worker subprocess. Intended for persistent development CMF hosts."
+        ),
+    )
 
 
 def _record_leftover(
@@ -361,6 +370,10 @@ def pytest_sessionstart(session) -> None:
         return
 
     leftover = _find_leftover_processes()
+    if session.config.getoption("--use-installed-worker"):
+        leftover = [
+            process for process in leftover if process["category"] != "deadline-worker-agent"
+        ]
     if not leftover:
         logger.info("No conflicting processes found")
         return
@@ -419,6 +432,29 @@ def get_build_script_args() -> List[str]:
         List of command line arguments for the build script
     """
     return ["--install", "--test", "--worker"]
+
+
+def manage_installed_worker_service(action: str) -> None:
+    if sys.platform != "win32":
+        raise RuntimeError("--use-installed-worker is only supported on Windows")
+    if action not in {"start", "stop", "restart"}:
+        raise ValueError(f"Unsupported DeadlineWorker service action: {action}")
+
+    command = action.capitalize()
+    powershell = (
+        f"{command}-Service -Name 'DeadlineWorker' -ErrorAction Stop; "
+        f"(Get-Service -Name 'DeadlineWorker').WaitForStatus("
+        f"'{('Stopped' if action == 'stop' else 'Running')}', "
+        "[TimeSpan]::FromSeconds(30))"
+    )
+    result = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", powershell],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        details = result.stderr.strip() or result.stdout.strip()
+        raise RuntimeError(f"Could not {action} DeadlineWorker: {details}")
 
 
 # Default OpenJD action timeouts (in seconds) of the LaunchUnrealEditor
@@ -1101,9 +1137,15 @@ def build_plugin(request) -> None:
             else:
                 logger.debug(f"Arg {arg} not present")
 
-        # Run the script and capture the output
-        result = subprocess.run(build_args, text=True)
-        assert result.returncode == 0
+        use_installed_worker = request.config.getoption("--use-installed-worker")
+        if use_installed_worker:
+            manage_installed_worker_service("stop")
+        try:
+            result = subprocess.run(build_args, text=True)
+            assert result.returncode == 0
+        finally:
+            if use_installed_worker:
+                manage_installed_worker_service("start")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -1873,7 +1915,7 @@ def stop_queue_fleet_associations_and_wait(
 @pytest.fixture(scope="session")
 def deadline_worker_agent(
     request, reusable_farm_id: str, reusable_fleet_id: str
-) -> Generator[Tuple[subprocess.Popen, str], None, None]:
+) -> Generator[Tuple[Optional[subprocess.Popen], str], None, None]:
     """
     Launch deadline-worker-agent as a subprocess using the farm ID and fleet ID from our tests.
 
@@ -1892,6 +1934,22 @@ def deadline_worker_agent(
     import os
     import datetime
     import shutil
+
+    if request.config.getoption("--use-installed-worker"):
+        try:
+            manage_installed_worker_service("restart")
+        except (RuntimeError, ValueError) as exc:
+            pytest.fail(str(exc))
+        log_file = os.path.join(
+            os.environ.get("ProgramData", r"C:\ProgramData"),
+            "Amazon",
+            "Deadline",
+            "Logs",
+            "worker-agent.log",
+        )
+        logger.info("Using installed DeadlineWorker service")
+        yield None, log_file
+        return
 
     # Check if deadline-worker-agent is available using 'where' or 'which'
     agent_path = None
