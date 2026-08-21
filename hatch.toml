@@ -43,14 +43,10 @@ pre-install-commands = [
 ]
 
 [[envs.integ-ci.matrix]]
-unreal = ["5.7"]
 python = ["3.11"]
 
-[envs.integ-ci.env-vars]
-UE_VERSION = "{matrix:unreal}"
-
 [envs.integ-ci.scripts]
-setup = "python ./pipeline/setup-runner.py --versions {matrix:unreal}"
+setup = "python ./pipeline/setup-runner.py --versions {env:UE_VERSION:5.7}"
 integ = "pytest --no-cov {args:test/integ} -vvv --numprocesses=1 --nobuild"
 
 [envs.e2e-ci]
@@ -60,14 +56,10 @@ pre-install-commands = [
 ]
 
 [[envs.e2e-ci.matrix]]
-unreal = ["5.7"]
 python = ["3.11"]
 
-[envs.e2e-ci.env-vars]
-UE_VERSION = "{matrix:unreal}"
-
 [envs.e2e-ci.scripts]
-setup = "python ./pipeline/setup-runner.py --versions {matrix:unreal}"
+setup = "python ./pipeline/setup-runner.py --versions {env:UE_VERSION:5.7}"
 e2e = "pytest --no-cov {args:test/end_to_end/test_create_job.py} -vvv --numprocesses=1 --nobuild"
 worker = "pytest --no-cov {args:test/end_to_end/test_worker_agent.py} -vvv --numprocesses=1 --nobuild --deselect test/end_to_end/test_worker_agent.py::test_create_job_with_worker_agent"
 
