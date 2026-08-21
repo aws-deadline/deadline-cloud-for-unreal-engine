@@ -19,6 +19,22 @@
             "description": "Contiguous frame range chunk '<start>-<end>' (inclusive) computed by the OpenJD TASK_CHUNKING extension. Mutually exclusive with frames_per_task/shots_per_task."
         },
         "output_path": { "type":  "string" },
+        "csv_capture_frames": {
+            "type": "integer",
+            "description": "Number of render frames to capture with the CSV profiler."
+        },
+        "memreport": {
+            "type": "boolean",
+            "description": "Generate a full MemReport after this render task."
+        },
+        "insights_categories": {
+            "type": "string",
+            "description": "Comma-separated Unreal Insights channels enabled for this render task."
+        },
+        "startup_insights_trace_file": {
+            "type": "string",
+            "description": "Worker-local startup .utrace to finalize before task tracing."
+        },
         "submit_mode": {
             "type": "string",
             "enum": ["", "submit", "shelve"],

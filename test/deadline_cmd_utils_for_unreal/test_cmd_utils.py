@@ -79,6 +79,15 @@ def test_merge_execcmds():
     assert params["ExecCmds"] == "stat fps,toggledebugcamera,r.SetNearClipPlane 1"
 
 
+def test_merge_trace_categories():
+    lower = "-trace=cpu,frame,bookmark"
+    higher = "-trace=GPU,bookmark,loadtime"
+
+    _, _, params = parse_command_line(merge_cmd_args_with_priority(higher, lower))
+
+    assert params["trace"] == "cpu,frame,bookmark,GPU,loadtime"
+
+
 # ──────────────────────────────────────────────────────────────
 # Auto‑quoting for values containing spaces or commas
 # ──────────────────────────────────────────────────────────────

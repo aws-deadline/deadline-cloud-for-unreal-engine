@@ -198,12 +198,29 @@ This example will use the Meerkat Demo from the Unreal Marketplace:
 			1. Expand "Job Attachments":
 				1. Under "Input Files", select "Show Auto-Detected" 
 				1. Verify that the list of Auto Detected Files populates correctly
+			1. Expand "Profiling Settings" if you want Unreal profiling artifacts:
+				1. Enable "Insights CPU", "Insights GPU", or "Insights Memory" to capture Unreal Insights traces
+				1. Enable "CSV Profiler" to capture CSV profiler output
+				1. Adjust "CSV Capture Frames" if you need more or fewer than the default `300` frames
+				1. Enable "MemReport" to request `MemReport -full` after render completion
 		1. Under "Job Template Overrides":
 			1. Update the Unreal Engine version in "CondaPackages" if you are using a different version than 5.6
 				1. Note: Unreal Engine version autodetection is coming in a future release
 		
 	1. Ready to Go! Hit "Render (Remote)". 
 1. You can go to Deadline Cloud Monitor and watch the progress of your job. 
+
+### Profiling output locations
+
+If you enable profiling settings on a remote render:
+
+- Profiling output is written to Unreal's native `<Project>/Saved/Profiling` directory, independent of the configured MRQ output directory
+- Unreal Insights traces are written under `Saved/Profiling/DeadlineCloud`, CSV output under `Saved/Profiling/CSV`, and MemReport output under `Saved/Profiling/MemReports`
+- these artifacts are uploaded with the job outputs through Job Attachments
+
+Insights produces one startup trace for project initialization and a separate trace for each render task.
+
+When the remote job finishes, download the profiling artifacts from Deadline Cloud Monitor or your configured output storage. They are not copied back into your local Unreal project directory automatically.
 
 
 # Submission Hooks

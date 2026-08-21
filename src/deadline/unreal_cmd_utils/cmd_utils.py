@@ -7,7 +7,7 @@ import shlex
 
 logger = get_logger()
 
-SPECIAL_KEYS = {"dpcvars", "execcmds"}
+SPECIAL_KEYS = {"dpcvars", "execcmds", "trace"}
 NEED_QUOTE_CHARS = set(" ,;")
 
 
@@ -74,6 +74,12 @@ def merge_cmd_args_with_priority(higher_priority_args: str, lower_priority_args:
             merged[norm] = (name, val)
         return ",".join(f"{name}={val}" for _, (name, val) in merged.items())
 
+    def _merge_trace(v1, v2):
+        merged: OrderedDict[str, str] = OrderedDict()
+        for category in _parse_list(v1) + _parse_list(v2):
+            merged.setdefault(category.lower(), category)
+        return ",".join(merged.values())
+
     def _quote_if_needed(val: str):
         if any(c in NEED_QUOTE_CHARS for c in val):
             escaped = val.replace('"', r"\"")
@@ -111,7 +117,12 @@ def merge_cmd_args_with_priority(higher_priority_args: str, lower_priority_args:
     for k, v in kv2.items():
         lk = k.lower()
         if lk in SPECIAL_KEYS and lk in out:
-            v = _merge_dpcvars(out[lk][1], v) if lk == "dpcvars" else _merge_execcmds(out[lk][1], v)
+            if lk == "dpcvars":
+                v = _merge_dpcvars(out[lk][1], v)
+            elif lk == "trace":
+                v = _merge_trace(out[lk][1], v)
+            else:
+                v = _merge_execcmds(out[lk][1], v)
         out[lk] = (k, v)
     key_vals = {orig: val for orig, val in out.values()}
 

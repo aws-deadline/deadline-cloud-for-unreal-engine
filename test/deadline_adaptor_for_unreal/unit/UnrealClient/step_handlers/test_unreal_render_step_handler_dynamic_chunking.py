@@ -132,6 +132,7 @@ class TestDynamicChunkingPrecedence:
         subsystem = MagicMock()
         subsystem.get_queue.return_value.get_jobs.return_value = [job]
         unreal_mock.get_editor_subsystem.return_value = subsystem
+        executor_class = MagicMock()
 
         # The handler module may already have been imported by another test
         # module with a different (or absent) `unreal`; patch its globals so
@@ -143,7 +144,7 @@ class TestDynamicChunkingPrecedence:
             patch.object(
                 handler_module,
                 "RemoteRenderMoviePipelineEditorExecutor",
-                MagicMock(),
+                executor_class,
                 create=True,
             ),
             patch.object(
@@ -164,6 +165,7 @@ class TestDynamicChunkingPrecedence:
                 "enable_shots": enable_shots,
                 "apply_filename": apply_filename,
                 "get_frame_range": get_frame_range,
+                "executor": executor_class.return_value,
             }
             yield unreal_render_step_handler, job, output_settings, patches
 
@@ -230,6 +232,8 @@ class TestDynamicChunkingPrecedence:
         patches["enable_shots"].assert_not_called()
         patches["apply_filename"].assert_not_called()
         patches["get_frame_range"].assert_not_called()
+        assert patches["executor"].csvCaptureFrames == 0
+        assert patches["executor"].memreportEnabled is False
 
 
 class TestStaticMethodBehavior:

@@ -49,6 +49,52 @@ def run_data() -> dict:
 
 
 class TestUnrealAdaptor_on_start:
+    def test_extract_csv_capture_frames_arg(self):
+        filtered_args, csv_capture_frames = UnrealAdaptor._extract_csv_capture_frames_arg(
+            ["-csvGpuStats", "-csvCaptureFrames=120", "-trace=cpu,frame"]
+        )
+
+        assert filtered_args == ["-csvGpuStats", "-trace=cpu,frame"]
+        assert csv_capture_frames == 120
+
+    def test_extract_csv_capture_frames_preserves_following_switch(self):
+        filtered_args, csv_capture_frames = UnrealAdaptor._extract_csv_capture_frames_arg(
+            ["-csvCaptureFrames", "-unattended", "-trace=cpu,frame"]
+        )
+
+        assert filtered_args == ["-unattended", "-trace=cpu,frame"]
+        assert csv_capture_frames is None
+
+    def test_extract_memreport_arg(self):
+        filtered_args, memreport_enabled = UnrealAdaptor._extract_memreport_arg(
+            ["-stdout", "-MemReport", "-trace=cpu,frame"]
+        )
+
+        assert filtered_args == ["-stdout", "-trace=cpu,frame"]
+        assert memreport_enabled is True
+
+    def test_extract_insights_arg(self):
+        filtered_args, insights_categories = UnrealAdaptor._extract_insights_arg(
+            [
+                "-stdout",
+                "-DeadlineCloudInsights=cpu,frame,bookmark",
+                "-trace=gpu",
+            ]
+        )
+
+        assert filtered_args == ["-stdout", "-trace=gpu"]
+        assert insights_categories == "cpu,frame,bookmark"
+
+    @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.logger")
+    def test_extract_insights_arg_rejects_console_command_injection(self, mock_logger: Mock):
+        filtered_args, insights_categories = UnrealAdaptor._extract_insights_arg(
+            ["-DeadlineCloudInsights=cpu;quit"]
+        )
+
+        assert filtered_args == []
+        assert insights_categories is None
+        mock_logger.warning.assert_called_once()
+
     @patch(
         "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.telemetry_client",
         new_callable=PropertyMock,
@@ -324,6 +370,257 @@ class TestUnrealAdaptor_on_start:
     )
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.logger")
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
+    def test__start_unreal_client_defers_csv_capture_frames(
+        self,
+        mock_subprocess: Mock,
+        mock_logger: Mock,
+        mock_get_regex_callbacks: Mock,
+        mock_unreal_client_path: Mock,
+        os_path_exists: Mock,
+        init_data: dict,
+    ):
+        init_data["extra_cmd_args_file"] = "path/to/args/file.txt"
+
+        unreal_client_path = "UnrealClient.py"
+        mock_unreal_client_path.side_effect = [unreal_client_path]
+        adaptor = UnrealAdaptor(init_data)
+
+        with patch(
+            "builtins.open",
+            new_callable=mock_open,
+            read_data="-csvGpuStats -csvCaptureFrames=120",
+        ):
+            adaptor._start_unreal_client()
+
+        launch_ue_with_message = (
+            mock_logger.mock_calls[-1].args[0].replace("Starting Unreal Engine with args: ", "")
+        )
+        launch_args = ast.literal_eval(launch_ue_with_message)
+
+        assert "-csvGpuStats" in launch_args
+        assert not any(arg.startswith("-csvCaptureFrames") for arg in launch_args)
+        assert adaptor._csv_capture_frames == 120
+
+    @patch("os.path.exists", return_value=True)
+    @patch("os.makedirs")
+    @patch(
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.unreal_client_path",
+        new_callable=PropertyMock,
+    )
+    @patch(
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._get_regex_callbacks",
+        return_value=[],
+    )
+    @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.logger")
+    @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
+    def test__start_unreal_client_defers_memreport(
+        self,
+        mock_subprocess: Mock,
+        mock_logger: Mock,
+        mock_get_regex_callbacks: Mock,
+        mock_unreal_client_path: Mock,
+        mock_makedirs: Mock,
+        os_path_exists: Mock,
+        init_data: dict,
+    ):
+        init_data["extra_cmd_args_file"] = "path/to/args/file.txt"
+
+        unreal_client_path = "UnrealClient.py"
+        mock_unreal_client_path.side_effect = [unreal_client_path]
+        adaptor = UnrealAdaptor(init_data)
+
+        with patch(
+            "builtins.open",
+            new_callable=mock_open,
+            read_data="-MemReport -trace=cpu,frame",
+        ):
+            adaptor._start_unreal_client()
+
+        launch_ue_with_message = (
+            mock_logger.mock_calls[-1].args[0].replace("Starting Unreal Engine with args: ", "")
+        )
+        launch_args = ast.literal_eval(launch_ue_with_message)
+
+        assert "-MemReport" not in launch_args
+        assert adaptor._memreport_enabled is True
+
+    @patch("time.strftime", return_value="deadline-cloud-insights-20260803-220000.utrace")
+    @patch("os.makedirs")
+    @patch("os.path.exists", return_value=True)
+    @patch(
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.unreal_client_path",
+        new_callable=PropertyMock,
+    )
+    @patch(
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._get_regex_callbacks",
+        return_value=[],
+    )
+    @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.logger")
+    @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
+    def test__start_unreal_client_adds_tracefile_for_trace_capture(
+        self,
+        mock_subprocess: Mock,
+        mock_logger: Mock,
+        mock_get_regex_callbacks: Mock,
+        mock_unreal_client_path: Mock,
+        mock_os_path_exists: Mock,
+        mock_os_makedirs: Mock,
+        mock_strftime: Mock,
+        init_data: dict,
+    ):
+        unreal_client_path = "UnrealClient.py"
+        mock_unreal_client_path.side_effect = [unreal_client_path]
+        init_data["extra_cmd_args_file"] = "path/to/args/file.txt"
+        adaptor = UnrealAdaptor(init_data)
+
+        with patch(
+            "builtins.open",
+            new_callable=mock_open,
+            read_data="-trace=cpu,frame,bookmark,loadtime",
+        ):
+            adaptor._start_unreal_client()
+
+        launch_ue_with_message = (
+            mock_logger.mock_calls[1].args[0].replace("Starting Unreal Engine with args: ", "")
+        )
+        launch_args = ast.literal_eval(launch_ue_with_message)
+
+        assert any(arg.startswith("-trace=") for arg in launch_args)
+        assert (
+            "-tracefile=C:/LocalProjects/AWS_RND/Saved/Profiling/DeadlineCloud/"
+            "deadline-cloud-insights-20260803-220000.utrace"
+        ) in launch_args
+        mock_os_makedirs.assert_called_once_with(
+            "C:/LocalProjects/AWS_RND/Saved/Profiling/DeadlineCloud", exist_ok=True
+        )
+
+    @patch("os.makedirs")
+    @patch("os.path.exists", return_value=True)
+    @patch(
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.unreal_client_path",
+        new_callable=PropertyMock,
+    )
+    @patch(
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._get_regex_callbacks",
+        return_value=[],
+    )
+    @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.logger")
+    @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
+    @pytest.mark.parametrize("insights_categories", ["cpu,frame", "cpu,frame,memory"])
+    def test__start_unreal_client_starts_feature_insights_at_launch(
+        self,
+        mock_subprocess: Mock,
+        mock_logger: Mock,
+        mock_get_regex_callbacks: Mock,
+        mock_unreal_client_path: Mock,
+        mock_os_path_exists: Mock,
+        mock_os_makedirs: Mock,
+        init_data: dict,
+        insights_categories: str,
+    ):
+        mock_unreal_client_path.side_effect = ["UnrealClient.py"]
+        init_data["extra_cmd_args_file"] = "path/to/args/file.txt"
+        adaptor = UnrealAdaptor(init_data)
+
+        with patch(
+            "builtins.open",
+            new_callable=mock_open,
+            read_data=f"-DeadlineCloudInsights={insights_categories} -stdout",
+        ):
+            adaptor._start_unreal_client()
+
+        launch_ue_with_message = next(
+            call.args[0].replace("Starting Unreal Engine with args: ", "")
+            for call in mock_logger.mock_calls
+            if call.args and str(call.args[0]).startswith("Starting Unreal Engine with args:")
+        )
+        launch_args = ast.literal_eval(launch_ue_with_message)
+
+        assert f"-trace={insights_categories}" in launch_args
+        assert any(
+            "deadline-cloud-insights-startup-" in arg and arg.endswith(".utrace")
+            for arg in launch_args
+            if arg.lower().startswith("-tracefile=")
+        )
+        assert not any(arg.lower().startswith("-deadlinecloudinsights") for arg in launch_args)
+        assert adaptor._insights_categories == insights_categories
+        mock_os_makedirs.assert_called_once()
+
+    @patch("os.path.exists", return_value=True)
+    @patch(
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.unreal_client_path",
+        new_callable=PropertyMock,
+    )
+    @patch(
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._get_regex_callbacks",
+        return_value=[],
+    )
+    @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.logger")
+    @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
+    def test_raw_trace_takes_precedence_over_feature_insights(
+        self,
+        mock_subprocess: Mock,
+        mock_logger: Mock,
+        mock_get_regex_callbacks: Mock,
+        mock_unreal_client_path: Mock,
+        mock_os_path_exists: Mock,
+        init_data: dict,
+    ):
+        mock_unreal_client_path.side_effect = ["UnrealClient.py"]
+        init_data["extra_cmd_args_file"] = "path/to/args/file.txt"
+        adaptor = UnrealAdaptor(init_data)
+
+        with (
+            patch(
+                "builtins.open",
+                new_callable=mock_open,
+                read_data=(
+                    "-DeadlineCloudInsights=cpu,frame " "-trace=gpu -tracefile=C:/manual.utrace"
+                ),
+            ),
+            patch("os.makedirs"),
+        ):
+            adaptor._start_unreal_client()
+
+        launch_ue_with_message = next(
+            call.args[0].replace("Starting Unreal Engine with args: ", "")
+            for call in mock_logger.mock_calls
+            if call.args and str(call.args[0]).startswith("Starting Unreal Engine with args:")
+        )
+        launch_args = ast.literal_eval(launch_ue_with_message)
+
+        assert "-trace=gpu" in launch_args
+        assert "-tracefile=C:/manual.utrace" in launch_args
+        assert adaptor._insights_categories is None
+        assert any(
+            call.args and str(call.args[0]).startswith("Raw -trace arguments take precedence")
+            for call in mock_logger.warning.mock_calls
+        )
+
+    @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.logger")
+    @patch("os.makedirs", side_effect=PermissionError("access denied"))
+    def test_get_tracefile_arg_ignores_unwritable_output_directory(
+        self, mock_os_makedirs: Mock, mock_logger: Mock
+    ):
+        tracefile_arg = UnrealAdaptor._get_tracefile_arg(
+            "C:/LocalProjects/AWS_RND/AWS_RND.uproject", "-trace=cpu,frame"
+        )
+
+        assert tracefile_arg is None
+        mock_os_makedirs.assert_called_once()
+        mock_logger.warning.assert_called_once()
+
+    @patch("os.path.exists", return_value=True)
+    @patch(
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.unreal_client_path",
+        new_callable=PropertyMock,
+    )
+    @patch(
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor._get_regex_callbacks",
+        return_value=[],
+    )
+    @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.logger")
+    @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
     def test__start_unreal_client_with_extra_execcmds_arg(
         self,
         mock_subprocess: Mock,
@@ -415,6 +712,62 @@ class TestUnrealAdaptor_on_run:
 
         # THEN
         mock_sleep.assert_called_once_with(1)
+
+    @patch.object(UnrealAdaptor, "_maybe_submit_renders_to_perforce")
+    @patch.object(UnrealAdaptor, "_snapshot_output_files", return_value={})
+    @patch("time.sleep")
+    @patch(
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.telemetry_client",
+        new_callable=PropertyMock,
+    )
+    @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.ActionsQueue.enqueue_action")
+    @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.ActionsQueue.__len__", return_value=0)
+    @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
+    @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.AdaptorServer")
+    def test_on_run_injects_deferred_profiling_run_data(
+        self,
+        mock_server: Mock,
+        mock_logging_subprocess: Mock,
+        mock_actions_queue_len: Mock,
+        mock_enqueue_action: Mock,
+        mock_telemetry_client: Mock,
+        mock_sleep: Mock,
+        mock_snapshot_output_files: Mock,
+        mock_submit_renders_to_perforce: Mock,
+        init_data: dict,
+        run_data: dict,
+    ) -> None:
+        adaptor = UnrealAdaptor(init_data)
+        mock_server.return_value.server_path = "/tmp/9999"
+        is_rendering_mock = PropertyMock(side_effect=[None, True, False])
+        UnrealAdaptor._is_rendering = is_rendering_mock
+        adaptor.on_start()
+        adaptor._csv_capture_frames = 120
+        adaptor._memreport_enabled = True
+        adaptor._insights_categories = "cpu,frame"
+        adaptor._startup_insights_trace_file = (
+            "C:/LocalProjects/AWS_RND/Saved/Profiling/DeadlineCloud/"
+            "deadline-cloud-insights-startup.utrace"
+        )
+
+        adaptor.on_run(run_data)
+
+        run_script_action = next(
+            call.args[0]
+            for call in mock_enqueue_action.call_args_list
+            if call.args and getattr(call.args[0], "name", None) == "run_script"
+        )
+
+        assert run_script_action.args["csv_capture_frames"] == 120
+        assert run_script_action.args["memreport"] is True
+        assert run_script_action.args["insights_categories"] == "cpu,frame"
+        assert run_script_action.args["startup_insights_trace_file"].endswith(
+            "deadline-cloud-insights-startup.utrace"
+        )
+        assert adaptor._startup_insights_trace_file is None
+        assert "csv_capture_frames" not in run_data
+        assert "memreport" not in run_data
+        assert "insights_categories" not in run_data
 
     @patch("time.sleep")
     @patch(
@@ -636,6 +989,26 @@ class TestUnrealAdaptor_on_cleanup:
 
         # THEN
         assert match is not None
+        mock_update_status.assert_called_once_with(progress=100)
+
+    @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.update_status")
+    def test_engine_completion_waits_only_when_profiling_is_enabled(
+        self, mock_update_status: Mock, init_data: dict
+    ):
+        adaptor = UnrealAdaptor(init_data)
+        complete_regex = adaptor._get_regex_callbacks()[2].regex_list[1]
+        match = complete_regex.search(
+            "MoviePipelineLinearExecutorBase finished 1 jobs in +00:00:04.017."
+        )
+        assert match is not None
+
+        adaptor._unreal_is_rendering = True
+        adaptor._handle_complete(match)
+        mock_update_status.assert_called_once_with(progress=100)
+
+        adaptor._unreal_is_rendering = True
+        adaptor._memreport_enabled = True
+        adaptor._handle_complete(match)
         mock_update_status.assert_called_once_with(progress=100)
 
     handle_progress_params = [(0, "Render Executor: Progress: 99.0", 99)]
