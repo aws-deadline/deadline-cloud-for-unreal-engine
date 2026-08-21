@@ -311,7 +311,9 @@ class TestExecutorProfilingLifecycle:
             call("Trace.Stop"),
         ]
         wait_for_trace.assert_called_once_with(
-            "C:/Project/Saved/Profiling/DeadlineCloud/task-0.utrace"
+            unreal_render_step_handler.os.path.join(
+                "C:/Project/Saved/Profiling", "DeadlineCloud/task-0.utrace"
+            )
         )
         assert executor.insightsStarted is False
         assert executor.insightsFinished is True
