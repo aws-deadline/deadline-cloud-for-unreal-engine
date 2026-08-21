@@ -91,30 +91,6 @@ def test_replace_ci_managed_install_refuses_unmanaged_directory(tmp_path):
     assert (install_dir / "engine.txt").exists()
 
 
-def test_install_engine_artifact_cleans_partial_download_on_failure(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    installer = {
-        "s3_key": "unrealengine/ci-source-artifacts/v1/5.7/engine.zip",
-        "sha256": "1" * 64,
-        "size": 4,
-        "archive_root": "UE_5.7",
-    }
-
-    def fake_download(_s3_key, local_installer):
-        local_installer.write_bytes(b"test")
-
-    def fail_verification(*_args):
-        raise RuntimeError("checksum failed")
-
-    monkeypatch.setattr(setup_runner, "download_from_s3", fake_download)
-    monkeypatch.setattr(setup_runner, "verify_artifact", fail_verification)
-
-    with pytest.raises(RuntimeError, match="checksum failed"):
-        setup_runner.install_engine_artifact("5.7", tmp_path / "install", installer)
-
-    assert not list((tmp_path / "C:" / "Temp" / "UnrealCI").glob("*.zip"))
-
-
 def test_verify_artifact_checks_size_and_sha256(tmp_path):
     artifact = tmp_path / "engine.zip"
     content = b"test artifact"

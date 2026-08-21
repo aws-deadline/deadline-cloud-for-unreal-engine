@@ -109,14 +109,12 @@ function Clear-CmfTestWorkers {
 
 Push-Location $SourceRoot
 try {
-    $setupArgs = @(
-        (Join-Path $SourceRoot "pipeline\setup-runner.py"),
-        "--versions"
-    ) + $Versions
+    $env:UE_VERSION = $Versions -join " "
+    $setupEnvironment = if ($Suite -eq "e2e") { "e2e-ci" } else { "integ-ci" }
     Invoke-Checked `
         -Description "Unreal Engine setup for versions $($Versions -join ', ')" `
-        -FilePath "python" `
-        -ArgumentList $setupArgs
+        -FilePath "hatch" `
+        -ArgumentList @("run", "${setupEnvironment}:setup")
 
     foreach ($version in $Versions) {
         Write-Host "=== BEGIN UE $version $($Suite.ToUpperInvariant()) ==="
