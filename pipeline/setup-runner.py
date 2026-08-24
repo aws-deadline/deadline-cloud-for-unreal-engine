@@ -198,7 +198,10 @@ def replace_ci_managed_install(staged_install_dir, install_dir):
     """Move a staged engine into place without deleting an unmanaged installation."""
     install_dir.parent.mkdir(parents=True, exist_ok=True)
     if install_dir.exists():
-        if not install_is_ci_managed(install_dir):
+        is_configured_codebuild_install = bool(os.environ.get("CODEBUILD_BUILD_ID")) and (
+            install_dir in {paths["windows"] for paths in UE_INSTALL_PATHS.values()}
+        )
+        if not install_is_ci_managed(install_dir) and not is_configured_codebuild_install:
             raise RuntimeError(
                 f"Refusing to replace unmanaged Unreal Engine install at {install_dir}. "
                 "Move or remove it before running CI setup."
