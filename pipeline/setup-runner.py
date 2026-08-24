@@ -19,6 +19,7 @@ import json
 import os
 import platform
 import shutil
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -169,6 +170,14 @@ def install_is_ci_managed(install_dir):
     )
 
 
+def remove_readonly(func, path, exc_info):
+    """Clear a Windows read-only attribute and retry a failed removal."""
+    if not isinstance(exc_info[1], PermissionError) or func not in (os.unlink, os.rmdir):
+        raise exc_info[1]
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
 def cleanup_stale_version_artifacts(version, local_installer, staging_dir):
     """Remove temporary files left by previous artifacts for one engine version."""
     stale_paths = [
@@ -180,7 +189,7 @@ def cleanup_stale_version_artifacts(version, local_installer, staging_dir):
             continue
         print(f"Removing stale UE {version} setup artifact: {stale_path}")
         if stale_path.is_dir():
-            shutil.rmtree(stale_path)
+            shutil.rmtree(stale_path, onerror=remove_readonly)
         else:
             stale_path.unlink(missing_ok=True)
 
@@ -195,7 +204,7 @@ def replace_ci_managed_install(staged_install_dir, install_dir):
                 "Move or remove it before running CI setup."
             )
         print(f"Replacing incomplete or outdated UE install at {install_dir}")
-        shutil.rmtree(install_dir)
+        shutil.rmtree(install_dir, onerror=remove_readonly)
     shutil.move(str(staged_install_dir), str(install_dir))
 
 
@@ -208,7 +217,7 @@ def install_engine_artifact(version, install_dir, installer_info):
     cleanup_stale_version_artifacts(version, local_installer, staging_dir)
 
     if staging_dir.exists():
-        shutil.rmtree(staging_dir)
+        shutil.rmtree(staging_dir, onerror=remove_readonly)
 
     try:
         download_from_s3(installer_info["s3_key"], local_installer)
