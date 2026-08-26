@@ -3,11 +3,10 @@
 ### Features
 * Added support for Unreal Engine 5.8. (#360)
 * Added Unreal profiling output support, allowing users to capture and output profiling data from Unreal render jobs. (#371)
-* Pre-GUI submission hooks now run from the Unreal C++ Details panels (data-asset editor and Movie Render Queue Preset Overrides panel), allowing hooks to pre-populate job settings without a Qt submit dialog. (#336)
+* Pre-GUI submission hooks now run from the Unreal C++ Details panels (data-asset editor and Movie Render Queue Preset Overrides panel), allowing hooks to pre-populate job settings without a Qt submit dialog. This requires `deadline-cloud` 0.60.1 or later. (#336)
 
 ### Bug Fixes
-* Fixed Unreal Engine 5.7 build default configuration being incorrect. (#363)
-* Fixed Unreal Engine 5.8 release defaults configuration. (#377)
+* Updated the default build and generated job host requirements to target Unreal Engine 5.8 on Windows, matching the supported worker platform. (#377)
 ## 0.7.1 (2026-07-29)
 
 ### Features
@@ -255,6 +254,5 @@
 
 ### Features
 * initial integration (#1) ([`96ff05e`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/96ff05e787fabfc375c7e379e9b87cd574774869))
-
 
 
