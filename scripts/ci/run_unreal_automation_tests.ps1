@@ -13,7 +13,7 @@ $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
 if (-not $UEVersion) {
-    $UEVersion = if ($env:UE_VERSION) { $env:UE_VERSION } else { "5.7" }
+    $UEVersion = if ($env:UE_VERSION) { $env:UE_VERSION } else { "5.8" }
 }
 if (-not $EngineRoot) {
     $EngineRoot = "C:\Program Files\Epic Games\UE_$UEVersion"

@@ -13,6 +13,6 @@ hostRequirements:
 
   attributes:
     - name: attr.worker.os.family
-      anyOf: [windows, linux, macos]
+      anyOf: [windows]
     - name: attr.worker.cpu.arch
       anyOf: [x86_64, arm64]

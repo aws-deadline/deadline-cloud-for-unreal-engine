@@ -168,6 +168,7 @@ fail_under = 65
 [tool.semantic_release]
 # Can be removed or set to true once we are v1
 major_on_zero = false
+allow_zero_version = true
 tag_format = "{version}"
 
 [tool.semantic_release.commit_parser_options]
