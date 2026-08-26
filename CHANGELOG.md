@@ -1,3 +1,13 @@
+## 0.7.2 (2026-08-26)
+
+### Features
+* Added support for Unreal Engine 5.8. (#360)
+* Added Unreal profiling output support, allowing users to capture and output profiling data from Unreal render jobs. (#371)
+* Pre-GUI submission hooks now run from the Unreal C++ Details panels (data-asset editor and Movie Render Queue Preset Overrides panel), allowing hooks to pre-populate job settings without a Qt submit dialog. (#336)
+
+### Bug Fixes
+* Fixed Unreal Engine 5.7 build default configuration being incorrect. (#363)
+* Fixed Unreal Engine 5.8 release defaults configuration. (#377)
 ## 0.7.1 (2026-07-29)
 
 ### Features
