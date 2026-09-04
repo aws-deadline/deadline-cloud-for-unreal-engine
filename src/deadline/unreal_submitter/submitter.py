@@ -51,11 +51,17 @@ def error_notify(
                 unreal.log(str(e))
                 unreal.log(traceback.format_exc())
 
-                telemetry_client.record_error(
-                    event_details={"exception_scope": "caught", "error_operation": "on_submit"},
-                    exception_type=str(type(e)),
-                    from_gui=not self._silent_mode,
-                )
+                try:
+                    telemetry_client.record_error_with_trace(
+                        exc=e,
+                        exception_scope="on_submit",
+                        extra_details={
+                            "error_operation": "on_submit",
+                        },
+                        from_gui=not self._silent_mode,
+                    )
+                except Exception:
+                    logger.warning("Failed to record error telemetry", exc_info=True)
 
                 if isinstance(e, UserException):
                     return

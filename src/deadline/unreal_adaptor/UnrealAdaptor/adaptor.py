@@ -571,17 +571,28 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         self, exc: Exception, exception_scope: str, exit_code: Optional[int] = None
     ) -> None:
         """
-        Record telemetry error event and raise given exception
+        Record telemetry error event with stack trace and raise given exception
         """
-        self.telemetry_client.record_error(
-            event_details={
-                "exit_code": exit_code,
-                "exception_scope": "caught",
-                "error_operation": exception_scope,
-            },
-            exception_type=str(type(exc)),
-            from_gui=False,
-        )
+        # Callers must pass an exception that has already been raised and caught,
+        # so `exc.__traceback__` is populated — the recorded stack trace is derived
+        # from it and would otherwise be empty.
+        if exc.__traceback__ is None:
+            logger.warning(
+                "Recording %s with no traceback; the emitted stack trace will be empty. "
+                "Raise and catch the exception before calling _record_error_and_raise.",
+                type(exc).__qualname__,
+            )
+        try:
+            self.telemetry_client.record_error_with_trace(
+                exc=exc,
+                exception_scope=exception_scope,
+                extra_details={
+                    "exit_code": exit_code,
+                    "error_operation": exception_scope,
+                },
+            )
+        except Exception:
+            logger.warning("Failed to record error telemetry", exc_info=True)
         raise exc
 
     def on_start(self) -> None:
@@ -649,10 +660,11 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         :raises RuntimeError: When Unreal exited early and did not render successfully
         """
         if not self._unreal_is_running:
-            self._record_error_and_raise(
-                exc=UnrealNotRunningError("Cannot render because Unreal is not running"),
-                exception_scope="on_run",
-            )
+            # Raise and catch here so the recorded stack trace points at this frame
+            try:
+                raise UnrealNotRunningError("Cannot render because Unreal is not running")
+            except UnrealNotRunningError as e:
+                self._record_error_and_raise(exc=e, exception_scope="on_run")
 
         try:
             self.data_validation.validate_run_data(run_data)
@@ -704,14 +716,16 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         if not self._unreal_is_running and self._unreal_client:
             exit_code = self._unreal_client.returncode
             if exit_code != 0:
-                self._record_error_and_raise(
-                    exc=RuntimeError(
+                # Raise and catch here so the recorded stack trace points at this frame
+                try:
+                    raise RuntimeError(
                         "Unreal exited early and did not render successfully, please check render logs. "
                         f"Exit code {exit_code}"
-                    ),
-                    exception_scope="on_run",
-                    exit_code=exit_code,
-                )
+                    )
+                except RuntimeError as e:
+                    self._record_error_and_raise(
+                        exc=e, exception_scope="on_run", exit_code=exit_code
+                    )
 
         # Render succeeded. If the customer requested it (SubmitMode set),
         # push the outputs into the worker's Perforce client. This runs

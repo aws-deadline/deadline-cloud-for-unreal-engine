@@ -6,6 +6,7 @@ import os
 import re
 import ast
 import sys
+import traceback
 from unittest.mock import Mock, PropertyMock, patch, mock_open
 
 import pytest
@@ -171,6 +172,91 @@ class TestUnrealAdaptor_on_start:
             str(exc_info.value)
             == "Could not find a socket path because the server did not finish initializing"
         )
+
+    @patch(
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.telemetry_client",
+        new_callable=PropertyMock,
+    )
+    @patch("threading.Thread")
+    @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.AdaptorServer")
+    def test_error_emits_stack_trace_telemetry(
+        self, mock_server: Mock, mock_thread: Mock, mock_telemetry_client: Mock, init_data: dict
+    ) -> None:
+        """Tests that adaptor errors emit telemetry with stack traces via record_error_with_trace"""
+        # GIVEN
+        adaptor = UnrealAdaptor(init_data)
+        mock_tc = mock_telemetry_client.return_value
+
+        with (
+            patch.object(adaptor, "_SERVER_START_TIMEOUT_SECONDS", 0.01),
+            pytest.raises(RuntimeError),
+        ):
+            # WHEN
+            adaptor.on_start()
+
+        # THEN — record_error_with_trace is called (not record_error)
+        mock_tc.record_error_with_trace.assert_called_once()
+        call_kwargs = mock_tc.record_error_with_trace.call_args
+        assert isinstance(call_kwargs.kwargs["exc"], RuntimeError)
+        assert call_kwargs.kwargs["exception_scope"] == "on_start"
+        assert call_kwargs.kwargs["extra_details"]["error_operation"] == "on_start"
+        mock_tc.record_error.assert_not_called()
+
+    @patch(
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.telemetry_client",
+        new_callable=PropertyMock,
+    )
+    def test_inline_exception_still_has_traceback(
+        self, mock_telemetry_client: Mock, init_data: dict
+    ) -> None:
+        """
+        Regression: call sites that construct the exception inline (e.g. on_run's
+        UnrealNotRunningError path) must still emit a traceback naming the
+        originating frame. The traceback must be inspected at record time via a
+        side_effect — `raise` mutates `exc.__traceback__` in place, so checking
+        it after the fact passes even if recording happened before the raise.
+        """
+        # GIVEN
+        adaptor = UnrealAdaptor(init_data)
+        mock_tc = mock_telemetry_client.return_value
+        frames_at_record_time: list = []
+        mock_tc.record_error_with_trace.side_effect = (
+            lambda exc, **kw: frames_at_record_time.extend(traceback.extract_tb(exc.__traceback__))
+        )
+
+        # WHEN — on_run with _unreal_is_running False triggers the inline-exception path
+        with pytest.raises(UnrealNotRunningError):
+            adaptor.on_run({})
+
+        # THEN — the traceback recorded at call time names the originating frame
+        mock_tc.record_error_with_trace.assert_called_once()
+        assert any(frame.name == "on_run" for frame in frames_at_record_time)
+
+    @patch(
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.telemetry_client",
+        new_callable=PropertyMock,
+    )
+    @patch("threading.Thread")
+    @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.AdaptorServer")
+    def test_telemetry_failure_does_not_mask_original_error(
+        self, mock_server: Mock, mock_thread: Mock, mock_telemetry_client: Mock, init_data: dict
+    ) -> None:
+        """Tests that if record_error_with_trace raises, the original exception is still raised"""
+        # GIVEN
+        adaptor = UnrealAdaptor(init_data)
+        mock_tc = mock_telemetry_client.return_value
+        mock_tc.record_error_with_trace.side_effect = Exception("telemetry broke")
+
+        with (
+            patch.object(adaptor, "_SERVER_START_TIMEOUT_SECONDS", 0.01),
+            pytest.raises(RuntimeError, match="server did not finish initializing"),
+        ):
+            # WHEN
+            adaptor.on_start()
+
+        # THEN — telemetry was attempted but the original RuntimeError was raised, not the
+        # telemetry Exception
+        mock_tc.record_error_with_trace.assert_called_once()
 
     @patch(
         "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.telemetry_client",
@@ -806,6 +892,14 @@ class TestUnrealAdaptor_on_run:
         mock_server.return_value.server_path = "/tmp/9999"
         adaptor.on_start()
 
+        # Capture the traceback at record time — `raise` mutates exc.__traceback__
+        # in place, so an after-the-fact assertion would pass even if the exception
+        # were recorded before being raised.
+        frames_at_record_time: list = []
+        mock_telemetry_client.return_value.record_error_with_trace.side_effect = (
+            lambda exc, **kw: frames_at_record_time.extend(traceback.extract_tb(exc.__traceback__))
+        )
+
         # WHEN
         with pytest.raises(RuntimeError) as exc_info:
             adaptor.on_run(run_data)
@@ -817,6 +911,9 @@ class TestUnrealAdaptor_on_run:
             "please check render logs. "
             "Exit code 1"
         )
+        # The exit-code exception is constructed inline, so it must be raised and
+        # caught before recording for the trace to name the originating frame.
+        assert any(frame.name == "on_run" for frame in frames_at_record_time)
 
     @patch("time.sleep")
     @patch(
