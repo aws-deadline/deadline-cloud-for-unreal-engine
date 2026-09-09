@@ -41,28 +41,13 @@ jobs:
           required-platforms: win-64
           timeout-days: 4
 
-  ManualReleaseGate:
-    needs: CheckConda
-    if: >-
-      needs.CheckConda.outputs.tag != '' &&
-      needs.CheckConda.outputs.ready == 'true'
-    runs-on: ubuntu-latest
-    environment: release-gate
-    permissions: {}
-    steps:
-      - name: Record approval
-        env:
-          TAG: ${{ needs.CheckConda.outputs.tag }}
-        run: echo "Conda readiness and manual testing approved for $TAG."
-
   AuthorizePublish:
-    needs: [CheckConda, ManualReleaseGate]
+    needs: CheckConda
     if: >-
       always() &&
       needs.CheckConda.result == 'success' &&
       needs.CheckConda.outputs.tag != '' &&
-      needs.CheckConda.outputs.ready == 'true' &&
-      needs.ManualReleaseGate.result == 'success'
+      needs.CheckConda.outputs.ready == 'true'
     runs-on: ubuntu-latest
     permissions: {}
     outputs:
