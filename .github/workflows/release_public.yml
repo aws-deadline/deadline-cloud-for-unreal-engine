@@ -1,0 +1,135 @@
+name: "Release: Publish Public"
+run-name: "Release: Publish Public ${{ inputs.tag || 'next pending release' }}"
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Specific staged release tag to publish
+        required: false
+        type: string
+
+concurrency:
+  group: release
+
+permissions:
+  contents: read
+
+jobs:
+  CheckConda:
+    if: github.repository == 'aws-deadline/deadline-cloud-for-unreal-engine'
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.readiness.outputs.ready }}
+      tag: ${{ steps.readiness.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check Conda release readiness
+        id: readiness
+        uses: aws-deadline/.github/.github/actions/check-release-readiness@mainline
+        with:
+          github-token: ${{ github.token }}
+          requested-tag: ${{ inputs.tag }}
+          package-name: unrealengine-openjd
+          required-platforms: win-64
+          timeout-days: 4
+
+  ManualReleaseGate:
+    needs: CheckConda
+    if: >-
+      needs.CheckConda.outputs.tag != '' &&
+      needs.CheckConda.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    environment: release-gate
+    permissions: {}
+    steps:
+      - name: Record approval
+        env:
+          TAG: ${{ needs.CheckConda.outputs.tag }}
+        run: echo "Conda readiness and manual testing approved for $TAG."
+
+  AuthorizePublish:
+    needs: [CheckConda, ManualReleaseGate]
+    if: >-
+      always() &&
+      needs.CheckConda.result == 'success' &&
+      needs.CheckConda.outputs.tag != '' &&
+      needs.CheckConda.outputs.ready == 'true' &&
+      needs.ManualReleaseGate.result == 'success'
+    runs-on: ubuntu-latest
+    permissions: {}
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - name: Authorize public release
+        id: release
+        env:
+          TAG: ${{ needs.CheckConda.outputs.tag }}
+        run: echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+  ValidateRelease:
+    needs: AuthorizePublish
+    if: needs.AuthorizePublish.outputs.tag != ''
+    uses: aws-deadline/.github/.github/workflows/reusable_tag_release.yml@mainline
+    permissions:
+      contents: read
+    secrets: inherit
+    with:
+      tag: ${{ needs.AuthorizePublish.outputs.tag }}
+
+  PreRelease:
+    needs: ValidateRelease
+    if: needs.ValidateRelease.outputs.tag != ''
+    uses: aws-deadline/.github/.github/workflows/reusable_prerelease.yml@mainline
+    permissions:
+      id-token: write
+      contents: write
+    secrets: inherit
+    with:
+      tag: ${{ needs.ValidateRelease.outputs.tag }}
+
+  Release:
+    needs: [ValidateRelease, PreRelease]
+    if: needs.ValidateRelease.outputs.tag != ''
+    uses: aws-deadline/.github/.github/workflows/reusable_release.yml@mainline
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: write
+    with:
+      tag: ${{ needs.ValidateRelease.outputs.tag }}
+
+  PublishToPyPI:
+    needs: [ValidateRelease, Release]
+    if: needs.ValidateRelease.outputs.tag != ''
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.ValidateRelease.outputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ needs.ValidateRelease.outputs.build-python-version }}
+      - name: Install dependencies
+        run: pip install --upgrade hatch
+      - name: Build
+        run: hatch -v build
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          skip-existing: true

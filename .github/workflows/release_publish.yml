@@ -1,5 +1,5 @@
-name: "Release: Publish"
-run-name: "Release: ${{ github.event.head_commit.message || inputs.tag }}"
+name: "Release: Stage"
+run-name: "Release: Stage ${{ github.event.head_commit.message || inputs.tag }}"
 
 on:
   push:
@@ -65,65 +65,11 @@ jobs:
       os: windows
       tag: ${{ needs.TagRelease.outputs.tag }}
 
-  ManualTestGate:
-    needs: [TagRelease, UnitTests, IntegrationTests, E2ETests]
-    runs-on: ubuntu-latest
-    environment: release-gate
-    steps:
-      - run: echo "Manual testing approved for ${{ needs.TagRelease.outputs.tag }}"
-
-  PreRelease:
-      needs: [TagRelease, ManualTestGate]
-      uses: aws-deadline/.github/.github/workflows/reusable_prerelease.yml@mainline
-      permissions:
-        id-token: write
-        contents: write
-      secrets: inherit
-      with:
-          tag: ${{ needs.TagRelease.outputs.tag }}
-
-  Release:
-      needs: [TagRelease, PreRelease]
-      uses: aws-deadline/.github/.github/workflows/reusable_release.yml@mainline
-      secrets: inherit
-      permissions:
-        id-token: write
-        contents: write
-      with:
-          tag: ${{ needs.TagRelease.outputs.tag }}
-  
   Publish:
-      needs: [TagRelease, Release]
+      needs: [TagRelease, UnitTests, IntegrationTests, E2ETests]
       uses: aws-deadline/.github/.github/workflows/reusable_publish_python.yml@mainline
       permissions:
         id-token: write
       secrets: inherit
       with:
           tag: ${{ needs.TagRelease.outputs.tag }}
-
-  # PyPI does not support reusable workflows yet
-  # # See https://github.com/pypi/warehouse/issues/11096
-  PublishToPyPI:
-    needs: [TagRelease, Publish]
-    runs-on: ubuntu-latest
-    environment: release
-    permissions:
-      id-token: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.TagRelease.outputs.tag }}
-          fetch-depth: 0
-      - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: ${{ needs.TagRelease.outputs.build-python-version }}
-      - name: Install dependencies
-        run: |
-          pip install --upgrade hatch
-      - name: Build
-        run: hatch -v build
-      # # See https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-pypi
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
