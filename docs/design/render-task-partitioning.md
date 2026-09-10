@@ -107,7 +107,7 @@ The submitter (Unreal plugin) and the adaptor (worker-side `unrealengine-openjd`
 | 0.7.x | new names (`shots_per_task`/`task_index`) | **both** legacy and new |
 | 1.0.x | new names | new names only |
 
-Any submitter/adaptor pairing within one minor version of each other keeps working, provided a 0.6.x adaptor is at least 0.6.10. Because run_data fields are optional in the adaptor's schema (only `handler` is required), a mismatched pairing fails **silently with wrong output** — the task renders the full sequence instead of its partition — rather than loudly. The two mismatches to avoid:
+Submitter and adaptor pairings work when the adaptor accepts the run_data key names the submitter emits: a 0.7.x or later submitter emits the current keys and works with a 0.6.10 or later adaptor, while a 1.0 adaptor requires a 0.7.0 or later submitter. Because run_data fields are optional in the adaptor's schema (only `handler` is required), a mismatched pairing fails **silently with wrong output** — the task renders the full sequence instead of its partition — rather than loudly. The two mismatches to avoid:
 
 - A 0.7+ submitter's template reaching a pre-0.6.10 adaptor (adaptor doesn't know the new keys).
 - A legacy (pre-0.7) template reaching a 1.0+ adaptor (adaptor no longer accepts the old keys). Regenerate old job bundles and update custom templates or submission scripts that still reference `ChunkSize`/`ChunkId`.
