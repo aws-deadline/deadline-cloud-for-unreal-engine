@@ -30,7 +30,7 @@ parameterDefinitions:
   default: 0
 - name: CondaPackages
   type: STRING
-  default: unrealengine=5.8 unrealengine-openjd=0.7.*
+  default: unrealengine=5.8 unrealengine-openjd=1.0.*
   userInterface: 
    control: LINE_EDIT
 - name: CondaChannels
@@ -50,4 +50,3 @@ parameterDefinitions:
   default: ''
   userInterface:
    control: HIDDEN
-

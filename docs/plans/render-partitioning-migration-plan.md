@@ -26,8 +26,8 @@ independently (run_data keys are their contract), we use an **expand/contract
 
 - Submitter writes run_data keys; adaptor reads them. Key names are the contract.
 - **SMF:** adaptor version pinned by `CondaPackages` in the job template.
-  As of Phase 2 this default is `unrealengine-openjd=0.7.*` (bumped from
-  `0.6.*`); the glob matches the latest 0.7.x patch automatically.
+  Phase 4 updates this default from `unrealengine-openjd=0.7.*` to `1.0.*`;
+  the glob matches the latest 1.0.x patch automatically.
 - **Customer-managed fleets:** adaptor pip-installed manually, must be kept version-matched to the
   submitter (per `setup-cmf-worker.md`).
 - run_data fields are optional in `run_data.schema.json` (only `handler` is
@@ -45,12 +45,12 @@ The durable copy of this matrix lives in
 |---|---|---|
 | 0.6.x (≥ 0.6.10) | legacy names (`chunk_size`/`chunk_id`) | **both** legacy and new |
 | 0.7.x | new names (`shots_per_task`/`task_index`) | **both** legacy and new |
-| 0.8.x | new names | new names only |
+| 1.0.x | new names | new names only |
 
 Any submitter/adaptor pairing within one minor version of each other keeps
 working, provided a 0.6.x adaptor is at least 0.6.10. The silent wrong-output
 failure mode occurs when a 0.7+ submitter's template reaches a pre-0.6.10
-adaptor, or a legacy template reaches a 0.8+ adaptor.
+adaptor, or a legacy template reaches a 1.0+ adaptor.
 
 ## Phases
 
@@ -108,7 +108,7 @@ adaptor, or a legacy template reaches a 0.8+ adaptor.
 - **Exit criterion:** ✅ met — dynamic chunking rendered successfully end to
   end, and the existing `ShotsPerTask`/`FramesPerTask` tests remain green.
 
-### Phase 4 — Drop legacy support from the adaptor, release 0.8 🚧 in progress (this change)
+### Phase 4 — Drop legacy support from the adaptor, release 1.0 🚧 in progress (this change)
 
 - Remove `_apply_param_aliases` and the legacy `chunk_size`/`chunk_id` fields
   from `run_data.schema.json`. The adaptor reads only `shots_per_task` and
@@ -117,17 +117,17 @@ adaptor, or a legacy template reaches a 0.8+ adaptor.
     not enumerate every live run_data key, including `frames_per_task`, so
     enabling it requires a separate audit.
 - **Migration impact:** legacy templates and saved job bundles that still emit
-  `chunk_size`/`chunk_id` must be updated before using the 0.8.x adaptor.
+  `chunk_size`/`chunk_id` must be updated before using the 1.0.x adaptor.
   Otherwise, partitioning is silently skipped and each task can render the
   full sequence.
-- **Release:** 0.8.0 — breaking (`refactor!` + `BREAKING CHANGE:` footer),
-  minor bump (0.7 → 0.8). After 0.8.0 is validated in the production conda
-  channel, update the bundled template default from
-  `unrealengine-openjd=0.7.*` to `0.8.*` as a separately gated change.
+- **Release:** 1.0.0 — breaking (`refactor!` + `BREAKING CHANGE:` footer),
+  major bump (0.7 → 1.0). The bundled templates pin
+  `unrealengine-openjd=1.0.*`; public publication waits for the matching
+  Windows Conda adaptor to complete production verification.
 - **Status:** implementation is in progress in this change; 0.7.x remains the
   compatibility window where the adaptor accepts both legacy and new names.
-- **Exit criterion:** 0.8.0 released and the default adaptor pin promoted to
-  0.8.x; the submitter and adaptor then use only the new names.
+- **Exit criterion:** 1.0.0 released and the default adaptor pin promoted to
+  1.0.x; the submitter and adaptor then use only the new names.
 
 ## Sequencing summary
 
@@ -138,11 +138,11 @@ Phase 2  refactor!  submitter emits new names            (breaking)      ✅ mer
    |       default CondaPackages pin 0.6.* -> 0.7.*       ✅ merged (#343)
 Phase 3  feat       adopt OpenJD native chunking         (non-breaking)  ✅ complete (#353, 0.7.1)
    |       Gamma render succeeded; 0.7.1 rollout continues as of 2026-07-30
-Phase 4  refactor!  adaptor drops legacy-name support    (breaking)      🚧 this change (0.8.0)
+Phase 4  refactor!  adaptor drops legacy-name support    (breaking)      🚧 this change (1.0.0)
 ```
 
 End state by version: **0.6** — old names in the submitter, adaptor accepts
-both; **0.7** — new names in the submitter, adaptor accepts both; **0.8** —
+both; **0.7** — new names in the submitter, adaptor accepts both; **1.0** —
 new names in both submitter and adaptor.
 
 The expand/contract ordering remains important: Phase 1's adaptor rollout

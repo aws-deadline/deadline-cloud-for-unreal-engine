@@ -51,11 +51,11 @@ parameterDefinitions:
   type: STRING
   # Dynamic chunking requires an adaptor that understands the
   # dynamic_chunked_frames run_data key (ships in the same release as this
-  # template). The 0.7.* glob resolves to the latest 0.7.x in the conda
+  # template). The 1.0.* glob resolves to the latest 1.0.x in the conda
   # channel; a pre-release adaptor would silently render the full sequence
   # per chunk. Do not use this template against a fleet pinned to an older
-  # 0.7.x adaptor.
-  default: unrealengine=5.8 unrealengine-openjd=0.7.*
+  # 1.0.x adaptor.
+  default: unrealengine=5.8 unrealengine-openjd=1.0.*
   userInterface: 
    control: LINE_EDIT
    label: Conda Packages
