@@ -125,6 +125,7 @@ A smaller chunk size gives the scheduler more opportunities to balance work, but
 | Issue | Cause | Solution |
 |-------|-------|----------|
 | Every task renders the full sequence | The worker is using an adaptor version earlier than `0.7.1` | Update `unrealengine-openjd` to version `0.7.1` or later and verify `CondaPackages` or the CMF installation. |
+| Task fails immediately with an error naming rejected legacy keys | A job bundle or custom template emits `chunk_size` or `chunk_id` against a 1.0 adaptor | Regenerate the bundle or update the template to use `shots_per_task` and `task_index`. |
 | Dynamic chunking controls are missing | The standard render job preset is selected | Select `DynamicChunkingRenderJob` and verify that it uses `dynamic_chunking_render_job.yml`. |
 | Submission reports a missing or invalid `Frames` value | MRQ did not provide a usable frame range, or the submitter version is earlier than `0.7.1` | Verify the MRQ output frame range and update the submitter plugin to version `0.7.1` or later. |
 | The job uses unexpected chunk sizes | A positive target runtime allows the scheduler to adjust chunks | Set **Target Runtime Seconds** to `0` to use the default chunk size for all chunks. |

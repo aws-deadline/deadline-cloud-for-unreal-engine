@@ -889,6 +889,21 @@ class UnrealRenderStepHandler(BaseStepHandler):
             f"{UnrealRenderStepHandler.run_script.__name__} executing with args: {args} ..."
         )
 
+        legacy_keys = ", ".join(
+            f"{key}={args[key]!r}" for key in ("chunk_size", "chunk_id") if key in args
+        )
+        if legacy_keys:
+            message = (
+                f"Legacy partitioning keys found: {legacy_keys}. Rename chunk_size -> "
+                "shots_per_task and chunk_id -> task_index, then regenerate the job bundle "
+                "or custom template. For a dynamic-chunking template, the scheduler supplies "
+                "dynamic_chunked_frames; the OpenJD ChunkSize job parameter must not be "
+                "forwarded into run_data. If the current key is already present, delete the "
+                "legacy key rather than renaming it."
+            )
+            logger.error("Render Executor: Error: %s", message)
+            raise ValueError(message)
+
         asset_registry = unreal.AssetRegistryHelpers.get_asset_registry()
         asset_registry.wait_for_completion()
 
