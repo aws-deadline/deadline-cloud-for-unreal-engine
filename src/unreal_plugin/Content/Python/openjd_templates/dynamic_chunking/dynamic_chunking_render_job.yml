@@ -51,10 +51,10 @@ parameterDefinitions:
   type: STRING
   # Dynamic chunking requires an adaptor that understands the
   # dynamic_chunked_frames run_data key, available in adaptor 0.7.1 and later.
-  # This release moves the template pin to the 1.0 adaptor line. A
-  # customer-managed installation that was never upgraded or a hand-edited
-  # CondaPackages value that pins an older adaptor can lack dynamic chunking
-  # support.
+  # This template pins a 1.0.x adaptor, which accepts only the current
+  # shots_per_task and task_index partition keys. A customer-managed
+  # installation that was never upgraded or a hand-edited CondaPackages value
+  # that pins an older adaptor can lack dynamic chunking support.
   default: unrealengine=5.8 unrealengine-openjd=1.0.*
   userInterface: 
    control: LINE_EDIT

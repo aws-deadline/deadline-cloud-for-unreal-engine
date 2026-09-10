@@ -133,10 +133,10 @@ class TestDynamicChunkingTemplateIntegration:
 
     def test_dynamic_chunking_job_template_uses_current_conda_defaults(self, templates_base_path):
         """
-        Verify dynamic chunking job template uses the CondaPackages pin and
-        CondaChannels defaults for the adaptor line released alongside the templates.
-        This mirrors the 0.6.* to 0.7.* pin update when the 0.7.x adaptor line
-        became available in the channel.
+        Verify dynamic chunking job template uses the current CondaPackages pin and
+        CondaChannels defaults. Dynamic chunking requires an adaptor that understands
+        the dynamic_chunked_frames run_data key, available in 0.7.1 and later. The
+        1.0.* assertion tracks the adaptor line released alongside these templates.
         """
         # GIVEN - the dynamic chunking job template
         job_template_path = os.path.join(
@@ -147,7 +147,7 @@ class TestDynamicChunkingTemplateIntegration:
         with open(job_template_path, "r") as f:
             job_template = yaml.safe_load(f)
 
-        # THEN - CondaPackages pin should reference the 1.0.* adaptor line
+        # THEN - CondaPackages pin should track the 1.0.* adaptor line for this release
         conda_packages_param = next(
             p for p in job_template["parameterDefinitions"] if p["name"] == "CondaPackages"
         )

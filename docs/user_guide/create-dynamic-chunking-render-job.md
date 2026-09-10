@@ -13,7 +13,7 @@ Before creating a dynamically chunked render job:
 - Complete the [submitter setup](./setup-submitter.md).
 - Configure a Deadline Cloud queue and fleet that can render Unreal Engine jobs.
 - Install version `0.7.1` or later of the Unreal Engine submitter plugin.
-- Ensure workers use `unrealengine-openjd` version `0.7.1` or later. Dynamic chunking was first available in release `0.7.1`.
+- Ensure workers use `unrealengine-openjd` version `0.7.1` or later.
 
 > **Important:** The submitter and worker adaptor must both support dynamic chunking. An older adaptor can render the full MRQ sequence for every dispatched chunk instead of rendering only that chunk.
 
@@ -71,7 +71,7 @@ The template defines the OpenJD `CHUNK[INT]` task parameter used by the schedule
     | `Frames` | Effective MRQ frame range | Leave unchanged. The submitter populates this value automatically. |
     | `ChunkSize` | Default number of frames in each chunk | Set an initial chunk size. The default is `50`. |
     | `TargetRuntimeSeconds` | Desired runtime for dynamically adjusted chunks | Keep `0` to use `ChunkSize` for all chunks, or set a positive target runtime. |
-    | `CondaPackages` | Unreal Engine and adaptor packages used by the worker | Select the correct Unreal Engine version and `unrealengine-openjd` version `0.7.1` or later. |
+    | `CondaPackages` | Unreal Engine and adaptor packages used by the worker | The bundled template defaults to `unrealengine-openjd=1.0.*`. Keep that default unless using a compatible custom adaptor; dynamic chunking requires version `0.7.1` or later. |
     | `CondaChannels` | Conda channels containing the required packages | Use the defaults unless your fleet uses custom channels. |
     | `ExtraCmdArgs` | Additional Unreal Engine command-line arguments | Optional. Keep the default for standard setups. |
 
@@ -100,7 +100,7 @@ Alternatively, select `DynamicChunkingRenderJob` as the **Job Preset** for an in
     2. Set **Target Runtime Seconds**:
         - Use `0` for chunks based only on **Default Dynamic Chunk Size**.
         - Use a positive value to let the scheduler adjust later chunk sizes toward that runtime.
-    3. Update **Conda Packages** for your Unreal Engine version and `unrealengine-openjd` version `0.7.1` or later, if needed.
+    3. Keep the default `unrealengine-openjd=1.0.*` package pin unless your fleet requires a compatible custom adaptor; dynamic chunking requires version `0.7.1` or later.
 6. Choose **Render (Remote)**.
 7. Use Deadline Cloud Monitor to follow the job and inspect the frame range assigned to each task.
 
@@ -125,7 +125,6 @@ A smaller chunk size gives the scheduler more opportunities to balance work, but
 | Issue | Cause | Solution |
 |-------|-------|----------|
 | Every task renders the full sequence | The worker is using an adaptor version earlier than `0.7.1` | Update `unrealengine-openjd` to version `0.7.1` or later and verify `CondaPackages` or the CMF installation. |
-| Every task renders the full sequence or overwrites output files for a legacy partitioned job | A 1.0 adaptor no longer reads the legacy `chunk_size` and `chunk_id` run_data keys, so `task_index` is absent | Regenerate the job bundle or update custom templates and submission scripts to use `shots_per_task` and `task_index`. |
 | Dynamic chunking controls are missing | The standard render job preset is selected | Select `DynamicChunkingRenderJob` and verify that it uses `dynamic_chunking_render_job.yml`. |
 | Submission reports a missing or invalid `Frames` value | MRQ did not provide a usable frame range, or the submitter version is earlier than `0.7.1` | Verify the MRQ output frame range and update the submitter plugin to version `0.7.1` or later. |
 | The job uses unexpected chunk sizes | A positive target runtime allows the scheduler to adjust chunks | Set **Target Runtime Seconds** to `0` to use the default chunk size for all chunks. |
