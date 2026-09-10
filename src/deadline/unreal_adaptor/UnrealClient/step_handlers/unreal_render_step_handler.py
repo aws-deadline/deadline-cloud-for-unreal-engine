@@ -276,7 +276,7 @@ def _finalize_startup_insights_trace(trace_file: str) -> bool:
 
 
 def _get_task_insights_trace_file(args: dict) -> str:
-    task_label = args.get("task_index", args.get("chunk_id", "task"))
+    task_label = args.get("task_index", "task")
     trace_name = f"deadline-cloud-insights-task-{task_label}-{uuid.uuid4().hex}.utrace"
     return f"DeadlineCloud/{trace_name}"
 

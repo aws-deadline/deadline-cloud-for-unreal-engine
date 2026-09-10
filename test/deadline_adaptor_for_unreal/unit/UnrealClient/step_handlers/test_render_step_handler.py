@@ -99,6 +99,8 @@ class TestUnrealRenderStepHandler:
             log_mock.assert_called_with(
                 f"Shots in task: {[shot.outer_name for shot in enabled_shots]}"
             )
+
+
 class TestCsvCaptureHelpers:
     @pytest.mark.parametrize(
         "args, expected",
@@ -321,6 +323,21 @@ class TestExecutorProfilingLifecycle:
             trace_file = unreal_render_step_handler._get_task_insights_trace_file({"task_index": 3})
 
         expected_trace_file = "DeadlineCloud/deadline-cloud-insights-task-3-abc123.utrace"
+        assert trace_file == expected_trace_file
+
+    def test_task_insights_trace_ignores_legacy_chunk_id(self):
+        from deadline.unreal_adaptor.UnrealClient.step_handlers import (
+            unreal_render_step_handler,
+        )
+
+        with patch.object(
+            unreal_render_step_handler.uuid,
+            "uuid4",
+            return_value=SimpleNamespace(hex="abc123"),
+        ):
+            trace_file = unreal_render_step_handler._get_task_insights_trace_file({"chunk_id": 7})
+
+        expected_trace_file = "DeadlineCloud/deadline-cloud-insights-task-task-abc123.utrace"
         assert trace_file == expected_trace_file
 
     def test_completion_attempts_all_profilers_and_is_idempotent(self):

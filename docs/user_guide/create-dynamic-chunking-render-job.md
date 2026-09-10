@@ -13,7 +13,7 @@ Before creating a dynamically chunked render job:
 - Complete the [submitter setup](./setup-submitter.md).
 - Configure a Deadline Cloud queue and fleet that can render Unreal Engine jobs.
 - Install version `0.7.1` or later of the Unreal Engine submitter plugin.
-- Ensure workers use `unrealengine-openjd` version `0.7.1` or later. Dynamic chunking is first available in release `0.7.1`.
+- Ensure workers use `unrealengine-openjd` version `0.7.1` or later. Dynamic chunking was first available in release `0.7.1`.
 
 > **Important:** The submitter and worker adaptor must both support dynamic chunking. An older adaptor can render the full MRQ sequence for every dispatched chunk instead of rendering only that chunk.
 
@@ -125,6 +125,7 @@ A smaller chunk size gives the scheduler more opportunities to balance work, but
 | Issue | Cause | Solution |
 |-------|-------|----------|
 | Every task renders the full sequence | The worker is using an adaptor version earlier than `0.7.1` | Update `unrealengine-openjd` to version `0.7.1` or later and verify `CondaPackages` or the CMF installation. |
+| Every task renders the full sequence or overwrites output files for a legacy partitioned job | A 1.0 adaptor no longer reads the legacy `chunk_size` and `chunk_id` run_data keys, so `task_index` is absent | Regenerate the job bundle or update custom templates and submission scripts to use `shots_per_task` and `task_index`. |
 | Dynamic chunking controls are missing | The standard render job preset is selected | Select `DynamicChunkingRenderJob` and verify that it uses `dynamic_chunking_render_job.yml`. |
 | Submission reports a missing or invalid `Frames` value | MRQ did not provide a usable frame range, or the submitter version is earlier than `0.7.1` | Verify the MRQ output frame range and update the submitter plugin to version `0.7.1` or later. |
 | The job uses unexpected chunk sizes | A positive target runtime allows the scheduler to adjust chunks | Set **Target Runtime Seconds** to `0` to use the default chunk size for all chunks. |
