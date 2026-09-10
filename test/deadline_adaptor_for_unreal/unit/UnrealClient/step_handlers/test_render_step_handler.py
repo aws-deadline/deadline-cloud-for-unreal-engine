@@ -99,6 +99,8 @@ class TestUnrealRenderStepHandler:
             log_mock.assert_called_with(
                 f"Shots in task: {[shot.outer_name for shot in enabled_shots]}"
             )
+
+
 class TestCsvCaptureHelpers:
     @pytest.mark.parametrize(
         "args, expected",
