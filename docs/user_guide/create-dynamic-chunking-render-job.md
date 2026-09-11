@@ -71,7 +71,7 @@ The template defines the OpenJD `CHUNK[INT]` task parameter used by the schedule
     | `Frames` | Effective MRQ frame range | Leave unchanged. The submitter populates this value automatically. |
     | `ChunkSize` | Default number of frames in each chunk | Set an initial chunk size. The default is `50`. |
     | `TargetRuntimeSeconds` | Desired runtime for dynamically adjusted chunks | Keep `0` to use `ChunkSize` for all chunks, or set a positive target runtime. |
-    | `CondaPackages` | Unreal Engine and adaptor packages used by the worker | The bundled template defaults to `unrealengine-openjd=1.0.*`. Keep that default unless using a compatible custom adaptor; dynamic chunking requires version `0.7.1` or later. |
+    | `CondaPackages` | Unreal Engine and adaptor packages used by the worker | The bundled template defaults to `unrealengine-openjd=0.7.*`. Keep that default unless using a compatible custom adaptor; dynamic chunking requires version `0.7.1` or later. |
     | `CondaChannels` | Conda channels containing the required packages | Use the defaults unless your fleet uses custom channels. |
     | `ExtraCmdArgs` | Additional Unreal Engine command-line arguments | Optional. Keep the default for standard setups. |
 
@@ -100,7 +100,7 @@ Alternatively, select `DynamicChunkingRenderJob` as the **Job Preset** for an in
     2. Set **Target Runtime Seconds**:
         - Use `0` for chunks based only on **Default Dynamic Chunk Size**.
         - Use a positive value to let the scheduler adjust later chunk sizes toward that runtime.
-    3. Keep the default `unrealengine-openjd=1.0.*` package pin unless your fleet requires a compatible custom adaptor; dynamic chunking requires version `0.7.1` or later.
+    3. Keep the default `unrealengine-openjd=0.7.*` package pin unless your fleet requires a compatible custom adaptor; dynamic chunking requires version `0.7.1` or later.
 6. Choose **Render (Remote)**.
 7. Use Deadline Cloud Monitor to follow the job and inspect the frame range assigned to each task.
 

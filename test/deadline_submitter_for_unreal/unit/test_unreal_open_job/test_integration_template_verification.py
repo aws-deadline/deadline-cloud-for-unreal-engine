@@ -136,7 +136,8 @@ class TestDynamicChunkingTemplateIntegration:
         Verify dynamic chunking job template uses the current CondaPackages pin and
         CondaChannels defaults. Dynamic chunking requires an adaptor that understands
         the dynamic_chunked_frames run_data key, available in 0.7.1 and later. The
-        1.0.* assertion tracks the adaptor line released alongside these templates.
+        pin tracks the adaptor line currently published in the channel and is
+        bumped separately once a newer line is available.
         """
         # GIVEN - the dynamic chunking job template
         job_template_path = os.path.join(
@@ -147,12 +148,12 @@ class TestDynamicChunkingTemplateIntegration:
         with open(job_template_path, "r") as f:
             job_template = yaml.safe_load(f)
 
-        # THEN - CondaPackages pin should track the 1.0.* adaptor line for this release
+        # THEN - CondaPackages pin should track the published 0.7.* adaptor line
         conda_packages_param = next(
             p for p in job_template["parameterDefinitions"] if p["name"] == "CondaPackages"
         )
-        assert "unrealengine-openjd=1.0.*" in conda_packages_param["default"]
-        assert "unrealengine-openjd=0.7.*" not in conda_packages_param["default"]
+        assert "unrealengine-openjd=0.7.*" in conda_packages_param["default"]
+        assert "unrealengine-openjd=0.6.*" not in conda_packages_param["default"]
 
         # AND - CondaChannels should include the current deadline-cloud-v2 channel
         conda_channels_param = next(

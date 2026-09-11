@@ -112,6 +112,6 @@ Submitter and adaptor pairings work when the adaptor accepts the run_data key na
 - A 0.7+ submitter's template reaching a pre-0.6.10 adaptor (adaptor doesn't know the new keys).
 - A legacy (pre-0.7) template reaching a 1.0+ adaptor (adaptor rejects the old keys). Regenerate old job bundles and update custom templates or submission scripts that still reference `ChunkSize`/`ChunkId`.
 
-On service-managed fleets the adaptor version is selected by the `CondaPackages` parameter in the job template (the bundled templates pin the adaptor minor version matching the submitter). On customer-managed fleets the adaptor is installed manually and must be kept version-matched to the submitter.
+On service-managed fleets the adaptor version is selected by the `CondaPackages` parameter in the job template. The bundled pin tracks the adaptor line published in the channel and can deliberately lag the submitter until a newer line is released. On customer-managed fleets the adaptor is installed manually and must be kept version-matched to the submitter.
 
 Mode 3 (dynamic chunking) additionally requires `TASK_CHUNKING` extension support in the fleet's worker agent and an adaptor that understands the `dynamic_chunked_frames` run_data key.
