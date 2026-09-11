@@ -1,3 +1,7 @@
+## 1.0.0 (2026-09-11)
+
+### BREAKING CHANGES
+* The Unreal adaptor no longer supports the legacy `chunk_size` and `chunk_id` run-data keys. If you have legacy job templates or saved job bundles that use these keys, you must update them to use `shots_per_task` and `task_index` instead. (#384)
 ## 0.7.2 (2026-08-26)
 
 ### Features
