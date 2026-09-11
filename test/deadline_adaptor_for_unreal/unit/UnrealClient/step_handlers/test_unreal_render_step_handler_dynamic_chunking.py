@@ -236,16 +236,22 @@ class TestDynamicChunkingPrecedence:
         assert patches["executor"].memreportEnabled is False
 
     @pytest.mark.parametrize(
-        "args, legacy_key_value",
+        "args, legacy_key_value, expected_replacements",
         [
-            ({"chunk_size": 1}, "chunk_size=1"),
-            ({"chunk_id": 1}, "chunk_id=1"),
-            ({"chunk_size": 4, "task_index": 1}, "chunk_size=4"),
-            ({"chunk_id": 1, "shots_per_task": 4}, "chunk_id=1"),
-            ({"chunk_size": 4, "chunk_id": 1}, "chunk_size=4, chunk_id=1"),
+            ({"chunk_size": 1}, "chunk_size=1", ("chunk_size -> shots_per_task",)),
+            ({"chunk_id": 1}, "chunk_id=1", ("chunk_id -> task_index",)),
+            ({"chunk_size": 4, "task_index": 1}, "chunk_size=4", ("chunk_size -> shots_per_task",)),
+            ({"chunk_id": 1, "shots_per_task": 4}, "chunk_id=1", ("chunk_id -> task_index",)),
+            (
+                {"chunk_size": 4, "chunk_id": 1},
+                "chunk_size=4, chunk_id=1",
+                ("chunk_size -> shots_per_task", "chunk_id -> task_index"),
+            ),
         ],
     )
-    def test_legacy_partitioning_keys_raise(self, run_script_env, args, legacy_key_value):
+    def test_legacy_partitioning_keys_raise(
+        self, run_script_env, args, legacy_key_value, expected_replacements
+    ):
         """Legacy partitioning keys must not silently disable task partitioning."""
         from deadline.unreal_adaptor.UnrealClient.step_handlers import (
             unreal_render_step_handler as handler_module,
@@ -258,9 +264,21 @@ class TestDynamicChunkingPrecedence:
 
         message = str(exc_info.value)
         assert legacy_key_value in message
-        assert "shots_per_task" in message
-        assert "task_index" in message
+        for expected_replacement in expected_replacements:
+            assert expected_replacement in message
         log_error.assert_called_once_with("Render Executor: Error: %s", message)
+
+    def test_legacy_chunk_id_with_shots_per_task_has_no_delete_guidance(self, run_script_env):
+        """A mixed legacy/current pair must not recommend deleting the legacy key."""
+        handler, _, _, _ = run_script_env
+
+        with pytest.raises(ValueError) as exc_info:
+            handler.run_script({"chunk_id": 1, "shots_per_task": 4})
+
+        message = str(exc_info.value)
+        assert "chunk_id -> task_index" in message
+        assert "delete the" not in message
+        assert "chunk_size" not in message
 
     def test_legacy_partitioning_keys_with_current_replacements_use_current_keys(
         self, run_script_env
@@ -303,7 +321,8 @@ class TestDynamicChunkingPrecedence:
         message = str(exc_info.value)
         assert "chunk_size=50" in message
         assert "dynamic_chunked_frames" in message
-        assert "must not be forwarded into run_data" in message
+        assert "OpenJD ChunkSize" in message
+        assert "run_data" in message
 
 
 class TestStaticMethodBehavior:

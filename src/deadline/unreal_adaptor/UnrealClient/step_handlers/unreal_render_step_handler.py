@@ -907,12 +907,9 @@ class UnrealRenderStepHandler(BaseStepHandler):
             )
             message = (
                 f"Legacy partitioning keys found: {legacy_keys}. Required replacements: "
-                f"{replacements}. Rename chunk_size -> "
-                "shots_per_task and chunk_id -> task_index, then regenerate the job bundle "
-                "or custom template. For a dynamic-chunking template, the scheduler supplies "
-                "dynamic_chunked_frames; the OpenJD ChunkSize job parameter must not be "
-                "forwarded into run_data. If the current key is already present, delete the "
-                "legacy key rather than renaming it."
+                f"{replacements}. Regenerate the job bundle or custom template. A dynamic-chunking "
+                "template must not forward the OpenJD ChunkSize parameter into run_data; the "
+                "scheduler supplies dynamic_chunked_frames."
             )
             logger.error("Render Executor: Error: %s", message)
             raise ValueError(message)
