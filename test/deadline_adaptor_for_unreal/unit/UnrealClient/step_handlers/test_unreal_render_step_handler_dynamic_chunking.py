@@ -262,6 +262,26 @@ class TestDynamicChunkingPrecedence:
         assert "task_index" in message
         log_error.assert_called_once_with("Render Executor: Error: %s", message)
 
+    def test_legacy_partitioning_keys_with_current_replacements_use_current_keys(
+        self, run_script_env
+    ):
+        """Duplicate legacy keys do not prevent current partitioning keys from taking effect."""
+        handler, job, _, patches = run_script_env
+
+        handler.run_script(
+            {
+                "chunk_size": 99,
+                "chunk_id": 99,
+                "shots_per_task": 3,
+                "task_index": 1,
+            }
+        )
+
+        patches["enable_shots"].assert_called_once_with(
+            render_job=job, shots_per_task=3, task_index=1
+        )
+        patches["apply_filename"].assert_called_once_with(job, 1)
+
     def test_dynamic_chunked_frames_without_legacy_keys_does_not_raise(self, run_script_env):
         """Dynamic chunking succeeds when its OpenJD ChunkSize is not forwarded into run_data."""
         handler, job, output_settings, patches = run_script_env
