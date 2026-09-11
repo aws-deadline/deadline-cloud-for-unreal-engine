@@ -181,21 +181,20 @@ try {
             $workerState = Join-Path $SourceRoot "worker-agent-state"
             Remove-Item $workerState -Recurse -Force -ErrorAction SilentlyContinue
 
+            $workerTestPaths = @("test/end_to_end/test_worker_agent.py")
+            if ($env:RUN_PERFORCE_E2E -eq "true") {
+                $workerTestPaths += "test/end_to_end/test_perforce_job.py"
+            }
+
             Invoke-Checked `
                 -Description "CMF worker-agent tests for UE $version" `
                 -FilePath "hatch" `
-                -ArgumentList @(
-                    "run",
-                    "e2e-ci:worker",
-                    "--",
-                    "test/end_to_end/test_worker_agent.py",
+                -ArgumentList (@("run", "e2e-ci:worker", "--") + $workerTestPaths + @(
                     "--ueversion=$version",
-                    "--farm-id",
-                    $env:FARM_ID,
-                    "--queue-id",
-                    $env:UNREAL_WORKER_QUEUE_ID,
+                    "--farm-id", $env:FARM_ID,
+                    "--queue-id", $env:UNREAL_WORKER_QUEUE_ID,
                     "-s"
-                )
+                ))
         }
 
         Write-Host "=== END UE $version $($Suite.ToUpperInvariant()) ==="
