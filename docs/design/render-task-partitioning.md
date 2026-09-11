@@ -105,14 +105,13 @@ The submitter (Unreal plugin) and the adaptor (worker-side `unrealengine-openjd`
 |---|---|---|
 | 0.6.x (≥ 0.6.10) | legacy names (`chunk_size`/`chunk_id`) | **both** legacy and new |
 | 0.7.x | new names (`shots_per_task`/`task_index`) | **both** legacy and new |
-| 0.8.x | new names | new names only |
+| 1.0.x | new names | new names only |
 
-Any submitter/adaptor pairing within one minor version of each other keeps working, provided a 0.6.x adaptor is at least 0.6.10. Because run_data fields are optional in the adaptor's schema (only `handler` is required), a mismatched pairing fails **silently with wrong output** — the task renders the full sequence instead of its partition — rather than loudly. The two mismatches to avoid:
+Submitter and adaptor pairings work when the adaptor accepts the run_data key names the submitter emits: a 0.7.x or later submitter emits the current keys and works with a 0.6.10 or later adaptor, and a 1.0 adaptor requires a 0.7.0 or later submitter. Because run_data fields are optional in the adaptor's schema (only `handler` is required), a 0.7+ submitter reaching a pre-0.6.10 adaptor fails **silently with wrong output** — the task renders the full sequence instead of its partition. A legacy template reaching a 1.0+ adaptor instead fails loudly and identifies the rejected keys. The two mismatches to avoid:
 
 - A 0.7+ submitter's template reaching a pre-0.6.10 adaptor (adaptor doesn't know the new keys).
-- A legacy (pre-0.7) template reaching a 0.8+ adaptor (adaptor no longer accepts the old keys). Regenerate old job bundles and update custom templates or submission scripts that still reference `ChunkSize`/`ChunkId`.
+- A legacy (pre-0.7) template reaching a 1.0+ adaptor (adaptor rejects the old keys). Regenerate old job bundles and update custom templates or submission scripts that still reference `ChunkSize`/`ChunkId`.
 
-On service-managed fleets the adaptor version is selected by the `CondaPackages` parameter in the job template (the bundled templates pin the adaptor minor version matching the submitter). On customer-managed fleets the adaptor is installed manually and must be kept version-matched to the submitter.
+On service-managed fleets the adaptor version is selected by the `CondaPackages` parameter in the job template. The bundled pin tracks the adaptor line published in the channel and can deliberately lag the submitter until a newer line is released. On customer-managed fleets the adaptor is installed manually and must be kept version-matched to the submitter.
 
 Mode 3 (dynamic chunking) additionally requires `TASK_CHUNKING` extension support in the fleet's worker agent and an adaptor that understands the `dynamic_chunked_frames` run_data key.
-

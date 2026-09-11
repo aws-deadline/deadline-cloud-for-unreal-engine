@@ -2,7 +2,7 @@
 
 import sys
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 unreal_mock = MagicMock()
 unreal_mock.log = MagicMock()
@@ -234,6 +234,95 @@ class TestDynamicChunkingPrecedence:
         patches["get_frame_range"].assert_not_called()
         assert patches["executor"].csvCaptureFrames == 0
         assert patches["executor"].memreportEnabled is False
+
+    @pytest.mark.parametrize(
+        "args, legacy_key_value, expected_replacements",
+        [
+            ({"chunk_size": 1}, "chunk_size=1", ("chunk_size -> shots_per_task",)),
+            ({"chunk_id": 1}, "chunk_id=1", ("chunk_id -> task_index",)),
+            ({"chunk_size": 4, "task_index": 1}, "chunk_size=4", ("chunk_size -> shots_per_task",)),
+            ({"chunk_id": 1, "shots_per_task": 4}, "chunk_id=1", ("chunk_id -> task_index",)),
+            (
+                {"chunk_size": 4, "chunk_id": 1},
+                "chunk_size=4, chunk_id=1",
+                ("chunk_size -> shots_per_task", "chunk_id -> task_index"),
+            ),
+        ],
+    )
+    def test_legacy_partitioning_keys_raise(
+        self, run_script_env, args, legacy_key_value, expected_replacements
+    ):
+        """Legacy partitioning keys must not silently disable task partitioning."""
+        from deadline.unreal_adaptor.UnrealClient.step_handlers import (
+            unreal_render_step_handler as handler_module,
+        )
+
+        handler, _, _, _ = run_script_env
+        with patch.object(handler_module.logger, "error") as log_error:
+            with pytest.raises(ValueError) as exc_info:
+                handler.run_script(args)
+
+        message = str(exc_info.value)
+        assert legacy_key_value in message
+        for expected_replacement in expected_replacements:
+            assert expected_replacement in message
+        log_error.assert_called_once_with("Render Executor: Error: %s", message)
+
+    def test_legacy_chunk_id_with_shots_per_task_has_no_delete_guidance(self, run_script_env):
+        """A mixed legacy/current pair must not recommend deleting the legacy key."""
+        handler, _, _, _ = run_script_env
+
+        with pytest.raises(ValueError) as exc_info:
+            handler.run_script({"chunk_id": 1, "shots_per_task": 4})
+
+        message = str(exc_info.value)
+        assert "chunk_id -> task_index" in message
+        assert "delete the" not in message
+        assert "chunk_size" not in message
+
+    def test_legacy_partitioning_keys_with_current_replacements_use_current_keys(
+        self, run_script_env
+    ):
+        """Duplicate legacy keys do not prevent current partitioning keys from taking effect."""
+        handler, job, _, patches = run_script_env
+
+        handler.run_script(
+            {
+                "chunk_size": 99,
+                "chunk_id": 99,
+                "shots_per_task": 3,
+                "task_index": 1,
+            }
+        )
+
+        patches["enable_shots"].assert_called_once_with(
+            render_job=job, shots_per_task=3, task_index=1
+        )
+        patches["apply_filename"].assert_called_once_with(job, 1)
+
+    def test_dynamic_chunked_frames_without_legacy_keys_does_not_raise(self, run_script_env):
+        """Dynamic chunking succeeds when its OpenJD ChunkSize is not forwarded into run_data."""
+        handler, job, output_settings, patches = run_script_env
+
+        result = handler.run_script({"dynamic_chunked_frames": "1-10"})
+
+        assert result is True
+        assert output_settings.custom_start_frame == 1
+        assert output_settings.custom_end_frame == 11
+        patches["apply_filename"].assert_called_once_with(job, 1)
+
+    def test_dynamic_chunking_with_chunk_size_raises(self, unreal_render_step_handler):
+        """Dynamic chunking must not forward its OpenJD ChunkSize into run_data."""
+        with pytest.raises(ValueError) as exc_info:
+            unreal_render_step_handler.run_script(
+                {"dynamic_chunked_frames": "1-10", "chunk_size": 50}
+            )
+
+        message = str(exc_info.value)
+        assert "chunk_size=50" in message
+        assert "dynamic_chunked_frames" in message
+        assert "OpenJD ChunkSize" in message
+        assert "run_data" in message
 
 
 class TestStaticMethodBehavior:

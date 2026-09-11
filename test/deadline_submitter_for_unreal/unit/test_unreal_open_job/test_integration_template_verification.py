@@ -135,7 +135,9 @@ class TestDynamicChunkingTemplateIntegration:
         """
         Verify dynamic chunking job template uses the current CondaPackages pin and
         CondaChannels defaults. Dynamic chunking requires an adaptor that understands
-        the dynamic_chunked_frames run_data key, so the pin must be at least 0.7.*.
+        the dynamic_chunked_frames run_data key, available in 0.7.1 and later. The
+        pin tracks the adaptor line currently published in the channel and is
+        bumped separately once a newer line is available.
         """
         # GIVEN - the dynamic chunking job template
         job_template_path = os.path.join(
@@ -146,7 +148,7 @@ class TestDynamicChunkingTemplateIntegration:
         with open(job_template_path, "r") as f:
             job_template = yaml.safe_load(f)
 
-        # THEN - CondaPackages pin should reference the 0.7.* adaptor line
+        # THEN - CondaPackages pin should track the published 0.7.* adaptor line
         conda_packages_param = next(
             p for p in job_template["parameterDefinitions"] if p["name"] == "CondaPackages"
         )

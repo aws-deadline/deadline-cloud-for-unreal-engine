@@ -101,60 +101,6 @@ class TestUnrealRenderStepHandler:
             )
 
 
-class TestApplyParamAliases:
-    """Backwards-compatible run_data key aliasing.
-
-    The adaptor's downstream logic uses the new keys (shots_per_task/task_index).
-    For backwards compatibility during the parameter rename it also accepts the
-    legacy keys (chunk_size/chunk_id), normalizing them onto the new keys. The
-    new keys take precedence when both are present.
-    """
-
-    def test_legacy_keys_aliased_to_new(self, unreal_render_step_handler):
-        args = {"handler": "render", "chunk_size": 5, "chunk_id": 2}
-        unreal_render_step_handler._apply_param_aliases(args)
-        assert args["shots_per_task"] == 5
-        assert args["task_index"] == 2
-
-    def test_new_keys_untouched_when_no_legacy_keys(self, unreal_render_step_handler):
-        args = {"handler": "render", "shots_per_task": 7, "task_index": 3}
-        unreal_render_step_handler._apply_param_aliases(args)
-        assert args["shots_per_task"] == 7
-        assert args["task_index"] == 3
-        assert "chunk_size" not in args
-        assert "chunk_id" not in args
-
-    def test_new_keys_take_precedence_over_legacy(self, unreal_render_step_handler):
-        # If both are present (e.g. a hand-edited template), the new keys win.
-        args = {
-            "handler": "render",
-            "shots_per_task": 5,
-            "task_index": 2,
-            "chunk_size": 99,
-            "chunk_id": 88,
-        }
-        unreal_render_step_handler._apply_param_aliases(args)
-        assert args["shots_per_task"] == 5
-        assert args["task_index"] == 2
-
-    def test_partial_legacy_keys_each_aliased_independently(self, unreal_render_step_handler):
-        # Only one legacy key present — it should be aliased, the new key that
-        # is already present left as-is.
-        args = {"handler": "render", "chunk_size": 4, "task_index": 1}
-        unreal_render_step_handler._apply_param_aliases(args)
-        assert args["shots_per_task"] == 4
-        assert args["task_index"] == 1
-
-    def test_no_partitioning_keys_is_noop(self, unreal_render_step_handler):
-        args = {"handler": "render"}
-        unreal_render_step_handler._apply_param_aliases(args)
-        assert args == {"handler": "render"}
-
-    def test_returns_same_dict(self, unreal_render_step_handler):
-        args = {"handler": "render", "chunk_size": 1}
-        assert unreal_render_step_handler._apply_param_aliases(args) is args
-
-
 class TestCsvCaptureHelpers:
     @pytest.mark.parametrize(
         "args, expected",
@@ -377,6 +323,21 @@ class TestExecutorProfilingLifecycle:
             trace_file = unreal_render_step_handler._get_task_insights_trace_file({"task_index": 3})
 
         expected_trace_file = "DeadlineCloud/deadline-cloud-insights-task-3-abc123.utrace"
+        assert trace_file == expected_trace_file
+
+    def test_task_insights_trace_ignores_legacy_chunk_id(self):
+        from deadline.unreal_adaptor.UnrealClient.step_handlers import (
+            unreal_render_step_handler,
+        )
+
+        with patch.object(
+            unreal_render_step_handler.uuid,
+            "uuid4",
+            return_value=SimpleNamespace(hex="abc123"),
+        ):
+            trace_file = unreal_render_step_handler._get_task_insights_trace_file({"chunk_id": 7})
+
+        expected_trace_file = "DeadlineCloud/deadline-cloud-insights-task-task-abc123.utrace"
         assert trace_file == expected_trace_file
 
     def test_completion_attempts_all_profilers_and_is_idempotent(self):

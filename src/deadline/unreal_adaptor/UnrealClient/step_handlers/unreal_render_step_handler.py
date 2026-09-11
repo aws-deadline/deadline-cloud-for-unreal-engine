@@ -276,7 +276,7 @@ def _finalize_startup_insights_trace(trace_file: str) -> bool:
 
 
 def _get_task_insights_trace_file(args: dict) -> str:
-    task_label = args.get("task_index", args.get("chunk_id", "task"))
+    task_label = args.get("task_index", "task")
     trace_name = f"deadline-cloud-insights-task-{task_label}-{uuid.uuid4().hex}.utrace"
     return f"DeadlineCloud/{trace_name}"
 
@@ -877,35 +877,6 @@ class UnrealRenderStepHandler(BaseStepHandler):
             "Expected range format '<start>-<end>' (e.g., '1-10', '5-5', '-100-100')"
         )
 
-    @staticmethod
-    def _apply_param_aliases(args: dict) -> dict:
-        """Accept both the legacy and new run_data keys for the render
-        partitioning parameters, for backwards compatibility during the
-        parameter rename:
-
-            chunk_size -> shots_per_task
-            chunk_id   -> task_index
-
-        The names are being changed on the submitter side to avoid colliding
-        with OpenJD's own "ChunkSize" task-chunking term. This adaptor accepts
-        both so it can run jobs from an older submitter (legacy keys) and a
-        newer submitter (new keys) alike.
-
-        The adaptor's own downstream logic uses the NEW keys; this normalizes
-        the legacy keys onto the new ones in place. The new keys take
-        precedence when both are present. Once older submitters are no longer
-        in use, this aliasing (and the legacy keys in run_data.schema.json)
-        can be removed without touching the rest of the adaptor.
-
-        :param args: run_data arguments (mutated in place)
-        :return: the same args dict, for convenience
-        """
-        if "chunk_size" in args and "shots_per_task" not in args:
-            args["shots_per_task"] = args["chunk_size"]
-        if "chunk_id" in args and "task_index" not in args:
-            args["task_index"] = args["chunk_id"]
-        return args
-
     def run_script(self, args: dict) -> bool:
         """
         Create the unreal.MoviePipelineQueue object and render it with the render executor
@@ -918,7 +889,30 @@ class UnrealRenderStepHandler(BaseStepHandler):
             f"{UnrealRenderStepHandler.run_script.__name__} executing with args: {args} ..."
         )
 
-        UnrealRenderStepHandler._apply_param_aliases(args)
+        missing_replacements = [
+            (legacy_key, replacement_key)
+            for legacy_key, replacement_key in (
+                ("chunk_size", "shots_per_task"),
+                ("chunk_id", "task_index"),
+            )
+            if legacy_key in args and replacement_key not in args
+        ]
+        if missing_replacements:
+            legacy_keys = ", ".join(
+                f"{legacy_key}={args[legacy_key]!r}" for legacy_key, _ in missing_replacements
+            )
+            replacements = ", ".join(
+                f"{legacy_key} -> {replacement_key}"
+                for legacy_key, replacement_key in missing_replacements
+            )
+            message = (
+                f"Legacy partitioning keys found: {legacy_keys}. Required replacements: "
+                f"{replacements}. Regenerate the job bundle or custom template. A dynamic-chunking "
+                "template must not forward the OpenJD ChunkSize parameter into run_data; the "
+                "scheduler supplies dynamic_chunked_frames."
+            )
+            logger.error("Render Executor: Error: %s", message)
+            raise ValueError(message)
 
         asset_registry = unreal.AssetRegistryHelpers.get_asset_registry()
         asset_registry.wait_for_completion()
