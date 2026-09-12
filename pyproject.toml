@@ -166,9 +166,9 @@ source = [
 show_missing = true
 fail_under = 65
 [tool.semantic_release]
-# Can be removed or set to true once we are v1
-major_on_zero = false
+# Keep both overrides: 0.x release and patch_.* branches must not force published 1.0.0.
 allow_zero_version = true
+major_on_zero = false
 tag_format = "{version}"
 
 [tool.semantic_release.commit_parser_options]
@@ -184,10 +184,9 @@ allowed_tags = [
     "refactor",
     "test",
 ]
-minor_tags = []
+minor_tags = ["feat"]
 patch_tags = [
   "chore",
-  "feat",
   "fix",
   "refactor",
   "perf",

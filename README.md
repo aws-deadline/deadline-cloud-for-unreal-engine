@@ -54,13 +54,11 @@ The Unreal Engine and adaptor must be manually installed on worker hosts of Cust
 
 ## Versioning
 
-This package's version follows [Semantic Versioning 2.0](https://semver.org/), but is still considered to be in its
-initial development, thus backwards incompatible versions are denoted by minor version bumps. To help illustrate how
-versions will increment during this initial development stage, they are described below:
+This package's version follows [Semantic Versioning 2.0](https://semver.org/). Versions increment as follows:
 
-1. The MAJOR version is currently 0, indicating initial development.
-2. The MINOR version is currently incremented when backwards incompatible changes are introduced to the public API.
-3. The PATCH version is currently incremented when bug fixes or backwards compatible changes are introduced to the public API.
+1. The MAJOR version is incremented when backwards incompatible changes are introduced to the public API.
+2. The MINOR version is incremented when new features are introduced.
+3. The PATCH version is incremented when bug fixes or backwards compatible changes are introduced to the public API.
 
 ## Security
 
