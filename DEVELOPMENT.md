@@ -35,6 +35,16 @@ End to end tests validate a more complete render job workflow than our unit test
 hatch run e2e -s
 ```
 
+On a persistent development CMF host, use its installed worker service so jobs run as the
+configured worker user:
+
+```powershell
+hatch run e2e -s --use-installed-worker
+```
+
+This stops `DeadlineWorker` while updating worker packages, then restarts it before the
+worker tests. CI does not set this option and continues to launch an isolated worker subprocess.
+
 ### Run linting
 
 ```bash
