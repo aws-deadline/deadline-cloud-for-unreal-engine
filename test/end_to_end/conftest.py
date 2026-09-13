@@ -1941,6 +1941,12 @@ def deadline_worker_agent(
     )
     logger.info(f"Using agent at: {agent_path}")
 
+    if sys.platform == "win32":
+        openjd_data_dir = os.path.join(
+            os.environ.get("PROGRAMDATA", r"C:\ProgramData"), "Amazon", "OpenJD"
+        )
+        os.makedirs(openjd_data_dir, exist_ok=True)
+
     # Create a log file for the worker agent
     log_dir = os.path.join(os.getcwd(), "logs")
     os.makedirs(log_dir, exist_ok=True)
