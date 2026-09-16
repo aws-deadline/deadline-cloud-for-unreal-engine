@@ -170,7 +170,7 @@ try {
                 "UNREAL_WORKER_FLEET_ID"
             )) {
                 if (-not (Get-Item "Env:\$requiredVariable" -ErrorAction SilentlyContinue).Value) {
-                    throw "$requiredVariable is required for CMF worker-agent tests"
+                    throw "$requiredVariable is required for end-to-end tests"
                 }
             }
 
@@ -182,13 +182,13 @@ try {
             Remove-Item $workerState -Recurse -Force -ErrorAction SilentlyContinue
 
             Invoke-Checked `
-                -Description "CMF worker-agent tests for UE $version" `
+                -Description "End-to-end tests for UE $version" `
                 -FilePath "hatch" `
                 -ArgumentList @(
                     "run",
-                    "e2e-ci:worker",
+                    "e2e-ci:e2e",
                     "--",
-                    "test/end_to_end/test_worker_agent.py",
+                    "test/end_to_end",
                     "--ueversion=$version",
                     "--farm-id",
                     $env:FARM_ID,
