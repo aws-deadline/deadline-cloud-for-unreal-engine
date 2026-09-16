@@ -30,17 +30,27 @@ class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelinePythonHostExe
             self.on_executor_finished_impl()
             return
 
+        jobs_to_submit = [
+            job
+            for job in pipeline_queue.get_jobs()
+            if job.enabled and any(shot.enabled for shot in job.shot_info)
+        ]
+        if not jobs_to_submit:
+            logger.info("No enabled jobs with enabled shots to submit.")
+            self.on_executor_finished_impl()
+            return
+
         if not self.check_dirty_packages():
             return
 
-        if not self.check_maps(pipeline_queue):
+        if not self.check_maps(jobs_to_submit):
             return
 
         self.pipeline_queue = pipeline_queue
 
         unreal_submitter = UnrealMrqJobSubmitter(silent_mode=unreal.SystemLibrary.is_unattended())
 
-        for job in self.pipeline_queue.get_jobs():
+        for job in jobs_to_submit:
             logger.info(f"Submitting Job `{job.job_name}` to Deadline Cloud...")
             unreal_submitter.add_job(job)
 
@@ -73,10 +83,8 @@ class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelinePythonHostExe
                 return False
         return True
 
-    def check_maps(self, pipeline_queue) -> bool:
-        has_valid_map = unreal.MoviePipelineEditorLibrary.is_map_valid_for_remote_render(
-            pipeline_queue.get_jobs()
-        )
+    def check_maps(self, jobs) -> bool:
+        has_valid_map = unreal.MoviePipelineEditorLibrary.is_map_valid_for_remote_render(jobs)
         if not has_valid_map:
             message = (
                 "One or more jobs in the queue have an unsaved map as "
