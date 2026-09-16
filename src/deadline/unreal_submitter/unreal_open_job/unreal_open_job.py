@@ -313,10 +313,15 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         self._steps: list[UnrealOpenJobStep] = steps or []
         self._environments: list[UnrealOpenJobEnvironment] = environments or []
 
-        # Auto-inject Marketplace plugins installer if marketplace plugins exist
-        # and it's not already in the environment list
-        if UnrealOpenJob.get_marketplace_plugins_dir() and not any(
-            isinstance(e, InstallMarketplacePluginsEnvironment) for e in self._environments
+        # Auto-inject Marketplace plugins installer if Marketplace plugins exist,
+        # plugin handling was not disabled for this job, and it is not already
+        # in the environment list.
+        if (
+            not self._plugins_ignored()
+            and UnrealOpenJob.get_marketplace_plugins_dir()
+            and not any(
+                isinstance(e, InstallMarketplacePluginsEnvironment) for e in self._environments
+            )
         ):
             self._environments.insert(0, InstallMarketplacePluginsEnvironment())
 
@@ -493,6 +498,11 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             ),
             None,
         )
+
+    def _plugins_ignored(self) -> bool:
+        """Return whether automatic project and Marketplace plugin handling is disabled."""
+        param = self._find_extra_parameter(OpenJobParameterNames.IGNORE_PLUGINS, "STRING")
+        return param is not None and str(param.value).strip().lower() == "true"
 
     def _build_parameter_values(self) -> list:
         """
@@ -1576,8 +1586,12 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             job_parameter_value=common.get_project_file_path(),
         )
 
-        # Set the Marketplace plugins dir so the worker can find and install them
-        marketplace_dir = UnrealOpenJob.get_marketplace_plugins_dir()
+        # Set the Marketplace plugins dir so the worker can find and install them.
+        # Clear it when plugin handling is disabled so a user-provided installer
+        # environment also becomes a no-op.
+        marketplace_dir = (
+            "" if self._plugins_ignored() else UnrealOpenJob.get_marketplace_plugins_dir()
+        )
         unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
             job_parameter_values=unfilled_parameter_values,
             job_parameter_name=OpenJobParameterNames.MARKETPLACE_PLUGINS_DIR,
@@ -1872,9 +1886,10 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             asset_references.input_directories.update(
                 RenderUnrealOpenJob.get_required_project_directories()
             )
-            plugins = UnrealOpenJob.get_plugins_references()
-            if plugins:
-                asset_references.input_directories.update(plugins.input_directories)
+            if not self._plugins_ignored():
+                plugins = UnrealOpenJob.get_plugins_references()
+                if plugins:
+                    asset_references.input_directories.update(plugins.input_directories)
 
         # add attachments from preset overrides
         if self.mrq_job:
