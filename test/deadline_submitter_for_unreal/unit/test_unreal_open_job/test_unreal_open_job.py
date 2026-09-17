@@ -135,7 +135,8 @@ class TestUnrealOpenJob:
         "value, expected",
         [
             ("true", True),
-            ("TRUE", True),
+            ("TRUE", False),
+            (" true ", False),
             ("false", False),
             ("", False),
             (None, False),
@@ -478,6 +479,68 @@ class TestUnrealOpenJob:
 
 
 class TestRenderUnrealOpenJob:
+
+    @pytest.mark.parametrize(
+        "initial_ignore_plugins, override_ignore_plugins, has_auto_environment, expected_environment_count",
+        [
+            ("true", "false", False, 1),
+            ("false", "true", True, 0),
+        ],
+    )
+    def test_mrq_parameter_override_syncs_marketplace_environment(
+        self,
+        monkeypatch,
+        initial_ignore_plugins,
+        override_ignore_plugins,
+        has_auto_environment,
+        expected_environment_count,
+    ):
+        from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment import (
+            InstallMarketplacePluginsEnvironment,
+        )
+
+        monkeypatch.setattr(
+            UnrealOpenJob,
+            "get_marketplace_plugins_dir",
+            staticmethod(lambda: "C:/Engine/Plugins/Marketplace"),
+        )
+        monkeypatch.setattr(
+            InstallMarketplacePluginsEnvironment, "__init__", lambda self, **kwargs: None
+        )
+
+        auto_environment = (
+            object.__new__(InstallMarketplacePluginsEnvironment) if has_auto_environment else None
+        )
+        render_job = RenderUnrealOpenJob.__new__(RenderUnrealOpenJob)
+        render_job._extra_parameters = [
+            UnrealOpenJobParameterDefinition(
+                OpenJobParameterNames.IGNORE_PLUGINS,
+                "STRING",
+                initial_ignore_plugins,
+            )
+        ]
+        render_job._steps = []
+        render_job._environments = [auto_environment] if auto_environment else []
+        render_job._auto_injected_marketplace_plugins_environment = auto_environment
+        render_job._name = "Job"
+        mrq_job = SimpleNamespace(
+            job_template_overrides=SimpleNamespace(
+                parameters=[
+                    SimpleNamespace(
+                        name=OpenJobParameterNames.IGNORE_PLUGINS,
+                        type=SimpleNamespace(name="STRING"),
+                        value=override_ignore_plugins,
+                    )
+                ],
+                environments_overrides=[],
+            ),
+            preset_overrides=SimpleNamespace(job_shared_settings=None),
+            job_name="MRQ Job",
+        )
+
+        render_job.mrq_job = mrq_job
+
+        assert len(render_job._environments) == expected_environment_count
 
     @pytest.mark.parametrize(
         "environment, strategy",
@@ -855,6 +918,29 @@ class TestRenderUnrealOpenJob:
         )
         assert count == 1
 
+    def test_sync_marketplace_env_removes_only_auto_injected_environment(self):
+        from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment import (
+            InstallMarketplacePluginsEnvironment,
+        )
+
+        auto_injected_environment = object.__new__(InstallMarketplacePluginsEnvironment)
+        user_supplied_environment = object.__new__(InstallMarketplacePluginsEnvironment)
+        job = UnrealOpenJob.__new__(UnrealOpenJob)
+        job._extra_parameters = [
+            UnrealOpenJobParameterDefinition(
+                OpenJobParameterNames.IGNORE_PLUGINS,
+                "STRING",
+                "true",
+            )
+        ]
+        job._environments = [auto_injected_environment, user_supplied_environment]
+        job._auto_injected_marketplace_plugins_environment = auto_injected_environment
+
+        job._sync_marketplace_plugins_environment()
+
+        assert job._environments == [user_supplied_environment]
+        assert job._auto_injected_marketplace_plugins_environment is None
+
     def test_profiling_settings_from_u_deadline_cloud_profiling_settings(self):
         class FakeProfilingStruct:
             def get_editor_property(self, name):
@@ -1040,6 +1126,11 @@ class TestRenderUnrealOpenJob:
         )
         assert ignore_plugins is not None
         ignore_plugins.value = "true"
+        marketplace_plugins_dir = render_job._find_extra_parameter(
+            OpenJobParameterNames.MARKETPLACE_PLUGINS_DIR, "PATH"
+        )
+        assert marketplace_plugins_dir is not None
+        marketplace_plugins_dir.value = "/Custom/Marketplace"
 
         ignored_parameter_values = render_job._build_parameter_values()
         assert {p["name"]: p["value"] for p in ignored_parameter_values}[

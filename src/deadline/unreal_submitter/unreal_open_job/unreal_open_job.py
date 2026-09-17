@@ -312,18 +312,11 @@ class UnrealOpenJob(UnrealOpenJobEntity):
 
         self._steps: list[UnrealOpenJobStep] = steps or []
         self._environments: list[UnrealOpenJobEnvironment] = environments or []
+        self._auto_injected_marketplace_plugins_environment: Optional[
+            InstallMarketplacePluginsEnvironment
+        ] = None
 
-        # Auto-inject Marketplace plugins installer if Marketplace plugins exist,
-        # plugin handling was not disabled for this job, and it is not already
-        # in the environment list.
-        if (
-            not self._plugins_ignored()
-            and UnrealOpenJob.get_marketplace_plugins_dir()
-            and not any(
-                isinstance(e, InstallMarketplacePluginsEnvironment) for e in self._environments
-            )
-        ):
-            self._environments.insert(0, InstallMarketplacePluginsEnvironment())
+        self._sync_marketplace_plugins_environment()
 
         self._job_shared_settings = job_shared_settings or JobSharedSettings()
         self._asset_references = asset_references or AssetReferences()
@@ -502,7 +495,35 @@ class UnrealOpenJob(UnrealOpenJobEntity):
     def _plugins_ignored(self) -> bool:
         """Return whether automatic project and Marketplace plugin handling is disabled."""
         param = self._find_extra_parameter(OpenJobParameterNames.IGNORE_PLUGINS, "STRING")
-        return param is not None and str(param.value).strip().lower() == "true"
+        return param is not None and param.value == "true"
+
+    def _sync_marketplace_plugins_environment(self) -> None:
+        """Add or remove the Marketplace installer injected by this submitter."""
+        auto_injected_environment = getattr(
+            self, "_auto_injected_marketplace_plugins_environment", None
+        )
+        if self._plugins_ignored():
+            should_install_marketplace_plugins = False
+        else:
+            should_install_marketplace_plugins = bool(UnrealOpenJob.get_marketplace_plugins_dir())
+
+        if not should_install_marketplace_plugins:
+            if auto_injected_environment is not None:
+                self._environments = [
+                    environment
+                    for environment in self._environments
+                    if environment is not auto_injected_environment
+                ]
+                self._auto_injected_marketplace_plugins_environment = None
+            return
+
+        if not any(
+            isinstance(environment, InstallMarketplacePluginsEnvironment)
+            for environment in self._environments
+        ):
+            marketplace_plugins_environment = InstallMarketplacePluginsEnvironment()
+            self._environments.insert(0, marketplace_plugins_environment)
+            self._auto_injected_marketplace_plugins_environment = marketplace_plugins_environment
 
     def _build_parameter_values(self) -> list:
         """
@@ -957,6 +978,8 @@ class RenderUnrealOpenJob(UnrealOpenJob):
                 param = self._find_extra_parameter(p.name, p.type)
                 if param:
                     param.value = p.value
+
+        self._sync_marketplace_plugins_environment()
 
         if (
             self._mrq_job is not None
@@ -1615,6 +1638,12 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             )
 
         all_parameter_values = filled_parameter_values + unfilled_parameter_values
+        if self._plugins_ignored():
+            all_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+                job_parameter_values=all_parameter_values,
+                job_parameter_name=OpenJobParameterNames.MARKETPLACE_PLUGINS_DIR,
+                job_parameter_value="",
+            )
         return all_parameter_values
 
     def get_executor_cmd_args(self) -> str:
