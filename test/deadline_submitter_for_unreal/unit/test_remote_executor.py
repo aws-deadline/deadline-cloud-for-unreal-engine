@@ -3,17 +3,18 @@
 
 import os
 import sys
+from types import ModuleType
 from types import SimpleNamespace
 from unittest.mock import MagicMock, call, patch
 
 import pytest
 
 
-def _job(name: str, enabled: bool, enabled_shots: int) -> SimpleNamespace:
+def _job(name: str, enabled: bool, shot_states: tuple[bool, ...]) -> SimpleNamespace:
     return SimpleNamespace(
         job_name=name,
         enabled=enabled,
-        shot_info=[SimpleNamespace(enabled=True) for _ in range(enabled_shots)],
+        shot_info=[SimpleNamespace(enabled=shot_enabled) for shot_enabled in shot_states],
     )
 
 
@@ -39,10 +40,18 @@ def remote_executor():
     unreal_mock.MoviePipelinePythonHostExecutor = type(
         "MoviePipelinePythonHostExecutor", (object,), {}
     )
+    submitter_module = ModuleType("deadline.unreal_submitter.submitter")
+    setattr(submitter_module, "UnrealMrqJobSubmitter", MagicMock())
+    logger_module = ModuleType("deadline.unreal_logger")
+    setattr(logger_module, "get_logger", MagicMock(return_value=MagicMock()))
 
     saved_unreal = sys.modules.get("unreal")
     saved_mod = sys.modules.pop("remote_executor", None)
+    saved_submitter_module = sys.modules.get("deadline.unreal_submitter.submitter")
+    saved_logger_module = sys.modules.get("deadline.unreal_logger")
     sys.modules["unreal"] = unreal_mock
+    sys.modules["deadline.unreal_submitter.submitter"] = submitter_module
+    sys.modules["deadline.unreal_logger"] = logger_module
     if plugin_py not in sys.path:
         sys.path.insert(0, plugin_py)
     try:
@@ -57,14 +66,28 @@ def remote_executor():
             sys.modules["unreal"] = saved_unreal
         else:
             sys.modules.pop("unreal", None)
+        if saved_submitter_module is not None:
+            sys.modules["deadline.unreal_submitter.submitter"] = saved_submitter_module
+        else:
+            sys.modules.pop("deadline.unreal_submitter.submitter", None)
+        if saved_logger_module is not None:
+            sys.modules["deadline.unreal_logger"] = saved_logger_module
+        else:
+            sys.modules.pop("deadline.unreal_logger", None)
 
 
 def test_execute_delayed_submits_only_enabled_jobs_with_enabled_shots(remote_executor):
-    eligible_job = _job("Eligible", enabled=True, enabled_shots=1)
-    disabled_job = _job("Disabled", enabled=False, enabled_shots=1)
-    no_enabled_shots_job = _job("NoEnabledShots", enabled=True, enabled_shots=0)
+    eligible_job = _job("Eligible", enabled=True, shot_states=(True,))
+    disabled_job = _job("Disabled", enabled=False, shot_states=(True,))
+    all_shots_disabled_job = _job("AllShotsDisabled", enabled=True, shot_states=(False, False))
+    unpopulated_shots_job = _job("UnpopulatedShots", enabled=True, shot_states=())
     queue = MagicMock()
-    queue.get_jobs.return_value = [eligible_job, disabled_job, no_enabled_shots_job]
+    queue.get_jobs.return_value = [
+        eligible_job,
+        disabled_job,
+        all_shots_disabled_job,
+        unpopulated_shots_job,
+    ]
 
     executor = remote_executor.MoviePipelineDeadlineCloudRemoteExecutor()
     executor.check_dirty_packages = MagicMock(return_value=True)
@@ -74,16 +97,16 @@ def test_execute_delayed_submits_only_enabled_jobs_with_enabled_shots(remote_exe
     with patch.object(remote_executor, "UnrealMrqJobSubmitter", return_value=submitter):
         executor.execute_delayed(queue)
 
-    executor.check_maps.assert_called_once_with([eligible_job])
-    assert submitter.add_job.call_args_list == [call(eligible_job)]
+    executor.check_maps.assert_called_once_with([eligible_job, unpopulated_shots_job])
+    assert submitter.add_job.call_args_list == [call(eligible_job), call(unpopulated_shots_job)]
     submitter.submit_jobs.assert_called_once_with()
 
 
 def test_execute_delayed_finishes_when_no_jobs_are_eligible(remote_executor):
-    disabled_job = _job("Disabled", enabled=False, enabled_shots=1)
-    no_enabled_shots_job = _job("NoEnabledShots", enabled=True, enabled_shots=0)
+    disabled_job = _job("Disabled", enabled=False, shot_states=(True,))
+    all_shots_disabled_job = _job("AllShotsDisabled", enabled=True, shot_states=(False, False))
     queue = MagicMock()
-    queue.get_jobs.return_value = [disabled_job, no_enabled_shots_job]
+    queue.get_jobs.return_value = [disabled_job, all_shots_disabled_job]
 
     executor = remote_executor.MoviePipelineDeadlineCloudRemoteExecutor()
     executor.on_executor_finished_impl = MagicMock()

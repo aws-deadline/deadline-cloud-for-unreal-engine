@@ -33,7 +33,8 @@ class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelinePythonHostExe
         jobs_to_submit = [
             job
             for job in pipeline_queue.get_jobs()
-            if job.enabled and any(shot.enabled for shot in job.shot_info)
+            # An empty shot list may be unpopulated for programmatically-created jobs.
+            if job.enabled and (not job.shot_info or any(shot.enabled for shot in job.shot_info))
         ]
         if not jobs_to_submit:
             logger.info("No enabled jobs with enabled shots to submit.")
