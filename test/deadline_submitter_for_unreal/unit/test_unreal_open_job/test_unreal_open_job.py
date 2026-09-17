@@ -1038,7 +1038,11 @@ class TestRenderUnrealOpenJob:
                 {"name": OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS, "type": "STRING"},
                 {"name": OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS_FILE, "type": "PATH"},
                 {"name": OpenJobParameterNames.UNREAL_PROJECT_PATH, "type": "PATH"},
-                {"name": OpenJobParameterNames.MARKETPLACE_PLUGINS_DIR, "type": "PATH"},
+                {
+                    "name": OpenJobParameterNames.MARKETPLACE_PLUGINS_DIR,
+                    "type": "PATH",
+                    "default": "",
+                },
                 {"name": OpenJobParameterNames.IGNORE_PLUGINS, "type": "STRING"},
             ]
         },
@@ -1121,17 +1125,22 @@ class TestRenderUnrealOpenJob:
         assert "ExecCmds" not in params
         assert "/tmp/ExtraCmdArgsFile.txt" in render_job._asset_references.input_filenames
 
-        ignore_plugins = render_job._find_extra_parameter(
-            OpenJobParameterNames.IGNORE_PLUGINS, "STRING"
-        )
-        assert ignore_plugins is not None
-        ignore_plugins.value = "true"
         marketplace_plugins_dir = render_job._find_extra_parameter(
             OpenJobParameterNames.MARKETPLACE_PLUGINS_DIR, "PATH"
         )
         assert marketplace_plugins_dir is not None
         marketplace_plugins_dir.value = "/Custom/Marketplace"
 
+        custom_path_parameter_values = render_job._build_parameter_values()
+        assert {p["name"]: p["value"] for p in custom_path_parameter_values}[
+            OpenJobParameterNames.MARKETPLACE_PLUGINS_DIR
+        ] == "/Custom/Marketplace"
+
+        ignore_plugins = render_job._find_extra_parameter(
+            OpenJobParameterNames.IGNORE_PLUGINS, "STRING"
+        )
+        assert ignore_plugins is not None
+        ignore_plugins.value = "true"
         ignored_parameter_values = render_job._build_parameter_values()
         assert {p["name"]: p["value"] for p in ignored_parameter_values}[
             OpenJobParameterNames.MARKETPLACE_PLUGINS_DIR
