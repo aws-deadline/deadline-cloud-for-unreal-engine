@@ -16,6 +16,7 @@ that it loads. Proving it loads needs the target interpreter, which the unit sui
 access to.
 """
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -210,12 +211,7 @@ def test_get_package_version_matches_pep503_equivalent_separators(monkeypatch):
     assert depsBundle._get_package_version("ruamel.yaml", Path("/unused")) == "0.18.6"
 
 
-def test_deadline_floor_excludes_versions_without_console_signin():
-    """The `console` extra first exists at deadline 0.60.4; 0.60.1 through 0.60.3 do not
-    declare it. A floor that admits those versions lets pip satisfy `deadline[console]`
-    by backtracking below the extra's introduction, silently dropping awscrt with only a
-    warning, so console sign-in would appear installed and not work.
-    """
+def _pyproject_deadline_requirements() -> list:
     if sys.version_info >= (3, 11):
         import tomllib
     else:
@@ -227,7 +223,16 @@ def test_deadline_floor_excludes_versions_without_console_signin():
     requirements = [
         Requirement(dependency) for dependency in project_dict["project"]["dependencies"]
     ]
-    deadline_requirements = [r for r in requirements if r.name.lower() == "deadline"]
+    return [r for r in requirements if r.name.lower() == "deadline"]
+
+
+def test_deadline_floor_excludes_versions_without_console_signin():
+    """The `console` extra first exists at deadline 0.60.4; 0.60.1 through 0.60.3 do not
+    declare it. A floor that admits those versions lets pip satisfy `deadline[console]`
+    by backtracking below the extra's introduction, silently dropping awscrt with only a
+    warning, so console sign-in would appear installed and not work.
+    """
+    deadline_requirements = _pyproject_deadline_requirements()
     assert deadline_requirements, "pyproject.toml declares no deadline requirement"
 
     for requirement in deadline_requirements:
@@ -240,3 +245,41 @@ def test_deadline_floor_excludes_versions_without_console_signin():
             f"`{requirement}` excludes deadline 0.60.4, the first version with AWS "
             f"Console sign-in"
         )
+
+
+def test_uplugin_deadline_requirement_mirrors_pyproject():
+    """The .uplugin restates the deadline pin on purpose: UE's PipInstall caches installed
+    packages under Intermediate/PipInstall/ and will not upgrade a stale transitive, so
+    critical pins are repeated there explicitly (AGENTS.md: Dependency Version Bumps). A
+    copy in a second file can drift, and drift is not benign -- if the two ranges become
+    disjoint, UE's resolver fails the plugin bootstrap at editor startup, a failure CI
+    never sees. This pins the copy to the authoritative range in pyproject.toml, and
+    requires the console extra, which the UE pip-install path needs for awscrt
+    (project.dependencies deliberately omits it; see depsBundle._build_base_environment).
+    """
+    deadline_requirements = _pyproject_deadline_requirements()
+    assert len(deadline_requirements) == 1, "expected exactly one deadline pin in pyproject.toml"
+    pyproject_deadline = deadline_requirements[0]
+
+    uplugin_path = REPO_ROOT / "src" / "unreal_plugin" / "UnrealDeadlineCloudService.uplugin"
+    # utf-8-sig: the .uplugin starts with a UTF-8 byte order mark.
+    with open(uplugin_path, encoding="utf-8-sig") as uplugin_file:
+        uplugin_dict = json.load(uplugin_file)
+
+    uplugin_requirements = [
+        Requirement(requirement)
+        for entry in uplugin_dict["PythonRequirements"]
+        for requirement in entry["Requirements"]
+    ]
+    uplugin_deadline = [r for r in uplugin_requirements if r.name.lower() == "deadline"]
+    assert len(uplugin_deadline) == 1, "the .uplugin declares no explicit deadline requirement"
+
+    assert uplugin_deadline[0].specifier == pyproject_deadline.specifier, (
+        f"the .uplugin pins deadline as `{uplugin_deadline[0]}` but pyproject.toml declares "
+        f"`{pyproject_deadline}`; if the ranges become disjoint, UE resolves them together "
+        f"with the transitive requirement and the plugin fails to bootstrap at editor startup"
+    )
+    assert "console" in uplugin_deadline[0].extras, (
+        "the .uplugin's deadline requirement does not request the console extra, so UE's "
+        "PipInstall path would install without awscrt and AWS Console sign-in would break"
+    )
