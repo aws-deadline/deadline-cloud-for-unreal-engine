@@ -37,6 +37,40 @@ def get_templates_base_path() -> str:
     return str(templates_path)
 
 
+class TestPluginUploadTemplateIntegration:
+    @pytest.fixture
+    def templates_base_path(self):
+        """Fixture providing the base path for OpenJD templates."""
+        return get_templates_base_path()
+
+    @pytest.mark.parametrize(
+        "template_relative_path",
+        [
+            "render_job.yml",
+            "dynamic_chunking/dynamic_chunking_render_job.yml",
+            "p4/p4_render_job.yml",
+            "ugs/ugs_render_job.yml",
+        ],
+    )
+    def test_render_job_template_has_ignore_plugins_parameter(
+        self, templates_base_path, template_relative_path
+    ):
+        """Verify every built-in render template exposes the same plugin toggle."""
+        with open(os.path.join(templates_base_path, template_relative_path)) as f:
+            job_template = yaml.safe_load(f)
+
+        ignore_plugins = next(
+            parameter
+            for parameter in job_template["parameterDefinitions"]
+            if parameter["name"] == "IgnorePlugins"
+        )
+
+        assert ignore_plugins["type"] == "STRING"
+        assert ignore_plugins["default"] == "false"
+        assert ignore_plugins["allowedValues"] == ["false", "true"]
+        assert ignore_plugins["userInterface"]["control"] == "DROPDOWN_LIST"
+
+
 class TestDynamicChunkingTemplateIntegration:
     """
     Integration tests for dynamic chunking templates.

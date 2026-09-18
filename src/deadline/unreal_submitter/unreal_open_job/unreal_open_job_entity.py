@@ -276,6 +276,8 @@ class OpenJobParameterNames:
     :cvar UNREAL_EXTRA_CMD_ARGS_FILE: Path to file containing extra command line arguments
                                       to launch Unreal with
     :cvar UNREAL_EXECUTABLE_RELATIVE_PATH: UE executable path relative to P4 workspace root
+    :cvar MARKETPLACE_PLUGINS_DIR: Directory containing Marketplace plugins to install on workers
+    :cvar IGNORE_PLUGINS: Whether automatic project and Marketplace plugin handling is disabled
     :cvar PERFORCE_STREAM_PATH: P4 stream path, e.g. //MyProject/Mainline
     :cvar PERFORCE_CHANGELIST_NUMBER: P4 changelist to sync workspace to
 
@@ -293,6 +295,7 @@ class OpenJobParameterNames:
     UNREAL_MRQ_JOB_DEPENDENCIES_DESCRIPTOR = "MrqJobDependenciesDescriptor"
     CONDA_PACKAGES = "CondaPackages"
     MARKETPLACE_PLUGINS_DIR = "MarketplacePluginsDir"
+    IGNORE_PLUGINS = "IgnorePlugins"
 
     PERFORCE_STREAM_PATH = "PerforceStreamPath"
     PERFORCE_CHANGELIST_NUMBER = "PerforceChangelistNumber"
