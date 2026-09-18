@@ -106,15 +106,14 @@ def remote_executor():
 
 def test_execute_delayed_submits_only_enabled_jobs_with_enabled_shots(remote_executor, tmp_path):
     dynamic_chunking_step_template = tmp_path / "dynamic_chunking_step.yml"
-    dynamic_chunking_step_template.write_text(
-        """
+    dynamic_chunking_step_template_contents = """
 parameterSpace:
   taskParameterDefinitions:
   - name: DynamicChunking
     type: CHUNK[INT]
     range: 1-10
 """.strip()
-    )
+    dynamic_chunking_step_template.write_text(dynamic_chunking_step_template_contents)
 
     eligible_job = _job("Eligible", enabled=True, shot_states=(True,))
     disabled_job = _job("Disabled", enabled=False, shot_states=(True,))
