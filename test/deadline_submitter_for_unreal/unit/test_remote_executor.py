@@ -11,11 +11,12 @@ import pytest
 
 
 def _job(name: str, enabled: bool, shot_states: tuple[bool, ...]) -> SimpleNamespace:
-    return SimpleNamespace(
+    job = SimpleNamespace(
         job_name=name,
-        enabled=enabled,
         shot_info=[SimpleNamespace(enabled=shot_enabled) for shot_enabled in shot_states],
     )
+    job.is_enabled = MagicMock(return_value=enabled)
+    return job
 
 
 @pytest.fixture
@@ -100,6 +101,8 @@ def test_execute_delayed_submits_only_enabled_jobs_with_enabled_shots(remote_exe
     executor.check_maps.assert_called_once_with([eligible_job, unpopulated_shots_job])
     assert submitter.add_job.call_args_list == [call(eligible_job), call(unpopulated_shots_job)]
     submitter.submit_jobs.assert_called_once_with()
+    for job in [eligible_job, disabled_job, all_shots_disabled_job, unpopulated_shots_job]:
+        job.is_enabled.assert_called_once_with()
 
 
 def test_execute_delayed_finishes_when_no_jobs_are_eligible(remote_executor):
