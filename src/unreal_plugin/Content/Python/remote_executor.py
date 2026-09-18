@@ -4,6 +4,9 @@ import unreal
 
 from deadline.unreal_logger import get_logger
 from deadline.unreal_submitter.submitter import UnrealMrqJobSubmitter
+from deadline.unreal_submitter.unreal_open_job.unreal_open_job_dynamic_chunking import (
+    DynamicChunkingHelper,
+)
 
 logger = get_logger()
 
@@ -63,6 +66,10 @@ class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelinePythonHostExe
 
     @staticmethod
     def _is_frame_based_job(job):
+        job_preset = getattr(job, "job_preset", None)
+        if job_preset is None:
+            return False
+
         get_parameters = getattr(job, "get_parameter_definition_with_overrides", None)
         if get_parameters is None:
             return False
@@ -78,7 +85,12 @@ class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelinePythonHostExe
         except (TypeError, ValueError):
             has_frames_per_task = False
 
-        return has_frames_per_task or any(parameter.name == "Frames" for parameter in parameters)
+        return has_frames_per_task or any(
+            DynamicChunkingHelper.is_using_dynamic_chunking_from_file(
+                step.path_to_template.file_path
+            )
+            for step in job_preset.steps
+        )
 
     @unreal.ufunction(override=True)
     def is_rendering(self):

@@ -16,17 +16,29 @@ def _job(
     enabled: bool,
     shot_states: tuple[bool, ...],
     frames_per_task: Union[int, str] = 0,
-    dynamic_chunking: bool = False,
+    has_frames_parameter: bool = False,
+    step_template_paths: tuple[str, ...] = (),
     has_parameter_definitions: bool = True,
+    has_job_preset: bool = True,
 ) -> SimpleNamespace:
     job = SimpleNamespace(
         job_name=name,
         shot_info=[SimpleNamespace(enabled=shot_enabled) for shot_enabled in shot_states],
     )
     job.is_enabled = MagicMock(return_value=enabled)
+    job.job_preset = (
+        SimpleNamespace(
+            steps=[
+                SimpleNamespace(path_to_template=SimpleNamespace(file_path=path))
+                for path in step_template_paths
+            ]
+        )
+        if has_job_preset
+        else None
+    )
     if has_parameter_definitions:
         parameters = [SimpleNamespace(name="FramesPerTask", value=frames_per_task)]
-        if dynamic_chunking:
+        if has_frames_parameter:
             parameters.append(SimpleNamespace(name="Frames", value=None))
         job.get_parameter_definition_with_overrides = MagicMock(
             return_value=SimpleNamespace(parameters=parameters)
@@ -92,7 +104,18 @@ def remote_executor():
             sys.modules.pop("deadline.unreal_logger", None)
 
 
-def test_execute_delayed_submits_only_enabled_jobs_with_enabled_shots(remote_executor):
+def test_execute_delayed_submits_only_enabled_jobs_with_enabled_shots(remote_executor, tmp_path):
+    dynamic_chunking_step_template = tmp_path / "dynamic_chunking_step.yml"
+    dynamic_chunking_step_template.write_text(
+        """
+parameterSpace:
+  taskParameterDefinitions:
+  - name: DynamicChunking
+    type: CHUNK[INT]
+    range: 1-10
+""".strip()
+    )
+
     eligible_job = _job("Eligible", enabled=True, shot_states=(True,))
     disabled_job = _job("Disabled", enabled=False, shot_states=(True,))
     all_shots_disabled_job = _job("AllShotsDisabled", enabled=True, shot_states=(False, False))
@@ -100,7 +123,16 @@ def test_execute_delayed_submits_only_enabled_jobs_with_enabled_shots(remote_exe
         "FrameBasedUnpopulatedShots", enabled=True, shot_states=(), frames_per_task=10
     )
     dynamic_chunking_unpopulated_shots_job = _job(
-        "DynamicChunkingUnpopulatedShots", enabled=True, shot_states=(), dynamic_chunking=True
+        "DynamicChunkingUnpopulatedShots",
+        enabled=True,
+        shot_states=(),
+        step_template_paths=(str(dynamic_chunking_step_template),),
+    )
+    generic_frames_unpopulated_shots_job = _job(
+        "GenericFramesUnpopulatedShots",
+        enabled=True,
+        shot_states=(),
+        has_frames_parameter=True,
     )
     shot_based_unpopulated_shots_job = _job(
         "ShotBasedUnpopulatedShots", enabled=True, shot_states=()
@@ -112,6 +144,7 @@ def test_execute_delayed_submits_only_enabled_jobs_with_enabled_shots(remote_exe
         all_shots_disabled_job,
         frame_based_unpopulated_shots_job,
         dynamic_chunking_unpopulated_shots_job,
+        generic_frames_unpopulated_shots_job,
         shot_based_unpopulated_shots_job,
     ]
 
@@ -142,6 +175,7 @@ def test_execute_delayed_submits_only_enabled_jobs_with_enabled_shots(remote_exe
         all_shots_disabled_job,
         frame_based_unpopulated_shots_job,
         dynamic_chunking_unpopulated_shots_job,
+        generic_frames_unpopulated_shots_job,
         shot_based_unpopulated_shots_job,
     ]:
         job.is_enabled.assert_called_once_with()
@@ -187,3 +221,16 @@ def test__is_frame_based_job_returns_false_for_invalid_frames_per_task(remote_ex
     )
 
     assert not remote_executor.MoviePipelineDeadlineCloudRemoteExecutor._is_frame_based_job(job)
+
+
+def test__is_frame_based_job_returns_false_without_job_preset(remote_executor):
+    job = _job(
+        "NoJobPreset",
+        enabled=True,
+        shot_states=(),
+        frames_per_task=10,
+        has_job_preset=False,
+    )
+
+    assert not remote_executor.MoviePipelineDeadlineCloudRemoteExecutor._is_frame_based_job(job)
+    job.get_parameter_definition_with_overrides.assert_not_called()

@@ -247,6 +247,12 @@ FDeadlineCloudJobPresetStruct UMoviePipelineDeadlineCloudExecutorJob::GetDeadlin
 
 FDeadlineCloudJobParametersArray UMoviePipelineDeadlineCloudExecutorJob::GetParameterDefinitionWithOverrides() const
 {
+	if (!IsValid(JobPreset))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Deadline Cloud job has no valid JobPreset; returning no parameter definitions"));
+		return FDeadlineCloudJobParametersArray();
+	}
+
 	// Start with preset properties
 	FDeadlineCloudJobParametersArray ReturnValue = JobPreset->ParameterDefinition;
 	GetPresetStructWithOverrides(
