@@ -20,6 +20,18 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step import (  # 
 class TestDynamicChunkingHelper:
     """Tests for the DynamicChunkingHelper class."""
 
+    def test_is_using_dynamic_chunking_from_file_returns_false_for_unreadable_templates(
+        self, tmp_path
+    ):
+        """Invalid or unreadable templates are not considered dynamically chunked."""
+        malformed_template = tmp_path / "malformed.yml"
+        malformed_template.write_text("parameterSpace: [")
+
+        assert not DynamicChunkingHelper.is_using_dynamic_chunking_from_file(
+            str(malformed_template)
+        )
+        assert not DynamicChunkingHelper.is_using_dynamic_chunking_from_file(str(tmp_path))
+
     def test_validate_range_constraint_valid_values(self):
         """Test that CONTIGUOUS passes validation."""
         # WHEN / THEN - should not raise

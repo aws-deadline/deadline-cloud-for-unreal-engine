@@ -72,8 +72,16 @@ class DynamicChunkingHelper:
         if not template_path or not os.path.exists(template_path):
             return False
 
-        with open(template_path, "r") as template_file:
-            return DynamicChunkingHelper.is_using_dynamic_chunking(yaml.safe_load(template_file))
+        try:
+            with open(template_path, "r") as template_file:
+                template_object = yaml.safe_load(template_file)
+        except (OSError, yaml.YAMLError) as error:
+            logger.warning(
+                f"Could not read dynamic chunking step template {template_path}: {error}"
+            )
+            return False
+
+        return DynamicChunkingHelper.is_using_dynamic_chunking(template_object)
 
     @staticmethod
     def _validate_range_constraint(range_constraint: str) -> None:
