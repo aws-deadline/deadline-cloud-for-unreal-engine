@@ -112,6 +112,12 @@ def test_colliding_abi3_artifact_comes_from_the_lowest_supported_abi(merged_bund
     Console sign-in reports that sign-in is needed, indefinitely. In particular the base
     environment's host-resolved copy, built for whatever interpreter ran the build, must
     not survive the merge.
+
+    With today's supported set only one version (3.11) gets an abi3 wheel, so only one
+    tree supplies the abi3 name and this test can only show that a native tree beats the
+    base environment. The tree-vs-tree half of the rule -- two abi3 trees colliding, the
+    lowest winning -- is asserted over an explicit version list by
+    test_colliding_abi3_artifact_prefers_the_first_tree_over_later_ones below.
     """
     lowest_abi3_version = abi3_versions[0]
     shipped = (merged_bundle / ABI3_ARTIFACT).read_text()
@@ -124,6 +130,33 @@ def test_colliding_abi3_artifact_comes_from_the_lowest_supported_abi(merged_bund
         f"{ABI3_ARTIFACT} was built for Python {shipped}, so it cannot be imported by "
         f"Python {lowest_abi3_version}; the copy built for the lowest supported abi3 "
         f"version is the one every supported interpreter can load"
+    )
+
+
+def test_colliding_abi3_artifact_prefers_the_first_tree_over_later_ones(tmp_path):
+    """Tree-vs-tree collision on the abi3 name, driven over an explicit version list.
+
+    The supported set produces only one abi3 tree today, so the fixture-driven test above
+    never collides two trees on the abi3 name and would also pass under a merge that kept
+    the last writer. The merge is version-list-agnostic, so this drives it over two abi3
+    trees directly: the first (lowest) must win, because a last-writer merge would ship
+    the copy built for the newer Python, which the older one cannot import.
+    """
+    base_env = tmp_path / "base_env"
+    _write(base_env / ABI3_ARTIFACT, BASE_ENV_SENTINEL)
+
+    native_paths = []
+    for version in ("3.11", "3.12"):
+        tree = tmp_path / "native" / _tag(version)
+        native_paths.append(tree)
+        _write(tree / ABI3_ARTIFACT, version)
+
+    depsBundle._copy_native_to_base_env(base_env, native_paths)
+
+    shipped = (base_env / ABI3_ARTIFACT).read_text()
+    assert shipped == "3.11", (
+        f"{ABI3_ARTIFACT} came from Python {shipped}; the merge must keep the first "
+        f"(lowest-version) tree's copy, the only one every abi3 interpreter can load"
     )
 
 
@@ -212,17 +245,19 @@ def test_get_package_version_matches_pep503_equivalent_separators(monkeypatch):
     assert depsBundle._get_package_version("ruamel.yaml", Path("/unused")) == "0.18.6"
 
 
-def _pyproject_deadline_requirements() -> list:
+def _load_pyproject() -> dict:
     if sys.version_info >= (3, 11):
         import tomllib
     else:
         import tomli as tomllib
 
     with open(REPO_ROOT / "pyproject.toml", "rb") as pyproject_toml:
-        project_dict = tomllib.load(pyproject_toml)
+        return tomllib.load(pyproject_toml)
 
+
+def _pyproject_deadline_requirements() -> list:
     requirements = [
-        Requirement(dependency) for dependency in project_dict["project"]["dependencies"]
+        Requirement(dependency) for dependency in _load_pyproject()["project"]["dependencies"]
     ]
     return [r for r in requirements if r.name.lower() == "deadline"]
 
@@ -283,4 +318,36 @@ def test_uplugin_deadline_requirement_mirrors_pyproject():
     assert "console" in uplugin_deadline[0].extras, (
         "the .uplugin's deadline requirement does not request the console extra, so UE's "
         "PipInstall path would install without awscrt and AWS Console sign-in would break"
+    )
+
+
+def test_console_extra_group_matches_the_deadline_pin():
+    """The `console` optional group covers the third submitter install path -- a direct
+    `pip install deadline-cloud-for-unreal-engine[console]` (setup-submitter.md, option
+    1), which goes through neither the .uplugin's PythonRequirements nor the dependency
+    bundle. It restates the deadline range because project.dependencies deliberately
+    omits the extra (the adaptor packaging cannot carry awscrt); this pins the restated
+    copy to the authoritative one.
+    """
+    deadline_requirements = _pyproject_deadline_requirements()
+    assert len(deadline_requirements) == 1, "expected exactly one deadline pin in pyproject.toml"
+    pyproject_deadline = deadline_requirements[0]
+
+    optional_groups = _load_pyproject()["project"].get("optional-dependencies", {})
+    assert "console" in optional_groups, (
+        "pyproject.toml declares no `console` optional group, so a direct pip install of "
+        "the submitter has no way to get awscrt and AWS Console sign-in breaks there"
+    )
+    console_group = [Requirement(dependency) for dependency in optional_groups["console"]]
+    console_deadline = [r for r in console_group if r.name.lower() == "deadline"]
+    assert len(console_deadline) == 1, "the console group declares no deadline requirement"
+
+    assert "console" in console_deadline[0].extras, (
+        "the console group's deadline requirement does not request deadline's own console "
+        "extra, so it would not pull awscrt"
+    )
+    assert console_deadline[0].specifier == pyproject_deadline.specifier, (
+        f"the console group pins deadline as `{console_deadline[0]}` but "
+        f"project.dependencies declares `{pyproject_deadline}`; the two copies must agree "
+        f"or the extra can admit a version the base install forbids"
     )

@@ -40,12 +40,25 @@ dependencies = [
     # back to 0.25.7, which has no usable crypto support, so console sign-in would
     # appear installed and silently not work. The adaptor never takes the console
     # path anyway: it runs on a worker with host-provided credentials. The submitter
-    # dependency bundle requests the extra in depsBundle.py instead.
+    # install paths request the extra themselves: the dependency bundle in depsBundle.py,
+    # the .uplugin in its PythonRequirements, and direct pip installs through this
+    # package's own `console` extra (declared below).
     "deadline >= 0.60.4,< 0.61",
     "openjd-adaptor-runtime >= 0.9.4,< 0.10",
     "openjd-model >= 0.10.0, < 0.12",
     'p4python == 2026.1.3027817; python_version >= "3.10"',
     'p4python == 2025.1.2767466; python_version <  "3.10"',
+]
+
+[project.optional-dependencies]
+# Covers the install path that goes through pip directly (docs/user_guide/
+# setup-submitter.md, option 1) rather than through the .uplugin's PythonRequirements or
+# the dependency bundle, both of which request deadline's console extra themselves. An
+# extra rather than part of dependencies because those are also resolved into the adaptor
+# package, where awscrt is unusable and unavailable (see the comment above). A unit test
+# keeps this restated range equal to the deadline pin in dependencies.
+console = [
+    "deadline[console] >= 0.60.4,< 0.61",
 ]
 
 [project.urls]

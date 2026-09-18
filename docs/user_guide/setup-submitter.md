@@ -108,7 +108,7 @@ There are 4 ways to install the required Python dependencies.
 _1._ If you've built and installed the plugin from the release branch above, you can simply install from pip. Use the following install command, adjusting the paths to your Unreal installation:
 
 ```
-"C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install deadline-cloud-for-unreal-engine --target "C:\Program Files\Epic Games\UE_5.5\Engine\Plugins\UnrealDeadlineCloudService\Content\Python\libraries"
+"C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install "deadline-cloud-for-unreal-engine[console]" --target "C:\Program Files\Epic Games\UE_5.5\Engine\Plugins\UnrealDeadlineCloudService\Content\Python\libraries"
 ```
 
 _2._ Alternatively in your .uplugin file (In the above steps this would live at C:\Program Files\Epic Games\UE_5.5\Engine\Plugins\UnrealDeadlineCloudService\UnrealDeadlineCloudService.uplugin) you can add a "PythonRequirements" section which matches the latest release of deadline-cloud-for-unreal-engine in GitHub/PyPi, for example:
