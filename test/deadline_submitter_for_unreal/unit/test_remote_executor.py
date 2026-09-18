@@ -10,12 +10,25 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 
 
-def _job(name: str, enabled: bool, shot_states: tuple[bool, ...]) -> SimpleNamespace:
-    return SimpleNamespace(
+def _job(
+    name: str,
+    enabled: bool,
+    shot_states: tuple[bool, ...],
+    frames_per_task: int = 0,
+    dynamic_chunking: bool = False,
+) -> SimpleNamespace:
+    job = SimpleNamespace(
         job_name=name,
         enabled=enabled,
         shot_info=[SimpleNamespace(enabled=shot_enabled) for shot_enabled in shot_states],
     )
+    parameters = [SimpleNamespace(name="FramesPerTask", value=frames_per_task)]
+    if dynamic_chunking:
+        parameters.append(SimpleNamespace(name="Frames", value=None))
+    job.get_parameter_definition_with_overrides = MagicMock(
+        return_value=SimpleNamespace(parameters=parameters)
+    )
+    return job
 
 
 @pytest.fixture
@@ -80,13 +93,23 @@ def test_execute_delayed_submits_only_enabled_jobs_with_enabled_shots(remote_exe
     eligible_job = _job("Eligible", enabled=True, shot_states=(True,))
     disabled_job = _job("Disabled", enabled=False, shot_states=(True,))
     all_shots_disabled_job = _job("AllShotsDisabled", enabled=True, shot_states=(False, False))
-    unpopulated_shots_job = _job("UnpopulatedShots", enabled=True, shot_states=())
+    frame_based_unpopulated_shots_job = _job(
+        "FrameBasedUnpopulatedShots", enabled=True, shot_states=(), frames_per_task=10
+    )
+    dynamic_chunking_unpopulated_shots_job = _job(
+        "DynamicChunkingUnpopulatedShots", enabled=True, shot_states=(), dynamic_chunking=True
+    )
+    shot_based_unpopulated_shots_job = _job(
+        "ShotBasedUnpopulatedShots", enabled=True, shot_states=()
+    )
     queue = MagicMock()
     queue.get_jobs.return_value = [
         eligible_job,
         disabled_job,
         all_shots_disabled_job,
-        unpopulated_shots_job,
+        frame_based_unpopulated_shots_job,
+        dynamic_chunking_unpopulated_shots_job,
+        shot_based_unpopulated_shots_job,
     ]
 
     executor = remote_executor.MoviePipelineDeadlineCloudRemoteExecutor()
@@ -97,8 +120,18 @@ def test_execute_delayed_submits_only_enabled_jobs_with_enabled_shots(remote_exe
     with patch.object(remote_executor, "UnrealMrqJobSubmitter", return_value=submitter):
         executor.execute_delayed(queue)
 
-    executor.check_maps.assert_called_once_with([eligible_job, unpopulated_shots_job])
-    assert submitter.add_job.call_args_list == [call(eligible_job), call(unpopulated_shots_job)]
+    executor.check_maps.assert_called_once_with(
+        [
+            eligible_job,
+            frame_based_unpopulated_shots_job,
+            dynamic_chunking_unpopulated_shots_job,
+        ]
+    )
+    assert submitter.add_job.call_args_list == [
+        call(eligible_job),
+        call(frame_based_unpopulated_shots_job),
+        call(dynamic_chunking_unpopulated_shots_job),
+    ]
     submitter.submit_jobs.assert_called_once_with()
 
 

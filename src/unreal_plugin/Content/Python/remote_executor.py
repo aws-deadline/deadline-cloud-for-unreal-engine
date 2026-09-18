@@ -34,7 +34,11 @@ class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelinePythonHostExe
             job
             for job in pipeline_queue.get_jobs()
             # An empty shot list may be unpopulated for programmatically-created jobs.
-            if job.enabled and (not job.shot_info or any(shot.enabled for shot in job.shot_info))
+            if job.enabled
+            and (
+                any(shot.enabled for shot in job.shot_info)
+                or (not job.shot_info and self._is_frame_based_job(job))
+            )
         ]
         if not jobs_to_submit:
             logger.info("No enabled jobs with enabled shots to submit.")
@@ -56,6 +60,18 @@ class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelinePythonHostExe
             unreal_submitter.add_job(job)
 
         unreal_submitter.submit_jobs()
+
+    @staticmethod
+    def _is_frame_based_job(job):
+        parameters = job.get_parameter_definition_with_overrides().parameters
+        frames_per_task = next(
+            (parameter for parameter in parameters if parameter.name == "FramesPerTask"), None
+        )
+        return (
+            frames_per_task is not None
+            and int(frames_per_task.value or 0) > 0
+            or any(parameter.name == "Frames" for parameter in parameters)
+        )
 
     @unreal.ufunction(override=True)
     def is_rendering(self):

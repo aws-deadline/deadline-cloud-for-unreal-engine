@@ -311,6 +311,24 @@ class TestRenderUnrealOpenJobStep:
             f"must be provided" in str(exception_info.value)
         )
 
+    def test__build_template_rejects_no_enabled_shots(self):
+        # GIVEN
+        mrq_job_mock = MagicMock()
+        mrq_job_mock.shot_info = []
+        shots_per_task_param = UnrealOpenJobParameterDefinition(
+            OpenJobStepParameterNames.SHOTS_PER_TASK, "INT", 1
+        )
+        job = UnrealOpenJob(file_path="", name="TestJob", extra_parameters=[shots_per_task_param])
+        render_step = RenderUnrealOpenJobStep(file_path="", mrq_job=mrq_job_mock)
+        render_step.open_job = job
+        render_step._render_args_type = RenderUnrealOpenJobStep.RenderArgsType.RENDER_DATA
+
+        # WHEN/THEN
+        with pytest.raises(exceptions.SubmitterInputValidationError) as exception_info:
+            render_step._build_template()
+
+        assert "MRQ job has no enabled shots" in str(exception_info.value)
+
     @pytest.mark.parametrize(
         "existed_param, requested_param, was_updated",
         [
