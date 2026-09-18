@@ -5,6 +5,7 @@ import os
 import sys
 from types import ModuleType
 from types import SimpleNamespace
+from typing import Union
 from unittest.mock import MagicMock, call, patch
 
 import pytest
@@ -14,20 +15,22 @@ def _job(
     name: str,
     enabled: bool,
     shot_states: tuple[bool, ...],
-    frames_per_task: int = 0,
+    frames_per_task: Union[int, str] = 0,
     dynamic_chunking: bool = False,
+    has_parameter_definitions: bool = True,
 ) -> SimpleNamespace:
     job = SimpleNamespace(
         job_name=name,
         shot_info=[SimpleNamespace(enabled=shot_enabled) for shot_enabled in shot_states],
     )
     job.is_enabled = MagicMock(return_value=enabled)
-    parameters = [SimpleNamespace(name="FramesPerTask", value=frames_per_task)]
-    if dynamic_chunking:
-        parameters.append(SimpleNamespace(name="Frames", value=None))
-    job.get_parameter_definition_with_overrides = MagicMock(
-        return_value=SimpleNamespace(parameters=parameters)
-    )
+    if has_parameter_definitions:
+        parameters = [SimpleNamespace(name="FramesPerTask", value=frames_per_task)]
+        if dynamic_chunking:
+            parameters.append(SimpleNamespace(name="Frames", value=None))
+        job.get_parameter_definition_with_overrides = MagicMock(
+            return_value=SimpleNamespace(parameters=parameters)
+        )
     return job
 
 
@@ -162,3 +165,25 @@ def test_execute_delayed_finishes_when_no_jobs_are_eligible(remote_executor):
     executor.check_dirty_packages.assert_not_called()
     executor.check_maps.assert_not_called()
     submitter_class.assert_not_called()
+
+
+def test__is_frame_based_job_returns_false_without_parameter_definitions(remote_executor):
+    job = _job(
+        "BaseJob",
+        enabled=True,
+        shot_states=(),
+        has_parameter_definitions=False,
+    )
+
+    assert not remote_executor.MoviePipelineDeadlineCloudRemoteExecutor._is_frame_based_job(job)
+
+
+def test__is_frame_based_job_returns_false_for_invalid_frames_per_task(remote_executor):
+    job = _job(
+        "InvalidFramesPerTask",
+        enabled=True,
+        shot_states=(),
+        frames_per_task="not-an-integer",
+    )
+
+    assert not remote_executor.MoviePipelineDeadlineCloudRemoteExecutor._is_frame_based_job(job)

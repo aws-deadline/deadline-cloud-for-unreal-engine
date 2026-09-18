@@ -63,15 +63,22 @@ class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelinePythonHostExe
 
     @staticmethod
     def _is_frame_based_job(job):
-        parameters = job.get_parameter_definition_with_overrides().parameters
+        get_parameters = getattr(job, "get_parameter_definition_with_overrides", None)
+        if get_parameters is None:
+            return False
+
+        parameters = get_parameters().parameters
         frames_per_task = next(
             (parameter for parameter in parameters if parameter.name == "FramesPerTask"), None
         )
-        return (
-            frames_per_task is not None
-            and int(frames_per_task.value or 0) > 0
-            or any(parameter.name == "Frames" for parameter in parameters)
-        )
+        try:
+            has_frames_per_task = (
+                frames_per_task is not None and int(frames_per_task.value or 0) > 0
+            )
+        except (TypeError, ValueError):
+            has_frames_per_task = False
+
+        return has_frames_per_task or any(parameter.name == "Frames" for parameter in parameters)
 
     @unreal.ufunction(override=True)
     def is_rendering(self):
