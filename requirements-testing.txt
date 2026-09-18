@@ -11,3 +11,6 @@ black == 25.*; python_version < "3.10"
 ruff == 0.15.*
 types-pyyaml == 6.*
 psutil >= 7.2.2
+# Both are used by test_deps_bundle_native_merge.py, which parses pyproject.toml.
+packaging >= 26.3
+tomli == 2.*; python_version < "3.11"

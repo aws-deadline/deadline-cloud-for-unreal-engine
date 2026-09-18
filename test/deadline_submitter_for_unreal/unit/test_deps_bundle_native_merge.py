@@ -33,7 +33,8 @@ if str(REPO_ROOT) not in sys.path:
 import depsBundle  # noqa: E402
 
 # awscrt's abi3 wheels all install this one name, whatever Python they were built for.
-ABI3_ARTIFACT = "_awscrt.abi3.so"
+# On win_amd64 -- the only platform the bundle targets -- the abi3 module is untagged.
+ABI3_ARTIFACT = "_awscrt.pyd"
 # awscrt publishes abi3 wheels from this Python on; older versions get version-specific wheels.
 FIRST_ABI3_VERSION = (3, 11)
 # Stands in for the artifact the base environment resolved for the build host's own
@@ -93,9 +94,9 @@ def merged_bundle(tmp_path, supported_versions, abi3_versions) -> Path:
         if version in abi3_versions:
             _write(tree / ABI3_ARTIFACT, version)
         else:
-            _write(tree / f"_awscrt.cpython-{_tag(version)}-darwin.so", version)
-        _write(tree / "xxhash" / f"_xxhash.cpython-{_tag(version)}-darwin.so", version)
-        _write(tree / "yaml" / f"_yaml.cpython-{_tag(version)}-darwin.so", version)
+            _write(tree / f"_awscrt.cp{_tag(version)}-win_amd64.pyd", version)
+        _write(tree / "xxhash" / f"_xxhash.cp{_tag(version)}-win_amd64.pyd", version)
+        _write(tree / "yaml" / f"_yaml.cp{_tag(version)}-win_amd64.pyd", version)
 
     depsBundle._copy_native_to_base_env(base_env, native_paths)
     return base_env
@@ -134,7 +135,7 @@ def test_version_specific_artifacts_are_kept_for_every_supported_version(
     """
     for version in supported_versions:
         for package, module in (("xxhash", "_xxhash"), ("yaml", "_yaml")):
-            artifact = merged_bundle / package / f"{module}.cpython-{_tag(version)}-darwin.so"
+            artifact = merged_bundle / package / f"{module}.cp{_tag(version)}-win_amd64.pyd"
             assert (
                 artifact.exists()
             ), f"the bundle carries no {package} artifact for Python {version}"
@@ -143,7 +144,7 @@ def test_version_specific_artifacts_are_kept_for_every_supported_version(
     for version in supported_versions:
         if version in abi3_versions:
             continue
-        awscrt_non_abi3 = merged_bundle / f"_awscrt.cpython-{_tag(version)}-darwin.so"
+        awscrt_non_abi3 = merged_bundle / f"_awscrt.cp{_tag(version)}-win_amd64.pyd"
         assert (
             awscrt_non_abi3.exists()
         ), f"the bundle carries no awscrt artifact for Python {version}"
@@ -191,6 +192,22 @@ def test_get_package_version_matches_pip_list_casing(monkeypatch):
     )
 
     assert depsBundle._get_package_version("pyyaml", Path("/unused")) == "6.0.3"
+
+
+def test_get_package_version_matches_pep503_equivalent_separators(monkeypatch):
+    """PEP 503 treats `-`, `_` and `.` as equivalent, and `pip list` prints the
+    distribution's own choice of separator, which need not match the spelling in
+    NATIVE_DEPENDENCIES. None of the current entries contains a separator, so this guards
+    the next entry that does (e.g. `ruamel.yaml` reported as `ruamel-yaml`).
+    """
+    output = b"Package    Version\n---------- -------\nruamel-yaml 0.18.6\n"
+    monkeypatch.setattr(
+        depsBundle.subprocess,
+        "run",
+        lambda args, **kwargs: subprocess.CompletedProcess(args, 0, stdout=output),
+    )
+
+    assert depsBundle._get_package_version("ruamel.yaml", Path("/unused")) == "0.18.6"
 
 
 def test_deadline_floor_excludes_versions_without_console_signin():

@@ -43,7 +43,7 @@
 			"Requirements":
 			[
 				"deadline-cloud-for-unreal-engine>=0.5.0",
-				"deadline>=0.60.4",
+				"deadline[console]>=0.60.4,<0.61",
 				"typing_extensions>=4.14.1"
 			]
 		}

@@ -22,6 +22,11 @@ SUPPORTED_PLATFORMS = ["win_amd64"]
 # pyyaml is here because it ships a version-specific `_yaml` extension module: resolved only
 # in the base environment it lands built for a single interpreter, and pyyaml hides that by
 # falling back to its pure-Python parser on the other versions.
+#
+# The per-version downloads pin each package to the version the base environment resolved,
+# deliberately: the compiled artifacts must match the package the bundle ships. If a package
+# ever drops wheels for one of SUPPORTED_PYTHON_VERSIONS, the pinned download fails under
+# check=True and the build breaks loudly rather than shipping a bundle that cannot load there.
 NATIVE_DEPENDENCIES = ["xxhash", "awscrt", "pyyaml"]
 
 
@@ -55,9 +60,12 @@ def _get_dependencies(pyproject_dict: dict[str, Any]) -> list[str]:
 
 def _get_package_version_regex(package: str) -> re.Pattern:
     # Case-insensitive because `pip list` prints the distribution's own casing, which need not
-    # match how the requirement is spelled -- `pyyaml` is reported as `PyYAML`. The required
-    # whitespace keeps a prefix sibling like `pyyaml-env-tag` from matching.
-    return re.compile(rf"^{re.escape(package)}\s+(\S+)\s*$", re.IGNORECASE)
+    # match how the requirement is spelled -- `pyyaml` is reported as `PyYAML`. `-`, `_` and
+    # `.` match interchangeably because PEP 503 treats them as equivalent, so `pip list` may
+    # print a different separator than the one spelled here. The required whitespace keeps a
+    # prefix sibling like `pyyaml-env-tag` from matching.
+    name = "[-_.]+".join(re.escape(part) for part in re.split(r"[-_.]+", package))
+    return re.compile(rf"^{name}\s+(\S+)\s*$", re.IGNORECASE)
 
 
 def _get_package_version(package: str, install_path: Path) -> str:
@@ -96,6 +104,11 @@ def _build_base_environment(working_directory: Path, dependencies: list[str]) ->
     # whatever the extra actually requires -- notably a botocore floor, since the console
     # login provider lives in botocore, not in deadline -- and takes awscrt from the exact
     # version botocore's crt extra pins, rather than resolving it independently and drifting.
+    #
+    # The `deadline` spelling in project.dependencies is load-bearing for the rewrite, but a
+    # miss cannot pass silently: awscrt is in NATIVE_DEPENDENCIES, so if the extra is not
+    # applied, _get_package_version("awscrt", ...) raises because the base environment does
+    # not contain it.
     dependencies_for_pip = [_add_console_extra(dependency) for dependency in dependencies]
     base_env_pip_args = [
         "pip",
