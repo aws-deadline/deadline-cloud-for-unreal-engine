@@ -23,6 +23,7 @@ from pathlib import Path
 
 import pytest
 from packaging.requirements import Requirement
+from packaging.version import Version
 
 REPO_ROOT = Path(__file__).parents[3]
 if str(REPO_ROOT) not in sys.path:
@@ -236,15 +237,15 @@ def test_deadline_floor_excludes_versions_without_console_signin():
     assert deadline_requirements, "pyproject.toml declares no deadline requirement"
 
     for requirement in deadline_requirements:
-        assert "0.60.3" not in requirement.specifier, (
-            f"`{requirement}` admits deadline 0.60.3, which has no console extra; "
-            f"requesting deadline[console] under this floor lets pip backtrack below "
-            f"0.60.4 and drop awscrt"
-        )
-        assert "0.60.4" in requirement.specifier, (
-            f"`{requirement}` excludes deadline 0.60.4, the first version with AWS "
-            f"Console sign-in"
-        )
+        # Asserts exclusion rather than that 0.60.4 itself is admitted: any range that
+        # admits nothing below 0.60.4 protects the extra, so a future floor raise must
+        # not fail this test.
+        for version in ("0.60.1", "0.60.2", "0.60.3"):
+            assert not requirement.specifier.contains(Version(version)), (
+                f"`{requirement}` admits deadline {version}, which has no console extra; "
+                f"requesting deadline[console] under this floor lets pip backtrack below "
+                f"0.60.4 and drop awscrt"
+            )
 
 
 def test_uplugin_deadline_requirement_mirrors_pyproject():

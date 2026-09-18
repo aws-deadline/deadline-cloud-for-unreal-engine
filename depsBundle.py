@@ -27,6 +27,16 @@ SUPPORTED_PLATFORMS = ["win_amd64"]
 # deliberately: the compiled artifacts must match the package the bundle ships. If a package
 # ever drops wheels for one of SUPPORTED_PYTHON_VERSIONS, the pinned download fails under
 # check=True and the build breaks loudly rather than shipping a bundle that cannot load there.
+#
+# p4python is knowingly absent although it also ships a compiled extension (P4API) with no
+# pure-Python fallback: its pin is marker-gated per Python version in project.dependencies,
+# which the single base-environment pin used here cannot express -- covering it needs the
+# pin resolved per target interpreter, a larger change than this list.
+#
+# This list overrides the packages that need one artifact per interpreter; it is not a
+# general platform fix. The base environment itself is still resolved for the build host
+# (no --platform/--python-version), so host-platform artifacts ride along in the zip and
+# any dependency marker-gated on the target platform is evaluated against the host instead.
 NATIVE_DEPENDENCIES = ["xxhash", "awscrt", "pyyaml"]
 
 
