@@ -26,9 +26,14 @@ class TestDynamicChunkingHelper:
         """Invalid or unreadable templates are not considered dynamically chunked."""
         malformed_template = tmp_path / "malformed.yml"
         malformed_template.write_text("parameterSpace: [")
+        invalid_encoding_template = tmp_path / "invalid_encoding.yml"
+        invalid_encoding_template.write_bytes(b"\xff")
 
         assert not DynamicChunkingHelper.is_using_dynamic_chunking_from_file(
             str(malformed_template)
+        )
+        assert not DynamicChunkingHelper.is_using_dynamic_chunking_from_file(
+            str(invalid_encoding_template)
         )
         assert not DynamicChunkingHelper.is_using_dynamic_chunking_from_file(str(tmp_path))
 

@@ -73,9 +73,9 @@ class DynamicChunkingHelper:
             return False
 
         try:
-            with open(template_path, "r") as template_file:
+            with open(template_path, "r", encoding="utf-8") as template_file:
                 template_object = yaml.safe_load(template_file)
-        except (OSError, yaml.YAMLError) as error:
+        except (OSError, UnicodeError, yaml.YAMLError) as error:
             logger.warning(
                 f"Could not read dynamic chunking step template {template_path}: {error}"
             )

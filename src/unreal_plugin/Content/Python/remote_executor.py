@@ -90,6 +90,7 @@ class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelinePythonHostExe
                 step.path_to_template.file_path
             )
             for step in job_preset.steps
+            if step is not None
         )
 
     @unreal.ufunction(override=True)

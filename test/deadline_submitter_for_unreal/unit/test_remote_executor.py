@@ -5,7 +5,7 @@ import os
 import sys
 from types import ModuleType
 from types import SimpleNamespace
-from typing import Union
+from typing import Optional, Union
 from unittest.mock import MagicMock, call, patch
 
 import pytest
@@ -17,7 +17,7 @@ def _job(
     shot_states: tuple[bool, ...],
     frames_per_task: Union[int, str] = 0,
     has_frames_parameter: bool = False,
-    step_template_paths: tuple[str, ...] = (),
+    step_template_paths: tuple[Optional[str], ...] = (),
     has_parameter_definitions: bool = True,
     has_job_preset: bool = True,
 ) -> SimpleNamespace:
@@ -29,7 +29,11 @@ def _job(
     job.job_preset = (
         SimpleNamespace(
             steps=[
-                SimpleNamespace(path_to_template=SimpleNamespace(file_path=path))
+                (
+                    SimpleNamespace(path_to_template=SimpleNamespace(file_path=path))
+                    if path is not None
+                    else None
+                )
                 for path in step_template_paths
             ]
         )
@@ -183,8 +187,14 @@ parameterSpace:
 def test_execute_delayed_finishes_when_no_jobs_are_eligible(remote_executor):
     disabled_job = _job("Disabled", enabled=False, shot_states=(True,))
     all_shots_disabled_job = _job("AllShotsDisabled", enabled=True, shot_states=(False, False))
+    null_step_job = _job(
+        "NullStep",
+        enabled=True,
+        shot_states=(),
+        step_template_paths=(None,),
+    )
     queue = MagicMock()
-    queue.get_jobs.return_value = [disabled_job, all_shots_disabled_job]
+    queue.get_jobs.return_value = [disabled_job, all_shots_disabled_job, null_step_job]
 
     executor = remote_executor.MoviePipelineDeadlineCloudRemoteExecutor()
     executor.on_executor_finished_impl = MagicMock()
@@ -198,6 +208,7 @@ def test_execute_delayed_finishes_when_no_jobs_are_eligible(remote_executor):
     executor.check_dirty_packages.assert_not_called()
     executor.check_maps.assert_not_called()
     submitter_class.assert_not_called()
+    null_step_job.is_enabled.assert_called_once_with()
 
 
 def test__is_frame_based_job_returns_false_without_parameter_definitions(remote_executor):
