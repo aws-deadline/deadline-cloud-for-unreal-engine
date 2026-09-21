@@ -39,7 +39,7 @@ class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelinePythonHostExe
             # An empty shot list may be unpopulated for programmatically-created jobs.
             if job.is_enabled()
             and (
-                any(shot.enabled for shot in job.shot_info)
+                any(shot.enabled for shot in job.shot_info if shot is not None)
                 or (not job.shot_info and self._is_frame_based_job(job))
             )
         ]
@@ -90,7 +90,7 @@ class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelinePythonHostExe
                 step.path_to_template.file_path
             )
             for step in job_preset.steps
-            if step is not None
+            if isinstance(step, unreal.DeadlineCloudRenderStep)
         )
 
     @unreal.ufunction(override=True)

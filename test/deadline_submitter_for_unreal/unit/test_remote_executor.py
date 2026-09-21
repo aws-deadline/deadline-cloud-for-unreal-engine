@@ -72,6 +72,7 @@ def remote_executor():
     unreal_mock.MoviePipelinePythonHostExecutor = type(
         "MoviePipelinePythonHostExecutor", (object,), {}
     )
+    unreal_mock.DeadlineCloudRenderStep = type("DeadlineCloudRenderStep", (object,), {})
     submitter_module = ModuleType("deadline.unreal_submitter.submitter")
     setattr(submitter_module, "UnrealMrqJobSubmitter", MagicMock())
     logger_module = ModuleType("deadline.unreal_logger")
@@ -131,6 +132,17 @@ parameterSpace:
         shot_states=(),
         step_template_paths=(str(dynamic_chunking_step_template),),
     )
+    dynamic_chunking_render_step = remote_executor.unreal.DeadlineCloudRenderStep()
+    dynamic_chunking_render_step.path_to_template = SimpleNamespace(
+        file_path=str(dynamic_chunking_step_template)
+    )
+    dynamic_chunking_unpopulated_shots_job.job_preset.steps = [dynamic_chunking_render_step]
+    dynamic_custom_step_unpopulated_shots_job = _job(
+        "DynamicCustomStepUnpopulatedShots",
+        enabled=True,
+        shot_states=(),
+        step_template_paths=(str(dynamic_chunking_step_template),),
+    )
     generic_frames_unpopulated_shots_job = _job(
         "GenericFramesUnpopulatedShots",
         enabled=True,
@@ -147,6 +159,7 @@ parameterSpace:
         all_shots_disabled_job,
         frame_based_unpopulated_shots_job,
         dynamic_chunking_unpopulated_shots_job,
+        dynamic_custom_step_unpopulated_shots_job,
         generic_frames_unpopulated_shots_job,
         shot_based_unpopulated_shots_job,
     ]
@@ -178,6 +191,7 @@ parameterSpace:
         all_shots_disabled_job,
         frame_based_unpopulated_shots_job,
         dynamic_chunking_unpopulated_shots_job,
+        dynamic_custom_step_unpopulated_shots_job,
         generic_frames_unpopulated_shots_job,
         shot_based_unpopulated_shots_job,
     ]:
@@ -193,8 +207,15 @@ def test_execute_delayed_finishes_when_no_jobs_are_eligible(remote_executor):
         shot_states=(),
         step_template_paths=(None,),
     )
+    null_shot_job = _job("NullShot", enabled=True, shot_states=())
+    null_shot_job.shot_info = [None]
     queue = MagicMock()
-    queue.get_jobs.return_value = [disabled_job, all_shots_disabled_job, null_step_job]
+    queue.get_jobs.return_value = [
+        disabled_job,
+        all_shots_disabled_job,
+        null_step_job,
+        null_shot_job,
+    ]
 
     executor = remote_executor.MoviePipelineDeadlineCloudRemoteExecutor()
     executor.on_executor_finished_impl = MagicMock()
@@ -209,6 +230,7 @@ def test_execute_delayed_finishes_when_no_jobs_are_eligible(remote_executor):
     executor.check_maps.assert_not_called()
     submitter_class.assert_not_called()
     null_step_job.is_enabled.assert_called_once_with()
+    null_shot_job.is_enabled.assert_called_once_with()
 
 
 def test__is_frame_based_job_returns_false_without_parameter_definitions(remote_executor):
