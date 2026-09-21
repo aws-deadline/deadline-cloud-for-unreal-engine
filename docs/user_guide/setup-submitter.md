@@ -108,7 +108,7 @@ There are 4 ways to install the required Python dependencies.
 _1._ If you've built and installed the plugin from the release branch above, you can simply install from pip. Use the following install command, adjusting the paths to your Unreal installation:
 
 ```
-"C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install deadline-cloud-for-unreal-engine --target "C:\Program Files\Epic Games\UE_5.5\Engine\Plugins\UnrealDeadlineCloudService\Content\Python\libraries"
+"C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install "deadline-cloud-for-unreal-engine[console]" --target "C:\Program Files\Epic Games\UE_5.5\Engine\Plugins\UnrealDeadlineCloudService\Content\Python\libraries"
 ```
 
 _2._ Alternatively in your .uplugin file (In the above steps this would live at C:\Program Files\Epic Games\UE_5.5\Engine\Plugins\UnrealDeadlineCloudService\UnrealDeadlineCloudService.uplugin) you can add a "PythonRequirements" section which matches the latest release of deadline-cloud-for-unreal-engine in GitHub/PyPi, for example:
@@ -121,11 +121,15 @@ _2._ Alternatively in your .uplugin file (In the above steps this would live at 
 			"Platform": "All",
 			"Requirements":
 			[
-				"deadline-cloud-for-unreal-engine>=0.5.0"
+				"deadline-cloud-for-unreal-engine>=0.5.0",
+				"deadline[console]>=0.60.4,<0.61",
+				"typing_extensions>=4.14.1"
 			]
 		}
 	]
 ```
+
+The `PythonRequirements` section in this repository's [UnrealDeadlineCloudService.uplugin](../../src/unreal_plugin/UnrealDeadlineCloudService.uplugin) is the source of truth for this list — if the snippet above and that file disagree, use the file. The `deadline[console]` entry is required for AWS Console sign-in (it pulls `awscrt`), and the explicit transitive pins prevent UE's PipInstall cache from serving stale packages.
 
 Note that you may wish to disable the "strict hash" feature in Unreal's Python settings, or add hash settings for specific library and dependency versions you wish to consume.
 
@@ -135,7 +139,7 @@ _3._ If you're pulling from mainline you may have python dependencies which are 
 // Install hatch if not yet installed
 pip install hatch
 hatch build
-"C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install dist\deadline_cloud_for_unreal_engine-0.2.2.post21-py3-none-any.whl --target "C:\Program Files\Epic Games\UE_5.5\Engine\Plugins\UnrealDeadlineCloudService\Content\Python\libraries"
+"C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install "dist\deadline_cloud_for_unreal_engine-0.2.2.post21-py3-none-any.whl[console]" --target "C:\Program Files\Epic Games\UE_5.5\Engine\Plugins\UnrealDeadlineCloudService\Content\Python\libraries"
 ```
 
 _4._ Lastly, Python dependencies can be installed by the submitter installer. NOTE - these may be out of date with your code above from the release or mainline branch, and this method should not currently be preferred.
