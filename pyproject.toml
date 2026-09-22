@@ -192,8 +192,7 @@ source = [
 show_missing = true
 fail_under = 65
 [tool.semantic_release]
-# Can be removed or set to true once we are v1
-major_on_zero = false
+major_on_zero = true
 allow_zero_version = true
 tag_format = "{version}"
 
@@ -210,10 +209,9 @@ allowed_tags = [
     "refactor",
     "test",
 ]
-minor_tags = []
+minor_tags = ["feat"]
 patch_tags = [
   "chore",
-  "feat",
   "fix",
   "refactor",
   "perf",
