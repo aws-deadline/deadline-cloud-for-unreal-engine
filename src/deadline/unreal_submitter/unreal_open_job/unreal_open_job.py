@@ -1609,18 +1609,6 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             job_parameter_value=common.get_project_file_path(),
         )
 
-        # Set the Marketplace plugins dir so the worker can find and install them.
-        # Clear it when plugin handling is disabled so a user-provided installer
-        # environment also becomes a no-op.
-        marketplace_dir = (
-            "" if self._plugins_ignored() else UnrealOpenJob.get_marketplace_plugins_dir()
-        )
-        unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
-            job_parameter_values=unfilled_parameter_values,
-            job_parameter_name=OpenJobParameterNames.MARKETPLACE_PLUGINS_DIR,
-            job_parameter_value=marketplace_dir,
-        )
-
         if self._transfer_files_strategy == TransferProjectFilesStrategy.UGS:
             unfilled_parameter_values = self._build_parameter_values_for_ugs(
                 parameter_values=unfilled_parameter_values
@@ -1638,12 +1626,23 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             )
 
         all_parameter_values = filled_parameter_values + unfilled_parameter_values
+        marketplace_dir = next(
+            (
+                p["value"]
+                for p in all_parameter_values
+                if p["name"] == OpenJobParameterNames.MARKETPLACE_PLUGINS_DIR
+            ),
+            None,
+        )
         if self._plugins_ignored():
-            all_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
-                job_parameter_values=all_parameter_values,
-                job_parameter_name=OpenJobParameterNames.MARKETPLACE_PLUGINS_DIR,
-                job_parameter_value="",
-            )
+            marketplace_dir = ""
+        elif not marketplace_dir:
+            marketplace_dir = UnrealOpenJob.get_marketplace_plugins_dir()
+        all_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+            job_parameter_values=all_parameter_values,
+            job_parameter_name=OpenJobParameterNames.MARKETPLACE_PLUGINS_DIR,
+            job_parameter_value=marketplace_dir,
+        )
         return all_parameter_values
 
     def get_executor_cmd_args(self) -> str:
