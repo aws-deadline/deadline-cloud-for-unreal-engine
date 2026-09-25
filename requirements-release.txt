@@ -1,2 +1,2 @@
-python-semantic-release == 10.6.*
+python-semantic-release == 10.7.*
 gitpython < 3.1.60
