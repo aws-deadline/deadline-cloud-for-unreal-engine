@@ -1,3 +1,12 @@
+## 1.1.0 (2026-09-22)
+
+### Features
+* Added an "ignore plugins" submit option, allowing you to exclude specific plugins during job submission. This setting is also applied after MRQ overrides. (#392)
+
+### Bug Fixes
+* MRQ submission now properly validates job eligibility — disabled MRQ jobs are skipped, unpopulated shot-based MRQ jobs are ignored, and frame eligibility is validated before submission. (#397)
+* Disabled MRQ jobs are now correctly skipped during submission instead of being included. (#391)
+* Fixed an issue where AWS Console sign-in credentials failed to authenticate in the submitter. The minimum `deadline` dependency has been raised to 0.60.4 (with the `console` extra) and a loadable `awscrt` is now shipped, ensuring credentials work correctly. (#395)
 ## 1.0.0 (2026-09-11)
 
 ### BREAKING CHANGES

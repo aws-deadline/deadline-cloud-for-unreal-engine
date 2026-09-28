@@ -1,7 +1,10 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import re
+import os
 from typing import Optional
+
+import yaml
 
 from deadline.unreal_logger import get_logger
 from deadline.unreal_submitter.exceptions import SubmitterInputValidationError
@@ -56,6 +59,29 @@ class DynamicChunkingHelper:
                 "CHUNK parameters is only expected in step_template_object"
             )
             return False
+
+    @staticmethod
+    def is_using_dynamic_chunking_from_file(template_path: Optional[str]) -> bool:
+        """
+        Detect whether a step template file uses TASK_CHUNKING.
+
+        :param template_path: Path to a step template file
+        :return: True if the template has a CHUNK task parameter, False otherwise
+        :rtype: bool
+        """
+        if not template_path or not os.path.exists(template_path):
+            return False
+
+        try:
+            with open(template_path, "r", encoding="utf-8") as template_file:
+                template_object = yaml.safe_load(template_file)
+        except (OSError, UnicodeError, yaml.YAMLError) as error:
+            logger.warning(
+                f"Could not read dynamic chunking step template {template_path}: {error}"
+            )
+            return False
+
+        return DynamicChunkingHelper.is_using_dynamic_chunking(template_object)
 
     @staticmethod
     def _validate_range_constraint(range_constraint: str) -> None:

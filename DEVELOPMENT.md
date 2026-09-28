@@ -66,7 +66,7 @@ When making changes to the Python submitter you'll need to rebuild and install y
 // Install hatch if not yet installed
 pip install hatch
 hatch build
-"C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install dist\deadline_cloud_for_unreal_engine-0.2.2.post21-py3-none-any.whl --target "C:\Program Files\Epic Games\UE_5.5\Engine\Plugins\UnrealDeadlineCloudService\Content\Python\libraries"
+"C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install "dist\deadline_cloud_for_unreal_engine-0.2.2.post21-py3-none-any.whl[console]" --target "C:\Program Files\Epic Games\UE_5.5\Engine\Plugins\UnrealDeadlineCloudService\Content\Python\libraries"
 ```
 
 When making adaptor changes, the same .whl can either be transferred to your worker or built on the worker off the same changes.

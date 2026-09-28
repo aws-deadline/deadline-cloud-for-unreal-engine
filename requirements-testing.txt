@@ -10,4 +10,10 @@ black == 26.*; python_version >= "3.10"
 black == 25.*; python_version < "3.10"
 ruff == 0.15.*
 types-pyyaml == 6.*
+# Stubs for depsBundle.py's <3.11 toml fallback; mypy 1.x (the <3.10 legs) reports
+# import-untyped for it even with ignore_missing_imports.
+types-toml == 0.10.*
 psutil >= 7.2.2
+# Both are used by test_deps_bundle_native_merge.py, which parses pyproject.toml.
+packaging >= 26.3
+tomli == 2.*; python_version < "3.11"

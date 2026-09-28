@@ -204,6 +204,11 @@ def install_whl_to_plugin(whl_path: str, engine_root: str):
     # interpreter's own site-packages for already-satisfied dependencies.
     # Without it, an older 'deadline' in UE Python's Lib/site-packages causes
     # pip to skip installing the required version into the target directory.
+    #
+    # [console] because this installs the submitter, which needs AWS Console sign-in
+    # (awscrt): the wheel's own Requires-Dist deliberately omits the extra so the adaptor
+    # packaging never resolves awscrt (see pyproject.toml). install_whl_global below
+    # installs the worker-side adaptor and must NOT request it.
     logger.info(f"Installing {whl_path} to {plugin_libraries_path}")
     result = subprocess.run(
         [
@@ -211,7 +216,7 @@ def install_whl_to_plugin(whl_path: str, engine_root: str):
             "-m",
             "pip",
             "install",
-            whl_path,
+            f"{whl_path}[console]",
             "-t",
             plugin_libraries_path,
             "--force-reinstall",
@@ -256,6 +261,10 @@ def install_whl_global(whl_path: str):
     2. ``pip install <whl> --force-reinstall --no-deps`` — overwrites the
        package's own files even when the version string is unchanged, which
        the previous --upgrade strategy would silently skip.
+
+    Unlike install_whl_to_plugin, this deliberately does not request the
+    ``[console]`` extra: it installs the worker-side adaptor, which runs with
+    host-provided credentials and never takes the console sign-in path.
 
     :param whl_path: Path to whl file
     """

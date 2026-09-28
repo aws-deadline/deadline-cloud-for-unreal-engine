@@ -629,6 +629,12 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         if shots_per_task <= 0:
             shots_per_task = 1  # by default each task renders 1 shot
 
+        if not enabled_shots:
+            raise exceptions.SubmitterInputValidationError(
+                "MRQ job has no enabled shots. Populate its shot list or set FramesPerTask to "
+                "a value greater than zero."
+            )
+
         task_count = math.ceil(len(enabled_shots) / shots_per_task)
 
         return task_count

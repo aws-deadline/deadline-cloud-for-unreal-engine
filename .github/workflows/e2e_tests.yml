@@ -7,6 +7,24 @@ on:
     paths-ignore:
       - CHANGELOG.md
   workflow_dispatch:
+    inputs:
+      ref_type:
+        description: 'Reference type to test'
+        required: true
+        default: 'branch'
+        type: choice
+        options:
+          - branch
+          - tag
+      branch:
+        description: 'Branch to test (e.g., mainline, feature-branch)'
+        required: false
+        default: 'mainline'
+        type: string
+      tag:
+        description: 'Tag to test (only used when ref_type is "tag")'
+        required: false
+        type: string
 
 jobs:
   MainlineWindowsE2ETest:
@@ -18,5 +36,7 @@ jobs:
     secrets: inherit
     with:
       repository: ${{ github.event.repository.name }}
+      branch: ${{ github.event.inputs.ref_type == 'branch' && github.event.inputs.branch || 'mainline' }}
       environment: mainline
       os: windows
+      tag: ${{ github.event.inputs.ref_type == 'tag' && github.event.inputs.tag || '' }}

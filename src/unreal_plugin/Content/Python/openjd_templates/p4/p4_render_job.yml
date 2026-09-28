@@ -50,6 +50,15 @@ parameterDefinitions:
   default: ''
   userInterface:
    control: HIDDEN
+- name: IgnorePlugins
+  type: STRING
+  default: 'false'
+  allowedValues:
+  - 'false'
+  - 'true'
+  userInterface:
+   control: DROPDOWN_LIST
+   label: Ignore Plugins
 - name: SubmitMode
   description: >-
     Optional Perforce submit for render outputs. Job Attachments still uploads

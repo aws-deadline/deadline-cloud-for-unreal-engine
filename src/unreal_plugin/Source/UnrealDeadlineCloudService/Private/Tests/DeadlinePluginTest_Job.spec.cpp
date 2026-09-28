@@ -14,6 +14,7 @@
 #include "Interfaces/IPluginManager.h"
 #include "ObjectTools.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudJob.h"
+#include "MovieRenderPipeline/MoviePipelineDeadlineCloudExecutorJob.h"
 #include "PythonAPILibraries/PythonYamlLibrary.h"
 #include "PythonAPILibraries/DeadlineCloudJobBundleLibrary.h"
 #include "PythonAPILibraries/PythonParametersConsistencyChecker.h"
@@ -195,6 +196,25 @@ void FDeadlinePluginJobSpec::Define()
                     {
                         TestFalse(result.Reason, (result.Passed == false));
                     }
+                });
+        });
+
+    Describe("MoviePipelineDeadlineCloudExecutorJob", [this]()
+        {
+            It("Returns no parameter definitions without a job preset", [this]()
+                {
+                    UMoviePipelineDeadlineCloudExecutorJob* MrqJob =
+                        NewObject<UMoviePipelineDeadlineCloudExecutorJob>();
+                    TestNotNull("MRQ job should be created", MrqJob);
+
+                    MrqJob->JobPreset = nullptr;
+                    const FDeadlineCloudJobParametersArray Parameters =
+                        MrqJob->GetParameterDefinitionWithOverrides();
+
+                    TestTrue(
+                        "Missing job preset should return empty parameter definitions",
+                        Parameters.Parameters.IsEmpty()
+                    );
                 });
         });
 
