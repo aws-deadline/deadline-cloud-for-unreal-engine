@@ -2,8 +2,8 @@
 
 Step-by-step workflow the agent follows to automate environment setup. Execute each step, validate, and only prompt the user when required.
 
-> **Source of truth:** The canonical setup instructions live in
-> [docs/user_guide/setup-submitter.md](../../../docs/user_guide/setup-submitter.md) and
+> **Source of truth:** The canonical setup instructions live in the
+> [Epic Unreal Engine user guide](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/epic-unreal-engine.html#unreal-engine-installation) and
 > [DEVELOPMENT.md](../../../DEVELOPMENT.md).
 > This guide tells the agent *how to automate* those steps — refer to the source docs for full details.
 
@@ -26,7 +26,7 @@ Get-WmiObject Win32_VideoController | Where-Object {$_.Name -like "*NVIDIA*"}
 nvidia-smi
 ```
 
-**If not found:** Inform user GPU/drivers are required. Refer to the NVIDIA driver instructions in `docs/user_guide/setup-submitter.md`.
+**If not found:** Inform user GPU/drivers are required. Refer to the NVIDIA driver instructions in the [Epic Unreal Engine user guide](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/epic-unreal-engine.html#unreal-engine-installation).
 
 Wait for user confirmation before continuing.
 
@@ -74,7 +74,7 @@ Get-ChildItem "C:\Program Files\Microsoft Visual Studio" -Directory
 winget install Microsoft.VisualStudio.2022.Community --override "--add Microsoft.VisualStudio.Workload.NativeDesktop --passive"
 ```
 
-If winget fails, inform user to install manually. Refer to `docs/user_guide/setup-submitter.md` for version requirements. Wait for user confirmation.
+If winget fails, inform user to install manually. Refer to the [Epic Unreal Engine user guide](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/epic-unreal-engine.html#unreal-engine-install-build-tools) for version requirements. Wait for user confirmation.
 
 ## Step 5: Verify Deadline Cloud Monitor
 
@@ -85,7 +85,7 @@ deadline --version
 Test-Path "$env:LOCALAPPDATA\DeadlineCloudMonitor\DeadlineCloudMonitor.exe"
 ```
 
-**If not found:** Deadline Cloud Monitor must be downloaded manually from the AWS console. Instruct user to download and install it, then re-run `deadline --version` to confirm. Refer to `docs/user_guide/setup-submitter.md` for details.
+**If not found:** Deadline Cloud Monitor must be downloaded manually from the AWS console. Instruct user to download and install it, then re-run `deadline --version` to confirm. Refer to the [Epic Unreal Engine user guide](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/epic-unreal-engine.html#unreal-engine-install-monitor) for details.
 
 ## Step 6: Detect Unreal Engine
 
@@ -145,7 +145,7 @@ Installed:
 
 ## Step 11: Enable Plugin and Test (MANUAL)
 
-This is the only manual step. Refer user to the "Submit a Test Render" section in `docs/user_guide/setup-submitter.md`.
+This is the only manual step. Refer user to the "Submitting a test render" section in the [Epic Unreal Engine user guide](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/epic-unreal-engine.html#unreal-engine-test-render).
 
 ## Troubleshooting
 

@@ -323,11 +323,11 @@ def test_uplugin_deadline_requirement_mirrors_pyproject():
 
 def test_console_extra_group_matches_the_deadline_pin():
     """The `console` optional group covers the third submitter install path -- a direct
-    `pip install deadline-cloud-for-unreal-engine[console]` (setup-submitter.md, option
-    1), which goes through neither the .uplugin's PythonRequirements nor the dependency
-    bundle. It restates the deadline range because project.dependencies deliberately
-    omits the extra (the adaptor packaging cannot carry awscrt); this pins the restated
-    copy to the authoritative one.
+    `pip install deadline-cloud-for-unreal-engine[console]` (the documented direct pip
+    installation option), which goes through neither the .uplugin's PythonRequirements
+    nor the dependency bundle. It restates the deadline range because
+    project.dependencies deliberately omits the extra (the adaptor packaging cannot
+    carry awscrt); this pins the restated copy to the authoritative one.
     """
     deadline_requirements = _pyproject_deadline_requirements()
     assert len(deadline_requirements) == 1, "expected exactly one deadline pin in pyproject.toml"
