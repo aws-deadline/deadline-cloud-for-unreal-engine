@@ -49,23 +49,23 @@ jobs:
             exit 0
           fi
 
-          NEXT_VERSION=$(semantic-release version --print)
-          if [[ -z "$NEXT_VERSION" ]]; then
-            echo "::error::semantic-release did not determine a next version."
+          NEXT_TAG=$(semantic-release version --print-tag)
+          if [[ -z "$NEXT_TAG" ]]; then
+            echo "::error::semantic-release did not determine a next tag."
             exit 1
           fi
 
-          if git show-ref --verify --quiet "refs/tags/$NEXT_VERSION"; then
-            if ! git merge-base --is-ancestor "refs/tags/$NEXT_VERSION^{commit}" HEAD; then
-              echo "::error::Version $NEXT_VERSION is already tagged on another branch."
+          if git show-ref --verify --quiet "refs/tags/$NEXT_TAG"; then
+            if ! git merge-base --is-ancestor "refs/tags/$NEXT_TAG^{commit}" HEAD; then
+              echo "::error::Tag $NEXT_TAG already exists on another branch."
               exit 1
             fi
             echo "should_bump=false" >> "$GITHUB_OUTPUT"
             echo "### Nothing to release" >> "$GITHUB_STEP_SUMMARY"
-            echo "No commits since $NEXT_VERSION require a version bump." >> "$GITHUB_STEP_SUMMARY"
+            echo "No commits since $NEXT_TAG require a version bump." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "should_bump=true" >> "$GITHUB_OUTPUT"
-            echo "### Release bump needed: $NEXT_VERSION" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Release bump needed: $NEXT_TAG" >> "$GITHUB_STEP_SUMMARY"
           fi
 
   Bump:
