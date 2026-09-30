@@ -51,11 +51,17 @@ def error_notify(
                 unreal.log(str(e))
                 unreal.log(traceback.format_exc())
 
-                telemetry_client.record_error(
-                    event_details={"exception_scope": "caught", "error_operation": "on_submit"},
-                    exception_type=str(type(e)),
-                    from_gui=not self._silent_mode,
-                )
+                try:
+                    telemetry_client.record_error_with_trace(
+                        exc=e,
+                        exception_scope="on_submit",
+                        extra_details={
+                            "error_operation": "on_submit",
+                        },
+                        from_gui=not self._silent_mode,
+                    )
+                except Exception:
+                    logger.warning("Failed to record error telemetry", exc_info=True)
 
                 if isinstance(e, UserException):
                     return
@@ -314,6 +320,12 @@ class UnrealSubmitter:
         """
 
         del self.submitted_job_ids[:]
+
+        # Pre-GUI hooks are NOT run here. In Unreal the true "pre-GUI" point is the C++
+        # UDeadlineCloudJob Details panel (FDeadlineCloudJobDetails::CustomizeDetails), which runs
+        # the hooks and applies their output onto the data asset before the artist edits it. By
+        # submit time the job is already fully configured, so running hooks here would be too late
+        # to be "pre-GUI".
 
         # Get project root directory as absolute path
         project_dir = os.path.abspath(unreal.Paths.project_dir())

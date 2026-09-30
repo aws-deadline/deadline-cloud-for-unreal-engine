@@ -158,7 +158,19 @@ public:
     FJobTemplateOverrides JobTemplateOverrides = FJobTemplateOverrides();
 
     void JobPresetChanged();
-    
+
+    /**
+     * Guards the pre-GUI hook so it runs at most once per executor-job instance (not on every MRQ Details
+     * rebuild), pre-populating PresetOverrides.JobSharedSettings before the artist edits them. Transient:
+     * never serialized, so it resets on load and the hook re-runs the first time a job's MRQ panel is shown
+     * in a new editor session. This is the MRQ counterpart of UDeadlineCloudJob::bPreGuiHooksApplied — the
+     * MRQ path submits from PresetOverrides (a snapshot of the data asset taken at preset-assign time), so
+     * the hook must land here to reach an MRQ render submission, not only on the data-asset editor panel.
+     *
+     */
+    UPROPERTY(Transient)
+    bool bPreGuiHooksApplied = false;
+
     static bool IsAssetFileValid(const FString& FilePath);
 	static bool IsAssetDirectoryValid(const FString& DirectoryPath);
 

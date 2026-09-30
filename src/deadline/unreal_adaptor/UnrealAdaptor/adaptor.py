@@ -67,6 +67,10 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         super().__init__(*args, **kwargs)
 
         self.data_validation = DataValidation()
+        self._csv_capture_frames: Optional[int] = None
+        self._memreport_enabled: bool = False
+        self._insights_categories: Optional[str] = None
+        self._startup_insights_trace_file: Optional[str] = None
 
     @property
     def integration_data_interface_version(self) -> SemanticVersion:
@@ -270,6 +274,12 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         :param match: re.Match object from the regex pattern that was matched the message
         :type match: re.Match
         """
+        if match.groups() and (
+            self._csv_capture_frames or self._memreport_enabled or self._insights_categories
+        ):
+            logger.info("Waiting for profiling cleanup before completing the render task")
+            return
+
         self._unreal_is_rendering = False
         self.update_status(progress=100)
 
@@ -342,7 +352,6 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
 
         # Remove the -execcmds argument from the extra_cmd_args
         extra_cmd_str = re.sub(r'(-execcmds=["\'][^"\']*["\'])', "", extra_cmd_str)
-
         client_path = self.unreal_client_path.replace("\\", "/")
         log_args = ["-log", "-unattended", "-stdout", "-allowstdoutlogverbosity", "-nozen"]
 
@@ -351,10 +360,34 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
             log_args += ["-NoLoadingScreen", "-NoScreenMessages", "-RenderOffscreen", "-nozen"]
 
         extra_cmd_args = extra_cmd_str.split(" ")
+        extra_cmd_args, self._csv_capture_frames = self._extract_csv_capture_frames_arg(
+            extra_cmd_args
+        )
+        extra_cmd_args, self._memreport_enabled = self._extract_memreport_arg(extra_cmd_args)
+        extra_cmd_args, self._insights_categories = self._extract_insights_arg(extra_cmd_args)
+        if self._insights_categories and any(
+            re.match(r"^-trace(?:=|$)", arg, flags=re.IGNORECASE) for arg in extra_cmd_args
+        ):
+            logger.warning(
+                "Raw -trace arguments take precedence over Deadline Cloud Insights profiling"
+            )
+            self._insights_categories = None
+        trace_file_arg = self._get_tracefile_arg(unreal_project_path, " ".join(extra_cmd_args))
+        if self._insights_categories:
+            self._startup_insights_trace_file = self._get_startup_trace_file(unreal_project_path)
 
         args = [unreal_exe, unreal_project_path]
         args.extend(log_args)
         args.extend(extra_cmd_args)
+        if trace_file_arg:
+            args.append(trace_file_arg)
+        if self._startup_insights_trace_file:
+            args.extend(
+                [
+                    f"-trace={self._insights_categories}",
+                    f"-tracefile={self._startup_insights_trace_file}",
+                ]
+            )
         args = [arg for arg in args if arg]  # Remove empty strings
         args = list(dict.fromkeys(args))  # Remove duplicates
 
@@ -383,6 +416,150 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
             stderr_handler=regexhandler,
         )
 
+    @staticmethod
+    def _extract_csv_capture_frames_arg(
+        extra_cmd_args: list[str],
+    ) -> tuple[list[str], Optional[int]]:
+        """
+        Remove launch-time CSV frame capture so render steps can start CSV only
+        after MRQ reports that rendering has actually begun.
+        """
+
+        filtered_args: list[str] = []
+        csv_capture_frames: Optional[int] = None
+        index = 0
+
+        while index < len(extra_cmd_args):
+            token = extra_cmd_args[index]
+            match = re.match(r"^-csvCaptureFrames(?:=(.+))?$", token, flags=re.IGNORECASE)
+            if not match:
+                filtered_args.append(token)
+                index += 1
+                continue
+
+            raw_value = match.group(1)
+            if raw_value is None:
+                next_index = index + 1
+                if next_index < len(extra_cmd_args) and not str(
+                    extra_cmd_args[next_index]
+                ).startswith("-"):
+                    raw_value = extra_cmd_args[next_index]
+                    index = next_index
+
+            if raw_value is None or str(raw_value).startswith("-"):
+                logger.warning("Ignoring -csvCaptureFrames without a numeric value")
+                index += 1
+                continue
+
+            try:
+                csv_capture_frames = max(1, int(str(raw_value).strip()))
+                logger.info(
+                    "Deferring CSV capture until render begins: %s frame(s)",
+                    csv_capture_frames,
+                )
+            except ValueError:
+                logger.warning("Ignoring invalid -csvCaptureFrames value: %s", raw_value)
+
+            index += 1
+
+        return filtered_args, csv_capture_frames
+
+    @staticmethod
+    def _extract_memreport_arg(extra_cmd_args: list[str]) -> tuple[list[str], bool]:
+        """
+        Remove the MemReport transport flag from launch args so the render step
+        can request MemReport -full after MRQ has completed.
+        """
+
+        filtered_args: list[str] = []
+        memreport_enabled = False
+
+        for token in extra_cmd_args:
+            if re.match(r"^-MemReport(?:=.*)?$", token, flags=re.IGNORECASE):
+                if not memreport_enabled:
+                    logger.info("Deferring MemReport generation until render completion")
+                memreport_enabled = True
+                continue
+
+            filtered_args.append(token)
+
+        return filtered_args, memreport_enabled
+
+    @staticmethod
+    def _extract_insights_arg(extra_cmd_args: list[str]) -> tuple[list[str], Optional[str]]:
+        filtered_args: list[str] = []
+        insights_categories: Optional[str] = None
+
+        for token in extra_cmd_args:
+            match = re.match(r"^-DeadlineCloudInsights=(.+)$", token, flags=re.IGNORECASE)
+            if not match:
+                filtered_args.append(token)
+                continue
+
+            raw_value = match.group(1).strip().strip("\"'")
+            categories = [category.strip() for category in raw_value.split(",") if category.strip()]
+            if categories and all(
+                re.fullmatch(r"[A-Za-z0-9_.-]+", category) for category in categories
+            ):
+                insights_categories = ",".join(dict.fromkeys(categories))
+                logger.info(
+                    "Configuring Deadline Cloud Unreal Insights capture: %s",
+                    insights_categories,
+                )
+            else:
+                logger.warning("Ignoring invalid -DeadlineCloudInsights value: %s", raw_value)
+
+        return filtered_args, insights_categories
+
+    @staticmethod
+    def _get_or_create_trace_directory(unreal_project_path: str) -> Optional[str]:
+        if not unreal_project_path:
+            return None
+
+        project_dir = os.path.dirname(unreal_project_path).replace("\\", "/").rstrip("/")
+        trace_dir = f"{project_dir}/Saved/Profiling/DeadlineCloud"
+        try:
+            os.makedirs(trace_dir, exist_ok=True)
+        except OSError as exc:
+            logger.warning(
+                "Unable to create Unreal Insights trace directory %s: %s", trace_dir, exc
+            )
+            return None
+
+        return trace_dir
+
+    @staticmethod
+    def _get_tracefile_arg(unreal_project_path: str, extra_cmd_str: str) -> Optional[str]:
+        """
+        If tracing is enabled without an explicit tracefile, write traces under the
+        runtime project's Saved/Profiling directory so artifacts are produced on the worker.
+        """
+
+        if not unreal_project_path:
+            return None
+
+        if not re.search(r"(^|\s)-trace=", extra_cmd_str, flags=re.IGNORECASE):
+            return None
+
+        if re.search(r"(^|\s)-tracefile=", extra_cmd_str, flags=re.IGNORECASE):
+            return None
+
+        trace_dir = UnrealAdaptor._get_or_create_trace_directory(unreal_project_path)
+        if not trace_dir:
+            return None
+
+        trace_name = time.strftime("deadline-cloud-insights-%Y%m%d-%H%M%S.utrace")
+        return f"-tracefile={trace_dir}/{trace_name}"
+
+    @staticmethod
+    def _get_startup_trace_file(unreal_project_path: str) -> Optional[str]:
+        trace_dir = UnrealAdaptor._get_or_create_trace_directory(unreal_project_path)
+        if not trace_dir:
+            return None
+
+        trace_name = time.strftime("deadline-cloud-insights-startup-%Y%m%d-%H%M%S.utrace")
+        return f"{trace_dir}/{trace_name}"
+
     def _populate_client_loaded_action(self) -> None:
         """
         Populates the adaptor server's action queue with the specific action to check if UE initialized or not yet
@@ -394,17 +571,28 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         self, exc: Exception, exception_scope: str, exit_code: Optional[int] = None
     ) -> None:
         """
-        Record telemetry error event and raise given exception
+        Record telemetry error event with stack trace and raise given exception
         """
-        self.telemetry_client.record_error(
-            event_details={
-                "exit_code": exit_code,
-                "exception_scope": "caught",
-                "error_operation": exception_scope,
-            },
-            exception_type=str(type(exc)),
-            from_gui=False,
-        )
+        # Callers must pass an exception that has already been raised and caught,
+        # so `exc.__traceback__` is populated — the recorded stack trace is derived
+        # from it and would otherwise be empty.
+        if exc.__traceback__ is None:
+            logger.warning(
+                "Recording %s with no traceback; the emitted stack trace will be empty. "
+                "Raise and catch the exception before calling _record_error_and_raise.",
+                type(exc).__qualname__,
+            )
+        try:
+            self.telemetry_client.record_error_with_trace(
+                exc=exc,
+                exception_scope=exception_scope,
+                extra_details={
+                    "exit_code": exit_code,
+                    "error_operation": exception_scope,
+                },
+            )
+        except Exception:
+            logger.warning("Failed to record error telemetry", exc_info=True)
         raise exc
 
     def on_start(self) -> None:
@@ -472,15 +660,29 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         :raises RuntimeError: When Unreal exited early and did not render successfully
         """
         if not self._unreal_is_running:
-            self._record_error_and_raise(
-                exc=UnrealNotRunningError("Cannot render because Unreal is not running"),
-                exception_scope="on_run",
-            )
+            # Raise and catch here so the recorded stack trace points at this frame
+            try:
+                raise UnrealNotRunningError("Cannot render because Unreal is not running")
+            except UnrealNotRunningError as e:
+                self._record_error_and_raise(exc=e, exception_scope="on_run")
 
         try:
             self.data_validation.validate_run_data(run_data)
         except (jsonschema.exceptions.ValidationError, jsonschema.exceptions.SchemaError) as e:
             self._record_error_and_raise(exc=e, exception_scope="on_run")
+
+        if run_data.get("handler", "base") == "render":
+            if self._csv_capture_frames or self._memreport_enabled or self._insights_categories:
+                run_data = dict(run_data)
+                if self._csv_capture_frames:
+                    run_data["csv_capture_frames"] = self._csv_capture_frames
+                if self._memreport_enabled:
+                    run_data["memreport"] = True
+                if self._insights_categories:
+                    run_data["insights_categories"] = self._insights_categories
+                    if self._startup_insights_trace_file:
+                        run_data["startup_insights_trace_file"] = self._startup_insights_trace_file
+                        self._startup_insights_trace_file = None
 
         # Set up the step handler
         self._action_queue.enqueue_action(
@@ -514,14 +716,16 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         if not self._unreal_is_running and self._unreal_client:
             exit_code = self._unreal_client.returncode
             if exit_code != 0:
-                self._record_error_and_raise(
-                    exc=RuntimeError(
+                # Raise and catch here so the recorded stack trace points at this frame
+                try:
+                    raise RuntimeError(
                         "Unreal exited early and did not render successfully, please check render logs. "
                         f"Exit code {exit_code}"
-                    ),
-                    exception_scope="on_run",
-                    exit_code=exit_code,
-                )
+                    )
+                except RuntimeError as e:
+                    self._record_error_and_raise(
+                        exc=e, exception_scope="on_run", exit_code=exit_code
+                    )
 
         # Render succeeded. If the customer requested it (SubmitMode set),
         # push the outputs into the worker's Perforce client. This runs

@@ -33,6 +33,17 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Deadline Executor")
     static TSubclassOf<UMoviePipelineExecutorBase> GetDefaultDeadlineExecutor();
 
+    UFUNCTION(BlueprintCallable, Category = "Deadline Executor")
+    static void StopCsvCapture();
+
+    UFUNCTION(BlueprintPure, Category = "Deadline Executor")
+    static bool IsCsvCaptureComplete();
+
+    UFUNCTION(BlueprintCallable, Category = "Deadline Executor")
+    static void RequestMemReport();
+
+    UFUNCTION(BlueprintPure, Category = "Deadline Executor")
+    static bool IsMemReportComplete();
 };
 
 UCLASS(Blueprintable)

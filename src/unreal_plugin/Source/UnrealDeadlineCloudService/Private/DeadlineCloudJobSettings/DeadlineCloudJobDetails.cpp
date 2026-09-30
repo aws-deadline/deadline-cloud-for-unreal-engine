@@ -19,6 +19,7 @@
 #include "PropertyEditorModule.h"
 #include "IDetailsView.h"
 #include "PythonAPILibraries/PythonParametersConsistencyChecker.h"
+#include "PythonAPILibraries/DeadlineCloudPreGuiHookLibrary.h"
 #include "IDetailChildrenBuilder.h"
 #include "Misc/MessageDialog.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudDetailsWidgetsHelper.h"
@@ -27,9 +28,10 @@
 #include "DeadlineCloudJobSettings/DeadlineCloudJobPresetDetailsCustomization.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudEnvironmentOverrideCustomization.h"
 #include "Framework/MetaData/DriverMetaData.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE "JobDetails"
-
 
 
 /*Details*/
@@ -46,6 +48,40 @@ void FDeadlineCloudJobDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuil
     TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
     MainDetailLayout->GetObjectsBeingCustomized(ObjectsBeingCustomized);
     Settings = Cast<UDeadlineCloudJob>(ObjectsBeingCustomized[0].Get());
+
+    /*
+     * Pre-GUI hooks: run environment-sourced pre-GUI hooks once per job instance and apply their
+     * output onto the Job Shared Settings before the panel widgets are built, so studios can
+     * pre-populate the job (name/priority/etc.) the artist is about to see and edit. This is the
+     * true "pre-GUI" hook point for Unreal.
+     *
+     * The bPreGuiHooksApplied guard makes this run at most once per job instance (artist edits on
+     * later panel rebuilds are preserved). We mutate the job here, BEFORE the field widgets below
+     * are built, so they read the hook-populated values directly — no ForceRefreshDetails needed
+     * (and OnPathChanged is not yet bound at this point). Runs on the game thread (Slate).
+     *
+     * The latch is set only INSIDE the Get() success branch: UDeadlineCloudPreGuiHookLibrary::Get()
+     * returns the Python-registered implementation, which only exists once init_unreal.py has
+     * imported pre_gui_hook_library. If the panel is customized before that registration (Get() ==
+     * nullptr), we leave the latch clear so the hooks get another chance on a later panel rebuild
+     * rather than being permanently disabled for this job instance.
+     */
+    if (Settings.IsValid() && !Settings->bPreGuiHooksApplied)
+    {
+        if (UDeadlineCloudPreGuiHookLibrary* HookLibrary = UDeadlineCloudPreGuiHookLibrary::Get())
+        {
+            Settings->bPreGuiHooksApplied = true;
+            // Pass the current job state so hooks can adjust (not just set) it — see RunPreGuiHooks.
+            const FDeadlineCloudPreGuiHookOutput HookOutput =
+                HookLibrary->RunPreGuiHooks(
+                    Settings->JobPresetStruct.JobSharedSettings.Name,
+                    Settings->JobPresetStruct.JobSharedSettings.Priority,
+                    Settings->GetJobParameters());
+            const TArray<FString> Unapplied =
+                UDeadlineCloudPreGuiHookLibrary::ApplyOutputToJob(Settings.Get(), HookOutput);
+            UDeadlineCloudPreGuiHookLibrary::NotifyUnappliedKeys(Unapplied);
+        }
+    }
 
     TSharedPtr<FDeadlineCloudDetailsWidgetsHelper::SConsistencyWidget> ConsistencyUpdateWidget;
     FParametersConsistencyCheckResult result;

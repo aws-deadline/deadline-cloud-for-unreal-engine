@@ -65,5 +65,11 @@ class FailedToDetectFilesTransferStrategy(DeadlineCloudSubmitterException):
     """Raised when its failed to detect which strategy to use for transfer files to render"""
 
 
+class SubmitterInputValidationError(DeadlineCloudSubmitterException):
+    """Raised when user input validation fails during job submission"""
+
+    pass
+
+
 class ProjectIsNotUnderWorkspaceError(Exception):
     """Raised when current Unreal Project is not under the current Workspace"""

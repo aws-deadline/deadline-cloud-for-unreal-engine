@@ -1,3 +1,37 @@
+## 1.1.0 (2026-09-22)
+
+### Features
+* Added an "ignore plugins" submit option, allowing you to exclude specific plugins during job submission. This setting is also applied after MRQ overrides. (#392)
+
+### Bug Fixes
+* MRQ submission now properly validates job eligibility — disabled MRQ jobs are skipped, unpopulated shot-based MRQ jobs are ignored, and frame eligibility is validated before submission. (#397)
+* Disabled MRQ jobs are now correctly skipped during submission instead of being included. (#391)
+* Fixed an issue where AWS Console sign-in credentials failed to authenticate in the submitter. The minimum `deadline` dependency has been raised to 0.60.4 (with the `console` extra) and a loadable `awscrt` is now shipped, ensuring credentials work correctly. (#395)
+## 1.0.0 (2026-09-11)
+
+### BREAKING CHANGES
+* The Unreal adaptor no longer supports the legacy `chunk_size` and `chunk_id` run-data keys. If you have legacy job templates or saved job bundles that use these keys, you must update them to use `shots_per_task` and `task_index` instead. (#384)
+
+### Bug Fixes
+* Adaptor and submitter error telemetry now includes sanitized stack traces, and events are grouped by the operation that raised them, so failures can be diagnosed from telemetry alone. (#380)
+## 0.7.2 (2026-08-26)
+
+### Features
+* Added support for Unreal Engine 5.8. (#360)
+* Added Unreal profiling output support, allowing users to capture and output profiling data from Unreal render jobs. (#371)
+* Pre-GUI submission hooks now run from the Unreal C++ Details panels (data-asset editor and Movie Render Queue Preset Overrides panel), allowing hooks to pre-populate job settings without a Qt submit dialog. This requires `deadline-cloud` 0.60.1 or later. (#336)
+
+### Bug Fixes
+* Updated the default build and generated job host requirements to target Unreal Engine 5.8 on Windows, matching the supported worker platform. (#377)
+## 0.7.1 (2026-07-29)
+
+### Features
+* Updated the default `CondaPackages` adaptor pin in render job templates from `unrealengine-openjd=0.6.*` to `0.7.*`, so Service-Managed Fleets install the 0.7.x adaptor by default. The 0.7.x adaptor continues to accept both legacy (`chunk_size`/`chunk_id`) and current (`shots_per_task`/`task_index`) run-data keys. (#343)
+* Added OpenJD TASK_CHUNKING dynamic chunking support as a third chunking mode alongside shot-based (ShotsPerTask) and frame-based (FramesPerTask) modes. Chunk boundaries are now computed by Deadline Cloud at dispatch time, enabling scheduler-level task chunking via the OpenJD TASK_CHUNKING extension. (#353)
+
+### Bug Fixes
+* The submitter now raises a validation error when a selected dynamic chunking template cannot derive Frames because its MRQ job or level sequence is missing, instead of deferring the error to OpenJD validation. (#355)
+* Added timeouts to the adaptor environment's onEnter and onExit actions so the worker agent will enforce a timeout if the adaptor daemon start or stop gets stuck. (#347)
 ## 0.7.0 (2026-07-16)
 
 ### BREAKING CHANGES
@@ -236,6 +270,5 @@
 
 ### Features
 * initial integration (#1) ([`96ff05e`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/96ff05e787fabfc375c7e379e9b87cd574774869))
-
 
 

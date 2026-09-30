@@ -29,3 +29,17 @@ class TestJobSharedSettings:
         assert settings.get_max_failed_tasks_count() == u_settings_mock.maximum_failed_tasks_count
         assert settings.get_max_retries_per_task() == u_settings_mock.maximum_retries_per_task
         assert settings.get_priority() == u_settings_mock.priority
+
+    def test_getters_reflect_direct_parameter_values_mutation(self):
+        """parameter_values is the single source of truth: even a caller mutating the
+        serialized list directly (e.g. legacy code) is reflected by the typed getters."""
+        # GIVEN
+        settings = JobSharedSettings()
+
+        # WHEN
+        for parameter_value in settings.parameter_values:
+            if parameter_value["name"] == "deadline:priority":
+                parameter_value["value"] = 75
+
+        # THEN
+        assert settings.get_priority() == 75

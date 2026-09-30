@@ -158,6 +158,39 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudAttachmentsStruct
 };
 
 /**
+ * Profiling settings container struct
+ */
+USTRUCT(BlueprintType)
+struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudProfilingSettingsStruct
+{
+	GENERATED_BODY()
+
+	/** Enable Unreal Insights CPU tracing */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Profiling Settings", meta = (DisplayPriority = 0))
+	bool bInsightsCpu = false;
+
+	/** Enable Unreal Insights GPU tracing */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Profiling Settings", meta = (DisplayPriority = 1))
+	bool bInsightsGpu = false;
+
+	/** Enable Unreal Insights Memory tracing */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Profiling Settings", meta = (DisplayPriority = 2))
+	bool bInsightsMemory = false;
+
+	/** Enable Unreal CSV profiler capture */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Profiling Settings", meta = (DisplayPriority = 3))
+	bool bCsvProfiler = false;
+
+	/** Number of frames to capture for CSV profiler */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Profiling Settings", meta = (ClampMin = 1, DisplayPriority = 4))
+	int32 CsvCaptureFrames = 300;
+
+	/** Generate a MemReport -full after render completion */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Profiling Settings", meta = (DisplayPriority = 5))
+	bool bMemReport = false;
+};
+
+/**
  * All Deadline Cloud job settings container struct
  */
 USTRUCT(BlueprintType)
@@ -172,6 +205,10 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudJobPresetStruct
 	/** Job attachments */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Preset")
 	FDeadlineCloudAttachmentsStruct JobAttachments;
+
+	/** Profiling settings */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job Preset")
+	FDeadlineCloudProfilingSettingsStruct ProfilingSettings;
 
 };
 
@@ -272,6 +309,24 @@ public:
 
 	FHiddenItemsManager& GetHiddenManager() { return HiddenVarsManager; }
 	const FHiddenItemsManager& GetHiddenManager() const { return HiddenVarsManager; }
+
+	/**
+	 * Guards the pre-GUI hook so it runs at most once per job instance (not on every
+	 * Details-panel rebuild). Transient: never serialized to the .uasset, so it resets
+	 * on load, and hooks re-run the first time a freshly-loaded job's panel is shown.
+	 * Set by FDeadlineCloudJobDetails::CustomizeDetails.
+	 *
+	 * By design the pre-GUI hook is an AUTHORITATIVE pre-populator: because this guard is transient
+	 * while JobSharedSettings is serialized, a hook re-applies its output the first time a saved
+	 * job's panel is opened in a new editor session (studio policy wins over stale saved values).
+	 * The hook mutates the in-memory data asset only — it does not Modify()/MarkPackageDirty(), so
+	 * it never silently dirties or persists the asset on its own. If a future requirement is instead
+	 * "the artist's saved edits must win", persist this guard (and call Modify()) rather than leaving
+	 * it transient.
+	 */
+	UPROPERTY(Transient)
+	bool bPreGuiHooksApplied = false;
+
 private:
 
 	UPROPERTY()

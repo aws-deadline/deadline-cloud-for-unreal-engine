@@ -19,7 +19,7 @@ DEFAULT_HOST_REQUIREMENTS: dict[str, list[Any]] = {
         {"name": "amount.worker.disk.scratch", "min": 16},
     ],
     "attributes": [
-        {"name": "attr.worker.os.family", "anyOf": ["windows", "linux", "macos"]},
+        {"name": "attr.worker.os.family", "anyOf": ["windows"]},
         {"name": "attr.worker.cpu.arch", "anyOf": ["x86_64", "arm64"]},
     ],
 }

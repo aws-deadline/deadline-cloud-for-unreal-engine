@@ -3,7 +3,7 @@
 # Helper script for compiling the plugin binaries and Python code and optionally installing it to your Unreal Engine installation
 # Currently only works for Windows
 # Assumes your environment is capable of building the plugin, specifically that you have installed Unreal and the toolchain
-# dependencies as described in https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-submitter.md#install-build-tools
+# dependencies as described in https://docs.aws.amazon.com/deadline-cloud/latest/userguide/epic-unreal-engine.html#unreal-engine-install-build-tools
 # Assumes you're running from the root of your plugin source directory
 
 import argparse
@@ -14,6 +14,7 @@ import os
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 from typing import Tuple, Optional
 
 DEFAULT_UE_INSTALL_ROOT = "C:\\Program Files\\Epic Games"
@@ -28,6 +29,18 @@ stream_handler.setLevel(logging.INFO)
 stream_handler.setFormatter(formatter)
 
 logger.addHandler(stream_handler)
+
+
+def get_pywin32_requirement() -> str:
+    """Read the shared pywin32 pin when worker dependencies are installed."""
+    version_file = Path(__file__).resolve().parent / "ci" / "pywin32-version.txt"
+    try:
+        version = version_file.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        raise RuntimeError(f"Unable to read pywin32 version from {version_file}: {exc}") from exc
+    if not version.isdigit():
+        raise RuntimeError(f"Invalid pywin32 version in {version_file}: {version!r}")
+    return f"pywin32=={version}"
 
 
 def find_unreal_engine(folder: str, version: Optional[str] = None) -> str:
@@ -48,8 +61,8 @@ def find_unreal_engine(folder: str, version: Optional[str] = None) -> str:
     if version:
         check_version = version
     else:
-        # Default to 5.7 if no other versions are found
-        check_version = "5.7"
+        # Default to 5.8 if no other versions are found
+        check_version = "5.8"
         for subfolder in os.listdir(folder):
             if subfolder.startswith("UE_"):
                 version = subfolder.split("_")[1]
@@ -191,6 +204,11 @@ def install_whl_to_plugin(whl_path: str, engine_root: str):
     # interpreter's own site-packages for already-satisfied dependencies.
     # Without it, an older 'deadline' in UE Python's Lib/site-packages causes
     # pip to skip installing the required version into the target directory.
+    #
+    # [console] because this installs the submitter, which needs AWS Console sign-in
+    # (awscrt): the wheel's own Requires-Dist deliberately omits the extra so the adaptor
+    # packaging never resolves awscrt (see pyproject.toml). install_whl_global below
+    # installs the worker-side adaptor and must NOT request it.
     logger.info(f"Installing {whl_path} to {plugin_libraries_path}")
     result = subprocess.run(
         [
@@ -198,7 +216,7 @@ def install_whl_to_plugin(whl_path: str, engine_root: str):
             "-m",
             "pip",
             "install",
-            whl_path,
+            f"{whl_path}[console]",
             "-t",
             plugin_libraries_path,
             "--force-reinstall",
@@ -243,6 +261,10 @@ def install_whl_global(whl_path: str):
     2. ``pip install <whl> --force-reinstall --no-deps`` — overwrites the
        package's own files even when the version string is unchanged, which
        the previous --upgrade strategy would silently skip.
+
+    Unlike install_whl_to_plugin, this deliberately does not request the
+    ``[console]`` extra: it installs the worker-side adaptor, which runs with
+    host-provided credentials and never takes the console sign-in path.
 
     :param whl_path: Path to whl file
     """
@@ -389,10 +411,10 @@ def install_worker_dependencies(engine_root: str):
             + "the folder where Unreal is installed (Should contain UE_VERSION.NUM subfolders)"
         )
 
-    worker_dependencies = ["pywin32"]
+    worker_dependencies = [get_pywin32_requirement()]
     for dep in worker_dependencies:
         subprocess.run(
-            [python_path, "-m", "pip", "install", dep],
+            [python_path, "-m", "pip", "install", "--only-binary=:all:", dep],
             check=True,
         )
 
@@ -527,7 +549,7 @@ def check_configuration_warnings(engine_root: str):
     else:
         logger.warning(
             "Windows long paths are not enabled.  Please see "
-            "https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-submitter.md#windows-long-paths"
+            "https://docs.aws.amazon.com/deadline-cloud/latest/userguide/epic-unreal-engine.html#unreal-engine-windows-long-paths"
             "for instructions on enabling."
         )
 

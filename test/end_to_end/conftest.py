@@ -938,6 +938,7 @@ def run_unreal_test(request, reusable_farm_id, reusable_queue_id) -> Callable:
         uproject_file: str,
         deadlineargs: Optional[str] = None,
         job_name: Optional[str] = None,
+        extra_test_params: Optional[Dict[str, Any]] = None,
     ) -> Tuple[bool, List[str]]:
         """
         Runs an Unreal Engine automation test and determines success or failure by analyzing output patterns
@@ -949,6 +950,7 @@ def run_unreal_test(request, reusable_farm_id, reusable_queue_id) -> Callable:
             deadlineargs: Optional arguments to pass to Deadline, defaults to basic settings if None
             job_name: Optional name for the submitted Deadline Cloud job. Defaults to the
                 requesting pytest test's name so each job can be traced back to its test
+            extra_test_params: Optional parameters forwarded to the Unreal automation test
 
         Returns:
             Tuple of (success, output_lines) where success is a boolean indicating whether the test passed,
@@ -971,10 +973,20 @@ def run_unreal_test(request, reusable_farm_id, reusable_queue_id) -> Callable:
         config.set_setting("defaults.queue_id", reusable_queue_id)
         config.set_setting("settings.deadline_regions", TEST_TARGET_REGION)
 
-        test_params_str = (
-            f"-testparams=farm_id={reusable_farm_id};queue_id={reusable_queue_id}"
-            f";job_name={job_name}"
-        )
+        test_param_values = {
+            "farm_id": reusable_farm_id,
+            "queue_id": reusable_queue_id,
+            "job_name": job_name,
+        }
+        if extra_test_params:
+            test_param_values.update(extra_test_params)
+
+        sanitized_test_params = []
+        for key, value in test_param_values.items():
+            sanitized_key = re.sub(r"[;=]", "_", str(key))
+            sanitized_value = re.sub(r"[;=]", "_", str(value))
+            sanitized_test_params.append(f"{sanitized_key}={sanitized_value}")
+        test_params_str = f"-testparams={';'.join(sanitized_test_params)}"
 
         engine_root = find_engine_root(request.config.getoption("--ueversion"))
 

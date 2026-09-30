@@ -2,6 +2,7 @@
 
 import sys
 import pytest
+from types import SimpleNamespace
 from unittest.mock import patch, Mock, MagicMock
 from openjd.model import parse_model
 from openjd.model.v2023_09 import (
@@ -28,6 +29,7 @@ unreal_mock = MagicMock()
 sys.modules["unreal"] = unreal_mock
 
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job import (  # noqa: E402
+    ProfilingSettings,
     UnrealOpenJob,
     RenderUnrealOpenJob,
     P4RenderUnrealOpenJob,
@@ -35,7 +37,13 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job import (  # noqa:
     UnrealOpenJobParameterDefinition,
     TransferProjectFilesStrategy,
 )
+from deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import (  # noqa: E402
+    OpenJobParameterNames,
+)
 from deadline.unreal_submitter import exceptions  # noqa: E402
+from deadline.unreal_cmd_utils import (  # noqa: E402
+    parse_command_line,
+)
 
 
 class TestUnrealOpenJobStepParameterDefinition:
@@ -122,6 +130,34 @@ class TestUnrealOpenJob:
 
         # THEN
         assert isinstance(param, UnrealOpenJobParameterDefinition) == found
+
+    @pytest.mark.parametrize(
+        "value, expected",
+        [
+            ("true", True),
+            ("TRUE", False),
+            (" true ", False),
+            ("false", False),
+            ("", False),
+            (None, False),
+        ],
+    )
+    def test__plugins_ignored(self, value, expected):
+        # GIVEN
+        open_job = UnrealOpenJob.__new__(UnrealOpenJob)
+        open_job._extra_parameters = [
+            UnrealOpenJobParameterDefinition(
+                OpenJobParameterNames.IGNORE_PLUGINS,
+                "STRING",
+                value,
+            )
+        ]
+
+        # WHEN
+        result = open_job._plugins_ignored()
+
+        # THEN
+        assert result is expected
 
     @patch(
         "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.SystemLibrary.get_engine_version",
@@ -445,6 +481,68 @@ class TestUnrealOpenJob:
 class TestRenderUnrealOpenJob:
 
     @pytest.mark.parametrize(
+        "initial_ignore_plugins, override_ignore_plugins, has_auto_environment, expected_environment_count",
+        [
+            ("true", "false", False, 1),
+            ("false", "true", True, 0),
+        ],
+    )
+    def test_mrq_parameter_override_syncs_marketplace_environment(
+        self,
+        monkeypatch,
+        initial_ignore_plugins,
+        override_ignore_plugins,
+        has_auto_environment,
+        expected_environment_count,
+    ):
+        from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment import (
+            InstallMarketplacePluginsEnvironment,
+        )
+
+        monkeypatch.setattr(
+            UnrealOpenJob,
+            "get_marketplace_plugins_dir",
+            staticmethod(lambda: "C:/Engine/Plugins/Marketplace"),
+        )
+        monkeypatch.setattr(
+            InstallMarketplacePluginsEnvironment, "__init__", lambda self, **kwargs: None
+        )
+
+        auto_environment = (
+            object.__new__(InstallMarketplacePluginsEnvironment) if has_auto_environment else None
+        )
+        render_job = RenderUnrealOpenJob.__new__(RenderUnrealOpenJob)
+        render_job._extra_parameters = [
+            UnrealOpenJobParameterDefinition(
+                OpenJobParameterNames.IGNORE_PLUGINS,
+                "STRING",
+                initial_ignore_plugins,
+            )
+        ]
+        render_job._steps = []
+        render_job._environments = [auto_environment] if auto_environment else []
+        render_job._auto_injected_marketplace_plugins_environment = auto_environment
+        render_job._name = "Job"
+        mrq_job = SimpleNamespace(
+            job_template_overrides=SimpleNamespace(
+                parameters=[
+                    SimpleNamespace(
+                        name=OpenJobParameterNames.IGNORE_PLUGINS,
+                        type=SimpleNamespace(name="STRING"),
+                        value=override_ignore_plugins,
+                    )
+                ],
+                environments_overrides=[],
+            ),
+            preset_overrides=SimpleNamespace(job_shared_settings=None),
+            job_name="MRQ Job",
+        )
+
+        render_job.mrq_job = mrq_job
+
+        assert len(render_job._environments) == expected_environment_count
+
+    @pytest.mark.parametrize(
         "environment, strategy",
         [
             (UgsUnrealOpenJobEnvironment(""), TransferProjectFilesStrategy.UGS),
@@ -465,6 +563,53 @@ class TestRenderUnrealOpenJob:
 
         # THEN
         assert transfer_strategy == strategy
+
+    def test_get_asset_references_does_not_add_plugins_when_ignored(self):
+        # GIVEN
+        render_job = RenderUnrealOpenJob.__new__(RenderUnrealOpenJob)
+        render_job._transfer_files_strategy = TransferProjectFilesStrategy.S3
+        render_job._extra_parameters = [
+            UnrealOpenJobParameterDefinition(
+                OpenJobParameterNames.IGNORE_PLUGINS,
+                "STRING",
+                "true",
+            )
+        ]
+        render_job._mrq_job = None
+        render_job._profiling_settings = ProfilingSettings()
+
+        asset_references = AssetReferences()
+        plugin_references = AssetReferences(input_directories={"C:/Project/Plugins/PluginA"})
+
+        with (
+            patch.object(
+                UnrealOpenJob,
+                "get_asset_references",
+                return_value=asset_references,
+            ),
+            patch.object(
+                RenderUnrealOpenJob,
+                "_get_mrq_job_dependency_paths",
+                return_value=["C:/Project/Content/Map.umap"],
+            ),
+            patch.object(
+                RenderUnrealOpenJob,
+                "get_required_project_directories",
+                return_value=["C:/Project/Config"],
+            ),
+            patch.object(
+                UnrealOpenJob,
+                "get_plugins_references",
+                return_value=plugin_references,
+            ) as get_plugins_references,
+        ):
+            # WHEN
+            result = render_job.get_asset_references()
+
+        # THEN
+        assert result.input_filenames == {"C:/Project/Content/Map.umap"}
+        assert result.input_directories == {"C:/Project/Config"}
+        get_plugins_references.assert_not_called()
 
     @pytest.mark.parametrize(
         "workspace_root, project_path, expected_relative_path",
@@ -697,6 +842,35 @@ class TestRenderUnrealOpenJob:
         job = UnrealOpenJob()
         assert isinstance(job._environments[0], InstallMarketplacePluginsEnvironment)
 
+    def test_does_not_inject_marketplace_env_when_plugins_are_ignored(self, monkeypatch):
+        from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment import (
+            InstallMarketplacePluginsEnvironment,
+        )
+
+        get_marketplace_plugins_dir = MagicMock(return_value="C:/Engine/Plugins/Marketplace")
+        monkeypatch.setattr(
+            UnrealOpenJob,
+            "get_marketplace_plugins_dir",
+            staticmethod(get_marketplace_plugins_dir),
+        )
+        monkeypatch.setattr(
+            "deadline.unreal_submitter.unreal_open_job.unreal_open_job.UnrealOpenJobEntity.__init__",
+            lambda *a, **kw: None,
+        )
+        monkeypatch.setattr(
+            UnrealOpenJob, "_create_missing_extra_parameters_from_template", lambda self: None
+        )
+        monkeypatch.setattr(UnrealOpenJob, "_plugins_ignored", lambda self: True)
+
+        # WHEN
+        job = UnrealOpenJob()
+
+        # THEN
+        assert not any(
+            isinstance(e, InstallMarketplacePluginsEnvironment) for e in job._environments
+        )
+        get_marketplace_plugins_dir.assert_not_called()
+
     def test_no_inject_marketplace_env_when_no_marketplace(self, monkeypatch):
         from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment import (
             InstallMarketplacePluginsEnvironment,
@@ -743,6 +917,312 @@ class TestRenderUnrealOpenJob:
             1 for e in job._environments if isinstance(e, InstallMarketplacePluginsEnvironment)
         )
         assert count == 1
+
+    def test_sync_marketplace_env_removes_only_auto_injected_environment(self):
+        from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment import (
+            InstallMarketplacePluginsEnvironment,
+        )
+
+        auto_injected_environment = object.__new__(InstallMarketplacePluginsEnvironment)
+        user_supplied_environment = object.__new__(InstallMarketplacePluginsEnvironment)
+        job = UnrealOpenJob.__new__(UnrealOpenJob)
+        job._extra_parameters = [
+            UnrealOpenJobParameterDefinition(
+                OpenJobParameterNames.IGNORE_PLUGINS,
+                "STRING",
+                "true",
+            )
+        ]
+        job._environments = [auto_injected_environment, user_supplied_environment]
+        job._auto_injected_marketplace_plugins_environment = auto_injected_environment
+
+        job._sync_marketplace_plugins_environment()
+
+        assert job._environments == [user_supplied_environment]
+        assert job._auto_injected_marketplace_plugins_environment is None
+
+    def test_profiling_settings_from_u_deadline_cloud_profiling_settings(self):
+        class FakeProfilingStruct:
+            def get_editor_property(self, name):
+                values = {
+                    "bInsightsCpu": True,
+                    "bInsightsGpu": True,
+                    "bInsightsMemory": False,
+                    "bCsvProfiler": True,
+                    "CsvCaptureFrames": 120,
+                    "bMemReport": True,
+                }
+                return values[name]
+
+        profiling_settings = ProfilingSettings.from_u_deadline_cloud_profiling_settings(
+            FakeProfilingStruct()
+        )
+
+        assert profiling_settings.insights_cpu is True
+        assert profiling_settings.insights_gpu is True
+        assert profiling_settings.insights_memory is False
+        assert profiling_settings.csv_profiler is True
+        assert profiling_settings.csv_capture_frames == 120
+        assert profiling_settings.memreport is True
+
+    def test_profiling_settings_rejects_missing_or_unreadable_properties(self):
+        class UnreadableProfilingStruct:
+            @property
+            def insights_cpu(self):
+                raise AttributeError("insights_cpu is unavailable")
+
+        for profiling_struct in (object(), UnreadableProfilingStruct()):
+            with pytest.raises(
+                exceptions.SubmitterInputValidationError, match="profiling property 'insights_cpu'"
+            ):
+                ProfilingSettings.from_u_deadline_cloud_profiling_settings(profiling_struct)
+
+    def test_profiling_settings_build_cmd_args_includes_csv_capture_frames(self):
+        profiling_settings = ProfilingSettings(
+            insights_cpu=True,
+            csv_profiler=True,
+            csv_capture_frames=120,
+            memreport=True,
+        )
+
+        cmd_args = profiling_settings.build_cmd_args()
+
+        assert "-DeadlineCloudInsights=cpu,frame,bookmark,loadtime" in cmd_args
+        assert "-csvGpuStats" in cmd_args
+        assert "-csvCaptureFrames=120" in cmd_args
+        assert "-MemReport" in cmd_args
+
+    @pytest.mark.parametrize(
+        "profiling_settings,expected",
+        [
+            (
+                ProfilingSettings(insights_cpu=True, csv_profiler=True, memreport=True),
+                [
+                    "/project/Saved/Profiling/DeadlineCloud",
+                    "/project/Saved/Profiling/CSV",
+                    "/project/Saved/Profiling/MemReports",
+                ],
+            ),
+            (
+                ProfilingSettings(csv_profiler=True),
+                ["/project/Saved/Profiling/CSV"],
+            ),
+            (
+                ProfilingSettings(memreport=True),
+                ["/project/Saved/Profiling/MemReports"],
+            ),
+            (
+                ProfilingSettings(csv_profiler=True, memreport=True),
+                [
+                    "/project/Saved/Profiling/CSV",
+                    "/project/Saved/Profiling/MemReports",
+                ],
+            ),
+        ],
+    )
+    def test_profiling_settings_output_directories(self, profiling_settings, expected):
+        assert profiling_settings.get_output_directories("/project/Saved/Profiling") == expected
+
+    def test_profiling_settings_output_directories_normalizes_profiling_directory(self):
+        profiling_settings = ProfilingSettings(csv_profiler=True)
+
+        assert profiling_settings.get_output_directories(r"C:\project\Saved\Profiling\\") == [
+            "C:/project/Saved/Profiling/CSV"
+        ]
+
+    @patch(
+        "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
+        "UnrealOpenJobEntity.get_template_object",
+        return_value={
+            "parameterDefinitions": [
+                {"name": OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS, "type": "STRING"},
+                {"name": OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS_FILE, "type": "PATH"},
+                {"name": OpenJobParameterNames.UNREAL_PROJECT_PATH, "type": "PATH"},
+                {"name": OpenJobParameterNames.MARKETPLACE_PLUGINS_DIR, "type": "PATH"},
+                {"name": OpenJobParameterNames.IGNORE_PLUGINS, "type": "STRING"},
+            ]
+        },
+    )
+    @patch(
+        "deadline.unreal_submitter.unreal_open_job.unreal_open_job.common.get_in_process_executor_cmd_args",
+        return_value=["-stdout", "-trace=gpu"],
+    )
+    @patch(
+        "deadline.unreal_submitter.unreal_open_job.unreal_open_job.common.get_project_file_path",
+        return_value="/project dir/MyProject.uproject",
+    )
+    @patch(
+        "deadline.unreal_submitter.unreal_open_job.unreal_open_job.common.get_project_directory",
+        return_value="/project dir",
+    )
+    @patch(
+        "deadline.unreal_submitter.unreal_open_job.unreal_open_job.common.create_deadline_cloud_temp_file",
+        return_value="/tmp/ExtraCmdArgsFile.txt",
+    )
+    @patch.object(
+        UnrealOpenJob,
+        "get_marketplace_plugins_dir",
+        return_value="/Engine/Plugins/Marketplace",
+    )
+    def test__build_parameter_values_merges_profiling_cmd_args(
+        self,
+        get_marketplace_plugins_dir_mock,
+        create_deadline_cloud_temp_file_mock,
+        get_project_directory_mock,
+        get_project_file_path_mock,
+        get_in_process_executor_cmd_args_mock,
+        get_template_object_mock,
+    ):
+        render_job = RenderUnrealOpenJob(
+            file_path="",
+            name="JobA",
+            extra_parameters=[
+                UnrealOpenJobParameterDefinition(
+                    OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS,
+                    "STRING",
+                    '-execcmds="stat fps" -trace=cpu,frame -csvCaptureFrames=999',
+                ),
+                UnrealOpenJobParameterDefinition(
+                    OpenJobParameterNames.IGNORE_PLUGINS,
+                    "STRING",
+                    "false",
+                ),
+            ],
+            profiling_settings=ProfilingSettings(
+                insights_cpu=True,
+                insights_memory=True,
+                csv_profiler=True,
+                csv_capture_frames=120,
+                memreport=True,
+            ),
+        )
+
+        parameter_values = render_job._build_parameter_values()
+        file_data = create_deadline_cloud_temp_file_mock.call_args.kwargs["file_data"]
+        _, switches, params = parse_command_line(file_data)
+
+        assert {p["name"]: p["value"] for p in parameter_values}[
+            OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS
+        ] == ""
+        assert {p["name"]: p["value"] for p in parameter_values}[
+            OpenJobParameterNames.UNREAL_EXTRA_CMD_ARGS_FILE
+        ] == "/tmp/ExtraCmdArgsFile.txt"
+        assert {p["name"]: p["value"] for p in parameter_values}[
+            OpenJobParameterNames.UNREAL_PROJECT_PATH
+        ] == "/project dir/MyProject.uproject"
+        assert {p["name"]: p["value"] for p in parameter_values}[
+            OpenJobParameterNames.MARKETPLACE_PLUGINS_DIR
+        ] == "/Engine/Plugins/Marketplace"
+        assert set(switches) == {"stdout", "csvGpuStats", "MemReport"}
+        assert params["trace"] == "gpu,cpu,frame"
+        assert params["DeadlineCloudInsights"] == "cpu,frame,bookmark,loadtime,memory"
+        assert "tracefile" not in params
+        assert params["csvCaptureFrames"] == "999"
+        assert "ExecCmds" not in params
+        assert "/tmp/ExtraCmdArgsFile.txt" in render_job._asset_references.input_filenames
+
+        ignore_plugins = render_job._find_extra_parameter(
+            OpenJobParameterNames.IGNORE_PLUGINS, "STRING"
+        )
+        assert ignore_plugins is not None
+        ignore_plugins.value = "true"
+        marketplace_plugins_dir = render_job._find_extra_parameter(
+            OpenJobParameterNames.MARKETPLACE_PLUGINS_DIR, "PATH"
+        )
+        assert marketplace_plugins_dir is not None
+        marketplace_plugins_dir.value = "/Custom/Marketplace"
+
+        ignored_parameter_values = render_job._build_parameter_values()
+        assert {p["name"]: p["value"] for p in ignored_parameter_values}[
+            OpenJobParameterNames.MARKETPLACE_PLUGINS_DIR
+        ] == ""
+
+    def test_get_asset_references_adds_profiling_output_directories(self):
+        render_job = RenderUnrealOpenJob.__new__(RenderUnrealOpenJob)
+        render_job._transfer_files_strategy = None  # type: ignore[assignment]
+        render_job._mrq_job = None
+        render_job._extra_parameters = []
+        render_job._profiling_settings = ProfilingSettings(
+            insights_cpu=True, csv_profiler=True, csv_capture_frames=60, memreport=True
+        )
+
+        refs = AssetReferences()
+        with (
+            patch.object(UnrealOpenJob, "get_asset_references", return_value=refs),
+            patch(
+                "deadline.unreal_submitter.unreal_open_job.unreal_open_job."
+                "unreal.Paths.profiling_dir",
+                return_value="../../../project/Saved/Profiling",
+            ),
+            patch(
+                "deadline.unreal_submitter.unreal_open_job.unreal_open_job."
+                "unreal.Paths.convert_relative_path_to_full",
+                return_value="/project/Saved/Profiling",
+            ),
+        ):
+            result = render_job.get_asset_references()
+
+        assert result.output_directories == {
+            "/project/Saved/Profiling/DeadlineCloud",
+            "/project/Saved/Profiling/CSV",
+            "/project/Saved/Profiling/MemReports",
+        }
+
+    def test_profiling_output_directories_are_not_resolved_when_disabled(self):
+        render_job = RenderUnrealOpenJob.__new__(RenderUnrealOpenJob)
+        render_job._profiling_settings = ProfilingSettings()
+
+        with patch(
+            "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.Paths.profiling_dir"
+        ) as profiling_dir:
+            assert render_job._get_profiling_output_directories() == []
+
+        profiling_dir.assert_not_called()
+
+    def test_mrq_job_without_profiling_override_preserves_existing_settings(self):
+        existing = ProfilingSettings(insights_cpu=True, csv_profiler=True)
+        render_job = RenderUnrealOpenJob.__new__(RenderUnrealOpenJob)
+        render_job._profiling_settings = existing
+        render_job._extra_parameters = []
+        render_job._steps = []
+        render_job._environments = []
+        render_job._name = "Job"
+        mrq_job = SimpleNamespace(
+            job_template_overrides=SimpleNamespace(parameters=[]),
+            preset_overrides=SimpleNamespace(job_shared_settings=None),
+            job_name="MRQ Job",
+        )
+
+        render_job.mrq_job = mrq_job
+
+        assert render_job.profiling_settings is existing
+
+    def test_mrq_job_profiling_override_replaces_existing_settings(self):
+        render_job = RenderUnrealOpenJob.__new__(RenderUnrealOpenJob)
+        render_job._profiling_settings = ProfilingSettings(insights_cpu=True)
+        render_job._extra_parameters = []
+        render_job._steps = []
+        render_job._environments = []
+        render_job._name = "Job"
+        profiling_override = SimpleNamespace(
+            insights_cpu=False,
+            insights_gpu=True,
+            insights_memory=False,
+            csv_profiler=False,
+            csv_capture_frames=300,
+            memreport=True,
+        )
+        mrq_job = SimpleNamespace(
+            job_template_overrides=SimpleNamespace(parameters=[]),
+            preset_overrides=SimpleNamespace(
+                job_shared_settings=None, profiling_settings=profiling_override
+            ),
+            job_name="MRQ Job",
+        )
+
+        render_job.mrq_job = mrq_job
+
+        assert render_job.profiling_settings == ProfilingSettings(insights_gpu=True, memreport=True)
 
 
 class TestP4RenderUnrealOpenJobSubmitModeSkipsJA:
@@ -830,6 +1310,29 @@ class TestP4RenderUnrealOpenJobSubmitModeSkipsJA:
         assert result.referenced_paths == {"C:/renders/output"}
         assert len(result.input_directories) == 1
         assert len(result.input_filenames) == 1
+
+    def test_submit_mode_keeps_profiling_outputs_in_job_attachments(self):
+        job = self._make_job(submit_mode_value="submit")
+        job._profiling_settings = ProfilingSettings(insights_cpu=True)
+        refs = AssetReferences()
+        refs.output_directories.add("C:/renders/output")
+
+        with (
+            patch.object(UnrealOpenJob, "get_asset_references", return_value=refs),
+            patch(
+                "deadline.unreal_submitter.unreal_open_job.unreal_open_job."
+                "unreal.Paths.profiling_dir",
+                return_value="../../../project/Saved/Profiling",
+            ),
+            patch(
+                "deadline.unreal_submitter.unreal_open_job.unreal_open_job."
+                "unreal.Paths.convert_relative_path_to_full",
+                return_value=r"C:\project\Saved\Profiling\\",
+            ),
+        ):
+            result = job.get_asset_references()
+
+        assert result.output_directories == {"C:/project/Saved/Profiling/DeadlineCloud"}
 
 
 class TestP4RenderUnrealOpenJobAssembleShelvesInjection:

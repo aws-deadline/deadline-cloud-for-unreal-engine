@@ -19,7 +19,7 @@ Use this skill when:
 
 ## Core Concepts
 
-**Platform:** Windows only. UE 5.4–5.7, Python 3.9+.
+**Platform:** Windows only. UE 5.4–5.8, Python 3.9+.
 
 **Build system:** Hatch (Python), Unreal Build Tool (C++)
 

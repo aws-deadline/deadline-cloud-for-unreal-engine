@@ -18,7 +18,7 @@
 #include "PythonAPILibraries/DeadlineCloudJobBundleLibrary.h"
 #include "PythonAPILibraries/PythonParametersConsistencyChecker.h"
 
-BEGIN_DEFINE_SPEC(FDeadlinePluginHostRequirementsSpec, "DeadlineCloud",
+BEGIN_DEFINE_SPEC(FDeadlinePluginHostRequirementsSpec, "DeadlineCloud.Offline",
     EAutomationTestFlags::ProductFilter | EAutomationTestFlags::EditorContext);
 
 UDeadlineCloudHostRequirements* CreatedHostRequirmenetsDataAsset;

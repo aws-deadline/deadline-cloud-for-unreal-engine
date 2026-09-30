@@ -29,7 +29,7 @@
 // ---------------------------------------------------------------------------
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FUpdateDialog_SettingDefaultIsTrue,
-	"DeadlineCloud.UpdateDialog.Setting.DefaultIsTrue",
+	"DeadlineCloud.Offline.UpdateDialog.Setting.DefaultIsTrue",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FUpdateDialog_SettingDefaultIsTrue::RunTest(const FString& Parameters)
@@ -51,7 +51,7 @@ bool FUpdateDialog_SettingDefaultIsTrue::RunTest(const FString& Parameters)
 // ---------------------------------------------------------------------------
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FUpdateDialog_SettingSaveAndReloadRoundTrip,
-	"DeadlineCloud.UpdateDialog.Setting.SaveAndReloadRoundTrip",
+	"DeadlineCloud.Offline.UpdateDialog.Setting.SaveAndReloadRoundTrip",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FUpdateDialog_SettingSaveAndReloadRoundTrip::RunTest(const FString& Parameters)

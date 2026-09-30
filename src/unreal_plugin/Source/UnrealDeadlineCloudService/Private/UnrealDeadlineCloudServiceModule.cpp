@@ -71,6 +71,10 @@ void FUnrealDeadlineCloudServiceModule::StartupModule()
 		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FDeadlineCloudJobPresetDetailsCustomization::MakeInstance));
 
 	PropertyModule.RegisterCustomPropertyTypeLayout(
+		FDeadlineCloudProfilingSettingsStruct::StaticStruct()->GetFName(),
+		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FDeadlineCloudJobPresetDetailsCustomization::MakeInstance));
+
+	PropertyModule.RegisterCustomPropertyTypeLayout(
 		FDeadlineCloudJobParametersArray::StaticStruct()->GetFName(),
 		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FDeadlineCloudJobParametersArrayCustomization::MakeInstance));
 	
