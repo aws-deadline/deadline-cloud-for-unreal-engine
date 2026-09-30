@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "../
 import boto3
 import botocore
 import contextlib
-import deadline.client.config as config
+from deadline.client import config
 import json
 import logging
 import psutil
@@ -134,7 +134,7 @@ def delete_farm_resource_log_group_util(
             logGroupName=log_group_name, retentionInDays=retention_number_of_days
         )
     except Exception as e:
-        logger.warning(f"put_retention_policy exception {str(e)}")
+        logger.warning(f"put_retention_policy exception {e!s}")
 
 
 def cancel_pending_jobs(deadline_client: BaseClient, farm_id: str, queue_id: str) -> None:
@@ -174,7 +174,7 @@ def cancel_pending_jobs(deadline_client: BaseClient, farm_id: str, queue_id: str
             logger.info(f"Canceled {len(jobs_to_cancel)} active jobs in queue {queue_id}")
 
     except Exception as e:
-        logger.warning(f"Error checking for jobs to cancel: {str(e)}")
+        logger.warning(f"Error checking for jobs to cancel: {e!s}")
         import traceback
 
         logger.warning(f"Traceback: {traceback.format_exc()}")
@@ -200,7 +200,7 @@ def cancel_job(deadline_client: BaseClient, farm_id: str, queue_id: str, job_id:
         logger.info(f"Successfully canceled job {job_id}")
         return True
     except Exception as e:
-        logger.warning(f"Failed to cancel job {job_id}: {str(e)}")
+        logger.warning(f"Failed to cancel job {job_id}: {e!s}")
         return False
 
 
@@ -861,7 +861,7 @@ def wait_for_job_state(
             elapsed_time += wait_interval
 
         except Exception as e:
-            error_msg = f"Error checking job status: {str(e)}"
+            error_msg = f"Error checking job status: {e!s}"
             logger.error(error_msg)
             return False, "ERROR", error_msg
 
@@ -1296,7 +1296,7 @@ def reusable_s3_bucket(
             s3_client.delete_bucket(Bucket=bucket_name)
             logger.info(f"✓ Successfully deleted S3 bucket {bucket_name}")
         except Exception as e:
-            logger.warning(f"Exception during S3 bucket cleanup: {str(e)}")
+            logger.warning(f"Exception during S3 bucket cleanup: {e!s}")
     else:
         logger.info("Skipping S3 bucket cleanup (use --cleanup to clean up resources)")
 
@@ -1572,17 +1572,15 @@ def delete_fleets_util(deadline_client: BaseClient, fleet_responses: List[Dict[s
                                     f"Deleted queue-fleet association between queue {queue_id} and fleet {fleet_id}"
                                 )
                             except Exception as e:
-                                logger.warning(
-                                    f"Failed to manage queue-fleet association: {str(e)}"
-                                )
+                                logger.warning(f"Failed to manage queue-fleet association: {e!s}")
                 except Exception as e:
-                    logger.warning(f"Error listing queue-fleet associations: {str(e)}")
+                    logger.warning(f"Error listing queue-fleet associations: {e!s}")
 
                 # Now delete the fleet
                 deadline_client.delete_fleet(farmId=farm_id, fleetId=fleet_id)
                 logger.info(f"Deleted fleet {fleet_id} from farm {farm_id}")
         except Exception as e:
-            logger.warning(f"Exception occurred while deleting fleet: {str(e)}")
+            logger.warning(f"Exception occurred while deleting fleet: {e!s}")
 
 
 @pytest.fixture(scope="session")
@@ -1656,7 +1654,7 @@ def reusable_fleet_id(
             time.sleep(30)
             logger.info(f"Fleet {fleet_id} should now be active")
     except Exception as e:
-        logger.warning(f"Error checking for existing fleets: {str(e)}")
+        logger.warning(f"Error checking for existing fleets: {e!s}")
         logger.warning(f"Exception details: {type(e).__name__}")
         import traceback
 
@@ -1678,7 +1676,7 @@ def reusable_fleet_id(
             delete_fleets_util(deadline_client, [fleet_response])
             logger.info(f"✓ Successfully deleted fleet {fleet_id}")
         except Exception as e:
-            logger.warning(f"Exception during fleet cleanup: {str(e)}")
+            logger.warning(f"Exception during fleet cleanup: {e!s}")
     else:
         logger.info("Skipping fleet cleanup (use --cleanup to clean up resources)")
 
@@ -1732,7 +1730,7 @@ def create_queue_helper(
             logger.info(f"No existing test queue found in farm {farm_id}")
             return None
         except Exception as e:
-            logger.warning(f"Error checking for existing queues: {str(e)}")
+            logger.warning(f"Error checking for existing queues: {e!s}")
             return None
 
     def create_queue_func(
@@ -1790,7 +1788,7 @@ def create_queue_helper(
                 logger.info(f"✓ Successfully deleted queue {queue_id}")
             except Exception as e:
                 logger.warning(
-                    f"Exception occurred while deleting Queue {farm_id} {queue_id}: {str(e)}"
+                    f"Exception occurred while deleting Queue {farm_id} {queue_id}: {e!s}"
                 )
     else:
         logger.info("Skipping queue cleanup (use --cleanup to clean up resources)")
@@ -1874,10 +1872,10 @@ def stop_queue_fleet_associations_and_wait(
                     f"Skipping status update as current status is {current_status}, not ACTIVE"
                 )
         except Exception as e:
-            logger.error(f"Error getting or updating QFA: {str(e)}")
+            logger.error(f"Error getting or updating QFA: {e!s}")
             raise
     except Exception as e:
-        logger.error(f"Failed to stop queue fleet association: {str(e)}")
+        logger.error(f"Failed to stop queue fleet association: {e!s}")
         # Re-raise the exception so the caller knows something went wrong
         raise
 
@@ -2065,7 +2063,7 @@ def deadline_worker_agent(
                     logger.warning("Process didn't respond to SIGINT, using SIGKILL")
                     process.kill()
     except Exception as e:
-        logger.error(f"Error stopping worker agent: {str(e)}")
+        logger.error(f"Error stopping worker agent: {e!s}")
     finally:
         log_fh.close()
 
@@ -2137,7 +2135,7 @@ def reusable_queue_fleet_association(
             )
             logger.info("✓ Successfully deleted queue-fleet association")
         except Exception as e:
-            logger.warning(f"Exception during queue-fleet association cleanup: {str(e)}")
+            logger.warning(f"Exception during queue-fleet association cleanup: {e!s}")
     else:
         logger.info(
             "Skipping queue-fleet association cleanup (use --cleanup to clean up resources)"
@@ -2188,7 +2186,7 @@ def get_last_session_project_plugins(
         return plugin_names
 
     except Exception as e:
-        logger.warning(f"Error fetching job logs or extracting plugins: {str(e)}")
+        logger.warning(f"Error fetching job logs or extracting plugins: {e!s}")
         return []
 
 
