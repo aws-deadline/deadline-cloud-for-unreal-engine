@@ -1,99 +1,175 @@
-name: "Release: Publish"
-run-name: "Release: Publish ${{ inputs.tag || 'next pending release' }}"
+name: "Release: Stage and Publish"
+run-name: "Release: Stage and Publish ${{ inputs.tag || github.sha }}"
 
 on:
-  schedule:
-    - cron: "17 */6 * * *"
+  push:
+    branches: [mainline]
+    paths: [CHANGELOG.md]
   workflow_dispatch:
     inputs:
       tag:
-        description: Specific staged release tag to publish
-        required: false
+        description: Existing release tag to stage and publish again
+        required: true
         type: string
 
+# Never cancel a release waiting for Conda when another changelog merges.
 concurrency:
-  group: release-public
+  group: release-${{ inputs.tag || github.sha }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
-  CheckConda:
-    if: github.repository == 'aws-deadline/deadline-cloud-for-unreal-engine'
+  ValidateContext:
     runs-on: ubuntu-latest
-    outputs:
-      ready: ${{ steps.readiness.outputs.ready }}
-      tag: ${{ steps.readiness.outputs.tag }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Check Conda release readiness
-        id: readiness
-        uses: aws-deadline/.github/.github/actions/check-release-readiness@mainline
-        with:
-          github-token: ${{ github.token }}
-          requested-tag: ${{ inputs.tag }}
-          package-name: unrealengine-openjd
-          required-platforms: win-64
-          timeout-days: 4
-
-  AuthorizePublish:
-    needs: CheckConda
-    if: >-
-      always() &&
-      needs.CheckConda.result == 'success' &&
-      needs.CheckConda.outputs.tag != '' &&
-      needs.CheckConda.outputs.ready == 'true'
-    runs-on: ubuntu-latest
-    permissions: {}
-    outputs:
-      tag: ${{ steps.release.outputs.tag }}
-    steps:
-      - name: Authorize public release
-        id: release
+      - name: Verify event-driven release configuration
         env:
-          TAG: ${{ needs.CheckConda.outputs.tag }}
-        run: echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          REPOSITORY: ${{ github.repository }}
+          REF: ${{ github.ref }}
+          ENABLED: ${{ vars.EVENT_DRIVEN_CONDA_RELEASE_ENABLED }}
+          APP_ID: ${{ vars.CONDA_RELEASE_APP_ID }}
+        run: |
+          set -euo pipefail
+          test "$REPOSITORY" = aws-deadline/deadline-cloud-for-unreal-engine
+          test "$REF" = refs/heads/mainline
+          if [[ "$ENABLED" != true || ! "$APP_ID" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::Configure the conda-release App protection rule before enabling event-driven releases. See docs/release-workflow.md."
+            exit 1
+          fi
 
-  ValidateRelease:
-    needs: AuthorizePublish
-    if: needs.AuthorizePublish.outputs.tag != ''
+  TagRelease:
+    needs: ValidateContext
     uses: aws-deadline/.github/.github/workflows/reusable_tag_release.yml@mainline
+    secrets: inherit
+    with:
+      tag: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || '' }}
+
+  UnitTests:
+    needs: [TagRelease]
+    name: Unit and Integration Tests
+    uses: ./.github/workflows/code_quality.yml
+    with:
+      tag: ${{ needs.TagRelease.outputs.tag }}
+
+  IntegrationTests:
+    needs: [TagRelease]
+    name: Integration and UI Automation Tests
+    uses: aws-deadline/.github/.github/workflows/reusable_integration_test.yml@mainline
     permissions:
+      id-token: write
       contents: read
     secrets: inherit
     with:
-      tag: ${{ needs.AuthorizePublish.outputs.tag }}
+      repository: ${{ github.event.repository.name }}
+      # Unreal has no release integ/e2e projects; test the release tag using the mainline projects.
+      environment: mainline
+      os: windows
+      tag: ${{ needs.TagRelease.outputs.tag }}
+      run_ui_automation: true
+
+  E2ETests:
+    needs: [TagRelease]
+    name: E2E Tests
+    uses: aws-deadline/.github/.github/workflows/reusable_e2e_test.yml@mainline
+    permissions:
+      id-token: write
+      contents: read
+    secrets: inherit
+    with:
+      repository: ${{ github.event.repository.name }}
+      # Unreal has no release integ/e2e projects; test the release tag using the mainline projects.
+      environment: mainline
+      os: windows
+      tag: ${{ needs.TagRelease.outputs.tag }}
+
+  Stage:
+    needs: [TagRelease, UnitTests, IntegrationTests, E2ETests]
+    uses: aws-deadline/.github/.github/workflows/reusable_publish_python.yml@mainline
+    permissions:
+      id-token: write
+    secrets: inherit
+    with:
+      tag: ${{ needs.TagRelease.outputs.tag }}
+
+  ReleaseMetadata:
+    needs: [TagRelease, Stage]
+    runs-on: ubuntu-latest
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Record the staged release identity
+        env:
+          RELEASE_TAG: ${{ needs.TagRelease.outputs.tag }}
+        run: |
+          export SOURCE_COMMIT="$(git rev-parse --verify "refs/tags/$RELEASE_TAG^{commit}")"
+          python scripts/conda_release.py metadata release.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        id: upload
+        with:
+          name: conda-release-metadata-${{ github.run_attempt }}
+          path: release.json
+          if-no-files-found: error
+          retention-days: 90
+
+  WaitForConda:
+    name: Wait for Conda promotion
+    needs: ReleaseMetadata
+    environment: conda-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ needs.ReleaseMetadata.outputs.artifact_id }}
+          merge-multiple: true
+      - name: Verify the App approval for this run and attempt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONDA_RELEASE_APP_ID: ${{ vars.CONDA_RELEASE_APP_ID }}
+        run: |
+          gh api --paginate --slurp \
+            "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs?filter=all&per_page=100" > checks.json
+          python scripts/conda_release.py verify release.json checks.json
+          echo "### Conda promotion approved" >> "$GITHUB_STEP_SUMMARY"
+          echo "The App approved this release and the public Conda manifest contains the required package version and platform." >> "$GITHUB_STEP_SUMMARY"
 
   PreRelease:
-    needs: ValidateRelease
-    if: needs.ValidateRelease.outputs.tag != ''
+    needs: [TagRelease, WaitForConda]
+    if: needs.TagRelease.outputs.tag != ''
     uses: aws-deadline/.github/.github/workflows/reusable_prerelease.yml@mainline
     permissions:
       id-token: write
       contents: write
     secrets: inherit
     with:
-      tag: ${{ needs.ValidateRelease.outputs.tag }}
+      tag: ${{ needs.TagRelease.outputs.tag }}
 
   Release:
-    needs: [ValidateRelease, PreRelease]
-    if: needs.ValidateRelease.outputs.tag != ''
+    needs: [TagRelease, PreRelease]
+    if: needs.TagRelease.outputs.tag != ''
     uses: aws-deadline/.github/.github/workflows/reusable_release.yml@mainline
     secrets: inherit
     permissions:
       id-token: write
       contents: write
     with:
-      tag: ${{ needs.ValidateRelease.outputs.tag }}
+      tag: ${{ needs.TagRelease.outputs.tag }}
 
   PublishToPyPI:
-    needs: [ValidateRelease, Release]
-    if: needs.ValidateRelease.outputs.tag != ''
+    needs: [TagRelease, Release]
+    if: needs.TagRelease.outputs.tag != ''
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -103,13 +179,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.ValidateRelease.outputs.tag }}
+          ref: ${{ needs.TagRelease.outputs.tag }}
           fetch-depth: 0
           persist-credentials: false
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: ${{ needs.ValidateRelease.outputs.build-python-version }}
+          python-version: ${{ needs.TagRelease.outputs.build-python-version }}
       - name: Install dependencies
         run: pip install --upgrade hatch
       - name: Build
