@@ -3,17 +3,18 @@
 # Helper script for compiling the plugin binaries and Python code and optionally installing it to your Unreal Engine installation
 # Currently only works for Windows
 # Assumes your environment is capable of building the plugin, specifically that you have installed Unreal and the toolchain
-# dependencies as described in https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-submitter.md#install-build-tools
+# dependencies as described in https://docs.aws.amazon.com/deadline-cloud/latest/userguide/epic-unreal-engine.html#unreal-engine-install-build-tools
 # Assumes you're running from the root of your plugin source directory
 
 import argparse
+import csv
 import logging
 import shutil
 import os
 import subprocess
 import sys
 import tempfile
-import psutil
+from pathlib import Path
 from typing import Tuple, Optional
 
 DEFAULT_UE_INSTALL_ROOT = "C:\\Program Files\\Epic Games"
@@ -30,13 +31,25 @@ stream_handler.setFormatter(formatter)
 logger.addHandler(stream_handler)
 
 
+def get_pywin32_requirement() -> str:
+    """Read the shared pywin32 pin when worker dependencies are installed."""
+    version_file = Path(__file__).resolve().parent / "ci" / "pywin32-version.txt"
+    try:
+        version = version_file.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        raise RuntimeError(f"Unable to read pywin32 version from {version_file}: {exc}") from exc
+    if not version.isdigit():
+        raise RuntimeError(f"Invalid pywin32 version in {version_file}: {version!r}")
+    return f"pywin32=={version}"
+
+
 def find_unreal_engine(folder: str, version: Optional[str] = None) -> str:
     """
     Finds a version in the given folder by searching for all subfolders which begin with "UE_" and comparing the
     version strings which come after the underscore, or checking against a specified version
 
     :param folder: Root UE install folder to list for UE_<version> Unreal Engine version installations
-    :param version: Specific version string to check for, e.g. 5.2
+    :param version: Specific version string to check for, e.g. 5.5
 
     :return: Path to root of latest Unreal Engine installation in folder
     """
@@ -48,8 +61,8 @@ def find_unreal_engine(folder: str, version: Optional[str] = None) -> str:
     if version:
         check_version = version
     else:
-        # Default to 5.2 if no other versions are found
-        check_version = "5.2"
+        # Default to 5.8 if no other versions are found
+        check_version = "5.8"
         for subfolder in os.listdir(folder):
             if subfolder.startswith("UE_"):
                 version = subfolder.split("_")[1]
@@ -89,8 +102,16 @@ def build_whl() -> str:
         )
         subprocess.run(["hatch", "--version"], check=True, stderr=subprocess.PIPE)
 
-    result = subprocess.run(["hatch", "build"], check=True, stderr=subprocess.PIPE)
-    lines = result.stderr.decode("utf-8").splitlines()
+    # When invoked from inside a hatch-managed env (e.g. the integ-ci env in CI),
+    # hatch refuses to build because the active env isn't a builder env. Strip the
+    # marker so `hatch build` runs in the default builder context.
+    build_env = os.environ.copy()
+    build_env.pop("HATCH_ENV_ACTIVE", None)
+    result = subprocess.run(["hatch", "build"], stderr=subprocess.PIPE, text=True, env=build_env)
+    if result.returncode != 0:
+        logger.error(f"hatch build failed with stderr:\n{result.stderr}")
+        raise Exception(f"hatch build failed: {result.stderr}")
+    lines = result.stderr.splitlines()
     whl_path = None
     # Go through lines, finding the first which ends in .whl
     for line in lines:
@@ -178,10 +199,28 @@ def install_whl_to_plugin(whl_path: str, engine_root: str):
 
     plugin_libraries_path = os.path.join(plugin_folder, "Content", "Python", "libraries")
 
-    # Pip install the .whl file to the plugin libraries path
+    # Pip install the .whl file to the plugin libraries path.
+    # --force-reinstall is required because pip install -t still checks the
+    # interpreter's own site-packages for already-satisfied dependencies.
+    # Without it, an older 'deadline' in UE Python's Lib/site-packages causes
+    # pip to skip installing the required version into the target directory.
+    #
+    # [console] because this installs the submitter, which needs AWS Console sign-in
+    # (awscrt): the wheel's own Requires-Dist deliberately omits the extra so the adaptor
+    # packaging never resolves awscrt (see pyproject.toml). install_whl_global below
+    # installs the worker-side adaptor and must NOT request it.
     logger.info(f"Installing {whl_path} to {plugin_libraries_path}")
     result = subprocess.run(
-        [python_path, "-m", "pip", "install", whl_path, "-t", plugin_libraries_path, "--upgrade"],
+        [
+            python_path,
+            "-m",
+            "pip",
+            "install",
+            f"{whl_path}[console]",
+            "-t",
+            plugin_libraries_path,
+            "--force-reinstall",
+        ],
         check=True,
     )
     logger.info(f"Install result: {result.returncode}")
@@ -211,17 +250,40 @@ def install_plugin(engine_root: str, output_folder: str, whl_path: str, binaries
 
 def install_whl_global(whl_path: str):
     """
-    Installs the given .whl file to the global python interpreter
+    Installs the given .whl file to the global python interpreter.
+
+    Done in two passes so iterative dev builds reliably overwrite installed
+    files without paying the dependency-resolve cost on every build:
+
+    1. ``pip install <whl>`` — resolves and installs deps the first time;
+       on subsequent builds where deps are already satisfied this is a fast
+       metadata check.
+    2. ``pip install <whl> --force-reinstall --no-deps`` — overwrites the
+       package's own files even when the version string is unchanged, which
+       the previous --upgrade strategy would silently skip.
+
+    Unlike install_whl_to_plugin, this deliberately does not request the
+    ``[console]`` extra: it installs the worker-side adaptor, which runs with
+    host-provided credentials and never takes the console sign-in path.
 
     :param whl_path: Path to whl file
     """
 
     if not os.path.exists(whl_path):
         raise Exception(f"Could not find .whl file at {whl_path}")
-    # Pip install the .whl file to the global python interpreter
-    logger.info(f"Installing {whl_path} to global interpreter")
+
+    # Pass 1: ensure dependencies are present.
+    logger.info(f"Installing {whl_path} dependencies to global interpreter")
+    subprocess.run(
+        ["python", "-m", "pip", "install", whl_path],
+        check=True,
+    )
+
+    # Pass 2: force-overwrite the package itself so iterative builds with the
+    # same version string actually replace files on disk.
+    logger.info(f"Force-reinstalling {whl_path} to global interpreter")
     result = subprocess.run(
-        ["python", "-m", "pip", "install", whl_path, "--upgrade"],
+        ["python", "-m", "pip", "install", whl_path, "--force-reinstall", "--no-deps"],
         check=True,
     )
     logger.info(f"Install result: {result.returncode}")
@@ -313,6 +375,25 @@ def build_plugin(runuat_path: str, plugin_input_folder: str, output_folder: str)
         raise Exception(f"Build failed {result.returncode}")
 
 
+def _warn_if_deadline_worker_service_running():
+    """Warn the user if the DeadlineWorker service is running and needs a restart."""
+    if sys.platform != "win32":
+        return
+    try:
+        result = subprocess.run(
+            ["sc", "query", "DeadlineWorker"],
+            capture_output=True,
+            text=True,
+        )
+        if "RUNNING" in result.stdout:
+            logger.warning(
+                "The DeadlineWorker service is currently running. "
+                "Restart it to pick up the new code: Restart-Service DeadlineWorker"
+            )
+    except Exception:
+        pass
+
+
 def install_worker_dependencies(engine_root: str):
     """
     Installs the dependencies required for the worker plugin to function
@@ -330,15 +411,24 @@ def install_worker_dependencies(engine_root: str):
             + "the folder where Unreal is installed (Should contain UE_VERSION.NUM subfolders)"
         )
 
-    worker_dependencies = ["pywin32"]
+    worker_dependencies = [get_pywin32_requirement()]
     for dep in worker_dependencies:
         subprocess.run(
-            [python_path, "-m", "pip", "install", dep],
+            [python_path, "-m", "pip", "install", "--only-binary=:all:", dep],
             check=True,
         )
 
     subprocess.run(
-        ["python", "-m", "pip", "install", "deadline-cloud-worker-agent"],
+        [
+            "python",
+            "-m",
+            "pip",
+            "install",
+            "deadline-cloud-worker-agent",
+            "--upgrade",
+            "--upgrade-strategy",
+            "eager",
+        ],
         check=True,
         stderr=subprocess.PIPE,
     )
@@ -409,16 +499,29 @@ def check_running_unreal_processes():
     Returns:
         bool: True if any Unreal processes are running, False otherwise
     """
+    if sys.platform != "win32":
+        return False
+
+    target_names = {"unrealeditor.exe", "unrealeditor-cmd.exe"}
     unreal_processes = []
-    for proc in psutil.process_iter(["pid", "name"]):
-        try:
-            if proc.info["name"] and (
-                proc.info["name"].lower() == "unrealeditor.exe"
-                or proc.info["name"].lower() == "unrealeditor-cmd.exe"
-            ):
-                unreal_processes.append(proc.info)
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            pass
+    try:
+        # tasklist /FO CSV /NH outputs: "Image Name","PID","Session Name","Session#","Mem Usage"
+        result = subprocess.run(
+            ["tasklist", "/FO", "CSV", "/NH"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError) as e:
+        logger.warning(f"Could not check for running Unreal processes: {e}")
+        return False
+
+    for row in csv.reader(result.stdout.splitlines()):
+        if len(row) < 2:
+            continue
+        name, pid = row[0], row[1]
+        if name.lower() in target_names:
+            unreal_processes.append({"name": name, "pid": pid})
 
     if unreal_processes:
         logger.warning(
@@ -446,7 +549,7 @@ def check_configuration_warnings(engine_root: str):
     else:
         logger.warning(
             "Windows long paths are not enabled.  Please see "
-            "https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-submitter.md#windows-long-paths"
+            "https://docs.aws.amazon.com/deadline-cloud/latest/userguide/epic-unreal-engine.html#unreal-engine-windows-long-paths"
             "for instructions on enabling."
         )
 
@@ -508,6 +611,7 @@ def build_and_install(
     if worker:
         install_whl_global(whl_path)
         install_worker_dependencies(engine_root)
+        _warn_if_deadline_worker_service_running()
 
     if test:
         install_test_content(get_plugin_folder(engine_root))
@@ -546,7 +650,7 @@ def main():
     parser.add_argument(
         "--worker",
         action="store_true",
-        help="Install the plugin as a worker plugin to the global python interpreter.  Generally should be paired with --install.",
+        help="Install the plugin as a worker plugin to the global python interpreter, including the built .whl and worker dependencies.  Generally should be paired with --install.  Requires admin/elevated privileges on Windows; the submitter-only --install path does not.",
     )
     parser.add_argument(
         "--no-binaries",

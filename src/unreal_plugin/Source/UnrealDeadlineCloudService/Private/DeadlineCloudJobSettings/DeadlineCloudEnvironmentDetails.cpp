@@ -70,11 +70,6 @@ void FDeadlineCloudEnvironmentDetails::CustomizeDetails(IDetailLayoutBuilder& De
 	TSharedRef<IPropertyHandle> PathToTemplate = MainDetailLayout->GetProperty("PathToTemplate");
 	IDetailPropertyRow* PathToTemplateRow = MainDetailLayout->EditDefaultProperty(PathToTemplate);
 
-	/* Collapse hidden parameters array  */
-	TSharedRef<IPropertyHandle> HideHandle = MainDetailLayout->GetProperty("UserHiddenParametersList");
-	IDetailPropertyRow* HideRow = MainDetailLayout->EditDefaultProperty(HideHandle);
-	HideRow->Visibility(EVisibility::Collapsed);
-
 	if (PathToTemplateRow)
 	{
 		TSharedPtr<SWidget> NameWidget;
@@ -138,15 +133,14 @@ void FDeadlineCloudEnvironmentDetails::OnConsistencyButtonClicked()
 
 void FDeadlineCloudEnvironmentDetails::OnResetHiddenParametersClicked()
 {
-	Settings->ResetParametersHiddenToDefault();
+	Settings->GetHiddenManager().ResetToDefault();
     ForceRefreshDetails();
 }
 
 EVisibility FDeadlineCloudEnvironmentDetails::GetEyeWidgetVisibility() const
 {
-	return ((Settings->IsParametersHiddenByDefault())) ? EVisibility::Collapsed : EVisibility::Visible;
+	return ((Settings->GetHiddenManager().IsDefaultState())) ? EVisibility::Collapsed : EVisibility::Visible;
 }
-
 
 void FDeadlineCloudEnvironmentDetails::ForceRefreshDetails()
 {
@@ -173,8 +167,6 @@ FDeadlineCloudEnvironmentParametersMapBuilder::FDeadlineCloudEnvironmentParamete
 	check(MapProperty.IsValid());
 }
 
-
-
 FName FDeadlineCloudEnvironmentParametersMapBuilder::GetName() const
 {
 	return BaseProperty->GetProperty()->GetFName();
@@ -182,7 +174,6 @@ FName FDeadlineCloudEnvironmentParametersMapBuilder::GetName() const
 
 void FDeadlineCloudEnvironmentParametersMapBuilder::GenerateChildContent(IDetailChildrenBuilder& InChildrenBuilder)
 {
-
 	uint32 NumChildren = 0;
 	BaseProperty->GetNumChildren(NumChildren);
 
@@ -216,33 +207,6 @@ void FDeadlineCloudEnvironmentParametersMapBuilder::GenerateChildContent(IDetail
 				SNew(SHorizontalBox)
 					+ SHorizontalBox::Slot()
 					.AutoWidth()
-					.Padding(4, 0)
-					[
-						MrqJob
-							? SNew(SCheckBox)
-							.IsChecked_Lambda([this, EnvVarPropertyPath]()
-								{
-									if (MrqJob)
-									{
-										return MrqJob->IsPropertyRowEnabledInMovieRenderJob(EnvVarPropertyPath)
-											? ECheckBoxState::Checked
-											: ECheckBoxState::Unchecked;
-									}
-									return ECheckBoxState::Unchecked;
-								})
-							.OnCheckStateChanged_Lambda([this, EnvVarPropertyPath](ECheckBoxState NewState)
-								{
-									if (MrqJob)
-									{
-										const bool bEnabled = (NewState == ECheckBoxState::Checked);
-										UE_LOG(LogTemp, Warning, TEXT("Setting PropertyPath = %s, Enabled = %d"), *EnvVarPropertyPath.ToString(), bEnabled);
-										MrqJob->SetPropertyRowEnabledInMovieRenderJob(EnvVarPropertyPath, bEnabled);
-									}
-								})
-							: SNullWidget::NullWidget
-					]
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
 					.Padding(2.0f, 0.0f)
 					.HAlign(HAlign_Left)
 					.VAlign(VAlign_Center)
@@ -268,17 +232,6 @@ void FDeadlineCloudEnvironmentParametersMapBuilder::GenerateChildContent(IDetail
 			[
 				EyeWidget
 			];
-
-		CustomValueWidget->SetEnabled(
-			TAttribute<bool>::CreateLambda([this, EnvVarPropertyPath]()
-				{
-					if (MrqJob)
-					{
-						return MrqJob->IsPropertyRowEnabledInMovieRenderJob(EnvVarPropertyPath);
-					}
-					return true;
-				})
-		);
 	}
 }
 
@@ -299,7 +252,7 @@ bool FDeadlineCloudEnvironmentParametersMapCustomization::IsResetToDefaultVisibl
 		return false;
 	}
 
-	auto OuterEnvironment = GetOuterEnvironment(PropertyHandle.ToSharedRef());
+	auto OuterEnvironment = FDeadlineCloudDetailsWidgetsHelper::GetPropertyOuter<UDeadlineCloudEnvironment>(PropertyHandle.ToSharedRef());
 
 	if (!IsValid(OuterEnvironment))
 	{
@@ -316,7 +269,7 @@ void FDeadlineCloudEnvironmentParametersMapCustomization::ResetToDefaultHandler(
 		return;
 	}
 
-	auto OuterEnvironment = GetOuterEnvironment(PropertyHandle.ToSharedRef());
+	auto OuterEnvironment = FDeadlineCloudDetailsWidgetsHelper::GetPropertyOuter<UDeadlineCloudEnvironment>(PropertyHandle.ToSharedRef());
 
 	if (!IsValid(OuterEnvironment))
 	{
@@ -335,7 +288,7 @@ void FDeadlineCloudEnvironmentParametersMapCustomization::CustomizeHeader(TShare
 		FCanExecuteAction::CreateLambda([]() { return false; })
 	);
 
-	auto OuterEnvironment = GetOuterEnvironment(InPropertyHandle);
+	auto OuterEnvironment = FDeadlineCloudDetailsWidgetsHelper::GetPropertyOuter<UDeadlineCloudEnvironment>(InPropertyHandle);
 	if (IsValid(OuterEnvironment))
 	{
 		const FResetToDefaultOverride ResetDefaultOverride = FResetToDefaultOverride::Create(
@@ -374,37 +327,18 @@ void FDeadlineCloudEnvironmentParametersMapCustomization::CustomizeChildren(TSha
 	InChildBuilder.AddCustomBuilder(ArrayBuilder.ToSharedRef());
 }
 
-UDeadlineCloudEnvironment* FDeadlineCloudEnvironmentParametersMapCustomization::GetOuterEnvironment(TSharedRef<IPropertyHandle> Handle)
-{
-	TArray<UObject*> OuterObjects;
-	Handle->GetOuterObjects(OuterObjects);
-
-	if (OuterObjects.Num() == 0)
-	{
-		return nullptr;
-	}
-
-	const TWeakObjectPtr<UObject> OuterObject = OuterObjects[0];
-	if (!OuterObject.IsValid())
-	{
-		return nullptr;
-	}
-	UDeadlineCloudEnvironment* OuterEnv = Cast<UDeadlineCloudEnvironment>(OuterObject);
-	return OuterEnv;
-}
-
 void FDeadlineCloudEnvironmentParametersMapBuilder::OnEyeHideWidgetButtonClicked(FName Property) const
 {
-	auto OuterEnvironment = GetOuterEnvironment();
+	auto OuterEnvironment = FDeadlineCloudDetailsWidgetsHelper::GetPropertyOuter<UDeadlineCloudEnvironment>(BaseProperty);
 	if (OuterEnvironment)
 	{
-		if (OuterEnvironment->ContainsHiddenParameters(Property))
+		if (OuterEnvironment->GetHiddenManager().Contains(Property))
 		{
-			OuterEnvironment->RemoveHiddenParameter(Property);
+			OuterEnvironment->GetHiddenManager().Remove(Property);
 		}
 		else
 		{
-			OuterEnvironment->AddHiddenParameter(Property);
+			OuterEnvironment->GetHiddenManager().Add(Property);
 		}
 	}
 }
@@ -412,10 +346,10 @@ void FDeadlineCloudEnvironmentParametersMapBuilder::OnEyeHideWidgetButtonClicked
 bool FDeadlineCloudEnvironmentParametersMapBuilder::IsPropertyHidden(FName Parameter) const
 {
 	bool Contains = false;
-	auto OuterEnvironment = GetOuterEnvironment();
+	auto OuterEnvironment = FDeadlineCloudDetailsWidgetsHelper::GetPropertyOuter<UDeadlineCloudEnvironment>(BaseProperty);
 	if (OuterEnvironment)
 	{
-		Contains = OuterEnvironment->ContainsHiddenParameters(Parameter);
+		Contains = OuterEnvironment->GetHiddenManager().Contains(Parameter);
 	}
 	return Contains;
 }
@@ -423,55 +357,27 @@ bool FDeadlineCloudEnvironmentParametersMapBuilder::IsPropertyHidden(FName Param
 bool FDeadlineCloudEnvironmentParametersMapBuilder::IsEyeWidgetEnabled(FName Parameter) const
 {
 	bool result = false;
-	auto Env = GetOuterEnvironment();
-	if (Env)
-	{
-		result = Env->ContainsHiddenParameters(Parameter);
-	}
 
 	if (MrqJob)
 	{
-		if (MrqJob->JobPreset)
-		{
-			for (auto EnvOverride : MrqJob->JobPreset->Steps)
-			{
-				if (EnvOverride)
-				{
-						result = EnvOverride->ContainsHiddenParameters(Parameter);
-				}
-			}
-		}
+		return result;
+	}
 
+	auto Env = FDeadlineCloudDetailsWidgetsHelper::GetPropertyOuter<UDeadlineCloudEnvironment>(BaseProperty);
+	if (Env)
+	{
+		result = Env->GetHiddenManager().Contains(Parameter);
 	}
 	return result;
 }
 
 bool FDeadlineCloudEnvironmentParametersMapBuilder::IsParameterChangedFromDefault(FName Parameter) const
 {
-	auto Env = GetOuterEnvironment();
+	auto Env = FDeadlineCloudDetailsWidgetsHelper::GetPropertyOuter<UDeadlineCloudEnvironment>(BaseProperty);
 	if (!Env)
 		return false;
 	//for env enabled is always by user, not by default
-	return Env->ContainsHiddenParameters(Parameter);
-}
-
-UDeadlineCloudEnvironment* FDeadlineCloudEnvironmentParametersMapBuilder::GetOuterEnvironment() const
-{
-	TArray<UObject*> OuterObjects;
-	BaseProperty->GetOuterObjects(OuterObjects);
-
-	if (OuterObjects.Num() == 0)
-	{
-		return nullptr;
-	}
-
-	const TWeakObjectPtr<UObject> OuterObject = OuterObjects[0];
-	if (!OuterObject.IsValid())
-	{
-		return nullptr;
-	}
-	UDeadlineCloudEnvironment* OuterEnvironment = Cast<UDeadlineCloudEnvironment>(OuterObject);
-	return OuterEnvironment;
+	return Env->GetHiddenManager().IsDefaultForParameter(Parameter);
 }
 
 #undef LOCTEXT_NAMESPACE

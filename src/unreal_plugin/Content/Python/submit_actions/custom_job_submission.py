@@ -22,7 +22,6 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment impor
 )
 from deadline.unreal_logger import get_logger
 
-
 logger = get_logger()
 
 

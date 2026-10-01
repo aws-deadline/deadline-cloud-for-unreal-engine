@@ -15,19 +15,11 @@ TSharedRef<IDetailCustomization> FDeadlineCloudSettingsDetails::MakeInstance()
     return MakeShareable(new FDeadlineCloudSettingsDetails);
 }
 
-/*
-FText FDeadlineCloudSettingsDetails::GetCredsState() const
-{
-    return FText::FromString(Settings->WorkStationConfiguration.State.CredsType);
-}
-*/
-
 void FDeadlineCloudSettingsDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
     TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
     DetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
     Settings = Cast<UDeadlineCloudDeveloperSettings>(ObjectsBeingCustomized[0].Get());
-	//Settings->Refresh();
     DeadlineCloudStatusHandler = MakeUnique<FDeadlineCloudStatusHandler>(Settings.Get());
     DeadlineCloudStatusHandler->StartDirectoryWatch();
 

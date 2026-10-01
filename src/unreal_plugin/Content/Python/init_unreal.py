@@ -32,7 +32,10 @@ def get_ue_path(in_path: str) -> Optional[str]:
 def sync_mrq_dependencies(dependencies_descriptor_path: str) -> None:
     """
     Read given dependencies descriptor, try to sync them with unreal source control and
-    scan modified assets
+    scan modified assets.
+
+    If DEPENDENCIES_SYNCED env var is set, the P4 sync environment already synced
+    these files — skip the redundant sync and just scan the asset registry.
 
     :param dependencies_descriptor_path: Path to the dependencies JSON descriptor file
     :type dependencies_descriptor_path: str
@@ -52,13 +55,16 @@ def sync_mrq_dependencies(dependencies_descriptor_path: str) -> None:
         unreal.log_error(f"Job dependencies list is empty: {dependencies_descriptor_path}")
         return
 
-    synced = unreal.SourceControl.sync_files(job_dependencies)
-    if not synced:
-        unreal.log_error(
-            f"Failed to sync job dependencies: {dependencies_descriptor_path}. "
-            f"Sync error message: {unreal.SourceControl.last_error_msg()}"
-        )
-        return
+    if os.getenv("DEPENDENCIES_SYNCED") != "true":
+        synced = unreal.SourceControl.sync_files(job_dependencies)
+        if not synced:
+            unreal.log_error(
+                f"Failed to sync job dependencies: {dependencies_descriptor_path}. "
+                f"Sync error message: {unreal.SourceControl.last_error_msg()}"
+            )
+            return
+    else:
+        unreal.log("Skipping P4 sync — dependencies already synced by P4 sync environment.")
 
     ue_paths = []
     for job_dependency in job_dependencies:
@@ -75,6 +81,62 @@ def sync_mrq_dependencies(dependencies_descriptor_path: str) -> None:
     asset_registry = unreal.AssetRegistryHelpers().get_asset_registry()
     asset_registry.scan_modified_asset_files(ue_paths)
     asset_registry.scan_paths_synchronous(ue_paths, True, True)
+
+
+def _check_patch_pydantic_py397():
+    """
+    Fix Pydantic's StringConstraints for Python 3.9.7 compatibility to work with
+    default Python in Unreal 5.3 (3.9.7)
+
+    In Python 3.9.7, when a dataclass with frozen=True inherits from a Protocol,
+    the dataclass decorator fails to generate the __init__ method. This function
+    manually generates the proper __init__ for StringConstraints.
+
+    See https://github.com/pydantic/pydantic/issues/7745
+    """
+
+    # Only apply on Python 3.9.7
+    if sys.version_info[:3] != (3, 9, 7):
+        print(f"Skipping Python 3.9.7 patch: Python version is {sys.version_info[:3]}")
+        return
+
+    try:
+        import pydantic.types
+    except ImportError:
+        print("Skipping Python 3.9.7 patch: pydantic not found")
+        # Pydantic not installed, nothing to fix
+        return
+
+    from typing import Pattern, Union
+
+    StringConstraints = pydantic.types.StringConstraints
+
+    # Generate the proper __init__ method with correct type hints
+    def __init__(
+        self: "pydantic.types.StringConstraints",
+        *,
+        strip_whitespace: Optional[bool] = None,
+        to_upper: Optional[bool] = None,
+        to_lower: Optional[bool] = None,
+        strict: Optional[bool] = None,
+        min_length: Optional[int] = None,
+        max_length: Optional[int] = None,
+        pattern: Union[str, Pattern[str], None] = None,
+    ) -> None:
+        """Initialize StringConstraints with the given parameters."""
+        # Use object.__setattr__ because frozen=True prevents normal attribute assignment
+        object.__setattr__(self, "strip_whitespace", strip_whitespace)
+        object.__setattr__(self, "to_upper", to_upper)
+        object.__setattr__(self, "to_lower", to_lower)
+        object.__setattr__(self, "strict", strict)
+        object.__setattr__(self, "min_length", min_length)
+        object.__setattr__(self, "max_length", max_length)
+        object.__setattr__(self, "pattern", pattern)
+
+    # Apply the fix - type checkers will complain but this is intentional monkey-patching
+    StringConstraints.__init__ = __init__  # type: ignore
+
+    print("Applied Python 3.9.7 compatibility fix for pydantic.types.StringConstraints")
 
 
 remote_execution = os.getenv("REMOTE_EXECUTION", "False")
@@ -98,7 +160,14 @@ if remote_execution != "True":
         os.environ["DEADLINE_CLOUD"] = libraries_path
 
     if os.getenv("DEADLINE_CLOUD") and os.environ["DEADLINE_CLOUD"] not in sys.path:
-        sys.path.append(os.environ["DEADLINE_CLOUD"])
+        # Insert before UE's auto-installed PipInstall packages, which may contain
+        # older versions of shared dependencies (e.g. typing_extensions) that are
+        # incompatible with the versions bundled by this plugin.
+        _pip_install_idx = next(
+            (i for i, p in enumerate(sys.path) if "PipInstall" in p),
+            len(sys.path),
+        )
+        sys.path.insert(_pip_install_idx, os.environ["DEADLINE_CLOUD"])
 
     from deadline.unreal_logger import get_logger
 
@@ -106,21 +175,47 @@ if remote_execution != "True":
 
     logger.info("INIT DEADLINE CLOUD")
 
+    from update_check import safe_check_and_show_update_dialog
+
+    safe_check_and_show_update_dialog()
+
     logger.info(f'DEADLINE CLOUD PATH: {os.getenv("DEADLINE_CLOUD")}')
 
     # These unused imports are REQUIRED!!!
     # Unreal Engine loads any init_unreal.py it finds in its search paths.
     # These imports finish the setup for the plugin.
-    from settings import (
-        DeadlineCloudSettingsLibraryImplementation,  # noqa: F401
-        background_init_s3_client,
-    )
-    from job_library import DeadlineCloudJobBundleLibraryImplementation  # noqa: F401
-    from open_job_template_api import (  # noqa: F401
-        PythonYamlLibraryImplementation,
-        ParametersConsistencyCheckerImplementation,
-    )
-    import remote_executor  # noqa: F401
+    # `settings` is imported for background_init_s3_client (used below); importing the module also
+    # registers DeadlineCloudSettingsLibraryImplementation as a side effect.
+    from settings import background_init_s3_client
+
+    # UNREAL 5.3 PATCH - Temp fix to maintain support for system default python
+    # in Unreal 5.3 (3.9.7)
+    _check_patch_pydantic_py397()
+
+    # These modules register the Python side of their C++ BlueprintImplementableEvent libraries as
+    # an import side effect (the @unreal.uclass()/@unreal.ufunction decorators run on import). Import
+    # them via importlib so no unused names are bound (avoids ruff F401 and CodeQL
+    # py/unused-import / py/unused-global-variable).
+    import importlib
+
+    # job_library, open_job_template_api and remote_executor are load-bearing: open_job_template_api
+    # registers PythonYamlLibrary / ParametersConsistencyChecker (without which UPythonYamlLibrary::Get()
+    # is null across the job/step/environment panels) and remote_executor registers the MRQ remote
+    # executor. A failure importing any of these must stay fatal (loud) — the editor cannot function
+    # without them, so we deliberately do NOT swallow it.
+    for _impl_module in ("job_library", "open_job_template_api", "remote_executor"):
+        importlib.import_module(_impl_module)
+
+    # Only the new pre_gui_hook_library is isolated: a version-skewed C++/Python pair (e.g. the C++
+    # struct a release behind the bundled Python) should degrade just this one feature to a no-op,
+    # not take down the load-bearing registrations above or the init steps below. Log the full
+    # traceback (exc_info) so a missing transitive dep is diagnosable instead of a bare message.
+    try:
+        importlib.import_module("pre_gui_hook_library")
+    except Exception:
+        logger.error(
+            "Failed to register Deadline Cloud module 'pre_gui_hook_library'", exc_info=True
+        )
 
     try:
         background_init_s3_client()

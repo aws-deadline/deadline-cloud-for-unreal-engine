@@ -8,6 +8,35 @@
 
 UDeadlineCloudJob::UDeadlineCloudJob()
 {
+    HiddenVarsManager.OnGetAllNames.BindLambda([this]()
+        {
+            TSet<FName> Names;
+            for (const auto& P : ParameterDefinition.Parameters)
+            {
+                Names.Add(FName(*P.Name));
+            }
+            return Names;
+        });
+
+    HiddenVarsManager.OnGetDefaultHidden.BindLambda([this]()
+        {
+            TSet<FName> Def;
+            for (const auto& P : ParameterDefinition.Parameters)
+            {
+                if (P.UserInterfaceControl == EUserInterfaceControl::HIDDEN)
+                {
+                    Def.Add(FName(*P.Name));
+                }
+            }
+            return Def;
+        });
+
+    HiddenVarsManager.OnChanged.BindLambda([this]()
+        {
+            Modify();
+            MarkPackageDirty();
+            ParameterHiddenEvent();
+        });
 }
 
 void UDeadlineCloudJob::OpenJobFile(const FString& Path)
@@ -15,7 +44,7 @@ void UDeadlineCloudJob::OpenJobFile(const FString& Path)
     if (auto Library = UPythonYamlLibrary::Get())
     {
         ParameterDefinition.Parameters = Library->OpenJobFile(Path);
-        ResetParametersHiddenToDefault();
+        GetHiddenManager().ResetToDefault();
     }
     else
     {
@@ -58,27 +87,7 @@ FString UDeadlineCloudJob::GetDefaultParameterValue(const FString& ParameterName
 
 void UDeadlineCloudJob::FixConsistencyForHiddenParameters()
 {
-    TArray<FName>Names;
-    TArray<FName>NamesToRemove;
-    TArray<FParameterDefinition> DefaultParameters = UPythonYamlLibrary::Get()->OpenJobFile(PathToTemplate.FilePath);
-    for (FParameterDefinition& Parameter : DefaultParameters)
-    {
-        Names.Add(FName(Parameter.Name));
-    }
-
-    for (auto HiddenName : HiddenParametersList)
-    {
-        bool Contains = Names.Contains(HiddenName);
-        if (!Contains)
-        {
-            NamesToRemove.Add(HiddenName);
-        }
-    }
-    for (auto HiddenName : NamesToRemove)
-    {
-        HiddenParametersList.Remove(HiddenName);
-    }
-
+    GetHiddenManager().PruneUnknown();
 }
 
 TArray<FParameterDefinition> UDeadlineCloudJob::GetJobParameters()
@@ -122,13 +131,27 @@ TArray<FParameterDefinition> UDeadlineCloudJob::GetParametersDataToOverride() co
     TArray<FParameterDefinition> Result;
 	for (const FParameterDefinition& Param : ParameterDefinition.Parameters)
     {
-        if (!HiddenParametersList.Contains(FName(*Param.Name)))
+        if (!GetHiddenManager().Contains(FName(*Param.Name)))
         {
 			Result.Add(Param);
 		}
 	}
 
 	return Result;
+}
+
+void UDeadlineCloudJob::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+    Super::PostEditChangeProperty(PropertyChangedEvent);
+    if (PropertyChangedEvent.Property != nullptr) {
+
+        FName PropertyName = PropertyChangedEvent.Property->GetFName();
+        if (PropertyName == "FilePath")
+        {
+            OpenJobFile(PathToTemplate.FilePath);
+            TriggerChange();
+        }
+    }
 }
 
 

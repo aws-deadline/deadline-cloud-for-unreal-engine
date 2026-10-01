@@ -5,7 +5,6 @@ import os
 import pytest
 from unittest.mock import patch
 
-
 # Add the settings module to path since it's not in the standard package structure
 sys.path.insert(
     0, os.path.join(os.path.dirname(__file__), "../../../src/unreal_plugin/Content/Python")

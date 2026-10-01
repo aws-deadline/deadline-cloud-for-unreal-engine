@@ -99,3 +99,14 @@ gen
 
 # Kiro IDE files
 .kiro/
+
+# Claude Code local IDE settings — user-scoped, never committed
+.claude/
+
+# Runtime workspace registry — created at execution time by
+# unreal_perforce_utils under $P4_CLIENTS_ROOT_DIRECTORY (or the
+# ~/Perforce fallback). If a test or dev-run resolves the fallback
+# to a literal `~` (unexpanded), the file lands here at the repo
+# root; either way it must not be committed.
+/~/
+Perforce/workspace_info.json

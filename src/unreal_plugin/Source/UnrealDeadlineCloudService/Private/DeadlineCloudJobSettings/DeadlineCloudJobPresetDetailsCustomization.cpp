@@ -1,4 +1,4 @@
-// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+﻿// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 #include "DeadlineCloudJobSettings/DeadlineCloudJobPresetDetailsCustomization.h"
 #include "MovieRenderPipeline/MoviePipelineDeadlineCloudExecutorJob.h"
@@ -11,8 +11,11 @@
 #include "Misc/EngineVersionComparison.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudDetailsWidgetsHelper.h"
 #include "Framework/MetaData/DriverMetaData.h"
+#include "Widgets/Input/SSpinbox.h" 
+#include "IPropertyUtilities.h"                
 #include "PropertyEditorModule.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudStepOverrideCustomization.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudHostRequirements.h"
 
 #define LOCTEXT_NAMESPACE "UnrealDeadlineCloudServiceModule"
 
@@ -41,7 +44,7 @@ void FDeadlineCloudJobPresetDetailsCustomization::CustomizeHeader(TSharedRef<IPr
 void FDeadlineCloudJobPresetDetailsCustomization::CustomizeChildren(TSharedRef<IPropertyHandle> StructHandle,
     IDetailChildrenBuilder& ChildBuilder, IPropertyTypeCustomizationUtils& CustomizationUtils)
 {
-    UMoviePipelineDeadlineCloudExecutorJob* OuterJob = FPropertyAvailabilityHandler::GetOuterJob(StructHandle);
+    UMoviePipelineDeadlineCloudExecutorJob* OuterJob = FDeadlineCloudDetailsWidgetsHelper::GetPropertyOuter<UMoviePipelineDeadlineCloudExecutorJob>(StructHandle);
     PropertyOverrideHandler = MakeShared<FPropertyAvailabilityHandler>(OuterJob);
 
     TMap<FName, IDetailGroup*> CreatedCategories;
@@ -222,7 +225,7 @@ void FDeadlineCloudAttachmentDetailsCustomization::CustomizeChildren(
     auto& PathsRow = ChildBuilder.AddProperty(PathsHandle.ToSharedRef());
     auto& AutoDetectedPathsRow = ChildBuilder.AddProperty(AutoDetectedPathsHandle.ToSharedRef());
 
-    UMoviePipelineDeadlineCloudExecutorJob* OuterJob = FPropertyAvailabilityHandler::GetOuterJob(StructHandle);
+    UMoviePipelineDeadlineCloudExecutorJob* OuterJob = FDeadlineCloudDetailsWidgetsHelper::GetPropertyOuter<UMoviePipelineDeadlineCloudExecutorJob>(StructHandle);;
     PropertyOverrideHandler = MakeShared<FPropertyAvailabilityHandler>(OuterJob);
 
     if (OuterJob)
@@ -237,7 +240,13 @@ void FDeadlineCloudAttachmentDetailsCustomization::CustomizeChildren(
                         return bVisible
                             ? EVisibility::Visible
                             : EVisibility::Hidden;
-                    }));
+                    }))
+            .IsEnabled(
+                TAttribute<bool>::CreateLambda([this, OuterJob]()
+                    {
+                        return false;
+					})
+                );
     }
     else
     { 
@@ -347,8 +356,6 @@ EVisibility FDeadlineCloudAttachmentDetailsCustomization::GetPathsEmptyWidgetVis
     return ContainsEmptyPaths(PropertyHandle) ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
-
-
 bool FDeadlineCloudJobPresetDetailsCustomization::IsPropertyHiddenInMovieRenderQueue(const FName& InPropertyPath)
 {
     return false;
@@ -438,6 +445,10 @@ void FDeadlineCloudAttachmentArrayBuilder::OnGenerateEntry(
     TSharedPtr<SWidget> NameWidget;
     TSharedPtr<SWidget> ValueWidget;
     PropertyRow.GetDefaultWidgets(NameWidget, ValueWidget);
+
+    FName Tag = FName("AttachmentArrayElement.Value");
+    ValueWidget->AddMetadata(FDriverMetaData::Id(Tag));
+
     PropertyRow.CustomWidget(true)
         .NameContent()
         .HAlign(HAlign_Fill)
@@ -466,26 +477,9 @@ void FDeadlineCloudAttachmentArrayCustomization::CustomizeHeader(
 {
     const TSharedPtr<IPropertyHandle> ArrayHandle = InPropertyHandle->GetChildHandle("Paths", false);
 
-    UMoviePipelineDeadlineCloudExecutorJob* OuterJob = FPropertyAvailabilityHandler::GetOuterJob(InPropertyHandle);
-    PropertyOverrideHandler = MakeShared<FPropertyAvailabilityHandler>(OuterJob);
-
-    const FName PropertyPath = *InPropertyHandle->GetProperty()->GetPathName();
+    UMoviePipelineDeadlineCloudExecutorJob* OuterJob = FDeadlineCloudDetailsWidgetsHelper::GetPropertyOuter<UMoviePipelineDeadlineCloudExecutorJob>(InPropertyHandle);
 
     ArrayBuilder = FDeadlineCloudAttachmentArrayBuilder::MakeInstance(ArrayHandle.ToSharedRef());
-    if (PropertyOverrideHandler->GetOuterJob(InPropertyHandle))
-    {
-        ArrayBuilder->OnIsEnabled.BindLambda([this, PropertyPath]()
-            {
-                return this->PropertyOverrideHandler->IsPropertyRowEnabledInMovieRenderJob(PropertyPath);
-            });
-    }
-    else
-    {
-        ArrayBuilder->OnIsEnabled.BindLambda([this, PropertyPath]()
-            {
-                return this->PropertyOverrideHandler->IsPropertyRowEnabledInDataAsset(PropertyPath);
-            });
-    }
     ArrayBuilder->GenerateWrapperStructHeaderRowContent(InHeaderRow, InPropertyHandle->CreatePropertyNameWidget());
 }
 
@@ -500,26 +494,6 @@ void FDeadlineCloudAttachmentArrayCustomization::CustomizeChildren(
 FPropertyAvailabilityHandler::FPropertyAvailabilityHandler(UMoviePipelineDeadlineCloudExecutorJob* InJob)
     : Job(InJob)
 {
-
-}
-
-UMoviePipelineDeadlineCloudExecutorJob* FPropertyAvailabilityHandler::GetOuterJob(TSharedRef<IPropertyHandle> StructHandle)
-{
-    TArray<UObject*> OuterObjects;
-    StructHandle->GetOuterObjects(OuterObjects);
-
-    if (OuterObjects.Num() == 0)
-    {
-        return nullptr;
-    }
-
-    const TWeakObjectPtr<UObject> OuterObject = OuterObjects[0];
-    if (!OuterObject.IsValid())
-    {
-        return nullptr;
-    }
-    UMoviePipelineDeadlineCloudExecutorJob* OuterJob = Cast<UMoviePipelineDeadlineCloudExecutorJob>(OuterObject);
-    return OuterJob;
 }
 
 bool FPropertyAvailabilityHandler::IsPropertyRowEnabledInMovieRenderJob(const FName& InPropertyPath)
@@ -553,19 +527,6 @@ void FPropertyAvailabilityHandler::EnableInMovieRenderQueue(IDetailPropertyRow& 
     PropertyRow.GetDefaultWidgets(NameWidget, ValueWidget, Row);
 
     const FName PropertyPath = *PropertyRow.GetPropertyHandle()->GetProperty()->GetPathName();
-    TAttribute<bool> IsEnabled = TAttribute<bool>::CreateLambda([this, PropertyPath]()
-        {
-            return Job->IsPropertyRowEnabledInMovieRenderJob(PropertyPath);
-        });
-
-    if (CustomValueWidget.IsValid())
-    {
-        CustomValueWidget->SetEnabled(IsEnabled);
-    }
-	else
-	{
-		ValueWidget->SetEnabled(IsEnabled);
-	}
 
     PropertyRow
         .CustomWidget(true)
@@ -575,23 +536,6 @@ void FPropertyAvailabilityHandler::EnableInMovieRenderQueue(IDetailPropertyRow& 
         .HAlign(HAlign_Fill)
         [
             SNew(SHorizontalBox)
-                + SHorizontalBox::Slot()
-                .AutoWidth()
-                .Padding(4, 0)
-                [
-                    SNew(SCheckBox)
-                        .IsChecked_Lambda([this, PropertyPath]()
-                            {
-                                return Job->IsPropertyRowEnabledInMovieRenderJob(PropertyPath) ?
-                                    ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-                            })
-                        .OnCheckStateChanged_Lambda([this, PropertyPath](const ECheckBoxState NewState)
-                            {
-                                return Job->SetPropertyRowEnabledInMovieRenderJob(
-                                    PropertyPath, NewState == ECheckBoxState::Checked
-                                );
-                            })
-                ]
                 + SHorizontalBox::Slot()
                 [
                     NameWidget.ToSharedRef()
@@ -606,5 +550,5 @@ void FPropertyAvailabilityHandler::EnableInMovieRenderQueue(IDetailPropertyRow& 
         ];
 }
 
-
 #undef LOCTEXT_NAMESPACE
+

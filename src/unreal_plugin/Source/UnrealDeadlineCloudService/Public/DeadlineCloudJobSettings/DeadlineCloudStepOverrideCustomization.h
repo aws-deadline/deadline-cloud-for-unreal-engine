@@ -44,9 +44,6 @@ public:
 	/** Generates wrapper struct header row content */
 	void GenerateWrapperStructHeaderRowContent(FDetailWidgetRow& NodeRow, TSharedRef<SWidget> NameContent);
 
-	/** Delegate for property enabled/disabled check */
-	FOnIsEnabled OnIsEnabled;
-
 private:
 	/** Generates array element widget */
 	void OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const;

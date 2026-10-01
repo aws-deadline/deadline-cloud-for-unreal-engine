@@ -8,6 +8,7 @@
 #include "DeadlineCloudJobSettings/DeadlineCloudStepDetails.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudEnvironmentDetails.h"
 #include "DeadlineCloudJobSettings/DeadlineCloudEnvironmentOverrideCustomization.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudHostRequirementsDetails.h"
 #include "MovieRenderPipeline/MoviePipelineDeadlineCloudExecutorJob.h"
 
 #define LOCTEXT_NAMESPACE "UnrealDeadlineCloudServiceModule"
@@ -48,6 +49,15 @@ void FUnrealDeadlineCloudServiceModule::StartupModule()
 		FOnGetDetailCustomizationInstance::CreateStatic(&FDeadlineCloudEnvironmentDetails::MakeInstance));
     UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: UDeadlineCloudEnvironment registered"));
 
+	PropertyModule.RegisterCustomClassLayout(
+		UDeadlineCloudHostRequirements::StaticClass()->GetFName(),
+		FOnGetDetailCustomizationInstance::CreateStatic(&FDeadlineCloudHostRequirementsDetails::MakeInstance));
+	UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: UDeadlineCloudHostRequirements registered"));
+
+	PropertyModule.RegisterCustomPropertyTypeLayout(
+		FDeadlineCloudHostRequirement::StaticStruct()->GetFName(),
+		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FDeadlineCloudHostRequirementCustomization::MakeInstance)
+	);
 
 	PropertyModule.RegisterCustomClassLayout(
 		UMoviePipelineDeadlineCloudExecutorJob::StaticClass()->GetFName(),
@@ -61,7 +71,7 @@ void FUnrealDeadlineCloudServiceModule::StartupModule()
 		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FDeadlineCloudJobPresetDetailsCustomization::MakeInstance));
 
 	PropertyModule.RegisterCustomPropertyTypeLayout(
-		FDeadlineCloudHostRequirementsStruct::StaticStruct()->GetFName(),
+		FDeadlineCloudProfilingSettingsStruct::StaticStruct()->GetFName(),
 		FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FDeadlineCloudJobPresetDetailsCustomization::MakeInstance));
 
 	PropertyModule.RegisterCustomPropertyTypeLayout(

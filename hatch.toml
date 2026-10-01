@@ -5,7 +5,7 @@ pre-install-commands = [
 
 [envs.default.scripts]
 sync = "pip install -r requirements-testing.txt"
-test = "pytest test/ --cov-config pyproject.toml --ignore=test/end_to_end {args}"
+test = "pytest test/ --cov-config pyproject.toml --ignore=test/end_to_end --ignore=test/integ {args}"
 e2e = "pytest test/end_to_end --no-cov {args}"
 typing = "mypy {args:src test}"
 style = [
@@ -21,29 +21,35 @@ lint = [
   "typing",
 ]
 
-[envs.docs]
-detached = true
-dependencies = [
-  "mkdocs>=1.5.0",
-  "mkdocs-material>=9.4.0",
-]
-
-[envs.docs.scripts]
-build = "mkdocs build"
-serve = "mkdocs serve"
-deploy = "mkdocs gh-deploy --force"
-
 [[envs.all.matrix]]
 python = ["3.8", "3.9", "3.10", "3.11"]
 
-[envs.default.env-vars]
-SKIP_BOOTSTRAP_TEST_RESOURCES="True"
+[envs.integ-ci]
+pre-install-commands = [
+  "pip install -r requirements-testing.txt",
+  "pip install pyyaml openjd-cli"
+]
 
-[envs.codebuild.scripts]
-build = "hatch build"
+[[envs.integ-ci.matrix]]
+python = ["3.11"]
 
-[envs.codebuild.env-vars]
-SKIP_BOOTSTRAP_TEST_RESOURCES="True"
+[envs.integ-ci.scripts]
+setup = "python ./pipeline/setup-runner.py --versions {env:UE_VERSION:5.8}"
+integ = "pytest --no-cov {args:test/integ} -vvv --numprocesses=1 --nobuild"
+
+[envs.e2e-ci]
+pre-install-commands = [
+  "pip install -r requirements-testing.txt",
+  "pip install pyyaml openjd-cli deadline-cloud-worker-agent"
+]
+
+[[envs.e2e-ci.matrix]]
+python = ["3.11"]
+
+[envs.e2e-ci.scripts]
+setup = "python ./pipeline/setup-runner.py --versions {env:UE_VERSION:5.8}"
+e2e = "pytest --no-cov {args:test/end_to_end/test_create_job.py} -vvv --numprocesses=1 --nobuild"
+worker = "pytest --no-cov {args:test/end_to_end/test_worker_agent.py} -vvv --numprocesses=1 --nobuild --deselect test/end_to_end/test_worker_agent.py::test_create_job_with_worker_agent"
 
 [envs.release]
 detached = true

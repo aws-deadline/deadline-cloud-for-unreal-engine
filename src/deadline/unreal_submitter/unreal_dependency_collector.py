@@ -7,7 +7,6 @@ from dataclasses import dataclass, asdict
 from deadline.unreal_submitter import common
 from deadline.unreal_logger import get_logger
 
-
 logger = get_logger()
 
 asset_registry = unreal.AssetRegistryHelpers.get_asset_registry()
@@ -163,7 +162,7 @@ class DependencyCollector:
 
     def _sync_assets(self, asset_paths: list[str]):
         """
-        Sync given asset paths via `unreal.SourceControl <https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/SourceControl?application_version=5.3#unreal.SourceControl>`__
+        Sync given asset paths via `unreal.SourceControl <https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/SourceControl?application_version=5.6#unreal.SourceControl>`__
 
         :param asset_paths: List of assets to sync
         """

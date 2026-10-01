@@ -2,6 +2,7 @@
 
 #pragma once
 #include "PythonAPILibraries/PythonYamlLibrary.h"
+#include "DeadlineCloudJobSettings/DeadlineCloudHiddenParameters.h"
 #include "DeadlineCloudEnvironment.generated.h"
 
 USTRUCT(BlueprintType)
@@ -26,7 +27,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parameters")
 	FDeadlineCloudEnvironmentVariablesMap Variables;
 
-	TArray<FName> HiddenVarsList;
+	UPROPERTY()
+	FSoftObjectPath SourceObjectPath;
 
 	//copy only values for existing parameters
 	void CopyParametersValuesFrom(const FDeadlineCloudEnvironmentOverride& Other);
@@ -68,27 +70,6 @@ public:
 
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 
-	void AddHiddenParameter(FName Parameter)
-	{
-		UserHiddenParametersList.Add(Parameter);
-		Modify();
-		MarkPackageDirty();
-		ParameterHiddenEvent();
-	};
-	void ClearHiddenParameters()
-	{
-		UserHiddenParametersList.Empty();
-		Modify();
-		MarkPackageDirty();
-	};
-	bool AreEmptyHiddenParameters() { return UserHiddenParametersList.IsEmpty(); };
-	bool ContainsHiddenParameters(FName Parameter) { return UserHiddenParametersList.Contains(Parameter); };
-	void RemoveHiddenParameter(FName Parameter) {
-		UserHiddenParametersList.Remove(Parameter);
-		Modify();
-		MarkPackageDirty();
-		ParameterHiddenEvent();
-	};
 	FSimpleDelegate OnParameterHidden;
 
 	void ParameterHiddenEvent() {
@@ -98,29 +79,10 @@ public:
 		}
 	};
 
-	void ResetParametersHiddenToDefault() 
-	{
-		for (auto Variable : Variables.Variables)
-		{
-			AddHiddenParameter(FName(Variable.Key));
-		}
-	};
-
-	bool IsParametersHiddenByDefault() 
-	{ 
-		bool bAllParametersHidden = true;
-		for (auto Variable : Variables.Variables)
-		{
-			if (!UserHiddenParametersList.Contains(Variable.Key))
-			{
-				bAllParametersHidden = false;
-				break;
-			}
-		}
-		return bAllParametersHidden;
-	};
+	FHiddenItemsManager& GetHiddenManager() { return HiddenVarsManager; }
 
 private:
-	UPROPERTY(EditAnywhere, meta = (HideInDetailPanel, Category = "Parameters"))
-	TArray<FName> UserHiddenParametersList;//hidden by user parameters
+
+	UPROPERTY()
+	FHiddenItemsManager HiddenVarsManager;
 };

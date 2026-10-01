@@ -15,7 +15,6 @@ from deadline.job_attachments.models import FileConflictResolution
 
 from deadline.unreal_logger import get_logger
 
-
 logger = get_logger()
 
 
@@ -57,7 +56,7 @@ def background_init_s3_client():
     Initialize cache an S3 client based on the current deadline configuration
     within the deadline cloud library
     """
-    logger.info("INIT DEADLINE CLOUD")
+    logger.info("Beginning background_init_s3_client")
     try:
         deadline = api.get_boto3_client("deadline")
         logger.info("Got deadline client successfully")
@@ -334,6 +333,13 @@ class DeadlineCloudSettingsLibraryImplementation(unreal.DeadlineCloudSettingsLib
         config.set_setting(
             "settings.log_level",
             settings.general.current_logging_level,
+            config=config_parser,
+        )
+
+        # general.show_update_notifications (settings.submitter_update_notification)
+        config.set_setting(
+            "settings.submitter_update_notification",
+            "true" if settings.general.show_update_notifications else "false",
             config=config_parser,
         )
 

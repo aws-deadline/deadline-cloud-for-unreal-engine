@@ -4,6 +4,7 @@ import os
 import re
 import sys
 import json
+import inspect
 import unreal
 
 from enum import IntEnum
@@ -33,8 +34,10 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step import (
     UnrealOpenJobStep,
     RenderUnrealOpenJobStep,
     UnrealOpenJobStepParameterDefinition,
+    P4AssembleShelvesUnrealOpenJobStep,
 )
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment import (
+    InstallMarketplacePluginsEnvironment,
     UnrealOpenJobEnvironment,
     UgsUnrealOpenJobEnvironment,
     P4UnrealOpenJobEnvironment,
@@ -97,6 +100,9 @@ class UnrealOpenJobParameterDefinition:
         build_kwargs = dict(name=u_param.name, type=u_param.type.name)
         if u_param.value:
             python_class = PARAMETER_DEFINITION_MAPPING[u_param.type.name].python_class
+            # Unreal's ValueType enum never maps to task-only types such as CHUNK[INT],
+            # so a python_class is always available here.
+            assert python_class is not None
             build_kwargs["value"] = python_class(u_param.value)
         return cls(**build_kwargs)
 
@@ -125,6 +131,139 @@ class UnrealOpenJobParameterDefinition:
         """
 
         return asdict(self)
+
+
+@dataclass
+class ProfilingSettings:
+    insights_cpu: bool = False
+    insights_gpu: bool = False
+    insights_memory: bool = False
+    csv_profiler: bool = False
+    csv_capture_frames: int = 300
+    memreport: bool = False
+
+    @staticmethod
+    def _read_unreal_property(source: Any, *property_names: str) -> Any:
+        getter = getattr(source, "get_editor_property", None)
+        read_errors = []
+        for property_name in property_names:
+            try:
+                inspect.getattr_static(source, property_name)
+            except AttributeError:
+                pass
+            else:
+                try:
+                    return getattr(source, property_name)
+                except Exception as exc:
+                    read_errors.append(exc)
+
+            if getter:
+                try:
+                    return getter(property_name)
+                except Exception as exc:
+                    read_errors.append(exc)
+
+        supported_names = ", ".join(f"'{name}'" for name in property_names)
+        error = exceptions.SubmitterInputValidationError(
+            f"Unable to read required profiling property '{property_names[0]}'. "
+            f"Supported property names: {supported_names}."
+        )
+        if read_errors:
+            raise error from read_errors[-1]
+        raise error
+
+    @staticmethod
+    def _coerce_bool(value: Any, default: bool = False) -> bool:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, int) and not isinstance(value, bool):
+            return bool(value)
+        return default
+
+    @staticmethod
+    def _coerce_int(value: Any, default: int) -> int:
+        if isinstance(value, int) and not isinstance(value, bool):
+            return value
+        return default
+
+    @classmethod
+    def from_u_deadline_cloud_profiling_settings(
+        cls, profiling_settings: Optional[unreal.DeadlineCloudProfilingSettingsStruct]
+    ) -> "ProfilingSettings":
+        if profiling_settings is None:
+            return cls()
+
+        return cls(
+            insights_cpu=cls._coerce_bool(
+                cls._read_unreal_property(profiling_settings, "insights_cpu", "bInsightsCpu")
+            ),
+            insights_gpu=cls._coerce_bool(
+                cls._read_unreal_property(profiling_settings, "insights_gpu", "bInsightsGpu")
+            ),
+            insights_memory=cls._coerce_bool(
+                cls._read_unreal_property(
+                    profiling_settings,
+                    "insights_memory",
+                    "bInsightsMemory",
+                )
+            ),
+            csv_profiler=cls._coerce_bool(
+                cls._read_unreal_property(profiling_settings, "csv_profiler", "bCsvProfiler")
+            ),
+            csv_capture_frames=max(
+                1,
+                cls._coerce_int(
+                    cls._read_unreal_property(
+                        profiling_settings, "csv_capture_frames", "CsvCaptureFrames"
+                    ),
+                    300,
+                ),
+            ),
+            memreport=cls._coerce_bool(
+                cls._read_unreal_property(
+                    profiling_settings, "memreport", "mem_report", "bMemReport"
+                )
+            ),
+        )
+
+    def is_insights_enabled(self) -> bool:
+        return self.insights_cpu or self.insights_gpu or self.insights_memory
+
+    def is_enabled(self) -> bool:
+        return self.is_insights_enabled() or self.csv_profiler or self.memreport
+
+    def build_cmd_args(self) -> str:
+        trace_categories: OrderedDict[str, str] = OrderedDict()
+        if self.insights_cpu:
+            for category in ("cpu", "frame", "bookmark", "loadtime"):
+                trace_categories.setdefault(category, category)
+        if self.insights_gpu:
+            trace_categories.setdefault("gpu", "gpu")
+        if self.insights_memory:
+            trace_categories.setdefault("memory", "memory")
+
+        cmd_args = []
+        if trace_categories:
+            cmd_args.append(f'-DeadlineCloudInsights={",".join(trace_categories.values())}')
+        if self.csv_profiler:
+            cmd_args.append("-csvGpuStats")
+            if self.csv_capture_frames > 0:
+                cmd_args.append(f"-csvCaptureFrames={self.csv_capture_frames}")
+        if self.memreport:
+            cmd_args.append("-MemReport")
+
+        return " ".join(cmd_args)
+
+    def get_output_directories(self, profiling_directory: str) -> list[str]:
+        profiling_root = profiling_directory.replace("\\", "/").rstrip("/")
+        output_directories = []
+        if self.is_insights_enabled():
+            output_directories.append(f"{profiling_root}/DeadlineCloud")
+        if self.csv_profiler:
+            output_directories.append(f"{profiling_root}/CSV")
+        if self.memreport:
+            output_directories.append(f"{profiling_root}/MemReports")
+        return output_directories
 
 
 # Base Open Job implementation
@@ -173,10 +312,21 @@ class UnrealOpenJob(UnrealOpenJobEntity):
 
         self._steps: list[UnrealOpenJobStep] = steps or []
         self._environments: list[UnrealOpenJobEnvironment] = environments or []
+        self._auto_injected_marketplace_plugins_environment: Optional[
+            InstallMarketplacePluginsEnvironment
+        ] = None
+
+        self._sync_marketplace_plugins_environment()
+
         self._job_shared_settings = job_shared_settings or JobSharedSettings()
         self._asset_references = asset_references or AssetReferences()
 
         self._transfer_files_strategy = TransferProjectFilesStrategy.S3
+
+        # Optional Job description; only emitted into the template when set. Populated from the
+        # UDeadlineCloudJob Details panel's Job Shared Settings (which a pre-GUI hook may have
+        # pre-populated) via :meth:`from_data_asset`.
+        self._description: str = ""
 
     @property
     def job_shared_settings(self) -> JobSharedSettings:
@@ -185,6 +335,30 @@ class UnrealOpenJob(UnrealOpenJobEntity):
     @job_shared_settings.setter
     def job_shared_settings(self, value: JobSharedSettings):
         self._job_shared_settings = value
+
+    @property
+    def description(self) -> str:
+        """Returns the Job description (empty unless set from the Details panel)."""
+        return self._description
+
+    @description.setter
+    def description(self, value: str):
+        self._description = value
+
+    @staticmethod
+    def _description_from_data_asset(shared_settings) -> str:
+        """Return the Details-panel Job description to carry into the Job, or "" if unset.
+
+        The description is set on the panel either by an artist or by a pre-GUI hook
+        (``FDeadlineCloudJobDetails`` runs the hook and writes ``JobSharedSettings.Description``
+        before the artist edits). ``"No description"`` is the C++ default (an unset sentinel), so
+        it maps to ``""``. Shared by both ``from_data_asset`` implementations so the description
+        reaches the template on the render (MRQ) path too — not only the base path.
+        """
+        description = shared_settings.description
+        if description and description != "No description":
+            return description
+        return ""
 
     @classmethod
     def from_data_asset(cls, data_asset: unreal.DeadlineCloudJob) -> "UnrealOpenJob":
@@ -199,13 +373,6 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         """
 
         steps = [UnrealOpenJobStep.from_data_asset(step) for step in data_asset.steps]
-
-        host_requirements = HostRequirementsHelper.u_host_requirements_to_openjd_host_requirements(
-            data_asset.job_preset_struct.host_requirements
-        )
-        for step in steps:
-            if host_requirements is not None:
-                step.host_requirements = host_requirements
 
         shared_settings = data_asset.job_preset_struct.job_shared_settings
         result_job = cls(
@@ -223,6 +390,10 @@ class UnrealOpenJob(UnrealOpenJobEntity):
                 shared_settings
             ),
         )
+
+        # Carry a non-default Job description from the Details panel into the Job (see
+        # _description_from_data_asset) so it reaches the job template.
+        result_job.description = cls._description_from_data_asset(shared_settings)
 
         for step in result_job._steps:
             step.open_job = result_job
@@ -247,6 +418,7 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             "specificationVersion",
             "extensions",
             "name",
+            "description",
             "parameterDefinitions",
             "jobEnvironments",
             "steps",
@@ -320,6 +492,39 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             None,
         )
 
+    def _plugins_ignored(self) -> bool:
+        """Return whether automatic project and Marketplace plugin handling is disabled."""
+        param = self._find_extra_parameter(OpenJobParameterNames.IGNORE_PLUGINS, "STRING")
+        return param is not None and param.value == "true"
+
+    def _sync_marketplace_plugins_environment(self) -> None:
+        """Add or remove the Marketplace installer injected by this submitter."""
+        auto_injected_environment = getattr(
+            self, "_auto_injected_marketplace_plugins_environment", None
+        )
+        if self._plugins_ignored():
+            should_install_marketplace_plugins = False
+        else:
+            should_install_marketplace_plugins = bool(UnrealOpenJob.get_marketplace_plugins_dir())
+
+        if not should_install_marketplace_plugins:
+            if auto_injected_environment is not None:
+                self._environments = [
+                    environment
+                    for environment in self._environments
+                    if environment is not auto_injected_environment
+                ]
+                self._auto_injected_marketplace_plugins_environment = None
+            return
+
+        if not any(
+            isinstance(environment, InstallMarketplacePluginsEnvironment)
+            for environment in self._environments
+        ):
+            marketplace_plugins_environment = InstallMarketplacePluginsEnvironment()
+            self._environments.insert(0, marketplace_plugins_environment)
+            self._auto_injected_marketplace_plugins_environment = marketplace_plugins_environment
+
     def _build_parameter_values(self) -> list:
         """
         Build and return list of parameter values for the OpenJob. Use YAML parameter names and
@@ -338,6 +543,11 @@ class UnrealOpenJob(UnrealOpenJobEntity):
 
         if self._job_shared_settings:
             parameter_values += self._job_shared_settings.serialize()
+
+        if not UnrealOpenJob.check_conda_package_version(parameter_values):
+            raise exceptions.UserCancelledSubmissionMismatchedUEVersion(
+                "CondaPackages Unreal Engine version mismatch"
+            )
 
         return parameter_values
 
@@ -372,15 +582,32 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         :rtype: JobTemplate
         """
 
+        parameter_definitions = []
+        for param in self.get_template_object()["parameterDefinitions"]:
+            job_parameter_class = PARAMETER_DEFINITION_MAPPING[
+                param["type"]
+            ].job_parameter_openjd_class
+            if job_parameter_class is None:
+                # Task-only types (e.g. CHUNK[INT]) have no job-level equivalent
+                raise exceptions.SubmitterInputValidationError(
+                    f'Job parameter "{param.get("name")}" has type "{param["type"]}" '
+                    f"which is not valid at the job level"
+                )
+            parameter_definitions.append(job_parameter_class(**param))
+
         template_dict = {
             "specificationVersion": settings.JOB_TEMPLATE_VERSION,
             "name": self.name,
-            "parameterDefinitions": [
-                PARAMETER_DEFINITION_MAPPING[param["type"]].job_parameter_openjd_class(**param)
-                for param in self.get_template_object()["parameterDefinitions"]
-            ],
+            "parameterDefinitions": parameter_definitions,
             "steps": [s.build_template() for s in self._steps],
         }
+
+        # Panel/hook description wins; otherwise fall back to a top-level `description` declared in
+        # the user's YAML job template (mirrors the `extensions` read-back below), so a
+        # template-author's description is not silently dropped.
+        description = self._description or self.get_template_object().get("description")
+        if description:
+            template_dict["description"] = description
 
         extension_list = self.get_template_object().get("extensions")
 
@@ -420,53 +647,69 @@ class UnrealOpenJob(UnrealOpenJobEntity):
         return asset_references
 
     @staticmethod
-    def get_plugins(path: str):
-        unreal_plugins: list[dict] = []
+    def _scan_plugin_dirs(path: str) -> list[tuple[str, str]]:
+        """Scan a directory for .uplugin files.
+
+        :return: List of (plugin_name, plugin_directory) tuples
+        """
+        results = {}
         pattern = os.path.join(path, "**", "*.uplugin")
-
         for uplugin in glob.iglob(pattern, recursive=True):
-            real_path = Path(uplugin).resolve(strict=True)
-            try:
-                with real_path.open(encoding="utf-8") as f:
-                    plugin_data = json.load(f)
-
-                unreal_plugins.append(
-                    {
-                        "name": real_path.stem,
-                        "enabled_by_default": plugin_data.get("EnabledByDefault", True),
-                        "folder": Path(uplugin).parent.name,
-                    }
-                )
-            except (OSError, json.JSONDecodeError):
-                continue
-
-        return unreal_plugins
+            name = Path(uplugin).stem
+            plugin_dir = str(Path(uplugin).parent)
+            results[name] = plugin_dir
+        return list(results.items())
 
     @staticmethod
-    def parse_uproject(path: str) -> dict[str, bool]:
-        with open(path, encoding="utf‑8") as f:
-            data = json.load(f)
+    def get_marketplace_plugins_dir() -> str:
+        """Return the engine Marketplace plugins directory if it exists, empty string otherwise."""
+        # engine_plugins_dir() returns the engine's plugins root directory
+        # (e.g., "C:/Program Files/Epic Games/UE_5.x/Engine/Plugins/").
+        # Stock plugins can be found in this folder.
+        engine_plugins = unreal.Paths.convert_relative_path_to_full(
+            unreal.Paths.engine_plugins_dir()
+        )
 
-        return {e["Name"]: e.get("Enabled", True) for e in data.get("Plugins", [])}
+        # Note: "Marketplace" is the conventional install path used by the Fab/Launcher;
+        # this is not formally documented by Epic and may change in the future.
+        # "Marketplace" folder is created when user installs the very first marketplace plugin.
+        marketplace_dir = os.path.join(engine_plugins, "Marketplace")
+        return marketplace_dir if os.path.isdir(marketplace_dir) else ""
 
     @staticmethod
     def get_plugins_references() -> AssetReferences:
-        project_path = unreal.Paths.get_project_file_path()
-        project_plugins_info = UnrealOpenJob.parse_uproject(project_path)
-
         result = AssetReferences()
-        plugins_dir = unreal.Paths.project_plugins_dir()
-        plugins_dir_full = unreal.Paths.convert_relative_path_to_full(plugins_dir)
-        plugins = UnrealOpenJob.get_plugins(plugins_dir_full)
+        lib = unreal.PluginBlueprintLibrary
+        enabled_plugins = set(lib.get_enabled_plugin_names())
 
-        for plugin in plugins:
-            if plugin["name"] == "UnrealDeadlineCloudService":
-                continue
+        # Directories to scan for non-stock plugins.
+        # We only scan directories where user-installed plugins live, skipping the
+        # stock engine plugins that ship with every UE installation.
+        scan_dirs = []
 
-            is_enable = project_plugins_info.get(plugin["name"], plugin["enabled_by_default"])
+        # Project-level plugins (<Project>/Plugins/)
+        project_plugins = unreal.Paths.convert_relative_path_to_full(
+            unreal.Paths.project_plugins_dir()
+        )
+        scan_dirs.append(project_plugins)
 
-            if is_enable:
-                result.input_directories.add(os.path.join(plugins_dir_full, plugin["folder"]))
+        # Engine Marketplace plugins — user-installed via Fab or the Epic Games Launcher.
+        marketplace_dir = UnrealOpenJob.get_marketplace_plugins_dir()
+        if marketplace_dir:
+            scan_dirs.append(marketplace_dir)
+
+        for scan_dir in scan_dirs:
+            for plugin_name, plugin_dir in UnrealOpenJob._scan_plugin_dirs(scan_dir):
+                if plugin_name == "UnrealDeadlineCloudService":
+                    continue
+                if plugin_name in enabled_plugins:
+                    result.input_directories.add(plugin_dir)
+
+        if result.input_directories:
+            logger.info(
+                f"Auto-detected {len(result.input_directories)} non-stock plugin(s) "
+                f"as job attachments: {result.input_directories}"
+            )
 
         return result
 
@@ -500,6 +743,99 @@ class UnrealOpenJob(UnrealOpenJobEntity):
 
         return job_bundle_path
 
+    @staticmethod
+    def get_current_ue_version():
+        """
+        Get current Unreal Engine version in x.y format
+
+        :return: Current Unreal Engine version
+        :rtype: str
+        """
+
+        current_ue_version = unreal.SystemLibrary.get_engine_version()
+        logger.info(f"Current Unreal Engine version: {current_ue_version}")
+        current_version_match = re.search(r"\b\d+\.\d+\b", current_ue_version)
+        if not current_version_match:
+            logger.warning(f"Could not parse current UE version: {current_ue_version}")
+            raise exceptions.UEVersionParseError(
+                f"Could not parse current UE version: {current_ue_version}"
+            )
+
+        return current_version_match.group(0)
+
+    @staticmethod
+    def normalize_openjd_version_param(param_value: str) -> str:
+        """
+        Check if the given CondaPackages parameter value contains openjd version.
+        If not, append "unrealengine-openjd=*.*.*" to the value.
+        :param param_value: CondaPackages parameter value
+        :return: Updated CondaPackages parameter value
+        :rtype: str
+        """
+        match = re.search(r"unrealengine-openjd=(?:\d+|\*)\.(?:\d+|\*)\.(?:\d+|\*)", param_value)
+        if match:
+            return param_value
+
+        if re.search(r"unrealengine-openjd=[^\s]+", param_value):
+            return re.sub(r"unrealengine-openjd=[^\s]+", "unrealengine-openjd=*.*.*", param_value)
+
+        return param_value + " unrealengine-openjd=*.*.*"
+
+    @staticmethod
+    def check_conda_package_version(parameter_values: list[dict[str, Any]]) -> bool:
+        """
+        Check if the CondaPackages parameter contains Unreal Engine version and compare with current UE version.
+
+        :return: True if version check passes or user confirms, False if user cancels
+        :rtype: bool
+        """
+
+        conda_packages_param = next(
+            (p for p in parameter_values if p["name"] == OpenJobParameterNames.CONDA_PACKAGES), None
+        )
+
+        if not conda_packages_param:
+            return True
+
+        current_version = UnrealOpenJob.get_current_ue_version()
+
+        conda_packages_value = conda_packages_param.get("value", "")
+        if not conda_packages_value:
+            conda_packages_param["value"] = UnrealOpenJob.normalize_openjd_version_param(
+                f"unrealengine={current_version}"
+            )
+            return True
+
+        # Check for unrealengine=x.x pattern
+        ue_version_match = re.search(r"unrealengine=(\d+\.\d+)", conda_packages_value)
+        if not ue_version_match:
+            conda_packages_param["value"] = UnrealOpenJob.normalize_openjd_version_param(
+                f"unrealengine={current_version} " + conda_packages_value
+            )
+            return True
+
+        template_ue_version = ue_version_match.group(1)
+        logger.info(f"Template specifies Unreal Engine version: {template_ue_version}")
+
+        # Compare versions
+        if not template_ue_version == current_version:
+            # Versions don't match
+            result = unreal.EditorDialog.show_message(
+                "Version Mismatch Warning",
+                f"You are attempting to render a UE {current_version} project using UE {template_ue_version}. Do you wish to continue?",
+                unreal.AppMsgType.YES_NO,
+                unreal.AppReturnType.YES,
+            )
+
+            if result != unreal.AppReturnType.YES:
+                return False
+
+        conda_packages_param["value"] = UnrealOpenJob.normalize_openjd_version_param(
+            conda_packages_value
+        )
+        logger.info("Unreal Engine versions match, continuing with submission")
+        return True
+
 
 # Render Open Job
 class RenderUnrealOpenJob(UnrealOpenJob):
@@ -527,6 +863,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         environments: Optional[list[UnrealOpenJobEnvironment]] = None,
         extra_parameters: Optional[list[UnrealOpenJobParameterDefinition]] = None,
         job_shared_settings: Optional[JobSharedSettings] = None,
+        profiling_settings: Optional[ProfilingSettings] = None,
         asset_references: Optional[AssetReferences] = None,
         mrq_job: Optional[unreal.MoviePipelineExecutorJob] = None,
     ):
@@ -551,6 +888,9 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         :param job_shared_settings: JobSharedSettings instance
         :type job_shared_settings: JobSharedSettings
 
+        :param profiling_settings: ProfilingSettings instance
+        :type profiling_settings: ProfilingSettings
+
         :param asset_references: AssetReferences object
         :type asset_references: AssetReferences
 
@@ -566,6 +906,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             job_shared_settings,
             asset_references,
         )
+        self._profiling_settings = profiling_settings or ProfilingSettings()
 
         self._mrq_job = None
         if mrq_job:
@@ -589,6 +930,14 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             self._transfer_files_strategy = TransferProjectFilesStrategy.UGS
         elif p4_envs:
             self._transfer_files_strategy = TransferProjectFilesStrategy.P4
+
+    @property
+    def profiling_settings(self) -> ProfilingSettings:
+        return getattr(self, "_profiling_settings", ProfilingSettings())
+
+    @profiling_settings.setter
+    def profiling_settings(self, value: ProfilingSettings):
+        self._profiling_settings = value or ProfilingSettings()
 
     @property
     def mrq_job(self):
@@ -630,14 +979,34 @@ class RenderUnrealOpenJob(UnrealOpenJob):
                 if param:
                     param.value = p.value
 
+        self._sync_marketplace_plugins_environment()
+
         if (
             self._mrq_job is not None
             and self._mrq_job.preset_overrides is not None
             and self._mrq_job.preset_overrides.job_shared_settings is not None
         ):
+            override_shared_settings = self._mrq_job.preset_overrides.job_shared_settings
             self.job_shared_settings = JobSharedSettings.from_u_deadline_cloud_job_shared_settings(
-                self._mrq_job.preset_overrides.job_shared_settings
+                override_shared_settings
             )
+            # Description lives in the same shared-settings struct. Mirror the name handling below:
+            # the MRQ preset override wins only when it actually carries a description; the default
+            # "No description" sentinel (mapped to "" by _description_from_data_asset) is treated as
+            # "unset" and leaves the underlying data-asset / pre-GUI-hook description in place rather
+            # than clearing it. PresetOverrides is a stale snapshot, so a description set (by an
+            # artist or the pre-GUI hook) after the preset was assigned would otherwise be silently
+            # erased while the name — which uses the same guard — survived.
+            override_description = self._description_from_data_asset(override_shared_settings)
+            if override_description:
+                self._description = override_description
+
+        if self._mrq_job is not None and self._mrq_job.preset_overrides is not None:
+            profiling_settings = getattr(self._mrq_job.preset_overrides, "profiling_settings", None)
+            if profiling_settings is not None:
+                self.profiling_settings = (
+                    ProfilingSettings.from_u_deadline_cloud_profiling_settings(profiling_settings)
+                )
 
         # Job name set order:
         #   0. Job preset override (high priority)
@@ -676,15 +1045,11 @@ class RenderUnrealOpenJob(UnrealOpenJob):
                 f"Currently it has {render_steps_count} Render Steps"
             )
 
-        host_requirements = HostRequirementsHelper.u_host_requirements_to_openjd_host_requirements(
-            data_asset.job_preset_struct.host_requirements
-        )
         steps = []
         for source_step in data_asset.steps:
             job_step_cls = cls.job_step_map.get(type(source_step), UnrealOpenJobStep)
             job_step = job_step_cls.from_data_asset(source_step)
-            if host_requirements is not None:
-                job_step.host_requirements = host_requirements
+
             steps.append(job_step)
 
         environments = []
@@ -696,6 +1061,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             environments.append(job_env)
 
         shared_settings = data_asset.job_preset_struct.job_shared_settings
+        profiling_settings = getattr(data_asset.job_preset_struct, "profiling_settings", None)
 
         result_job = cls(
             file_path=data_asset.path_to_template.file_path,
@@ -709,7 +1075,14 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             job_shared_settings=JobSharedSettings.from_u_deadline_cloud_job_shared_settings(
                 shared_settings
             ),
+            profiling_settings=ProfilingSettings.from_u_deadline_cloud_profiling_settings(
+                profiling_settings
+            ),
         )
+
+        # Carry the panel/hook-set description on the render (MRQ) path too — this override does not
+        # call super().from_data_asset(), so it must apply the shared helper itself.
+        result_job.description = cls._description_from_data_asset(shared_settings)
 
         for step in result_job._steps:
             step.open_job = result_job
@@ -781,14 +1154,7 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         :type mrq_job: unreal.MoviePipelineDeadlineCloudExecutorJob
         """
 
-        host_requirements = HostRequirementsHelper.u_host_requirements_to_openjd_host_requirements(
-            mrq_job.preset_overrides.host_requirements
-        )
         for step in self._steps:
-            # update host requirements
-            if host_requirements is not None:
-                step.host_requirements = host_requirements
-
             # set mrq job to render step
             if isinstance(step, RenderUnrealOpenJobStep):
                 step.mrq_job = mrq_job
@@ -807,6 +1173,13 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
             # update depends on
             step.step_dependencies = list(step_override.depends_on)
+
+            # update host_req
+            step_host_requirements_override = step_override.host_requirements_override
+            step.host_requirements = HostRequirementsHelper.add_overrides(
+                step.host_requirements,
+                step_host_requirements_override,
+            )
 
             # update step environments
             for env in step.environments:
@@ -1035,6 +1408,114 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         return parameter_values
 
+    def _is_using_dynamic_chunking(self) -> bool:
+        """
+        Check if any step in this job uses dynamic chunking (CHUNK[INT] type).
+
+        :return: True if any step uses dynamic chunking, False otherwise
+        :rtype: bool
+        """
+        from deadline.unreal_submitter.unreal_open_job.unreal_open_job_dynamic_chunking import (
+            DynamicChunkingHelper,
+        )
+
+        for step in self._steps:
+            try:
+                step_template_object = step.get_template_object()
+                if DynamicChunkingHelper.is_using_dynamic_chunking(step_template_object):
+                    return True
+            except FileNotFoundError:
+                # A step without a resolvable template file cannot declare
+                # CHUNK[INT]; other exceptions propagate so real bugs surface.
+                continue
+        return False
+
+    def _build_frames_parameter_value(self, parameter_values: list[dict]) -> list[dict]:
+        """
+        Build and return the Frames parameter value for dynamic chunking templates.
+
+        Extracts the frame range from MRQ settings:
+        - If custom playback range is enabled, uses custom_start_frame and custom_end_frame
+        - Otherwise, uses the level sequence's playback range
+
+        The frame range is formatted as "<start>-<end>" (e.g., "0-99" for 100 frames).
+
+        :param parameter_values: list of parameter values to be updated
+        :type parameter_values: list[dict]
+
+        :return: list of updated parameter values
+        :rtype: list[dict]
+        """
+        # Check if Frames parameter exists in the parameter values (indicates dynamic chunking)
+        frames_param = next(
+            (p for p in parameter_values if p["name"] == OpenJobParameterNames.FRAMES), None
+        )
+        if not frames_param:
+            return parameter_values
+
+        # Skip if Frames already has a value
+        if frames_param.get("value") is not None:
+            return parameter_values
+
+        # Need MRQ job to extract frame range
+        if not self._mrq_job:
+            raise exceptions.SubmitterInputValidationError(
+                "Cannot populate Frames parameter: MRQ job is not set. "
+                "Dynamic chunking requires frame range from MRQ settings."
+            )
+
+        # Load output settings and level sequence from MRQ job
+        output_settings = self._mrq_job.get_configuration().find_setting_by_class(
+            unreal.MoviePipelineOutputSetting
+        )
+        level_sequence = unreal.EditorAssetLibrary.load_asset(
+            unreal.SystemLibrary.conv_soft_object_reference_to_string(
+                unreal.SystemLibrary.conv_soft_obj_path_to_soft_obj_ref(self._mrq_job.sequence)
+            )
+        )
+
+        if not level_sequence:
+            raise exceptions.SubmitterInputValidationError(
+                "Cannot populate Frames parameter: Level sequence could not be loaded. "
+                "Dynamic chunking requires frame range from a valid MRQ level sequence."
+            )
+
+        # Extract frame range from MRQ settings
+        if output_settings and output_settings.use_custom_playback_range:
+            start_frame = output_settings.custom_start_frame
+            end_frame = output_settings.custom_end_frame
+            logger.info(
+                f"Using custom playback range for Frames parameter: {start_frame}-{end_frame}"
+            )
+        else:
+            start_frame = level_sequence.get_playback_range().get_start_frame()
+            end_frame = level_sequence.get_playback_range().get_end_frame()
+            logger.info(
+                f"Using level sequence playback range for Frames parameter: {start_frame}-{end_frame}"
+            )
+
+        # Format as "<start>-<end>" for OpenJD IntRangeExpr. MRQ end frames
+        # (custom_end_frame / playback range end) are EXCLUSIVE, while OpenJD
+        # integer range expressions are INCLUSIVE on both ends ("10-20" is 11
+        # frames) - subtract 1 so the last chunk doesn't render a frame past
+        # the end of the sequence.
+        inclusive_end_frame = end_frame - 1
+        if inclusive_end_frame < start_frame:
+            raise exceptions.SubmitterInputValidationError(
+                "Cannot populate Frames parameter from an empty or descending MRQ frame range: "
+                f"[{start_frame}, {end_frame})."
+            )
+
+        frames_value = f"{start_frame}-{inclusive_end_frame}"
+
+        parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+            job_parameter_values=parameter_values,
+            job_parameter_name=OpenJobParameterNames.FRAMES,
+            job_parameter_value=frames_value,
+        )
+
+        return parameter_values
+
     def _build_parameter_values(self) -> list:
         """
         Build and return list of parameter values for the OpenJob. Use YAML parameter names and
@@ -1052,6 +1533,8 @@ class RenderUnrealOpenJob(UnrealOpenJob):
           (see :meth:`deadline.unreal_submitter.unreal_open_job.unreal_open_job.RenderUnrealOpenJob._build_parameter_values_for_ugs()`)
         - Parameters for P4 if P4 is used
           (see :meth:`deadline.unreal_submitter.unreal_open_job.unreal_open_job.RenderUnrealOpenJob._build_parameter_values_for_p4()`)
+        - Frames parameter for dynamic chunking templates
+          (see :meth:`deadline.unreal_submitter.unreal_open_job.unreal_open_job.RenderUnrealOpenJob._build_frames_parameter_value()`)
 
         .. note:: If expected parameter missed, it will be skipped
 
@@ -1094,8 +1577,11 @@ class RenderUnrealOpenJob(UnrealOpenJob):
         if args_from_file:
             user_extra_cmd_args = merge_cmd_args_with_priority(user_extra_cmd_args, args_from_file)
         executor_cmd_args = self.get_executor_cmd_args()
+        profiling_cmd_args = self.get_profiling_cmd_args()
 
         merged_cmd_args = merge_cmd_args_with_priority(user_extra_cmd_args, executor_cmd_args)
+        if profiling_cmd_args:
+            merged_cmd_args = merge_cmd_args_with_priority(merged_cmd_args, profiling_cmd_args)
         merged_cmd_args = self.clear_cmd_args(merged_cmd_args)
 
         unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
@@ -1123,6 +1609,18 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             job_parameter_value=common.get_project_file_path(),
         )
 
+        # Set the Marketplace plugins dir so the worker can find and install them.
+        # Clear it when plugin handling is disabled so a user-provided installer
+        # environment also becomes a no-op.
+        marketplace_dir = (
+            "" if self._plugins_ignored() else UnrealOpenJob.get_marketplace_plugins_dir()
+        )
+        unfilled_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+            job_parameter_values=unfilled_parameter_values,
+            job_parameter_name=OpenJobParameterNames.MARKETPLACE_PLUGINS_DIR,
+            job_parameter_value=marketplace_dir,
+        )
+
         if self._transfer_files_strategy == TransferProjectFilesStrategy.UGS:
             unfilled_parameter_values = self._build_parameter_values_for_ugs(
                 parameter_values=unfilled_parameter_values
@@ -1133,7 +1631,19 @@ class RenderUnrealOpenJob(UnrealOpenJob):
                 parameter_values=unfilled_parameter_values
             )
 
+        # Populate Frames parameter for dynamic chunking templates
+        if self._is_using_dynamic_chunking():
+            unfilled_parameter_values = self._build_frames_parameter_value(
+                parameter_values=unfilled_parameter_values
+            )
+
         all_parameter_values = filled_parameter_values + unfilled_parameter_values
+        if self._plugins_ignored():
+            all_parameter_values = RenderUnrealOpenJob.update_job_parameter_values(
+                job_parameter_values=all_parameter_values,
+                job_parameter_name=OpenJobParameterNames.MARKETPLACE_PLUGINS_DIR,
+                job_parameter_value="",
+            )
         return all_parameter_values
 
     def get_executor_cmd_args(self) -> str:
@@ -1146,6 +1656,9 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             cmd_args.extend(common.get_mrq_job_cmd_args(self._mrq_job))
 
         return " ".join(a for a in cmd_args)
+
+    def get_profiling_cmd_args(self) -> str:
+        return self.profiling_settings.build_cmd_args()
 
     def get_user_extra_cmd_args(self) -> str:
         """
@@ -1353,6 +1866,15 @@ class RenderUnrealOpenJob(UnrealOpenJob):
 
         return output_directories
 
+    def _get_profiling_output_directories(self) -> list[str]:
+        if not self.profiling_settings.is_enabled():
+            return []
+
+        profiling_directory = unreal.Paths.convert_relative_path_to_full(
+            unreal.Paths.profiling_dir()
+        )
+        return self.profiling_settings.get_output_directories(profiling_directory)
+
     def _get_mrq_job_output_directory(self) -> str:
         """
         Get the output directory path from  MRQ Job Configuration, resolve all possible tokens
@@ -1393,9 +1915,10 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             asset_references.input_directories.update(
                 RenderUnrealOpenJob.get_required_project_directories()
             )
-            plugins = UnrealOpenJob.get_plugins_references()
-            if plugins:
-                asset_references.input_directories.update(plugins.input_directories)
+            if not self._plugins_ignored():
+                plugins = UnrealOpenJob.get_plugins_references()
+                if plugins:
+                    asset_references.input_directories.update(plugins.input_directories)
 
         # add attachments from preset overrides
         if self.mrq_job:
@@ -1415,7 +1938,85 @@ class RenderUnrealOpenJob(UnrealOpenJob):
             # Render output path
             asset_references.output_directories.add(self._get_mrq_job_output_directory())
 
+        profiling_output_directories = set(self._get_profiling_output_directories())
+        asset_references.output_directories.update(profiling_output_directories)
+
+        # When SubmitMode is set on a Perforce job template, render outputs are
+        # delivered to Perforce and MUST NOT be re-uploaded to S3 as Job
+        # Attachments. But we can't just drop the output paths: OpenJD derives
+        # path-mapping rules from them so the worker knows to remap the
+        # submitter-side output path (e.g. C:/Users/Administrator/Perforce/...)
+        # to its local session/workspace path. Move them to referenced_paths
+        # instead, which participates in path-mapping without triggering the
+        # post-task S3 output upload.
+        #
+        # Gate on the SubmitMode parameter existing + being non-empty so non-P4
+        # templates (which don't declare SubmitMode) are unaffected.
+        if self._submit_mode_active():
+            render_output_directories = (
+                asset_references.output_directories - profiling_output_directories
+            )
+            asset_references.referenced_paths.update(render_output_directories)
+            asset_references.output_directories.difference_update(render_output_directories)
+
         return asset_references
+
+    def _submit_mode_active(self) -> bool:
+        """
+        True if the SubmitMode parameter is set to a non-empty value ('submit'
+        or 'shelve'). Only Perforce render templates declare this parameter;
+        other templates return False.
+        """
+        param = self._find_extra_parameter("SubmitMode", "STRING")
+        if param is None:
+            return False
+        return bool(param.value) and param.value != ""
+
+    def _has_assemble_shelves_step(self) -> bool:
+        return any(isinstance(s, P4AssembleShelvesUnrealOpenJobStep) for s in self._steps)
+
+    def _ensure_assemble_shelves_step(self) -> None:
+        """
+        Add the AssembleShelves step to the job when SubmitMode is set.
+        Idempotent — re-runs of _build_template won't stack duplicates.
+
+        Every render task shelves its own CL; AssembleShelves runs once
+        after all Render tasks and merges them into one final CL.
+        """
+        param = self._find_extra_parameter("SubmitMode", "STRING")
+        active = self._submit_mode_active()
+        has_step = self._has_assemble_shelves_step()
+        logger.info(
+            "RenderUnrealOpenJob._ensure_assemble_shelves_step: "
+            "class=%s, SubmitMode param exists=%s, value=%r, active=%s, "
+            "has_step=%s, steps_before=%s",
+            type(self).__name__,
+            param is not None,
+            getattr(param, "value", None),
+            active,
+            has_step,
+            [type(s).__name__ for s in self._steps],
+        )
+        if not active:
+            return
+        if has_step:
+            return
+        self._steps.append(P4AssembleShelvesUnrealOpenJobStep())
+        logger.info(
+            "RenderUnrealOpenJob._ensure_assemble_shelves_step: "
+            "appended AssembleShelves step; steps_after=%s",
+            [type(s).__name__ for s in self._steps],
+        )
+
+    def _build_template(self) -> JobTemplate:
+        # Inject AssembleShelves before the base builds the template so it
+        # ends up in the emitted `steps` list.
+        logger.info(
+            "RenderUnrealOpenJob._build_template called; class=%s",
+            type(self).__name__,
+        )
+        self._ensure_assemble_shelves_step()
+        return super()._build_template()
 
 
 # UGS Jobs
@@ -1427,6 +2028,14 @@ class UgsRenderUnrealOpenJob(RenderUnrealOpenJob):
 
 # Perforce (non UGS) Jobs
 class P4RenderUnrealOpenJob(RenderUnrealOpenJob):
-    """Class for predefined Perforce Render Job"""
+    """Class for predefined Perforce Render Job.
+
+    The MRQ submit UI actually instantiates the parent RenderUnrealOpenJob and
+    picks the template from the data asset, so the SubmitMode-driven behavior
+    (AssembleShelves injection + JA output skip) lives on the parent. This
+    subclass exists for the programmatic submission path (see
+    submit_actions/p4_render_job_submission.py), which constructs a P4 job
+    explicitly and relies on default_template_path.
+    """
 
     default_template_path = settings.P4_RENDER_JOB_TEMPLATE_DEFAULT_PATH

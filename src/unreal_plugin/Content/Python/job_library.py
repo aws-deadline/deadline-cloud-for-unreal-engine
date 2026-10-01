@@ -1,6 +1,8 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import os
+import re
+
 import unreal
 
 from deadline.unreal_submitter import common
@@ -11,6 +13,10 @@ from deadline.unreal_submitter.unreal_dependency_collector import (
 )
 
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job import UnrealOpenJob
+from deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import OpenJobParameterNames
+from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step_host_requirements import (
+    HostRequirementsHelper,
+)
 
 logger = get_logger()
 
@@ -50,17 +56,97 @@ class DeadlineCloudJobBundleLibraryImplementation(unreal.DeadlineCloudJobBundleL
         return [common.os_path_from_unreal_path(d, with_ext=True) for d in unreal_dependencies]
 
     @unreal.ufunction(override=True)
+    def validate_mrq_job_parameters(
+        self, parameters: list[unreal.ParameterDefinition]
+    ) -> list[unreal.ParameterDefinition]:
+        conda_packages_param = None
+        conda_packages_param_index = 0
+        for i, p in enumerate(parameters):
+            if p.get_editor_property("Name") == OpenJobParameterNames.CONDA_PACKAGES:
+                conda_packages_param = p
+                conda_packages_param_index = i
+                break
+
+        if not conda_packages_param:
+            return parameters
+
+        current_version = UnrealOpenJob.get_current_ue_version()
+
+        conda_packages_value = conda_packages_param.value
+        if not conda_packages_value:
+            conda_packages_param.value = UnrealOpenJob.normalize_openjd_version_param(
+                f"unrealengine={current_version}"
+            )
+            parameters[conda_packages_param_index] = conda_packages_param
+            return parameters
+
+        # Check for unrealengine=x.x pattern
+        ue_version_match = re.search(r"unrealengine=(\d+\.\d+)", conda_packages_value)
+        if not ue_version_match:
+            conda_packages_param.value = UnrealOpenJob.normalize_openjd_version_param(
+                f"unrealengine={current_version} " + conda_packages_value
+            )
+
+            parameters[conda_packages_param_index] = conda_packages_param
+            return parameters
+
+        template_ue_version = ue_version_match.group(1)
+        logger.info(f"Template specifies Unreal Engine version: {template_ue_version}")
+
+        # Compare versions
+        if not template_ue_version == current_version:
+            # replace with current version
+            conda_packages_param.value = UnrealOpenJob.normalize_openjd_version_param(
+                re.sub(
+                    r"unrealengine=\d+\.\d+",
+                    f"unrealengine={current_version}",
+                    conda_packages_value,
+                )
+            )
+            logger.info(f"Updated Unreal Engine version in conda packages to: {current_version}")
+            parameters[conda_packages_param_index] = conda_packages_param
+
+        # Allow overriding CondaChannels via environment variable
+        conda_channels_override = os.environ.get("DEADLINE_CONDA_CHANNELS")
+        logger.info(f"DEADLINE_CONDA_CHANNELS env var: {conda_channels_override!r}")
+        if conda_channels_override:
+            for i, p in enumerate(parameters):
+                if p.get_editor_property("Name") == "CondaChannels":
+                    p.value = conda_channels_override
+                    parameters[i] = p
+                    logger.info(
+                        f"Overriding CondaChannels from environment: {conda_channels_override}"
+                    )
+                    break
+
+        return parameters
+
+    @unreal.ufunction(override=True)
+    def is_amount_requirement_default(self, amount_name) -> bool:
+        return HostRequirementsHelper.is_predefined_requirement_by_name("amounts", amount_name)
+
+    @unreal.ufunction(override=True)
+    def is_attribute_requirement_default(self, attribute_name) -> bool:
+        return HostRequirementsHelper.is_predefined_requirement_by_name(
+            "attributes", attribute_name
+        )
+
+    @unreal.ufunction(override=True)
+    def get_requirement_friendly_name(self, name) -> str:
+        return HostRequirementsHelper.get_friendly_name(name)
+
+    @unreal.ufunction(override=True)
     def get_plugins_dependencies(self):
         return [d for d in UnrealOpenJob.get_plugins_references().input_directories]
 
     @unreal.ufunction(override=True)
-    def get_cpu_architectures(self):
-        return ["x86_64", "arm64"]
-
-    @unreal.ufunction(override=True)
-    def get_operating_systems(self):
-        return ["linux", "macos", "windows"]
-
-    @unreal.ufunction(override=True)
     def get_job_initial_state_options(self):
         return ["READY", "SUSPENDED"]
+
+    @unreal.ufunction(override=True)
+    def validate_amount_name(self, name) -> str:
+        return HostRequirementsHelper.validate_name("amounts", name)
+
+    @unreal.ufunction(override=True)
+    def validate_attribute_name(self, name) -> str:
+        return HostRequirementsHelper.validate_name("attributes", name)

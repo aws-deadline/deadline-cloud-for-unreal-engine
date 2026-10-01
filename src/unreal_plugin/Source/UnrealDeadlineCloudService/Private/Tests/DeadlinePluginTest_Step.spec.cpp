@@ -19,7 +19,7 @@
 #include "PythonAPILibraries/PythonParametersConsistencyChecker.h"
 
 
-BEGIN_DEFINE_SPEC(FDeadlinePluginStepSpec, "DeadlineCloud",
+BEGIN_DEFINE_SPEC(FDeadlinePluginStepSpec, "DeadlineCloud.Offline",
     EAutomationTestFlags::ProductFilter | EAutomationTestFlags::EditorContext);
 
 
@@ -34,7 +34,6 @@ END_DEFINE_SPEC(FDeadlinePluginStepSpec);
 
 void FDeadlinePluginStepSpec::Define()
 {
-
     Describe("FOpenDeadlineStep", [this]()
         {
 
@@ -49,7 +48,6 @@ void FDeadlinePluginStepSpec::Define()
 
                         CreatedStepDataAsset = NewObject<UDeadlineCloudStep>();
                         CreatedStepDataAsset->PathToTemplate.FilePath = PathToStepTemplate;
-
                     }
                 });
 
@@ -141,7 +139,6 @@ void FDeadlinePluginStepSpec::Define()
                                         }
                                     }
                                 }
-
                             }
                             else
                             {
@@ -149,7 +146,6 @@ void FDeadlinePluginStepSpec::Define()
                                 FileManager.DeleteDirectory(*DestinationDirectory);
                             }
                         }
-
                     }
                 });
 
@@ -196,7 +192,6 @@ void FDeadlinePluginStepSpec::Define()
                         {
                             TestFalse(result.Reason, (result.Passed == false));
                         }
-
                     }
                     else
                     {
@@ -207,4 +202,3 @@ void FDeadlinePluginStepSpec::Define()
 
 
 }
-

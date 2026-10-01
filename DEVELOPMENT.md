@@ -6,7 +6,11 @@ This package has two active branches:
 
 ## Build and Install the Plugin, Submitter, and Adapter
 
-Full instructions for building and installing these packages and the necessary dependencies to act as a submitter and/or worker can be found in [Submitter Setup Guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-submitter.md) and [CMF Worker Setup Guide](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-cmf-worker.md).  Use the "mainline" branch for development rather than "release", and if you plan on submitting pull requests work out of [a fork](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/CONTRIBUTING.md#contributing-via-pull-requests).
+> **Tip:** If you're using an AI coding agent, you can run the `ue-dev-setup` skill to automate the entire dev environment setup. Just ask: *"use ue-dev-setup skill to setup this computer"*.
+>
+> For major features or significant refactors, use the `ue-design` skill to create a structured design doc before writing code. Just ask: *"use ue-design skill to design a feature"*.
+
+Full instructions for building and installing these packages and the necessary dependencies to act as a submitter and/or worker can be found in the [Submitter installation](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/epic-unreal-engine.html#unreal-engine-installation) and [Customer-managed fleet (CMF) worker setup](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/epic-unreal-engine.html#unreal-engine-cmf-worker-setup) sections of the user guide.  Use the "mainline" branch for development rather than "release", and if you plan on submitting pull requests work out of [a fork](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/CONTRIBUTING.md#contributing-via-pull-requests).
 
 
 ## Build / Test / Release
@@ -51,7 +55,7 @@ hatch run all:test
 
 ### Testing C++ Changes
 
-When making C++ changes before testing you'll need to rebuild and copy your modified plugin to your Unreal plugins folder following [these steps](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-submitter.md#build-the-plugin) OR run the end to end tests (hatch run e2e -s) which builds and install both the C++ and python code.
+When making C++ changes before testing you'll need to rebuild and copy your modified plugin to your Unreal plugins folder following [these steps](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/epic-unreal-engine.html#unreal-engine-build-plugin) OR run the end to end tests (hatch run e2e -s) which builds and install both the C++ and python code.
 
 
 ### Testing Python Changes
@@ -62,7 +66,7 @@ When making changes to the Python submitter you'll need to rebuild and install y
 // Install hatch if not yet installed
 pip install hatch
 hatch build
-"C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install dist\deadline_cloud_for_unreal_engine-0.2.2.post21-py3-none-any.whl --target "C:\Program Files\Epic Games\UE_5.5\Engine\Plugins\UnrealDeadlineCloudService\Content\Python\libraries"
+"C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\ThirdParty\Python3\Win64\python" -m pip install "dist\deadline_cloud_for_unreal_engine-0.2.2.post21-py3-none-any.whl[console]" --target "C:\Program Files\Epic Games\UE_5.5\Engine\Plugins\UnrealDeadlineCloudService\Content\Python\libraries"
 ```
 
 When making adaptor changes, the same .whl can either be transferred to your worker or built on the worker off the same changes.
@@ -75,22 +79,32 @@ pip install ./path/to/my-file.whl
 
 ### Running Unreal Spec Tests
 
-The Deadline Cloud plugin's Unreal Automation Tests can be run from within Unreal.
+The Deadline Cloud plugin's Unreal Automation Tests can be run from within Unreal Engine.
 
-1. Open the Tools menu
-2. Select "Session Frontend"
-3. Open the Automation tab
-4. Select "Deadline"
-5. Hit the Go button
+#### One-Time Setup
+Before running the Deadline Cloud plugin's Unreal Automation Tests for the first time, you need to enable the following plugins in your Unreal Engine project:
+
+- Automation Driver Tests
+- Automation Utilities
+- Python Automation Tests
+
+#### Running the Tests
+Once the required plugins are enabled, follow the steps below to run the tests:
+
+1. Install the deadline-cloud-for-unreal-engine plugin with --test to include test content:
+   
+   `python scripts/build_plugin.py --install --test`
+   
+2. Launch Unreal Engine and click on "Tools" on the menu bar
+3. Click on "Test Automation" under the AUTOMATION category
+4. In the "Session Frontend" popup window, open the "Automation" tab
+5. Search for "Deadline" and select all tests under "DeadlineCloud"
+6. Click the ">" button to run the tests
 
 
 ## Submit a test render
 
-To test out any significant changes it's useful to submit a test render following [Submit a Test Render](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-submitter.md#submit-a-test-render)
-
-## Building user guide
-
-The user guide is generated from the markdown files in `docs/user_guide` and published to GitHub pages. To view the renderd user guide locally, run `hatch run docs:serve` which will open the user guide in your browser.
+To test out any significant changes it's useful to submit a test render following [Submitting a test render](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/epic-unreal-engine.html#unreal-engine-test-render)
 
 ## Building the docs
 
@@ -169,14 +183,78 @@ Solutions:
    - Resubmit the job using the Unreal Engine version that matches the worker node. On Service Managed Fleets - Ensure the Conda package version selected matches your project's version of Unreal Engine
    - Install the correct Unreal Engine version on the worker node and update environment variables to match the job's Unreal Engine version
 
+### Build Fails Because Repository Was Downloaded as a Zip Instead of Cloned
+
+Root Cause: The repository was downloaded as a zip archive from GitHub (e.g. "Download ZIP") instead of being cloned with `git`. GitHub zip downloads do not include the `.git` folder, which `setuptools-scm` requires to determine the package version.
+
+Running `hatch build` directly will show:
+```
+LookupError: Error getting the version from source `vcs`: setuptools-scm was unable to detect version for <path>.
+
+Make sure you're either building from a fully intact git repository or PyPI tarballs. Most other sources (such as GitHub's tarballs, a git checkout without the .git folder) don't contain the necessary metadata and will not work.
+```
+
+Running `scripts/build_plugin.py` will show:
+```
+subprocess.CalledProcessError: Command '['hatch', 'build']' returned non-zero exit status 1.
+```
+
+Solution: Clone the repository using `git clone` instead of downloading the zip:
+```bash
+git clone https://github.com/aws-deadline/deadline-cloud-for-unreal-engine.git
+```
+
 ### Missing Deadline Cloud Job Submission Configuration in Movie Render Queue
 
 Issue: When launching Movie Render Queue, Deadline Cloud job submission configurations are not visible.
 
 Root Cause: Movie Render Pipeline project settings were not properly configured.
 
-Solution: Configure Movie Render Pipeline settings as described in [Submit a Test Render](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/blob/mainline/docs/user_guide/setup-submitter.md#submit-a-test-render):
+Solution: Configure Movie Render Pipeline settings as described in [Submitting a test render](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/epic-unreal-engine.html#unreal-engine-test-render):
    - Under "Edit"/"Project Settings" search for the "Movie Render Pipeline" section
      - For "Default Remote Executor", select "MoviePipelineDeadlineCloudRemoteExecutor"
      - For "Default Executor Job", select "MoviePipelineDeadlineCloudExecutorJob"
      - Under "Default Job Settings Classes", click add icon, and add "DeadlineCloudRenderStepSetting"
+
+### `ModuleNotFoundError: No module named 'deadline.job_attachments'`
+
+Error: A Python import of any code path that touches `deadline.job_attachments` fails with the same one-line signature regardless of caller:
+```
+ModuleNotFoundError: No module named 'deadline.job_attachments'
+```
+
+The full traceback varies by what triggered the import — common variants are:
+
+- **Worker agent service fails to start** (host stays offline). The traceback ends in `deadline_worker_agent\log_messages.py` doing `from deadline.job_attachments import version as deadline_job_attach_version`. The agent never reaches the point of polling the fleet, so the host shows up as offline / unreachable.
+- **Worker agent starts but render tasks fail** before the Unreal adaptor runs. The traceback comes from the adaptor or the agent's session-startup path importing `deadline.client.config`, which transitively loads `deadline.job_attachments.models`. Tasks fail with a worker-side import error and are retried until the queue gives up.
+- **Contributor running `hatch run e2e -s` or `hatch run test`**. The traceback comes from `test\end_to_end\conftest.py` or any other test module importing `deadline.client.config`. Pytest fails at collection time.
+
+Root Cause: Starting with [`deadline`](https://github.com/aws-deadline/deadline-cloud) 0.57, `job_attachments` was carved out into a separately-published distribution: [`deadline-job-attachments`](https://github.com/aws-deadline/deadline-cloud-job-attachments). The import path stayed the same (`deadline.job_attachments`) via PEP 420 namespace packaging, but the files now live in a different installed distribution. The two distributions install side by side into the same `deadline/` namespace; if either is missing, imports of the missing half fail.
+
+Solution:
+
+1. On the affected host (or in the affected hatch env), confirm the missing distribution:
+```
+python -m pip list | findstr /B deadline       # cmd
+python -m pip list | Select-String "^deadline" # PowerShell
+```
+You should see entries for both `deadline` and `deadline-job-attachments`. If only `deadline` is present, this is the bug.
+
+2. Install the missing distribution and verify the import resolves:
+```
+python -m pip install deadline-job-attachments
+python -c "from deadline.job_attachments.models import FileConflictResolution; print('ok')"
+```
+
+3. On a CMF worker, restart the worker agent service so it picks up the repaired environment:
+```
+net stop  DeadlineWorker
+net start DeadlineWorker
+```
+(Service name may vary; check `services.msc`. After the restart, monitor a few task assignments to confirm imports succeed.)
+
+4. For contributor hatch envs in a generally inconsistent state (multiple stale upgrades), prune and recreate:
+```
+hatch env prune
+hatch run e2e -s
+```

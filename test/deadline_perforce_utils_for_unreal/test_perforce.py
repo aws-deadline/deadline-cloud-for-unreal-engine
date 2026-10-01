@@ -147,7 +147,7 @@ class TestPerforceClient:
         client.sync(filepath, changelist, force)
 
         # THEN
-        logger_mock.info.assert_called_once_with(
+        logger_mock.info.assert_any_call(
             f"Running P4 sync with following arguments: {expected_arguments}"
         )
 

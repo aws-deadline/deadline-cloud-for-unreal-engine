@@ -129,6 +129,12 @@ struct UNREALDEADLINECLOUDSERVICE_API FDeadlineCloudGeneralPluginSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(GetOptions="GetLoggingLevels", DisplayPriority=8, Category="General Settings"))
 	FString CurrentLoggingLevel;
 
+	/**
+	 * Whether to show update notifications when a newer version of the plugin is available on GitHub.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(DisplayName="Show submitter update notifications", DisplayPriority=9, Category="General Settings"))
+	bool ShowUpdateNotifications = true;
+
 };
 
 /**

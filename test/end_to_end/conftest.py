@@ -9,9 +9,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "../
 # Now all other imports, including those from your project
 import boto3
 import botocore
+import contextlib
 import deadline.client.config as config
 import json
 import logging
+import psutil
 import pytest
 import re
 import shutil
@@ -19,6 +21,7 @@ import signal
 import subprocess
 import tempfile
 import time
+import yaml
 from scripts.build_plugin import find_engine_root
 
 # Import typing information
@@ -220,6 +223,177 @@ def pytest_addoption(parser) -> None:
         default=False,
         help="Clean up resources (queues, fleets, associations) after tests",
     )
+    parser.addoption(
+        "--farm-id",
+        action="store",
+        default=None,
+        help="Use a specific farm ID instead of reading from deadline config",
+    )
+    parser.addoption(
+        "--queue-id",
+        action="store",
+        default=None,
+        help="Use a specific queue ID instead of creating/reusing a test queue",
+    )
+    parser.addoption(
+        "--no-cancel",
+        action="store_true",
+        default=False,
+        help="Don't cancel the job after it reaches READY state",
+    )
+    parser.addoption(
+        "--conda-channel",
+        action="store",
+        default=None,
+        help="Override the CondaChannels default in the render job template",
+    )
+    parser.addoption(
+        "--render-offscreen",
+        action="store_true",
+        default=False,
+        help="Use -RenderOffScreen instead of -nullrhi (requires GPU)",
+    )
+    parser.addoption(
+        "--no-prerun-checks",
+        action="store_true",
+        default=False,
+        help=(
+            "Skip all session-start (pre-run) validation checks. Use on hosts "
+            "where the checks produce known false positives (e.g. a host with "
+            "a legitimate production deadline-worker-agent service running)."
+        ),
+    )
+
+
+def _record_leftover(
+    proc_info: Dict[str, Any], cmdline_display: str, category: str
+) -> Dict[str, Any]:
+    return {
+        "pid": proc_info["pid"],
+        # psutil sets unreadable attrs to None (the key is present), so
+        # .get(default) doesn't fall back — use `or` instead.
+        "name": proc_info.get("name") or "unknown",
+        "cmdline_short": cmdline_display,
+        "category": category,
+    }
+
+
+def _categorize_process(
+    name_lower: str, cmdline_list: List[str], cmdline_unreadable: bool
+) -> Optional[str]:
+    """Return the leftover category for a process, or None if it doesn't match."""
+    # Worker agent: name match is reliable enough to flag without cmdline,
+    # so a worker owned by another user (LOCAL_SYSTEM, etc.) is still caught.
+    if name_lower in ("deadline-worker-agent.exe", "deadline-worker-agent"):
+        return "deadline-worker-agent"
+
+    if name_lower in ("unrealeditor-cmd.exe", "unrealeditor-cmd"):
+        # Distinguish a worker-launched UE from a developer's manual UE
+        # via the OpenJD session-temp path layout. Without cmdline we
+        # can't apply the guard, so we skip rather than risk a false flag.
+        if cmdline_unreadable:
+            return None
+        for arg in cmdline_list[1:]:
+            arg_lower = arg.lower()
+            # "openjd/" / "openjd\\" not just "openjd" — otherwise an
+            # unrelated path containing "openjdk" would false-flag.
+            if "openjd/" in arg_lower or "openjd\\" in arg_lower or "session-" in arg_lower:
+                return "UnrealEditor-Cmd (worker session)"
+        return None
+
+    # Python process: name "python" alone is too generic; require an
+    # explicit module/path match in the args.
+    if cmdline_unreadable:
+        return None
+    is_python = name_lower.startswith("python") or name_lower in ("py.exe", "py")
+    if is_python:
+        for arg in cmdline_list[1:]:
+            arg_lower = arg.lower()
+            if (
+                "deadline.unreal_adaptor" in arg_lower
+                or "/unreal_adaptor/" in arg_lower
+                or "\\unreal_adaptor\\" in arg_lower
+            ):
+                return "UnrealAdaptor"
+
+    return None
+
+
+def _find_leftover_processes() -> List[Dict[str, Any]]:
+    """Iterate running processes and return records for any matching a
+    leftover category (see _categorize_process)."""
+    leftover: List[Dict[str, Any]] = []
+
+    for proc in psutil.process_iter(["pid", "name", "cmdline"]):
+        try:
+            cmdline = proc.info.get("cmdline")
+            cmdline_unreadable = cmdline is None
+            cmdline_list = cmdline or []
+            if cmdline_unreadable:
+                cmdline_display = "<cmdline unreadable; insufficient privileges>"
+            elif not cmdline_list:
+                cmdline_display = "<no cmdline>"
+            else:
+                cmdline_display = " ".join(cmdline_list)[:160]
+            name_lower = (proc.info.get("name") or "").lower()
+
+            category = _categorize_process(name_lower, cmdline_list, cmdline_unreadable)
+            if category is not None:
+                leftover.append(_record_leftover(proc.info, cmdline_display, category))
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
+
+    return leftover
+
+
+def pytest_sessionstart(session) -> None:
+    """Abort the E2E session if a UE editor, Unreal adaptor, or
+    deadline-worker-agent is already running on this host. Such processes
+    hold file locks, occupy ports, and (for the worker-agent) can pick up
+    jobs the new run is trying to submit.
+
+    Detection only — the hook never terminates anything. Killing a
+    production deadline-worker-agent on a CMF host is too costly an
+    accident to risk for the convenience of automated cleanup.
+    """
+    if session.config.getoption("--no-prerun-checks"):
+        logger.info("--no-prerun-checks passed; skipping pre-run validation")
+        return
+
+    leftover = _find_leftover_processes()
+    if not leftover:
+        logger.info("No conflicting processes found")
+        return
+
+    msg_lines = [
+        "",
+        "=" * 70,
+        "ABORTING: A UE editor, Unreal adaptor, or deadline-worker-agent is",
+        "already running on this host. The E2E suite cannot run safely while",
+        "any of these processes are active.",
+        "",
+        "Detected:",
+        "",
+    ]
+    for proc_info in leftover:
+        msg_lines.append(
+            f"  [{proc_info['category']}] PID {proc_info['pid']} - {proc_info['name']}"
+        )
+        msg_lines.append(f"    {proc_info['cmdline_short']}")
+        msg_lines.append("")
+
+    msg_lines.append("To resolve, either:")
+    msg_lines.append("  Stop these processes, then re-run the suite:")
+    msg_lines.append("    - Task Manager (Ctrl+Shift+Esc): find by PID -> End Task")
+    msg_lines.append("    - Or, in an elevated shell:  taskkill /PID <pid> /F")
+    msg_lines.append("    - For a running worker service:  net stop DeadlineWorker")
+    msg_lines.append("  Or re-run with --no-prerun-checks to bypass this check.")
+    msg_lines.append("=" * 70)
+
+    full_msg = "\n".join(msg_lines)
+    logger.error(full_msg)
+    # returncode=3 = pytest "internal error / setup failure".
+    pytest.exit(full_msg, returncode=3)
 
 
 def get_source_root() -> str:
@@ -245,6 +419,98 @@ def get_build_script_args() -> List[str]:
         List of command line arguments for the build script
     """
     return ["--install", "--test", "--worker"]
+
+
+# Default OpenJD action timeouts (in seconds) of the LaunchUnrealEditor
+# environment, as defined in
+# src/unreal_plugin/Content/Python/openjd_templates/launch_ue_environment.yml:
+# - Enter: server start timeout (30s) + Unreal start timeout (86400s) + 10 minute buffer
+# - Exit: server end timeout (30s) + Unreal end timeout (30s) + 1 minute buffer
+DEFAULT_ENV_ENTER_TIMEOUT_SECONDS = 87030
+DEFAULT_ENV_EXIT_TIMEOUT_SECONDS = 120
+
+
+def get_openjd_templates_directory(ue_version: Optional[str] = None) -> str:
+    """
+    Return the OpenJD templates directory of the plugin installed in the
+    Unreal Engine.
+
+    The plugin's default OpenJD data assets store engine-relative template
+    paths (e.g. '../../Plugins/UnrealDeadlineCloudService/Content/Python/
+    openjd_templates/launch_ue_environment.yml'), so this directory is what
+    MRQ job submissions actually read their environment templates from.
+
+    Args:
+        ue_version: Optional Unreal Engine version used to locate the engine root
+
+    Returns:
+        The absolute path to the installed plugin's OpenJD templates directory
+    """
+    engine_root = find_engine_root(ue_version)
+    return os.path.join(
+        engine_root,
+        "Engine",
+        "Plugins",
+        "UnrealDeadlineCloudService",
+        "Content",
+        "Python",
+        "openjd_templates",
+    )
+
+
+def read_launch_environment_template(templates_directory: str) -> Dict[str, Any]:
+    """
+    Load and parse the LaunchUnrealEditor environment template.
+
+    Args:
+        templates_directory: The OpenJD templates directory to read from
+
+    Returns:
+        The parsed launch_ue_environment.yml template as a dictionary
+    """
+    with open(os.path.join(templates_directory, "launch_ue_environment.yml")) as f:
+        return yaml.safe_load(f)
+
+
+@contextlib.contextmanager
+def openjd_templates_with_env_enter_timeout(
+    enter_timeout_seconds: int, ue_version: Optional[str] = None
+) -> Generator[str, None, None]:
+    """
+    Temporarily override the onEnter timeout of the LaunchUnrealEditor
+    environment template of the plugin installed in the Unreal Engine, so jobs
+    submitted from Unreal embed the overridden timeout.
+
+    The template file is patched in place because the plugin's default OpenJD
+    data assets reference it by engine-relative path; redirecting
+    OPENJD_TEMPLATES_DIRECTORY has no effect on MRQ job submissions. The
+    original file is backed up and restored on exit.
+
+    Args:
+        enter_timeout_seconds: The onEnter action timeout to write into the template
+        ue_version: Optional Unreal Engine version used to locate the engine root
+
+    Yields:
+        The path to the patched template file
+    """
+    template_path = os.path.join(
+        get_openjd_templates_directory(ue_version), "launch_ue_environment.yml"
+    )
+    backup_path = template_path + ".bak"
+    shutil.copy2(template_path, backup_path)
+
+    with open(template_path) as f:
+        template = yaml.safe_load(f)
+    template["script"]["actions"]["onEnter"]["timeout"] = enter_timeout_seconds
+    with open(template_path, "w") as f:
+        yaml.safe_dump(template, f, sort_keys=False)
+    logger.info(f"Patched {template_path} with onEnter timeout of {enter_timeout_seconds} seconds")
+
+    try:
+        yield template_path
+    finally:
+        shutil.move(backup_path, template_path)
+        logger.info(f"Restored original template at {template_path}")
 
 
 def add_content_plugins_to_project(project_path: str, plugins: List[str], enabled: bool) -> None:
@@ -467,18 +733,26 @@ def queue_role_arn(iam_client: BaseClient, sts_client: BaseClient) -> str:
         return current_role_arn
 
 
+# Terminal non-success states for a Deadline Cloud job (per the GetJob API).
+# Default failure_states for wait_for_job_state(). Update if the API gains new
+# terminal failure states.
+TERMINAL_FAILURE_STATES: Tuple[str, ...] = ("FAILED", "CANCELED", "NOT_COMPATIBLE")
+
+
 def wait_for_job_state(
     deadline_client: BaseClient,
     farm_id: str,
     job_id: str,
     queue_id: str,
     expected_states: Optional[List[str]] = None,
+    failure_states: Optional[List[str]] = None,
     max_wait_time: int = 600,
     wait_interval: int = 10,
     status_interval: int = 5,
 ) -> Tuple[bool, Optional[str], str]:
     """
-    Monitor a Deadline Cloud job until it reaches an expected state or times out.
+    Monitor a Deadline Cloud job until it reaches an expected state, hits a
+    failure state, or times out.
 
     Args:
         deadline_client: Boto3 Deadline client
@@ -487,6 +761,8 @@ def wait_for_job_state(
         queue_id: The queue ID containing the job
         expected_states: List of states to consider as successful (e.g. ["READY", "SUCCEEDED"])
                         If None, defaults to ["SUCCEEDED"]
+        failure_states: Terminal states that fail the wait immediately. None
+                        defaults to TERMINAL_FAILURE_STATES; [] disables fail-fast.
         max_wait_time: Maximum time to wait in seconds (default: 600)
         wait_interval: Time between status checks in seconds (default: 10)
         status_interval: Time between status output messages in seconds (default: 5)
@@ -500,6 +776,18 @@ def wait_for_job_state(
     # Default expected states if not provided
     if expected_states is None:
         expected_states = ["SUCCEEDED"]
+
+    if failure_states is None:
+        effective_failure_states: List[str] = list(TERMINAL_FAILURE_STATES)
+    else:
+        effective_failure_states = list(failure_states)
+
+    # Drop states the caller is explicitly waiting for (e.g. a test that
+    # cancels its own job and waits for CANCELED).
+    excluded = [s for s in effective_failure_states if s in expected_states]
+    if excluded:
+        logger.debug(f"Excluded {excluded} from failure_states because they are in expected_states")
+    effective_failure_states = [s for s in effective_failure_states if s not in expected_states]
 
     logger.info(
         f"Monitoring job {job_id} in farm {farm_id}, queue {queue_id} for state(s) {expected_states}"
@@ -557,7 +845,13 @@ def wait_for_job_state(
                 logger.info(f"Job {job_id} status changed: {status}")
                 last_logged_status = status
 
-            # Check if job reached expected state
+            # Fail-fast on a terminal failure before checking expected, so we
+            # don't wait out max_wait_time on a job that's already failed.
+            if status in effective_failure_states:
+                error_msg = f"Job {job_id} reached failure state: {status}"
+                logger.error(error_msg)
+                return False, status, error_msg
+
             if status in expected_states:
                 logger.info(f"Job {job_id} reached expected state: {status}")
                 return True, status, f"Job {job_id} reached expected state: {status}"
@@ -626,20 +920,25 @@ def extract_job_info_from_test_output(
 
 
 @pytest.fixture
-def run_unreal_test(request, reusable_queue_fleet_association) -> Callable:
+def run_unreal_test(request, reusable_farm_id, reusable_queue_id) -> Callable:
     """
     Fixture that provides a function to run Unreal Engine automation tests.
 
     Args:
         request: The pytest request object
-        reusable_queue_fleet_association: Fixture providing farm, queue, and fleet IDs
+        reusable_farm_id: The farm ID
+        reusable_queue_id: The queue ID
 
     Returns:
         A callable function that runs Unreal Engine automation tests
     """
 
     def _run_unreal_test(
-        test_path: str, uproject_file: str, deadlineargs: Optional[str] = None
+        test_path: str,
+        uproject_file: str,
+        deadlineargs: Optional[str] = None,
+        job_name: Optional[str] = None,
+        extra_test_params: Optional[Dict[str, Any]] = None,
     ) -> Tuple[bool, List[str]]:
         """
         Runs an Unreal Engine automation test and determines success or failure by analyzing output patterns
@@ -649,6 +948,9 @@ def run_unreal_test(request, reusable_queue_fleet_association) -> Callable:
             test_path: Automation test path (e.g. "DeadlineCloud.Integration.CreateJob")
             uproject_file: Path to the uproject file
             deadlineargs: Optional arguments to pass to Deadline, defaults to basic settings if None
+            job_name: Optional name for the submitted Deadline Cloud job. Defaults to the
+                requesting pytest test's name so each job can be traced back to its test
+            extra_test_params: Optional parameters forwarded to the Unreal automation test
 
         Returns:
             Tuple of (success, output_lines) where success is a boolean indicating whether the test passed,
@@ -657,24 +959,48 @@ def run_unreal_test(request, reusable_queue_fleet_association) -> Callable:
         if deadlineargs is None:
             deadlineargs = "-NoLoadingScreen -FixedSeed -log -Unattended -MRQInstance -deterministicaudio -audiomixer"
 
-        reusable_farm_id, reusable_queue_id, reusable_fleet_id = reusable_queue_fleet_association
+        if job_name is None:
+            job_name = request.node.name
+        # testparams is a ';'-separated 'key=value' list, so strip characters that
+        # would break its parsing. Deadline Cloud job names are capped at 128 chars.
+        job_name = re.sub(r"[;=]", "_", job_name)[:128]
 
-        logger.info(
-            f"Running unreal test with farm {reusable_farm_id} queue {reusable_queue_id} fleet {reusable_fleet_id}"
-        )
+        logger.info(f"Running unreal test with farm {reusable_farm_id} queue {reusable_queue_id}")
 
-        test_params_str = f"-testparams=farm_id={reusable_farm_id};queue_id={reusable_queue_id}"
+        # Populate the Deadline config so the plugin's startup precache warms the
+        # credential/S3 session; -testparams alone does not write these defaults.
+        config.set_setting("defaults.farm_id", reusable_farm_id)
+        config.set_setting("defaults.queue_id", reusable_queue_id)
+        config.set_setting("settings.deadline_regions", TEST_TARGET_REGION)
+
+        test_param_values = {
+            "farm_id": reusable_farm_id,
+            "queue_id": reusable_queue_id,
+            "job_name": job_name,
+        }
+        if extra_test_params:
+            test_param_values.update(extra_test_params)
+
+        sanitized_test_params = []
+        for key, value in test_param_values.items():
+            sanitized_key = re.sub(r"[;=]", "_", str(key))
+            sanitized_value = re.sub(r"[;=]", "_", str(value))
+            sanitized_test_params.append(f"{sanitized_key}={sanitized_value}")
+        test_params_str = f"-testparams={';'.join(sanitized_test_params)}"
 
         engine_root = find_engine_root(request.config.getoption("--ueversion"))
 
         unrealeditor_cmd_path = os.path.join(engine_root, "Engine", "Binaries", "Win64")
+        rhi_flag = (
+            "-RenderOffScreen" if request.config.getoption("--render-offscreen") else "-nullrhi"
+        )
         test_args = [
             os.path.join(unrealeditor_cmd_path, "UnrealEditor-Cmd.exe"),
             uproject_file,
             f"-ExecCmds=Automation RunTests {test_path}",
             "-stdout",
             "-unattended",
-            "-nullrhi",
+            rhi_flag,
             "-nosplash",
             "-nosound",
             "-nocontentbrowser",
@@ -742,6 +1068,12 @@ def run_unreal_test(request, reusable_queue_fleet_association) -> Callable:
                 logger.warning(f"Could not determine test result for {test_path}")
                 success = False
 
+        # Emit full UE output on failure; real-time stdout is swallowed by pytest-xdist capture
+        if not success:
+            logger.error(
+                "Full Unreal Engine output for failed test %s:\n%s", test_path, output_text
+            )
+
         # Return both success status and output lines
         return success, full_output
 
@@ -754,39 +1086,61 @@ def build_plugin(request) -> None:
     Fixture to run the scripts/build_plugin.py script at most once per test session.
 
     Guarantees the latest version of the code has been built and installed.
-    Runs the script as a subprocess rather than importing and running the methods directly
-    to simulate how customers will execute it.
 
     Args:
         request: The pytest request object
     """
     if request.config.getoption("--nobuild"):
         logger.info("Skipping build_plugin")
+    else:
+        # build_plugin.py lives in the scripts subfolder relative to the root of the repository
+        script_path = os.path.join(get_source_root(), "scripts", "build_plugin.py")
+        if not os.path.exists(script_path):
+            pytest.fail(f"Could not find build_plugin.py at {script_path}")
+
+        build_args = ["python", script_path]
+        build_args.extend(get_build_script_args())
+
+        passthrough_args = ["--ueversion"]
+
+        for arg in passthrough_args:
+            logger.debug(f"Checking arg {arg}")
+            if request.config.getoption(arg):
+                logger.debug(f"Found arg {arg}: {request.config.getoption(arg)}")
+                build_args.append(
+                    f"{arg}={request.config.getoption(arg)}" if arg.startswith("--") else arg
+                )
+            else:
+                logger.debug(f"Arg {arg} not present")
+
+        # Run the script and capture the output
+        result = subprocess.run(build_args, text=True)
+        assert result.returncode == 0
+
+
+@pytest.fixture(scope="session", autouse=True)
+def apply_conda_channel_override(request) -> Generator[None, None, None]:
+    """Override conda channel for render jobs via environment variable.
+
+    Sets DEADLINE_CONDA_CHANNELS env var which the plugin reads at submission time.
+    Only sets when --conda-channel is explicitly passed. Restores the prior value
+    (or unsets it) at session teardown so the env doesn't leak across sessions.
+    """
+    conda_channel = request.config.getoption("--conda-channel")
+    if not conda_channel:
+        yield
         return
 
-    # build_plugin.py lives in the scripts subfolder relative to the root of the repository
-    script_path = os.path.join(get_source_root(), "scripts", "build_plugin.py")
-    if not os.path.exists(script_path):
-        pytest.fail(f"Could not find build_plugin.py at {script_path}")
-
-    build_args = ["python", script_path]
-    build_args.extend(get_build_script_args())
-
-    passthrough_args = ["--ueversion"]
-
-    for arg in passthrough_args:
-        logger.debug(f"Checking arg {arg}")
-        if request.config.getoption(arg):
-            logger.debug(f"Found arg {arg}: {request.config.getoption(arg)}")
-            build_args.append(
-                f"{arg}={request.config.getoption(arg)}" if arg.startswith("--") else arg
-            )
+    prior = os.environ.get("DEADLINE_CONDA_CHANNELS")
+    os.environ["DEADLINE_CONDA_CHANNELS"] = conda_channel
+    logger.info(f"Set DEADLINE_CONDA_CHANNELS={conda_channel}")
+    try:
+        yield
+    finally:
+        if prior is None:
+            os.environ.pop("DEADLINE_CONDA_CHANNELS", None)
         else:
-            logger.debug(f"Arg {arg} not present")
-
-    # Run the script and capture the output
-    result = subprocess.run(build_args, text=True)
-    assert result.returncode == 0
+            os.environ["DEADLINE_CONDA_CHANNELS"] = prior
 
 
 @pytest.fixture(scope="session")
@@ -958,7 +1312,8 @@ def deadline_client(session: boto3.Session) -> BaseClient:
     Returns:
         A Deadline Cloud client
     """
-    client = session.client("deadline", region_name=TEST_TARGET_REGION)
+    endpoint_url = os.environ.get("DEADLINE_ENDPOINT", None)
+    client = session.client("deadline", region_name=TEST_TARGET_REGION, endpoint_url=endpoint_url)
     logger.info(f"Created deadline client for region {TEST_TARGET_REGION}")
     return client
 
@@ -1007,27 +1362,26 @@ DEADLINE_UNREAL_TEST_FARM_NAME: str = "deadline-unreal-test-farm"
 
 
 @pytest.fixture(scope="session")
-def reusable_farm_id() -> Generator[str, None, None]:
+def reusable_farm_id(request) -> Generator[str, None, None]:
     """
-    Fixture that provides a farm ID from your deadline config settings.
+    Fixture that provides a farm ID.
 
-    Args:
-        deadline_client: The Deadline Cloud client
-        request: The pytest request object
+    Uses --farm-id CLI option if provided, otherwise reads from deadline config.
 
     Yields:
         The farm ID to use for tests
     """
-    farm_id = None
-
-    config_farm_id = config.get_setting("defaults.farm_id")
-    if config_farm_id:
-        logger.info(f"Using farm_id {config_farm_id} from defaults.farm_id")
-        farm_id = config_farm_id
+    farm_id = request.config.getoption("--farm-id")
+    if farm_id:
+        logger.info(f"Using farm_id {farm_id} from --farm-id option")
     else:
-        raise Exception(
-            "Please configure the farm you wish to use for your test in your deadline config settings"
-        )
+        farm_id = config.get_setting("defaults.farm_id")
+        if farm_id:
+            logger.info(f"Using farm_id {farm_id} from defaults.farm_id")
+        else:
+            raise Exception(
+                "Please provide --farm-id or configure defaults.farm_id in deadline config"
+            )
 
     yield farm_id
 
@@ -1233,7 +1587,6 @@ def delete_fleets_util(deadline_client: BaseClient, fleet_responses: List[Dict[s
 
 @pytest.fixture(scope="session")
 def reusable_fleet_id(
-    worker_id: str,
     deadline_client: BaseClient,
     reusable_farm_id: str,
     worker_role_arn: str,
@@ -1243,7 +1596,6 @@ def reusable_fleet_id(
     Fixture that provides a fleet ID, creating one if it doesn't exist.
 
     Args:
-        worker_id: The pytest worker ID
         deadline_client: The Deadline Cloud client
         reusable_farm_id: The farm ID
         worker_role_arn: The ARN of the IAM role to use for the fleet
@@ -1255,6 +1607,12 @@ def reusable_fleet_id(
     fleet_id = None
     fleet_response = None
     created_new = False
+
+    env_fleet_id = os.environ.get("UNREAL_WORKER_FLEET_ID")
+    if env_fleet_id:
+        logger.info(f"Using fleet_id {env_fleet_id} from UNREAL_WORKER_FLEET_ID env var")
+        yield env_fleet_id
+        return
 
     # First check if a test fleet already exists
     try:
@@ -1440,21 +1798,27 @@ def create_queue_helper(
 
 @pytest.fixture(scope="session")
 def reusable_queue_id(
-    create_queue_helper,
     reusable_farm_id: str,
     request,
 ) -> str:
     """
-    Fixture that provides a queue ID, creating one if it doesn't exist.
+    Fixture that provides a queue ID.
+
+    Uses --queue-id CLI option if provided, otherwise creates or reuses a test queue.
 
     Args:
-        create_queue_helper: Function to create or reuse a queue
         reusable_farm_id: The farm ID
         request: The pytest request object
 
     Returns:
         The queue ID
     """
+    queue_id = request.config.getoption("--queue-id")
+    if queue_id:
+        logger.info(f"Using queue_id {queue_id} from --queue-id option")
+        return queue_id
+    # Lazy-import the create_queue_helper fixture only when needed
+    create_queue_helper = request.getfixturevalue("create_queue_helper")
     queue = create_queue_helper(farm_id=reusable_farm_id)
     return queue["queueId"]
 
@@ -1520,7 +1884,7 @@ def stop_queue_fleet_associations_and_wait(
 
 @pytest.fixture(scope="session")
 def deadline_worker_agent(
-    reusable_farm_id: str, reusable_fleet_id: str
+    request, reusable_farm_id: str, reusable_fleet_id: str
 ) -> Generator[Tuple[subprocess.Popen, str], None, None]:
     """
     Launch deadline-worker-agent as a subprocess using the farm ID and fleet ID from our tests.
@@ -1528,6 +1892,7 @@ def deadline_worker_agent(
     This fixture is session-scoped and ensures the worker agent is stopped during cleanup.
 
     Args:
+        request: The pytest request object (used to read the --ueversion option)
         reusable_farm_id: The farm ID to use
         reusable_fleet_id: The fleet ID to use
 
@@ -1583,6 +1948,10 @@ def deadline_worker_agent(
         log_dir, f"worker-agent-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.log"
     )
 
+    # Create persistence dir for worker agent state
+    persistence_dir = os.path.join(os.getcwd(), "worker-agent-state")
+    os.makedirs(persistence_dir, exist_ok=True)
+
     # Start the worker agent process
     cmd = [
         "deadline-worker-agent",
@@ -1590,64 +1959,74 @@ def deadline_worker_agent(
         reusable_farm_id,
         "--fleet-id",
         reusable_fleet_id,
-        # Disable rich console output to avoid encoding errors
-        "--structured-logs",  # Use structured logs instead of rich console output
+        "--structured-logs",
         "--run-jobs-as-agent-user",
+        "--no-shutdown",
+        "--logs-dir",
+        log_dir,
+        "--persistence-dir",
+        persistence_dir,
     ]
 
-    # Environment variables to disable rich console output
+    # Environment variables for the worker agent
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
-    env["TERM"] = "dumb"  # Disable terminal features
-    env["NO_COLOR"] = "1"  # Disable color output
+    env["TERM"] = "dumb"
+    env["NO_COLOR"] = "1"
+
+    # Add UE binaries to PATH so the adaptor can find UnrealEditor-Cmd.
+    ue_bin_dir = os.path.join(
+        find_engine_root(request.config.getoption("--ueversion")),
+        "Engine",
+        "Binaries",
+        "Win64",
+    )
+    if os.path.isdir(ue_bin_dir):
+        env["PATH"] = ue_bin_dir + os.pathsep + env.get("PATH", "")
 
     logger.info(f"Starting worker agent with command: {' '.join(cmd)}")
     logger.info(f"Worker agent logs will be written to: {log_file}")
 
+    log_fh = open(log_file, "w")
+
     # Use different process creation flags based on platform
     if sys.platform == "win32":
-        # On Windows, create a new process group so we can terminate it and all children
-        with open(log_file, "w") as f:
-            process = subprocess.Popen(
-                cmd,
-                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
-                stdout=f,
-                stderr=f,
-                env=env,
-                text=True,
-            )
+        process = subprocess.Popen(
+            cmd,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+            stdout=log_fh,
+            stderr=log_fh,
+            env=env,
+            text=True,
+        )
     else:
-        # On Unix-like systems, use process groups if available
-        with open(log_file, "w") as f:
-            if hasattr(os, "setsid"):
-                process = subprocess.Popen(
-                    cmd,
-                    preexec_fn=os.setsid,  # Create a new session
-                    stdout=f,
-                    stderr=f,
-                    env=env,
-                    text=True,
-                )
-            else:
-                # Fallback if setsid is not available
-                process = subprocess.Popen(
-                    cmd,
-                    stdout=f,
-                    stderr=f,
-                    env=env,
-                    text=True,
-                )
+        process = subprocess.Popen(
+            cmd,
+            preexec_fn=os.setsid if hasattr(os, "setsid") else None,
+            stdout=log_fh,
+            stderr=log_fh,
+            env=env,
+            text=True,
+        )
 
-    # Give the worker agent time to start and register
-    time.sleep(10)  # Increased to give more time to register
+    # Give the worker agent time to start and register with the fleet
+    for i in range(6):
+        time.sleep(5)
+        if process.poll() is not None:
+            log_fh.flush()
+            with open(log_file, "r") as f:
+                log_content = f.read()
+            pytest.fail(
+                f"Worker agent exited during startup (exit code {process.returncode}):\n{log_content}"
+            )
+        logger.info(f"Worker agent startup check {i+1}/6 — still running (PID {process.pid})")
 
-    # Check if process is still running
+    # Final check
     if process.poll() is not None:
-        # Process exited prematurely
+        log_fh.flush()
         with open(log_file, "r") as f:
             log_content = f.read()
-        error_msg = f"Worker agent failed to start: exit code {process.returncode}\nLog content: {log_content}"
-        pytest.fail(error_msg)
+        pytest.fail(f"Worker agent failed to start: exit code {process.returncode}\n{log_content}")
 
     logger.info(f"Worker agent started successfully with PID: {process.pid}")
     logger.info(f"To view worker agent logs, check: {log_file}")
@@ -1687,6 +2066,8 @@ def deadline_worker_agent(
                     process.kill()
     except Exception as e:
         logger.error(f"Error stopping worker agent: {str(e)}")
+    finally:
+        log_fh.close()
 
     logger.info("Worker agent stopped")
 

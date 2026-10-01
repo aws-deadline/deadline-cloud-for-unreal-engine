@@ -5,7 +5,6 @@ import yaml
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from typing import Type, Union, Literal, Optional
-
 from openjd.model import parse_model
 
 from openjd.model.v2023_09 import (
@@ -20,6 +19,7 @@ from openjd.model.v2023_09 import (
     FloatTaskParameterDefinition,
     StringTaskParameterDefinition,
     PathTaskParameterDefinition,
+    ChunkIntTaskParameterDefinition,
 )
 
 from deadline.client.job_bundle.submission import AssetReferences
@@ -29,7 +29,6 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_parameters_consis
 )
 from deadline.unreal_submitter import exceptions, settings
 from deadline.unreal_logger import get_logger
-
 
 logger = get_logger()
 
@@ -213,31 +212,36 @@ class ParameterDefinitionDescriptor:
     """
     Data class for converting C++, OpenJD and generic Python classes between each other
 
-    :cvar type_name: OpenJD type (INT, FLOAT, STRING, PATH)
+    :cvar type_name: OpenJD type (INT, FLOAT, STRING, PATH, CHUNK[INT])
     :cvar job_parameter_openjd_class: OpenJD class for int, float, string, path Job parameter
     :cvar task_parameter_openjd_class: OpenJD class for int, float, string, path Step parameter
     :cvar python_class: Appropriate python class (int, float, string, path)
     """
 
-    type_name: Literal["INT", "FLOAT", "STRING", "PATH"]
-    job_parameter_openjd_class: type[
-        Union[
-            JobIntParameterDefinition,
-            JobFloatParameterDefinition,
-            JobStringParameterDefinition,
-            JobPathParameterDefinition,
+    type_name: Literal["INT", "FLOAT", "STRING", "PATH", "CHUNK[INT]"]
+    job_parameter_openjd_class: Optional[
+        type[
+            Union[
+                JobIntParameterDefinition,
+                JobFloatParameterDefinition,
+                JobStringParameterDefinition,
+                JobPathParameterDefinition,
+            ]
         ]
     ]
-    job_parameter_attribute_name: Literal["int_value", "float_value", "string_value", "path_value"]
+    job_parameter_attribute_name: Optional[
+        Literal["int_value", "float_value", "string_value", "path_value"]
+    ]
     task_parameter_openjd_class: type[
         Union[
             IntTaskParameterDefinition,
             FloatTaskParameterDefinition,
             StringTaskParameterDefinition,
             PathTaskParameterDefinition,
+            ChunkIntTaskParameterDefinition,
         ]
     ]
-    python_class: type[Union[int, float, str]]
+    python_class: Optional[type[Union[int, float, str]]]
 
 
 PARAMETER_DEFINITION_MAPPING = {
@@ -252,6 +256,10 @@ PARAMETER_DEFINITION_MAPPING = {
     ),
     "PATH": ParameterDefinitionDescriptor(
         "PATH", JobPathParameterDefinition, "path_value", PathTaskParameterDefinition, str
+    ),
+    # CHUNK[INT] is a task-only parameter type (no job-level equivalent, no Python conversion)
+    "CHUNK[INT]": ParameterDefinitionDescriptor(
+        "CHUNK[INT]", None, None, ChunkIntTaskParameterDefinition, None
     ),
 }
 
@@ -268,8 +276,14 @@ class OpenJobParameterNames:
     :cvar UNREAL_EXTRA_CMD_ARGS_FILE: Path to file containing extra command line arguments
                                       to launch Unreal with
     :cvar UNREAL_EXECUTABLE_RELATIVE_PATH: UE executable path relative to P4 workspace root
+    :cvar MARKETPLACE_PLUGINS_DIR: Directory containing Marketplace plugins to install on workers
+    :cvar IGNORE_PLUGINS: Whether automatic project and Marketplace plugin handling is disabled
     :cvar PERFORCE_STREAM_PATH: P4 stream path, e.g. //MyProject/Mainline
     :cvar PERFORCE_CHANGELIST_NUMBER: P4 changelist to sync workspace to
+
+    :cvar FRAMES: Frame range expression for dynamic chunking (e.g., "1-100", "1,3,5-10:2")
+    :cvar TARGET_RUNTIME_SECONDS: Target runtime in seconds per chunk for dynamic chunking
+    :cvar RANGE_CONSTRAINT: Whether frames in a chunk must be CONTIGUOUS or NONCONTIGUOUS
     """
 
     UNREAL_PROJECT_PATH = "ProjectFilePath"
@@ -279,10 +293,18 @@ class OpenJobParameterNames:
     UNREAL_EXTRA_CMD_ARGS_FILE = "ExtraCmdArgsFile"
     UNREAL_EXECUTABLE_RELATIVE_PATH = "ExecutableRelativePath"
     UNREAL_MRQ_JOB_DEPENDENCIES_DESCRIPTOR = "MrqJobDependenciesDescriptor"
+    CONDA_PACKAGES = "CondaPackages"
+    MARKETPLACE_PLUGINS_DIR = "MarketplacePluginsDir"
+    IGNORE_PLUGINS = "IgnorePlugins"
 
     PERFORCE_STREAM_PATH = "PerforceStreamPath"
     PERFORCE_CHANGELIST_NUMBER = "PerforceChangelistNumber"
     PERFORCE_WORKSPACE_SPECIFICATION_TEMPLATE = "PerforceWorkspaceSpecificationTemplate"
+
+    # Dynamic chunking (TASK_CHUNKING extension) job-level parameters
+    FRAMES = "Frames"
+    TARGET_RUNTIME_SECONDS = "TargetRuntimeSeconds"
+    RANGE_CONSTRAINT = "RangeConstraint"
 
 
 class OpenJobStepParameterNames:
@@ -298,8 +320,11 @@ class OpenJobStepParameterNames:
     :cvar OUTPUT_PATH: Local path where Unreal Render Executor will place output files
 
     :cvar ADAPTOR_HANDLER: Handler name to run the jobs on Adaptor (render/custom)
-    :cvar TASK_CHUNK_SIZE: Count of the shots per OpenJD Step's Task
-    :cvar TASK_CHUNK_ID: Chunk number that should be rendered at OpenJD Step's Task
+    :cvar FRAMES_PER_TASK: If set, each task will render this number of frames
+    :cvar SHOTS_PER_TASK: Count of the shots per OpenJD Step's Task unless FRAMES_PER_TASK set
+    :cvar TASK_INDEX: Index of the task (0-based) within the OpenJD Step's parameter space
+
+    :cvar DYNAMIC_CHUNKING: Task parameter name for CHUNK[INT] type in dynamic chunking templates
     """
 
     QUEUE_MANIFEST_PATH = "QueueManifestPath"
@@ -310,5 +335,9 @@ class OpenJobStepParameterNames:
     OUTPUT_PATH = "OutputPath"
 
     ADAPTOR_HANDLER = "Handler"
-    TASK_CHUNK_SIZE = "ChunkSize"
-    TASK_CHUNK_ID = "ChunkId"
+    FRAMES_PER_TASK = "FramesPerTask"
+    SHOTS_PER_TASK = "ShotsPerTask"
+    TASK_INDEX = "TaskIndex"
+
+    # Dynamic chunking (TASK_CHUNKING extension) step-level task parameter
+    DYNAMIC_CHUNKING = "DynamicChunking"

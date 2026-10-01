@@ -25,19 +25,37 @@ parameterDefinitions:
   default: 'UnrealEditor-Cmd'
   userInterface: 
    control: HIDDEN
+- name: FramesPerTask
+  type: INT
+  default: 0
 - name: CondaPackages
   type: STRING
-  default: unrealengine=5.6 unrealengine-openjd=0.6.*
+  default: unrealengine=5.8 unrealengine-openjd=0.7.*
   userInterface: 
    control: LINE_EDIT
 - name: CondaChannels
   type: STRING
-  default: deadline-cloud
+  default: deadline-cloud-v2 deadline-cloud
   userInterface: 
    control: LINE_EDIT
-- name: ChunkSize
+- name: ShotsPerTask
   type: INT
   default: 1
   userInterface: 
    control: HIDDEN
-
+- name: MarketplacePluginsDir
+  type: PATH
+  objectType: DIRECTORY
+  dataFlow: IN
+  default: ''
+  userInterface:
+   control: HIDDEN
+- name: IgnorePlugins
+  type: STRING
+  default: 'false'
+  allowedValues:
+  - 'false'
+  - 'true'
+  userInterface:
+   control: DROPDOWN_LIST
+   label: Ignore Plugins

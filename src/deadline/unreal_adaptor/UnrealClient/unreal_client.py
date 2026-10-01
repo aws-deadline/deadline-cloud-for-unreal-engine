@@ -50,7 +50,6 @@ from deadline.unreal_adaptor.UnrealClient.step_handlers.base_step_handler import
 )
 from deadline.unreal_adaptor.UnrealClient.step_handlers import get_step_handler_class  # noqa: E402
 
-
 logger = get_logger()
 
 # Global variables for keeping UnrealClient running and preventing deletion by the Unreal garbage collector

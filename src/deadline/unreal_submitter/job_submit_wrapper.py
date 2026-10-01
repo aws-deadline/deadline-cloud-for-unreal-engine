@@ -101,8 +101,6 @@ def main():
 
         error_msg = f"{str(e)}\n{traceback.format_exc()}"
         print(json.dumps({"type": "error", "message": error_msg}), flush=True)
-        # Also print to stderr for additional debugging
-        print(f"ERROR: {error_msg}", file=sys.stderr, flush=True)
         sys.exit(1)
 
 

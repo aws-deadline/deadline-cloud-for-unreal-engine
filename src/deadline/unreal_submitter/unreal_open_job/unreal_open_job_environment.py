@@ -15,7 +15,6 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_parameters_consis
 )
 from deadline.unreal_logger import get_logger
 
-
 logger = get_logger()
 
 
@@ -118,6 +117,13 @@ class UnrealOpenJobEnvironment(UnrealOpenJobEntity):
             template_dict["variables"] = self._variables
 
         return parse_model(model=self.template_class, obj=template_dict)
+
+
+# Install Marketplace Plugins Environment
+class InstallMarketplacePluginsEnvironment(UnrealOpenJobEnvironment):
+    """Predefined Environment for installing Marketplace plugins on SMF workers"""
+
+    default_template_path = settings.INSTALL_MARKETPLACE_PLUGINS_ENVIRONMENT_TEMPLATE_DEFAULT_PATH
 
 
 # Launch Unreal Editor Environment

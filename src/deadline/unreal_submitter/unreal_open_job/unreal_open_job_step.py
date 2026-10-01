@@ -1,6 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import os
+import copy
 import math
 import unreal
 from enum import IntEnum
@@ -9,6 +10,7 @@ from dataclasses import dataclass, field, asdict
 
 from openjd.model import parse_model
 from openjd.model.v2023_09 import (
+    ExtensionName,
     StepScript,
     StepTemplate,
     TaskParameterType,
@@ -23,6 +25,7 @@ from openjd.model.v2023_09._model import StepDependency
 from deadline.unreal_submitter import common
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity import (
     UnrealOpenJobEntity,
+    OpenJobParameterNames,
     OpenJobStepParameterNames,
     PARAMETER_DEFINITION_MAPPING,
     ParameterDefinitionDescriptor,
@@ -33,9 +36,14 @@ from deadline.unreal_submitter.unreal_open_job.unreal_open_job_environment impor
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_parameters_consistency import (
     ParametersConsistencyChecker,
 )
+from deadline.unreal_submitter.unreal_open_job.unreal_open_job_dynamic_chunking import (
+    DynamicChunkingHelper,
+)
 from deadline.unreal_logger import get_logger
 from deadline.unreal_submitter import exceptions, settings
-
+from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step_host_requirements import (
+    HostRequirementsHelper,
+)
 
 logger = get_logger()
 
@@ -46,13 +54,15 @@ class UnrealOpenJobStepParameterDefinition:
     Dataclass for storing and managing OpenJob Step Task parameter definitions
 
     :cvar name: Name of the parameter
-    :cvar type: OpenJD Type of the parameter (INT, FLOAT, STRING, PATH)
+    :cvar type: OpenJD Type of the parameter (INT, FLOAT, STRING, PATH, CHUNK[INT])
     :cvar range: List of parameter values
+    :cvar chunks: Chunks configuration for CHUNK[INT] parameters (TASK_CHUNKING extension)
     """
 
     name: str
     type: str
     range: list[Any] = field(default_factory=list)
+    chunks: Optional[dict] = field(default=None)
 
     @classmethod
     def from_unreal_param_definition(cls, u_param: unreal.StepTaskParameterDefinition):
@@ -65,23 +75,35 @@ class UnrealOpenJobStepParameterDefinition:
         """
 
         python_class = PARAMETER_DEFINITION_MAPPING[u_param.type.name].python_class
+        # Unreal's ValueType enum never maps to task-only types such as CHUNK[INT],
+        # so a python_class is always available here.
+        assert python_class is not None
         build_kwargs = dict(
             name=u_param.name,
             type=u_param.type.name,
             range=[python_class(p) for p in list(u_param.range)],
+            chunks=None,
         )
         return cls(**build_kwargs)
 
     @classmethod
     def from_dict(cls, param_dict: dict):
         """
-        Create UnrealOpenJobStepParameterDefinition instance python dict
+        Create UnrealOpenJobStepParameterDefinition instance from python dict.
+
+        Explicitly extracts known fields to handle CHUNK[INT] parameters
+        which have additional fields like 'chunks'.
 
         :return: UnrealOpenJobStepParameterDefinition instance
         :rtype: UnrealOpenJobStepParameterDefinition
         """
-
-        return cls(**param_dict)
+        build_kwargs = dict(
+            name=param_dict["name"],
+            type=param_dict["type"],
+            range=param_dict.get("range", []),
+            chunks=param_dict.get("chunks"),
+        )
+        return cls(**build_kwargs)
 
     def to_dict(self):
         """
@@ -148,7 +170,7 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         return self._host_requirements
 
     @host_requirements.setter
-    def host_requirements(self, value: HostRequirementsTemplate):
+    def host_requirements(self, value: Optional[HostRequirementsTemplate]):
         self._host_requirements = value
 
     @property
@@ -194,6 +216,9 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
             environments=[
                 UnrealOpenJobEnvironment.from_data_asset(env) for env in data_asset.environments
             ],
+            host_requirements=HostRequirementsHelper.get_host_requirements_from_data_asset(
+                data_asset.host_requirements
+            ),
             extra_parameters=[
                 UnrealOpenJobStepParameterDefinition.from_unreal_param_definition(param)
                 for param in data_asset.get_step_parameters()
@@ -278,6 +303,10 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
         """
         Build the job parameter definition list from the step template object.
 
+        For CHUNK[INT] parameters, the rangeConstraint field in the chunks configuration
+        must be a literal value (CONTIGUOUS or NONCONTIGUOUS), not a template expression.
+        This method substitutes template expressions with actual values from job parameters.
+
         :return: List of Step parameter definitions
         :rtype: list
         """
@@ -288,22 +317,90 @@ class UnrealOpenJobStep(UnrealOpenJobEntity):
 
         yaml_params = step_template_object["parameterSpace"]["taskParameterDefinitions"]
         for yaml_p in yaml_params:
+            # 1. Apply override from _extra_parameters if exists.
+            # CHUNK[INT] parameters are excluded: their range is a template
+            # expression (e.g. "{{Param.Frames}}") resolved by the scheduler,
+            # so a Data Asset override must never replace it. All other types
+            # keep the original override semantics unchanged.
             override_param = next(
                 (p for p in self._extra_parameters if p.name == yaml_p["name"]), None
             )
-            if override_param:
+            if override_param and not DynamicChunkingHelper.is_chunk_parameter_type(
+                yaml_p.get("type", "")
+            ):
                 yaml_p["range"] = override_param.range
 
+            # 2. For CHUNK[INT], substitute template expressions
+            if DynamicChunkingHelper.is_chunk_parameter_type(yaml_p.get("type", "")):
+                yaml_p = self._substitute_chunk_parameter_values(yaml_p)
+
+            # 3. Parse into OpenJD model
             param_descriptor: ParameterDefinitionDescriptor = PARAMETER_DEFINITION_MAPPING[
                 yaml_p["type"]
             ]
             param_definition_cls = param_descriptor.task_parameter_openjd_class
 
+            # CHUNK[INT] requires TASK_CHUNKING extension to be declared
+            supported_extensions = (
+                [ext.value for ext in ExtensionName]
+                if DynamicChunkingHelper.is_chunk_parameter_type(yaml_p.get("type", ""))
+                else None
+            )
+
             step_parameter_definition_list.append(
-                parse_model(model=param_definition_cls, obj=yaml_p)
+                parse_model(
+                    model=param_definition_cls,
+                    obj=yaml_p,
+                    supported_extensions=supported_extensions,
+                )
             )
 
         return step_parameter_definition_list
+
+    def _substitute_chunk_parameter_values(self, yaml_param: dict) -> dict:
+        """
+        Substitute template expressions in CHUNK[INT] parameter's chunks configuration
+        with actual values from job parameters.
+
+        The OpenJD model requires rangeConstraint to be a literal value, not a
+        template expression. This method resolves the template expression to the
+        actual value from job parameters and validates it (only CONTIGUOUS is
+        supported - Unreal's Movie Render Queue cannot render non-contiguous
+        frame ranges).
+
+        :param yaml_param: YAML parameter dictionary with chunks configuration
+        :return: Modified parameter dictionary with substituted values
+        """
+        yaml_param = copy.deepcopy(yaml_param)
+        chunks_config = yaml_param.get("chunks", {})
+
+        if not chunks_config:
+            return yaml_param
+
+        # Substitute rangeConstraint if it's a template expression
+        range_constraint = chunks_config.get("rangeConstraint", "")
+        if range_constraint and range_constraint.startswith("{{"):
+            # Get actual value from job parameters
+            if self._open_job:
+                range_constraint_param = self._open_job._find_extra_parameter(
+                    parameter_name=OpenJobParameterNames.RANGE_CONSTRAINT, parameter_type="STRING"
+                )
+                if range_constraint_param and range_constraint_param.value:
+                    chunks_config["rangeConstraint"] = range_constraint_param.value
+                else:
+                    # Default to CONTIGUOUS if not specified
+                    chunks_config["rangeConstraint"] = "CONTIGUOUS"
+            else:
+                # Default to CONTIGUOUS if no job context
+                chunks_config["rangeConstraint"] = "CONTIGUOUS"
+
+        # Validate the resolved value. Literal values are also validated by
+        # DynamicChunkingHelper.validate_chunk_parameter() at step build; this
+        # covers values resolved from job parameters, which bypass that check.
+        if chunks_config.get("rangeConstraint"):
+            DynamicChunkingHelper._validate_range_constraint(chunks_config["rangeConstraint"])
+
+        return yaml_param
 
     def _build_template(self) -> StepTemplate:
         """
@@ -436,6 +533,7 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         self._mrq_job = mrq_job
         self._queue_manifest_path: Optional[str] = None
         self._render_args_type = self._get_render_arguments_type()
+        self._dynamic_chunking_detected: Optional[bool] = None
 
     @property
     def mrq_job(self):
@@ -445,20 +543,41 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
     def mrq_job(self, value: unreal.MoviePipelineExecutorJob):
         self._mrq_job = value
 
-    def _get_chunk_ids_count(self) -> int:
+    def _is_using_dynamic_chunking(self) -> bool:
         """
-        Get number of shot chunks
-        as count of enabled shots in level sequence divided by chuck size parameter value.
-        If no chunk size parameter value is 0, return 1
+        Check if this step template uses TASK_CHUNKING extension (CHUNK[INT] type).
+
+        Results are cached to avoid repeated template parsing.
+
+        :return: True if template uses dynamic chunking, False otherwise
+        :rtype: bool
+        """
+        if self._dynamic_chunking_detected is None:
+            try:
+                step_template_object = self.get_template_object()
+                self._dynamic_chunking_detected = DynamicChunkingHelper.is_using_dynamic_chunking(
+                    step_template_object
+                )
+            except FileNotFoundError:
+                self._dynamic_chunking_detected = False
+        return self._dynamic_chunking_detected
+
+    def _get_task_count(self) -> int:
+        """
+        Get the number of tasks the render Step will be split into:
+        total number of frames divided by FramesPerTask if set, or
+        the number of enabled shots in the level sequence divided by
+        ShotsPerTask. If ShotsPerTask is <= 0, defaults to 1.
 
         Example:
             - LevelSequence shots: [sh1 - enabled, sh2 - disabled, sh3 - enabled, sh4 - enabled]
-            - ChunkSize: 2
-            - ChunkIds count: 2 (sh1, sh3; sh4)
+            - ShotsPerTask: 2
+            - Task count: 2 (sh1, sh3; sh4)
 
-        :raises ValueError: When no chunk size parameter is set
+        :raises ValueError: When `FramesPerTask` is unset or <= 0 AND
+            `ShotsPerTask` is unset
 
-        :return: ChunkIds count
+        :return: Number of tasks
         :rtype: int
         """
 
@@ -470,23 +589,67 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
         if not self.open_job:
             raise exceptions.OpenJobIsMissingError("Render Job must be provided")
 
-        chunk_size_parameter = self.open_job._find_extra_parameter(
-            parameter_name=OpenJobStepParameterNames.TASK_CHUNK_SIZE, parameter_type="INT"
+        shots_per_task_parameter = self.open_job._find_extra_parameter(
+            parameter_name=OpenJobStepParameterNames.SHOTS_PER_TASK, parameter_type="INT"
         )
+        frames_per_task_parameter = self.open_job._find_extra_parameter(
+            parameter_name=OpenJobStepParameterNames.FRAMES_PER_TASK, parameter_type="INT"
+        )
+        if frames_per_task_parameter and frames_per_task_parameter.value > 0:
+            logger.info(f"Rendering shots of frame range {frames_per_task_parameter.value}")
+            level_sequence = self._load_level_sequence(self.mrq_job)
+            output_settings = self._load_output_settings(self.mrq_job)
 
-        if chunk_size_parameter is None:
+            if output_settings.use_custom_playback_range:
+                total_frame_range = (
+                    output_settings.custom_end_frame - output_settings.custom_start_frame
+                )
+                logger.info(
+                    f"Output settings at submission has range {output_settings.custom_start_frame} - {output_settings.custom_end_frame} ({total_frame_range} frames)"
+                )
+            else:
+
+                total_frame_range = (
+                    level_sequence.get_playback_range().get_end_frame()
+                    - level_sequence.get_playback_range().get_start_frame()
+                )
+                logger.info(
+                    f"Level sequence at submission has range {level_sequence.get_playback_range()} ({total_frame_range} frames)"
+                )
+            task_count = math.ceil(total_frame_range / frames_per_task_parameter.value)
+            return task_count
+        if shots_per_task_parameter is None:
             raise ValueError(
-                f'Render Job\'s parameter "{OpenJobStepParameterNames.TASK_CHUNK_SIZE}" '
+                f'Render Job\'s parameter "{OpenJobStepParameterNames.SHOTS_PER_TASK}"'
+                f' or "{OpenJobStepParameterNames.FRAMES_PER_TASK}" '
                 f"must be provided in extra parameters or template"
             )
 
-        chunk_size = int(chunk_size_parameter.value)
-        if chunk_size <= 0:
-            chunk_size = 1  # by default 1 chunk consist of 1 shot
+        shots_per_task = int(shots_per_task_parameter.value)
+        if shots_per_task <= 0:
+            shots_per_task = 1  # by default each task renders 1 shot
 
-        task_chunk_ids_count = math.ceil(len(enabled_shots) / chunk_size)
+        if not enabled_shots:
+            raise exceptions.SubmitterInputValidationError(
+                "MRQ job has no enabled shots. Populate its shot list or set FramesPerTask to "
+                "a value greater than zero."
+            )
 
-        return task_chunk_ids_count
+        task_count = math.ceil(len(enabled_shots) / shots_per_task)
+
+        return task_count
+
+    def _load_level_sequence(self, mrq_job):
+        """Load the level sequence asset from the MRQ job."""
+        return unreal.EditorAssetLibrary.load_asset(
+            unreal.SystemLibrary.conv_soft_object_reference_to_string(
+                unreal.SystemLibrary.conv_soft_obj_path_to_soft_obj_ref(mrq_job.sequence)
+            )
+        )
+
+    def _load_output_settings(self, mrq_job):
+        """Load the output settings from the MRQ job configuration."""
+        return mrq_job.get_configuration().find_setting_by_class(unreal.MoviePipelineOutputSetting)
 
     def _get_render_arguments_type(self) -> Optional["RenderUnrealOpenJobStep.RenderArgsType"]:
         """
@@ -527,6 +690,10 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
             4. Build given Environments
             5. Set up Step dependencies
 
+        For dynamic chunking templates (CHUNK[INT] type):
+            - Skip task index calculation
+            - Frame range expression is passed through unchanged via template references
+
         :return: StepTemplate instance
         :rtype: StepTemplate
         """
@@ -541,12 +708,30 @@ class RenderUnrealOpenJobStep(UnrealOpenJobStep):
                 f"{OpenJobStepParameterNames.MRQ_JOB_CONFIGURATION_PATH})\n"
             )
 
-        task_chunk_id_param_definition = UnrealOpenJobStepParameterDefinition(
-            OpenJobStepParameterNames.TASK_CHUNK_ID,
-            TaskParameterType.INT.value,
-            [i for i in range(self._get_chunk_ids_count())],
-        )
-        self._update_extra_parameter(task_chunk_id_param_definition)
+        # Skip task index calculation for dynamic chunking templates.
+        # Dynamic chunking uses CHUNK[INT] type with frame range expressions;
+        # chunk boundaries are computed by the scheduler, not the submitter.
+        if self._is_using_dynamic_chunking():
+            # Get frames parameter value from parent job if available
+            frames_value = None
+            if self.open_job:
+                frames_param = self.open_job._find_extra_parameter(
+                    parameter_name=OpenJobParameterNames.FRAMES, parameter_type="STRING"
+                )
+                if frames_param:
+                    frames_value = frames_param.value
+
+            # Validate all CHUNK[INT] elements in the step template
+            DynamicChunkingHelper.validate_chunk_parameter(
+                self.get_template_object(), frames=frames_value
+            )
+        else:
+            task_index_param_definition = UnrealOpenJobStepParameterDefinition(
+                OpenJobStepParameterNames.TASK_INDEX,
+                TaskParameterType.INT.value,
+                [i for i in range(self._get_task_count())],
+            )
+            self._update_extra_parameter(task_index_param_definition)
 
         handler_param_definition = UnrealOpenJobStepParameterDefinition(
             OpenJobStepParameterNames.ADAPTOR_HANDLER, TaskParameterType.STRING.value, ["render"]
@@ -652,3 +837,35 @@ class UgsRenderUnrealOpenJobStep(RenderUnrealOpenJobStep):
 class P4RenderUnrealOpenJobStep(RenderUnrealOpenJobStep):
 
     default_template_path = settings.P4_RENDER_STEP_TEMPLATE_DEFAULT_PATH
+
+
+class P4AssembleShelvesUnrealOpenJobStep(UnrealOpenJobStep):
+    """
+    Downstream step that runs once after all Render tasks and aggregates
+    every task's shelved CL into one final CL. See
+    ``deadline.unreal_perforce_utils.app.assemble_shelves`` for the P4
+    protocol details.
+
+    Only added to a job when SubmitMode is set (submit or shelve). The
+    step name ``AssembleShelves`` and dependency on ``Render`` are fixed
+    — customers don't configure them.
+    """
+
+    default_template_path = settings.P4_ASSEMBLE_SHELVES_STEP_TEMPLATE_DEFAULT_PATH
+
+    def __init__(
+        self,
+        file_path: Optional[str] = None,
+        name: Optional[str] = None,
+        environments: Optional[list[UnrealOpenJobEnvironment]] = None,
+        extra_parameters: Optional[list[UnrealOpenJobStepParameterDefinition]] = None,
+        host_requirements: Optional[HostRequirementsTemplate] = None,
+    ):
+        super().__init__(
+            file_path=file_path,
+            name=name,
+            step_dependencies=["Render"],
+            environments=environments,
+            extra_parameters=extra_parameters,
+            host_requirements=host_requirements,
+        )

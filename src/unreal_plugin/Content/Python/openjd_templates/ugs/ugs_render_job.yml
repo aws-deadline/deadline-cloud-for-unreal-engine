@@ -23,6 +23,25 @@ parameterDefinitions:
 - name: Executable
   type: STRING
   default: 'UnrealEditor-Cmd'
-- name: ChunkSize
+- name: FramesPerTask
+  type: INT
+  default: 0
+- name: ShotsPerTask
   type: INT
   default: 1
+- name: MarketplacePluginsDir
+  type: PATH
+  objectType: DIRECTORY
+  dataFlow: IN
+  default: ''
+  userInterface:
+   control: HIDDEN
+- name: IgnorePlugins
+  type: STRING
+  default: 'false'
+  allowedValues:
+  - 'false'
+  - 'true'
+  userInterface:
+   control: DROPDOWN_LIST
+   label: Ignore Plugins

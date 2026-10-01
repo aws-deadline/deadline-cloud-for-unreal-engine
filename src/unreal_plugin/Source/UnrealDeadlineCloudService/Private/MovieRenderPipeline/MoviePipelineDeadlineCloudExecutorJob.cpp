@@ -19,11 +19,22 @@
 #include "AssetToolsModule.h"
 #include "PackageTools.h"
 #include "PythonAPILibraries/PythonYamlLibrary.h"
-#include "DeadlineCloudJobSettings/DeadlineCloudDeveloperSettings.h"
+#include "PythonAPILibraries/DeadlineCloudPreGuiHookLibrary.h"
 #include "ObjectTools.h"
 #include "UObject/SavePackage.h"
 #include "Serialization/ArchiveReplaceObjectRef.h"
 #include "Framework/MetaData/DriverMetaData.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+
+namespace
+{
+	inline bool MatchesSourcePath(const FSoftObjectPath& OverridePath, const UObject* SourceObj)
+	{
+		return OverridePath.IsValid() && OverridePath == FSoftObjectPath(SourceObj);
+	}
+
+}
 
 UMoviePipelineDeadlineCloudExecutorJob::UMoviePipelineDeadlineCloudExecutorJob()
 {
@@ -49,7 +60,7 @@ bool UMoviePipelineDeadlineCloudExecutorJob::IsPropertyRowEnabledInMovieRenderJo
 		return Match->bIsEnabled;
 	}
 
-	return false;
+	return true;
 }
 
 void UMoviePipelineDeadlineCloudExecutorJob::SetPropertyRowEnabledInMovieRenderJob(const FName& InPropertyPath, bool bInEnabled)
@@ -126,11 +137,15 @@ void UMoviePipelineDeadlineCloudExecutorJob::SaveAsJobPreset(FString& FolderPath
 		}
 		else if (auto Step = Cast<UDeadlineCloudStep>(NewObj))
 		{
-			CopyStepOverrides(Step);
+			CopyStepOverrides(Step, Cast<UDeadlineCloudStep>(Asset));
 		}
 		else if (auto Env = Cast<UDeadlineCloudEnvironment>(NewObj))
 		{
-			CopyEnvironmentOverrides(Env);
+			CopyEnvironmentOverrides(Env, Cast<UDeadlineCloudEnvironment>(Asset));
+		}
+		else if (auto HostReq = Cast<UDeadlineCloudHostRequirements>(NewObj))
+		{
+			CopyHostRequirementsOverrides(HostReq, Cast<UDeadlineCloudHostRequirements>(Asset));
 		}
 
 		Pkg->MarkPackageDirty();
@@ -204,12 +219,6 @@ FDeadlineCloudJobPresetStruct UMoviePipelineDeadlineCloudExecutorJob::GetDeadlin
 	);
 
 	GetPresetStructWithOverrides(
-		FDeadlineCloudHostRequirementsStruct::StaticStruct(),
-		&PresetOverrides.HostRequirements,
-		&ReturnValue.HostRequirements
-	);
-
-	GetPresetStructWithOverrides(
 		FDeadlineCloudFileAttachmentsStruct::StaticStruct(),
 		&PresetOverrides.JobAttachments.InputFiles,
 		&ReturnValue.JobAttachments.InputFiles
@@ -226,12 +235,24 @@ FDeadlineCloudJobPresetStruct UMoviePipelineDeadlineCloudExecutorJob::GetDeadlin
 		&PresetOverrides.JobAttachments.OutputDirectories,
 		&ReturnValue.JobAttachments.OutputDirectories
 	);
+
+	GetPresetStructWithOverrides(
+		FDeadlineCloudProfilingSettingsStruct::StaticStruct(),
+		&PresetOverrides.ProfilingSettings,
+		&ReturnValue.ProfilingSettings
+	);
 	return ReturnValue;
 }
 
 
 FDeadlineCloudJobParametersArray UMoviePipelineDeadlineCloudExecutorJob::GetParameterDefinitionWithOverrides() const
 {
+	if (!IsValid(JobPreset))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Deadline Cloud job has no valid JobPreset; returning no parameter definitions"));
+		return FDeadlineCloudJobParametersArray();
+	}
+
 	// Start with preset properties
 	FDeadlineCloudJobParametersArray ReturnValue = JobPreset->ParameterDefinition;
 	GetPresetStructWithOverrides(
@@ -424,7 +445,6 @@ void UMoviePipelineDeadlineCloudExecutorJob::UpdateInputFilesProperty()
 
 void UMoviePipelineDeadlineCloudExecutorJob::ReloadDataFromJobPreset()
 {
-	PresetOverrides.HostRequirements = JobPreset->JobPresetStruct.HostRequirements;
 	PresetOverrides.JobSharedSettings = JobPreset->JobPresetStruct.JobSharedSettings;
 
 	PresetOverrides.JobAttachments.InputFiles.Files =
@@ -436,9 +456,32 @@ void UMoviePipelineDeadlineCloudExecutorJob::ReloadDataFromJobPreset()
 	PresetOverrides.JobAttachments.OutputDirectories.Directories =
 		JobPreset->JobPresetStruct.JobAttachments.OutputDirectories.Directories;
 
+	PresetOverrides.ProfilingSettings =
+		JobPreset->JobPresetStruct.ProfilingSettings;
+
 	JobTemplateOverrides.Parameters = JobPreset->GetParametersDataToOverride();
 	JobTemplateOverrides.StepsOverrides = GetStepsToOverride(JobPreset);
 	JobTemplateOverrides.EnvironmentsOverrides = GetEnvironmentsToOverride(JobPreset);
+
+	// Pre-GUI hooks: inherit the source preset's applied-state alongside the values just copied above.
+	// If a data-asset panel hook already applied to JobPreset (bPreGuiHooksApplied), the values now in
+	// PresetOverrides / JobTemplateOverrides are already hooked, so the MRQ panel must NOT re-run the
+	// hook — otherwise an "adjust" hook (e.g. +10 priority) applies twice for one submission. If the
+	// preset is un-hooked (the common MRQ workflow, or a freshly-picked preset), this re-arms the latch
+	// so the next panel build applies the hook onto the freshly-loaded values; without it, a preset
+	// change would wipe the previously-applied hook values while the latch blocked re-application.
+	bPreGuiHooksApplied = JobPreset->bPreGuiHooksApplied;
+
+
+	UDeadlineCloudJobBundleLibrary* Library = UDeadlineCloudJobBundleLibrary::Get();
+	if (Library)
+	{
+		JobTemplateOverrides.Parameters = Library->ValidateMrqJobParameters(JobTemplateOverrides.Parameters);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("Error get DeadlineCloudJobBundleLibrary"));
+	}
 }
 
 void UMoviePipelineDeadlineCloudExecutorJob::GetPresetObjectsNames(const UMoviePipelineDeadlineCloudExecutorJob* MrqJob, TMap<UDataAsset*, FString>& OutPresetPackageNames)
@@ -464,6 +507,12 @@ void UMoviePipelineDeadlineCloudExecutorJob::GetPresetObjectsNames(const UMovieP
 					PackageName = FSoftObjectPath(Env).GetLongPackageName();
 					OutPresetPackageNames.Add(Env, PackageName);
 				}
+			}
+
+			if (IsValid(Step->HostRequirements))
+			{
+				PackageName = FSoftObjectPath(Step->HostRequirements).GetLongPackageName();
+				OutPresetPackageNames.Add(Step->HostRequirements, PackageName);
 			}
 		}
 	}
@@ -524,6 +573,15 @@ void UMoviePipelineDeadlineCloudExecutorJob::GeneratePresetObjectsNames(
 					StepEnvIndex++;
 				}
 			}
+
+			if (Step->HostRequirements)
+			{
+				if (!OutPresetPackageNames.Contains(Step->HostRequirements))
+				{
+					FString HostReqName = StepName + "_HostRequirements";
+					OutPresetPackageNames.Add(Step->HostRequirements, HostReqName);
+				}
+			}
 		}
 	}
 
@@ -547,11 +605,11 @@ void UMoviePipelineDeadlineCloudExecutorJob::GeneratePresetObjectsNames(
 
 
 
-void UMoviePipelineDeadlineCloudExecutorJob::CopyEnvironmentOverrides(UDeadlineCloudEnvironment* Environment)
+void UMoviePipelineDeadlineCloudExecutorJob::CopyEnvironmentOverrides(UDeadlineCloudEnvironment* Environment, UDeadlineCloudEnvironment* Origin)
 {
 	for (auto& EnvOverride : JobTemplateOverrides.EnvironmentsOverrides)
 	{
-		if (EnvOverride.Name == Environment->Name)
+		if (MatchesSourcePath(EnvOverride.SourceObjectPath, Origin))
 		{
 			Environment->Variables = EnvOverride.Variables;
 			return;
@@ -562,7 +620,7 @@ void UMoviePipelineDeadlineCloudExecutorJob::CopyEnvironmentOverrides(UDeadlineC
 	{
 		for (auto& EnvOverride : StepOverride.EnvironmentsOverrides)
 		{
-			if (EnvOverride.Name == Environment->Name)
+			if (MatchesSourcePath(EnvOverride.SourceObjectPath, Origin))
 			{
 				Environment->Variables = EnvOverride.Variables;
 				return;
@@ -571,11 +629,28 @@ void UMoviePipelineDeadlineCloudExecutorJob::CopyEnvironmentOverrides(UDeadlineC
 	}
 }
 
-void UMoviePipelineDeadlineCloudExecutorJob::CopyStepOverrides(UDeadlineCloudStep* Step)
+void UMoviePipelineDeadlineCloudExecutorJob::CopyHostRequirementsOverrides(UDeadlineCloudHostRequirements* HostRequirements, UDeadlineCloudHostRequirements* Origin)
 {
 	for (auto& StepOverride : JobTemplateOverrides.StepsOverrides)
 	{
-		if (StepOverride.Name == Step->Name)
+		if (!StepOverride.HostRequirementsOverride.IsEmpty())
+		{
+			if (MatchesSourcePath(StepOverride.HostRequirementsOverride.SourceObjectPath, Origin))
+			{
+				HostRequirements->HostRequirements.Amounts = StepOverride.HostRequirementsOverride.HostRequirements.Amounts;
+				HostRequirements->HostRequirements.Attributes = StepOverride.HostRequirementsOverride.HostRequirements.Attributes;
+
+				return;
+			}
+		}
+	}
+}
+
+void UMoviePipelineDeadlineCloudExecutorJob::CopyStepOverrides(UDeadlineCloudStep* Step, UDeadlineCloudStep* Origin)
+{
+	for (auto& StepOverride : JobTemplateOverrides.StepsOverrides)
+	{
+		if (MatchesSourcePath(StepOverride.SourceObjectPath, Origin))
 		{
 			Step->TaskParameterDefinitions.Parameters = StepOverride.TaskParameterDefinitions.Parameters;
 			break;
@@ -585,11 +660,11 @@ void UMoviePipelineDeadlineCloudExecutorJob::CopyStepOverrides(UDeadlineCloudSte
 
 void UMoviePipelineDeadlineCloudExecutorJob::CopyJobOverrides(UDeadlineCloudRenderJob* Job)
 {
-	Job->JobPresetStruct.HostRequirements = PresetOverrides.HostRequirements;
 	Job->JobPresetStruct.JobSharedSettings = PresetOverrides.JobSharedSettings;
 	Job->JobPresetStruct.JobAttachments.InputFiles = PresetOverrides.JobAttachments.InputFiles;
 	Job->JobPresetStruct.JobAttachments.InputDirectories = PresetOverrides.JobAttachments.InputDirectories;
 	Job->JobPresetStruct.JobAttachments.OutputDirectories = PresetOverrides.JobAttachments.OutputDirectories;
+	Job->JobPresetStruct.ProfilingSettings = PresetOverrides.ProfilingSettings;
 	Job->ParameterDefinition.Parameters = JobTemplateOverrides.Parameters;
 }
 
@@ -711,6 +786,7 @@ UDeadlineCloudRenderJob* UMoviePipelineDeadlineCloudExecutorJob::CreateDefaultJo
 			FString DefaultTemplate = "/Content/Python/openjd_templates/render_job.yml";
 			FString StepTemplate = "/Content/Python/openjd_templates/render_step.yml";
 			FString EnvTemplate = "/Content/Python/openjd_templates/launch_ue_environment.yml";
+			FString HostReqTemplate = "/Content/Python/openjd_templates/host_requirements.yml";
 
 			FString  PluginContentDir = IPluginManager::Get().FindPlugin(TEXT("UnrealDeadlineCloudService"))->GetBaseDir();
 
@@ -742,6 +818,18 @@ UDeadlineCloudRenderJob* UMoviePipelineDeadlineCloudExecutorJob::CreateDefaultJo
 			PresetEnv->OpenEnvFile(PathToEnvTemplate);
 			Preset->Environments.Add(PresetEnv);
 			UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: CreateDefaultJobPresetFromTemplates completed successfully"));
+
+			UDeadlineCloudHostRequirements* PresetHostReq;
+			PresetHostReq = NewObject<UDeadlineCloudHostRequirements>();
+			
+			FString PathToHostReqTemplate = FPaths::Combine(FPaths::ConvertRelativePathToFull(PluginContentDir), HostReqTemplate);
+			FPaths::NormalizeDirectoryName(PathToHostReqTemplate);
+			UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: Looking for host requirements template at: %s"), *PathToHostReqTemplate);
+
+			PresetHostReq->PathToTemplate.FilePath = PathToHostReqTemplate;
+			PresetHostReq->OpenHostRequirementsFile(PathToHostReqTemplate);
+			PresetStep->HostRequirements = PresetHostReq;
+			UE_LOG(LogTemp, Display, TEXT("DeadlineCloud: Host requirements template loaded successfully"));
 		}
 	}
 
@@ -759,8 +847,10 @@ TArray<FDeadlineCloudStepOverride> UMoviePipelineDeadlineCloudExecutorJob::GetSt
 			if (Step)
 			{
 				auto StepData = Step->GetStepDataToOverride();
-
-				if (StepData.TaskParameterDefinitions.Parameters.IsEmpty() && StepData.EnvironmentsOverrides.IsEmpty())
+				
+				if (StepData.TaskParameterDefinitions.Parameters.IsEmpty() 
+					&& StepData.EnvironmentsOverrides.IsEmpty()
+					&& StepData.HostRequirementsOverride.IsEmpty())
 				{
 					continue;
 				}
@@ -868,6 +958,59 @@ void FMoviePipelineDeadlineCloudExecutorJobCustomization::CustomizeDetails(IDeta
 		{
 			DetailBuilder.ForceRefreshDetails();
 		});
+
+	/*
+	 * Pre-GUI hooks (MRQ path). The MRQ render submission serializes PresetOverrides (a snapshot of the
+	 * data asset taken at preset-assign time), NOT the live data asset, so the pre-GUI hook must apply
+	 * here to reach an MRQ render — running it only on the data-asset editor panel
+	 * (FDeadlineCloudJobDetails) misses this primary submission path. We run env-sourced hooks once per
+	 * executor-job instance and pre-populate PresetOverrides.JobSharedSettings (+ JobTemplateOverrides
+	 * parameters) before the field widgets below are built.
+	 *
+	 * Panel-tied by design: the hook fires when a job's Details panel is built (i.e. the job is opened in
+	 * the MRQ), matching the cross-DCC "pre-GUI" contract that hooks pre-populate the fields the artist
+	 * reviews before editing. A Render (Remote) submits every queue job (remote_executor iterates
+	 * pipeline_queue.get_jobs()), so a job that is never opened is submitted with its un-hooked
+	 * PresetOverrides. This is intentional — there is deliberately no submit-time hook entry point, as a
+	 * submit-time hook could not pre-populate what the artist reviews. The common single-job workflow
+	 * (open the job, review the hooked values, submit) is unaffected.
+	 *
+	 * The bPreGuiHooksApplied latch is set only INSIDE the Get() success branch (the Python impl only
+	 * exists once init_unreal has registered it) and BEFORE RunPreGuiHooks, so a panel rebuild triggered
+	 * while the confirmation modal is up re-enters with the latch already set and cannot double-run.
+	 */
+	// JobPreset must be non-null: we only pre-populate an MRQ job that has a preset (matching the JobPreset
+	// guards on the save/reset handlers); JobTemplateOverrides.Parameters is populated from the preset by
+	// ReloadDataFromJobPreset. A saved queue whose preset asset was deleted/failed to load, or a job
+	// constructed outside a live engine, can reach CustomizeDetails with a null preset.
+	if (MrqJob.IsValid() && MrqJob->JobPreset && !MrqJob->bPreGuiHooksApplied)
+	{
+		if (UDeadlineCloudPreGuiHookLibrary* HookLibrary = UDeadlineCloudPreGuiHookLibrary::Get())
+		{
+			MrqJob->bPreGuiHooksApplied = true;
+			// Pass the current job state (from the preset-override snapshot the MRQ render actually
+			// submits) so hooks can adjust (not just set) it — see RunPreGuiHooks. Seed the parameter
+			// context from JobTemplateOverrides.Parameters — the SAME hidden-item-filtered list
+			// ApplyOutputToParameters writes back to below — so a hook only sees parameters it can
+			// actually override. GetParameterDefinitionWithOverrides() would start from the unfiltered
+			// JobPreset->ParameterDefinition, so a hidden template parameter would be visible in the
+			// context yet absent from the apply list, producing a spurious "not applied" warning.
+			const FDeadlineCloudPreGuiHookOutput HookOutput =
+				HookLibrary->RunPreGuiHooks(
+					MrqJob->PresetOverrides.JobSharedSettings.Name,
+					MrqJob->PresetOverrides.JobSharedSettings.Priority,
+					MrqJob->JobTemplateOverrides.Parameters);
+			if (HookOutput.bRan)
+			{
+				TArray<FString> Unapplied = HookOutput.UnappliedKeys;
+				UDeadlineCloudPreGuiHookLibrary::ApplyOutputToSharedSettings(
+					MrqJob->PresetOverrides.JobSharedSettings, HookOutput, Unapplied);
+				UDeadlineCloudPreGuiHookLibrary::ApplyOutputToParameters(
+					MrqJob->JobTemplateOverrides.Parameters, HookOutput, Unapplied);
+				UDeadlineCloudPreGuiHookLibrary::NotifyUnappliedKeys(Unapplied);
+			}
+		}
+	}
 
 	for (auto& Property : OutMrpCategoryProperties)
 	{

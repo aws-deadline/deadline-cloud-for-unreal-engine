@@ -1,6 +1,9 @@
 name: "Release: Bump"
 
 on:
+  schedule:
+    # Every Monday at 14:00 UTC (~6/7am Pacific, ~9/10am Eastern).
+    - cron: "0 14 * * 1"
   workflow_dispatch:
     inputs:
       force_version_bump:
@@ -17,9 +20,64 @@ concurrency:
   group: release
 
 jobs:
+  CheckForBump:
+    if: github.repository == 'aws-deadline/deadline-cloud-for-unreal-engine'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      should_bump: ${{ steps.check.outputs.should_bump }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+      - name: Install release dependencies
+        run: pip install -r requirements-release.txt
+      - name: Check whether a version bump is needed
+        id: check
+        env:
+          FORCE_VERSION_BUMP: ${{ inputs.force_version_bump }}
+        run: |
+          if [[ -n "$FORCE_VERSION_BUMP" ]]; then
+            echo "should_bump=true" >> "$GITHUB_OUTPUT"
+            echo "### Forced version bump requested" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          NEXT_TAG=$(semantic-release version --print-tag)
+          if [[ -z "$NEXT_TAG" ]]; then
+            echo "::error::semantic-release did not determine a next tag."
+            exit 1
+          fi
+
+          if git show-ref --verify --quiet "refs/tags/$NEXT_TAG"; then
+            if ! git merge-base --is-ancestor "refs/tags/$NEXT_TAG^{commit}" HEAD; then
+              echo "::error::Tag $NEXT_TAG already exists on another branch."
+              exit 1
+            fi
+            echo "should_bump=false" >> "$GITHUB_OUTPUT"
+            echo "### Nothing to release" >> "$GITHUB_STEP_SUMMARY"
+            echo "No commits since $NEXT_TAG require a version bump." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "should_bump=true" >> "$GITHUB_OUTPUT"
+            echo "### Release bump needed: $NEXT_TAG" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   Bump:
+    needs: CheckForBump
+    if: needs.CheckForBump.outputs.should_bump == 'true'
     name: Version Bump
     uses: aws-deadline/.github/.github/workflows/reusable_bump.yml@mainline
+    permissions:
+      id-token: write
+      contents: write
+      pull-requests: write
     secrets: inherit
     with:
       force_version_bump: ${{ inputs.force_version_bump }}

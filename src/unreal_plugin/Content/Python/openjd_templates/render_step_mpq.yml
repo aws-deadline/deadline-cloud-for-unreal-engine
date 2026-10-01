@@ -1,7 +1,7 @@
 name: Render
 parameterSpace:
   taskParameterDefinitions:
-  - name: ChunkId
+  - name: TaskIndex
     type: INT
     range: []
   - name: Handler
@@ -10,7 +10,10 @@ parameterSpace:
   - name: MoviePipelineQueuePath
     type: PATH
     range: []
-  - name: ChunkSize
+  - name: FramesPerTask
+    type: INT
+    range: [0]
+  - name: ShotsPerTask
     type: INT
     range: [1]
 script:
@@ -21,8 +24,8 @@ script:
     data: |
       handler: {{Task.Param.Handler}}
       queue_path: {{Task.Param.MoviePipelineQueuePath}}
-      chunk_size: {{Task.Param.ChunkSize}}
-      chunk_id: {{Task.Param.ChunkId}}
+      shots_per_task: {{Task.Param.ShotsPerTask}}
+      task_index: {{Task.Param.TaskIndex}}
   actions:
     onRun:
       command: unreal-engine-openjd

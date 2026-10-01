@@ -1,3 +1,109 @@
+## 1.1.0 (2026-09-22)
+
+### Features
+* Added an "ignore plugins" submit option, allowing you to exclude specific plugins during job submission. This setting is also applied after MRQ overrides. (#392)
+
+### Bug Fixes
+* MRQ submission now properly validates job eligibility — disabled MRQ jobs are skipped, unpopulated shot-based MRQ jobs are ignored, and frame eligibility is validated before submission. (#397)
+* Disabled MRQ jobs are now correctly skipped during submission instead of being included. (#391)
+* Fixed an issue where AWS Console sign-in credentials failed to authenticate in the submitter. The minimum `deadline` dependency has been raised to 0.60.4 (with the `console` extra) and a loadable `awscrt` is now shipped, ensuring credentials work correctly. (#395)
+## 1.0.0 (2026-09-11)
+
+### BREAKING CHANGES
+* The Unreal adaptor no longer supports the legacy `chunk_size` and `chunk_id` run-data keys. If you have legacy job templates or saved job bundles that use these keys, you must update them to use `shots_per_task` and `task_index` instead. (#384)
+
+### Bug Fixes
+* Adaptor and submitter error telemetry now includes sanitized stack traces, and events are grouped by the operation that raised them, so failures can be diagnosed from telemetry alone. (#380)
+## 0.7.2 (2026-08-26)
+
+### Features
+* Added support for Unreal Engine 5.8. (#360)
+* Added Unreal profiling output support, allowing users to capture and output profiling data from Unreal render jobs. (#371)
+* Pre-GUI submission hooks now run from the Unreal C++ Details panels (data-asset editor and Movie Render Queue Preset Overrides panel), allowing hooks to pre-populate job settings without a Qt submit dialog. This requires `deadline-cloud` 0.60.1 or later. (#336)
+
+### Bug Fixes
+* Updated the default build and generated job host requirements to target Unreal Engine 5.8 on Windows, matching the supported worker platform. (#377)
+## 0.7.1 (2026-07-29)
+
+### Features
+* Updated the default `CondaPackages` adaptor pin in render job templates from `unrealengine-openjd=0.6.*` to `0.7.*`, so Service-Managed Fleets install the 0.7.x adaptor by default. The 0.7.x adaptor continues to accept both legacy (`chunk_size`/`chunk_id`) and current (`shots_per_task`/`task_index`) run-data keys. (#343)
+* Added OpenJD TASK_CHUNKING dynamic chunking support as a third chunking mode alongside shot-based (ShotsPerTask) and frame-based (FramesPerTask) modes. Chunk boundaries are now computed by Deadline Cloud at dispatch time, enabling scheduler-level task chunking via the OpenJD TASK_CHUNKING extension. (#353)
+
+### Bug Fixes
+* The submitter now raises a validation error when a selected dynamic chunking template cannot derive Frames because its MRQ job or level sequence is missing, instead of deferring the error to OpenJD validation. (#355)
+* Added timeouts to the adaptor environment's onEnter and onExit actions so the worker agent will enforce a timeout if the adaptor daemon start or stop gets stuck. (#347)
+## 0.7.0 (2026-07-16)
+
+### BREAKING CHANGES
+* The render partitioning parameters have been renamed: `ChunkSize` is now `ShotsPerTask` and `ChunkId` is now `TaskIndex`. The corresponding run_data keys changed from `chunk_size`/`chunk_id` to `shots_per_task`/`task_index`. Adaptors from Phase 1+ accept both legacy and new keys, so existing workers will continue to function, but newly submitted jobs will use the new names. (#338)
+* The minimum required version of `deadline-cloud` has been raised from 0.57 to 0.59, and `openjd-model` from 0.9.0 to 0.10.0. Users must update these dependencies to continue using the plugin. (#330)
+
+### Features
+* Added a `SubmitMode` parameter to the Perforce render job template that can push render outputs into Perforce as part of the job. Set it to `submit` to aggregate all render task outputs into a single changelist and submit, or `shelve` to leave the aggregate changelist shelved for review. The default (empty string) preserves existing behavior with Job Attachments only. (#337)
+## 0.6.10 (2026-06-25)
+
+### Features
+* The adaptor now accepts the new render partitioning parameter names (`shots_per_task` and `task_index`) while maintaining backwards compatibility with the legacy names (`chunk_size` and `chunk_id`). (#324)
+* The default Conda channel for render job templates is now `deadline-cloud-v2`, with `deadline-cloud` retained as a fallback. Jobs will automatically prefer packages from the newer channel. (#323)
+
+### Bug Fixes
+* Fixed an issue where persistent Perforce workspaces with a changed Root directory would incorrectly report files as up-to-date, causing Unreal Engine to fail loading assets. Also optimized dependency sync to avoid redundantly syncing files on every launch. (#321)
+* The `build_plugin.py` script no longer requires `psutil` as a dependency; it now uses native Windows commands to detect running Unreal Editor processes. (#316)
+## 0.6.9 (2026-05-26)
+
+### Features
+* A default `UnrealAdaptor.json` configuration file is now shipped with the package, setting log_level to DEBUG for verbose adaptor logs by default. (#300)
+* The submitter now notifies you when a newer version of the submitter plugin is available. (#274)
+* Added UE 5.4/5.5 compatibility by replacing UE 5.6+ MinWidth call and converting lambdas to TFunction in DeadlineCloudDetailsWidgetsHelper. (#295)
+
+### Bug Fixes
+* Fixed PermissionError on multi-user Unreal worker hosts caused by the per-adaptor JSON config file being permanently locked to the SID of whichever account first created it. Bumped minimum openjd-adaptor-runtime to 0.9.4. (#302)
+* Fixed a crash in the adaptor when `LevelSequence` is None during `get_frame_range()`. The adaptor now falls back to the MRQ custom playback range in chunked renders instead of crashing with a NoneType error. (#298)
+* Added `{task_index}` token to MRQ FileNameFormat for chunked renders. Previously, when rendering video containers (e.g. .mov) across multiple Deadline tasks, each task would overwrite the same output file. Now each task produces a uniquely named file. (#299)
+* Fixed silent plugin initialization failure where `MoviePipelineDeadlineCloudRemoteExecutor` would disappear due to an outdated `typing_extensions` cached by UE's PipInstall. The plugin now pins `typing_extensions>=4.14.1` and uses targeted `sys.path` insertion. (#294)
+* Fixed an issue where pip would not upgrade deadline and worker-agent dependencies during install. The installer now uses `--force-reinstall` for the UE plugin target and `--upgrade --upgrade-strategy eager` for global Python and worker-agent installs. (#290)
+* The installer now auto-detects and installs FAB/Marketplace plugins automatically. (#286)
+## 0.6.8 (2026-04-14)
+
+
+### Bug Fixes
+* **workflow**: Use centralized build-python-version for PublishToPyPI (#280) ([`9e011f3`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/9e011f3))
+
+
+## 0.6.7 (2026-04-14)
+
+
+### Bug Fixes
+* **pipeline**: Use hatch built-in build command in publish script (#281) ([`8c8089e`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/8c8089ebe009713a13ff473dea72978e180cb2bb))
+
+
+## 0.6.6 (2026-04-13)
+
+
+### Features
+* Adding persistent perforce workspace support (#273) ([`663e5dd`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/663e5dd2cb6fa5a16dfa1939e402d99c5448537e))
+* Add amount and attributes name UI validation (#254) ([`d34587b`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/d34587bc43c0340e6600e0bdbf2f9ad6714b3446))
+* Custom Host Requirements (#232) ([`39db954`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/39db9541bbc3a8b7260aebef00bd8b9217b5a5db))
+
+### Bug Fixes
+* Job attachment file and folder picker should be enabled (#240) ([`0188372`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/018837252e6b71214d5a5b198e7c67512332d9d9))
+
+
+## 0.6.5 (2025-10-29)
+
+
+### Features
+* Adding support for FramesPerTask to set how many frames of rendering each task should aim to do. Takes precedence over ChunkSize. (#229) ([`d06d700`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/d06d700db7c7cd1b3340b7ecd4b60c7753f0b74e))
+* Autodetect UE version in CondaPackages parameter (#196) ([`a201554`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/a20155474536e6126f84b0d8944e0b7d522b4ca3))
+* Persistent Data Asset (#195) ([`5e6d1cc`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/5e6d1cc00287a9c6761b0f70859b208f89f2e70a))
+* Reorganized user guides (#220) ([`72e53b6`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/72e53b6ae68ead19c51ba60d9c1aa84655ce9986))
+
+### Bug Fixes
+* Adding a temporary patch to fix pydantic StringConstraints in Unreal 5.3's default Python (3.9.7). See https://github.com/pydantic/pydantic/issues/7745 (#233) ([`5a0d010`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/5a0d0102b559c43ef4566c27f1cc0f8105b63b88))
+* Fixing include paths to support Unreal 5.3 (#231) ([`76d5d8e`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/76d5d8e447659ca1b75468da83d2081fceec6e8b))
+* Switching job submission to run through a subprocess which is handled by a wrapper script which feeds status updates back to Unreal through stdout/prints for improved performance (#222) ([`6a6af2e`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/6a6af2ee69f587ccdb947e68eabea87f2b0b5e3e))
+
+
 ## 0.6.4 (2025-10-08)
 
 
@@ -164,6 +270,5 @@
 
 ### Features
 * initial integration (#1) ([`96ff05e`](https://github.com/aws-deadline/deadline-cloud-for-unreal-engine/commit/96ff05e787fabfc375c7e379e9b87cd574774869))
-
 
 

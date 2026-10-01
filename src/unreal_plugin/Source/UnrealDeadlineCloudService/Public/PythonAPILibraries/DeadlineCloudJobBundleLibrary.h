@@ -26,6 +26,13 @@ public:
     UFUNCTION(BlueprintImplementableEvent)
     TArray<FString> GetJobDependencies(const UMoviePipelineDeadlineCloudExecutorJob *MrqJob);
 
+	/**
+	* Validate MRQ job parameters
+	* @param MrqJob Unreal MRQ job
+	*/
+	UFUNCTION(BlueprintImplementableEvent)
+	TArray<FParameterDefinition> ValidateMrqJobParameters(const TArray<FParameterDefinition>& Parameters);
+
 	 /**
 	 * Collect list of required plugins for the job
 	 * @return List of the plugins dependencies
@@ -44,4 +51,19 @@ public:
 	/** @return list of Possible job initial states */
 	UFUNCTION(BlueprintImplementableEvent)
 	TArray<FString> GetJobInitialStateOptions();
+
+	UFUNCTION(BlueprintImplementableEvent)
+	bool IsAmountRequirementDefault(const FString& Name);
+
+	UFUNCTION(BlueprintImplementableEvent)
+	bool IsAttributeRequirementDefault(const FString& Name);
+
+	UFUNCTION(BlueprintImplementableEvent)
+	FString GetRequirementFriendlyName(const FString& Name);
+
+	UFUNCTION(BlueprintImplementableEvent)
+	FString ValidateAmountName(const FString& Name);
+
+	UFUNCTION(BlueprintImplementableEvent)
+	FString ValidateAttributeName(const FString& Name);
 };

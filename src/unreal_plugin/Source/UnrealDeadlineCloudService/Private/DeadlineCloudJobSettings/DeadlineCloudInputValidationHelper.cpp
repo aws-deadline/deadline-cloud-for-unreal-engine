@@ -1,6 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 #include "DeadlineCloudJobSettings/DeadlineCloudInputValidationHelper.h"
+#include "PythonAPILibraries/DeadlineCloudJobBundleLibrary.h"
 
 #define LOCTEXT_NAMESPACE "DeadlineWidgets"
 
@@ -45,6 +46,22 @@ FValidatorFunc FDeadlineCloudInputValidationHelper::CreateLengthAndControlValida
     };
 }
 
+FValidatorFunc FDeadlineCloudInputValidationHelper::CreateAmountNameValidator()
+{
+    return [](const FString& Str, FText& Error)
+        {
+            return IsValidAmountName(Str, Error);
+        };
+}
+
+FValidatorFunc FDeadlineCloudInputValidationHelper::CreateAttributeNameValidator()
+{
+    return [](const FString& Str, FText& Error)
+        {
+            return IsValidAttributeName(Str, Error);
+        };
+}
+
 FOnVerifyTextChanged FDeadlineCloudInputValidationHelper::GetStringValidationFunction(EValueValidationType ValidationType)
 {
     using enum EValueValidationType;
@@ -65,6 +82,10 @@ FOnVerifyTextChanged FDeadlineCloudInputValidationHelper::GetStringValidationFun
 
     case EnvParameterValue:
         return MakeValidator(CreateLengthValidator(0, 2048));
+    case AmountName:
+        return MakeValidator(CreateAmountNameValidator());
+    case AttributeName:
+        return MakeValidator(CreateAttributeNameValidator());
 
     default:
         return FOnVerifyTextChanged();
@@ -175,6 +196,48 @@ bool FDeadlineCloudInputValidationHelper::IsValidIdentifier(const FString& InStr
     }
 
     return true;
+}
+
+bool FDeadlineCloudInputValidationHelper::IsValidAttributeName(const FString& InStr, FText& OutError)
+{
+    if (auto Library = UDeadlineCloudJobBundleLibrary::Get())
+    {
+        FString ValidationError = Library->ValidateAttributeName(InStr);
+        
+        if (ValidationError == "")
+        {
+            return true;
+        }
+        else
+        {
+            OutError = FText::FromString(ValidationError);
+            return false;
+        }
+    }
+
+    OutError = LOCTEXT("DeadlineCloudJobBundleLibraryError", "Cannot validate the name: DeadlineCloudJobBundleLibrary are not available");
+    return false;
+}
+
+bool FDeadlineCloudInputValidationHelper::IsValidAmountName(const FString& InStr, FText& OutError)
+{
+    if (auto Library = UDeadlineCloudJobBundleLibrary::Get())
+    {
+        FString ValidationError = Library->ValidateAmountName(InStr);
+
+        if (ValidationError == "")
+        {
+            return true;
+        }
+        else
+        {
+            OutError = FText::FromString(ValidationError);
+            return false;
+        }
+    }
+
+    OutError = LOCTEXT("DeadlineCloudJobBundleLibraryError", "Cannot validate the name: DeadlineCloudJobBundleLibrary are not available");
+    return false;
 }
 
 #undef LOCTEXT_NAMESPACE

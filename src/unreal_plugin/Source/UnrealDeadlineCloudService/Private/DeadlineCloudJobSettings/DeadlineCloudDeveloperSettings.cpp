@@ -17,6 +17,7 @@ namespace DeadlineSettingsKeys
     const FString AutoAccept = TEXT("settings.auto_accept");
     const FString ConflictResolution = TEXT("settings.conflict_resolution");
     const FString LogLevel = TEXT("settings.log_level");
+    const FString SubmitterUpdateNotification = TEXT("settings.submitter_update_notification");
 }
 
 UDeadlineCloudDeveloperSettings::UDeadlineCloudDeveloperSettings()
@@ -329,6 +330,9 @@ void UDeadlineCloudDeveloperSettings::RefreshFromDefaultProfileInternal()
 
 		FString CurrentLoggingLevel = Library->GetAWSStringConfigSetting(DeadlineSettingsKeys::LogLevel);
 		WorkStationConfiguration.General.CurrentLoggingLevel = CurrentLoggingLevel;
+
+		FString SubmitterUpdateNotification = Library->GetAWSStringConfigSetting(DeadlineSettingsKeys::SubmitterUpdateNotification);
+		WorkStationConfiguration.General.ShowUpdateNotifications = SubmitterUpdateNotification != TEXT("false");
     }
 }
 

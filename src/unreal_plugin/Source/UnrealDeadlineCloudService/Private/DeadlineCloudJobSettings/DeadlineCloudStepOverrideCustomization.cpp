@@ -13,10 +13,8 @@
 #include "Widgets/Input/SCheckBox.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Misc/EngineVersionComparison.h"
-#include "DeadlineCloudJobSettings/DeadlineCloudDetailsWidgetsHelper.h"
 #include "Framework/MetaData/DriverMetaData.h"
 #include "PropertyEditorModule.h"
-#include "Framework/MetaData/DriverMetaData.h"
 
 #define LOCTEXT_NAMESPACE "UnrealDeadlineCloudServiceModule"
 
@@ -126,7 +124,7 @@ FDeadlineCloudStepOverrideArrayBuilder::FDeadlineCloudStepOverrideArrayBuilder(T
     PropertyHandle(InPropertyHandle)
 {
     // Initialize PropertyOverrideHandler
-    UMoviePipelineDeadlineCloudExecutorJob* OuterJob = FPropertyAvailabilityHandler::GetOuterJob(InPropertyHandle);
+    UMoviePipelineDeadlineCloudExecutorJob* OuterJob = FDeadlineCloudDetailsWidgetsHelper::GetPropertyOuter<UMoviePipelineDeadlineCloudExecutorJob>(InPropertyHandle);
     PropertyOverrideHandler = MakeShared<FPropertyAvailabilityHandler>(OuterJob);
 }
 

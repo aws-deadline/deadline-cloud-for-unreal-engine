@@ -67,6 +67,10 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         super().__init__(*args, **kwargs)
 
         self.data_validation = DataValidation()
+        self._csv_capture_frames: Optional[int] = None
+        self._memreport_enabled: bool = False
+        self._insights_categories: Optional[str] = None
+        self._startup_insights_trace_file: Optional[str] = None
 
     @property
     def integration_data_interface_version(self) -> SemanticVersion:
@@ -270,6 +274,12 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         :param match: re.Match object from the regex pattern that was matched the message
         :type match: re.Match
         """
+        if match.groups() and (
+            self._csv_capture_frames or self._memreport_enabled or self._insights_categories
+        ):
+            logger.info("Waiting for profiling cleanup before completing the render task")
+            return
+
         self._unreal_is_rendering = False
         self.update_status(progress=100)
 
@@ -342,7 +352,6 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
 
         # Remove the -execcmds argument from the extra_cmd_args
         extra_cmd_str = re.sub(r'(-execcmds=["\'][^"\']*["\'])', "", extra_cmd_str)
-
         client_path = self.unreal_client_path.replace("\\", "/")
         log_args = ["-log", "-unattended", "-stdout", "-allowstdoutlogverbosity", "-nozen"]
 
@@ -351,10 +360,34 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
             log_args += ["-NoLoadingScreen", "-NoScreenMessages", "-RenderOffscreen", "-nozen"]
 
         extra_cmd_args = extra_cmd_str.split(" ")
+        extra_cmd_args, self._csv_capture_frames = self._extract_csv_capture_frames_arg(
+            extra_cmd_args
+        )
+        extra_cmd_args, self._memreport_enabled = self._extract_memreport_arg(extra_cmd_args)
+        extra_cmd_args, self._insights_categories = self._extract_insights_arg(extra_cmd_args)
+        if self._insights_categories and any(
+            re.match(r"^-trace(?:=|$)", arg, flags=re.IGNORECASE) for arg in extra_cmd_args
+        ):
+            logger.warning(
+                "Raw -trace arguments take precedence over Deadline Cloud Insights profiling"
+            )
+            self._insights_categories = None
+        trace_file_arg = self._get_tracefile_arg(unreal_project_path, " ".join(extra_cmd_args))
+        if self._insights_categories:
+            self._startup_insights_trace_file = self._get_startup_trace_file(unreal_project_path)
 
         args = [unreal_exe, unreal_project_path]
         args.extend(log_args)
         args.extend(extra_cmd_args)
+        if trace_file_arg:
+            args.append(trace_file_arg)
+        if self._startup_insights_trace_file:
+            args.extend(
+                [
+                    f"-trace={self._insights_categories}",
+                    f"-tracefile={self._startup_insights_trace_file}",
+                ]
+            )
         args = [arg for arg in args if arg]  # Remove empty strings
         args = list(dict.fromkeys(args))  # Remove duplicates
 
@@ -383,6 +416,150 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
             stderr_handler=regexhandler,
         )
 
+    @staticmethod
+    def _extract_csv_capture_frames_arg(
+        extra_cmd_args: list[str],
+    ) -> tuple[list[str], Optional[int]]:
+        """
+        Remove launch-time CSV frame capture so render steps can start CSV only
+        after MRQ reports that rendering has actually begun.
+        """
+
+        filtered_args: list[str] = []
+        csv_capture_frames: Optional[int] = None
+        index = 0
+
+        while index < len(extra_cmd_args):
+            token = extra_cmd_args[index]
+            match = re.match(r"^-csvCaptureFrames(?:=(.+))?$", token, flags=re.IGNORECASE)
+            if not match:
+                filtered_args.append(token)
+                index += 1
+                continue
+
+            raw_value = match.group(1)
+            if raw_value is None:
+                next_index = index + 1
+                if next_index < len(extra_cmd_args) and not str(
+                    extra_cmd_args[next_index]
+                ).startswith("-"):
+                    raw_value = extra_cmd_args[next_index]
+                    index = next_index
+
+            if raw_value is None or str(raw_value).startswith("-"):
+                logger.warning("Ignoring -csvCaptureFrames without a numeric value")
+                index += 1
+                continue
+
+            try:
+                csv_capture_frames = max(1, int(str(raw_value).strip()))
+                logger.info(
+                    "Deferring CSV capture until render begins: %s frame(s)",
+                    csv_capture_frames,
+                )
+            except ValueError:
+                logger.warning("Ignoring invalid -csvCaptureFrames value: %s", raw_value)
+
+            index += 1
+
+        return filtered_args, csv_capture_frames
+
+    @staticmethod
+    def _extract_memreport_arg(extra_cmd_args: list[str]) -> tuple[list[str], bool]:
+        """
+        Remove the MemReport transport flag from launch args so the render step
+        can request MemReport -full after MRQ has completed.
+        """
+
+        filtered_args: list[str] = []
+        memreport_enabled = False
+
+        for token in extra_cmd_args:
+            if re.match(r"^-MemReport(?:=.*)?$", token, flags=re.IGNORECASE):
+                if not memreport_enabled:
+                    logger.info("Deferring MemReport generation until render completion")
+                memreport_enabled = True
+                continue
+
+            filtered_args.append(token)
+
+        return filtered_args, memreport_enabled
+
+    @staticmethod
+    def _extract_insights_arg(extra_cmd_args: list[str]) -> tuple[list[str], Optional[str]]:
+        filtered_args: list[str] = []
+        insights_categories: Optional[str] = None
+
+        for token in extra_cmd_args:
+            match = re.match(r"^-DeadlineCloudInsights=(.+)$", token, flags=re.IGNORECASE)
+            if not match:
+                filtered_args.append(token)
+                continue
+
+            raw_value = match.group(1).strip().strip("\"'")
+            categories = [category.strip() for category in raw_value.split(",") if category.strip()]
+            if categories and all(
+                re.fullmatch(r"[A-Za-z0-9_.-]+", category) for category in categories
+            ):
+                insights_categories = ",".join(dict.fromkeys(categories))
+                logger.info(
+                    "Configuring Deadline Cloud Unreal Insights capture: %s",
+                    insights_categories,
+                )
+            else:
+                logger.warning("Ignoring invalid -DeadlineCloudInsights value: %s", raw_value)
+
+        return filtered_args, insights_categories
+
+    @staticmethod
+    def _get_or_create_trace_directory(unreal_project_path: str) -> Optional[str]:
+        if not unreal_project_path:
+            return None
+
+        project_dir = os.path.dirname(unreal_project_path).replace("\\", "/").rstrip("/")
+        trace_dir = f"{project_dir}/Saved/Profiling/DeadlineCloud"
+        try:
+            os.makedirs(trace_dir, exist_ok=True)
+        except OSError as exc:
+            logger.warning(
+                "Unable to create Unreal Insights trace directory %s: %s", trace_dir, exc
+            )
+            return None
+
+        return trace_dir
+
+    @staticmethod
+    def _get_tracefile_arg(unreal_project_path: str, extra_cmd_str: str) -> Optional[str]:
+        """
+        If tracing is enabled without an explicit tracefile, write traces under the
+        runtime project's Saved/Profiling directory so artifacts are produced on the worker.
+        """
+
+        if not unreal_project_path:
+            return None
+
+        if not re.search(r"(^|\s)-trace=", extra_cmd_str, flags=re.IGNORECASE):
+            return None
+
+        if re.search(r"(^|\s)-tracefile=", extra_cmd_str, flags=re.IGNORECASE):
+            return None
+
+        trace_dir = UnrealAdaptor._get_or_create_trace_directory(unreal_project_path)
+        if not trace_dir:
+            return None
+
+        trace_name = time.strftime("deadline-cloud-insights-%Y%m%d-%H%M%S.utrace")
+        return f"-tracefile={trace_dir}/{trace_name}"
+
+    @staticmethod
+    def _get_startup_trace_file(unreal_project_path: str) -> Optional[str]:
+        trace_dir = UnrealAdaptor._get_or_create_trace_directory(unreal_project_path)
+        if not trace_dir:
+            return None
+
+        trace_name = time.strftime("deadline-cloud-insights-startup-%Y%m%d-%H%M%S.utrace")
+        return f"{trace_dir}/{trace_name}"
+
     def _populate_client_loaded_action(self) -> None:
         """
         Populates the adaptor server's action queue with the specific action to check if UE initialized or not yet
@@ -394,13 +571,28 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         self, exc: Exception, exception_scope: str, exit_code: Optional[int] = None
     ) -> None:
         """
-        Record telemetry error event and raise given exception
+        Record telemetry error event with stack trace and raise given exception
         """
-        self.telemetry_client.record_error(
-            event_details={"exit_code": exit_code, "exception_scope": exception_scope},
-            exception_type=str(type(exc)),
-            from_gui=False,
-        )
+        # Callers must pass an exception that has already been raised and caught,
+        # so `exc.__traceback__` is populated — the recorded stack trace is derived
+        # from it and would otherwise be empty.
+        if exc.__traceback__ is None:
+            logger.warning(
+                "Recording %s with no traceback; the emitted stack trace will be empty. "
+                "Raise and catch the exception before calling _record_error_and_raise.",
+                type(exc).__qualname__,
+            )
+        try:
+            self.telemetry_client.record_error_with_trace(
+                exc=exc,
+                exception_scope=exception_scope,
+                extra_details={
+                    "exit_code": exit_code,
+                    "error_operation": exception_scope,
+                },
+            )
+        except Exception:
+            logger.warning("Failed to record error telemetry", exc_info=True)
         raise exc
 
     def on_start(self) -> None:
@@ -468,20 +660,42 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         :raises RuntimeError: When Unreal exited early and did not render successfully
         """
         if not self._unreal_is_running:
-            self._record_error_and_raise(
-                exc=UnrealNotRunningError("Cannot render because Unreal is not running"),
-                exception_scope="on_run",
-            )
+            # Raise and catch here so the recorded stack trace points at this frame
+            try:
+                raise UnrealNotRunningError("Cannot render because Unreal is not running")
+            except UnrealNotRunningError as e:
+                self._record_error_and_raise(exc=e, exception_scope="on_run")
 
         try:
             self.data_validation.validate_run_data(run_data)
         except (jsonschema.exceptions.ValidationError, jsonschema.exceptions.SchemaError) as e:
             self._record_error_and_raise(exc=e, exception_scope="on_run")
 
+        if run_data.get("handler", "base") == "render":
+            if self._csv_capture_frames or self._memreport_enabled or self._insights_categories:
+                run_data = dict(run_data)
+                if self._csv_capture_frames:
+                    run_data["csv_capture_frames"] = self._csv_capture_frames
+                if self._memreport_enabled:
+                    run_data["memreport"] = True
+                if self._insights_categories:
+                    run_data["insights_categories"] = self._insights_categories
+                    if self._startup_insights_trace_file:
+                        run_data["startup_insights_trace_file"] = self._startup_insights_trace_file
+                        self._startup_insights_trace_file = None
+
         # Set up the step handler
         self._action_queue.enqueue_action(
             Action("set_handler", {"handler": run_data.get("handler", "base")})
         )
+
+        # Snapshot output_path contents BEFORE the render runs. Chunked tasks
+        # share one session (and therefore one output_path); the render only
+        # writes into the shot subdirs for *this* chunk, but the session dir
+        # also contains prior chunks' output. Without this snapshot we'd
+        # re-shelve every prior task's frames on every task. See the diff-
+        # against-snapshot logic in _maybe_submit_renders_to_perforce.
+        pre_render_snapshot = self._snapshot_output_files(run_data.get("output_path"))
 
         self._unreal_is_rendering = True
         self._action_queue.enqueue_action(Action("run_script", run_data))
@@ -502,14 +716,323 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         if not self._unreal_is_running and self._unreal_client:
             exit_code = self._unreal_client.returncode
             if exit_code != 0:
-                self._record_error_and_raise(
-                    exc=RuntimeError(
+                # Raise and catch here so the recorded stack trace points at this frame
+                try:
+                    raise RuntimeError(
                         "Unreal exited early and did not render successfully, please check render logs. "
                         f"Exit code {exit_code}"
-                    ),
-                    exception_scope="on_run",
-                    exit_code=exit_code,
+                    )
+                except RuntimeError as e:
+                    self._record_error_and_raise(
+                        exc=e, exception_scope="on_run", exit_code=exit_code
+                    )
+
+        # Render succeeded. If the customer requested it (SubmitMode set),
+        # push the outputs into the worker's Perforce client. This runs
+        # same-worker (we're inside the task's on_run, on the worker that
+        # produced the files), so OutputPath paths in run_data resolve to
+        # local files that exist.
+        #
+        # When SubmitMode is active, the submitter's
+        # `RenderUnrealOpenJob.get_asset_references` moves output_directories
+        # into referenced_paths, so Job Attachments no longer uploads render
+        # outputs — the P4 shelve here is the sole delivery path for the
+        # frames. Any failure inside `_maybe_submit_renders_to_perforce`
+        # therefore raises so the task fails and Deadline retries; a silent
+        # skip would drop the frames on the floor.
+        #
+        # When SubmitMode is unset, this call is a no-op and JA runs
+        # normally as configured by the queue.
+        self._maybe_submit_renders_to_perforce(run_data, pre_render_snapshot)
+
+    @staticmethod
+    def _snapshot_output_files(output_path: Optional[str]) -> dict:
+        """
+        Record every file's mtime under ``output_path``. Used to identify
+        which files were produced (or modified) by *this* task's render, so
+        subsequent chunked tasks in the same session don't re-shelve prior
+        tasks' frames.
+
+        Returns an empty dict if the path is missing or unreadable — the
+        diff step then treats every post-render file as new.
+        """
+        from pathlib import Path
+
+        if not output_path:
+            return {}
+        root = Path(output_path)
+        if not root.exists():
+            return {}
+        snapshot: dict = {}
+        for child in root.rglob("*"):
+            if not child.is_file():
+                continue
+            try:
+                snapshot[str(child)] = child.stat().st_mtime_ns
+            except OSError:
+                # A file that vanished between rglob and stat is not this
+                # task's problem — skip it.
+                continue
+        return snapshot
+
+    def _maybe_submit_renders_to_perforce(
+        self, run_data: dict, pre_render_snapshot: Optional[dict] = None
+    ) -> None:
+        """
+        Optional post-render Perforce commit/shelve, gated by run_data['submit_mode'].
+
+        ``pre_render_snapshot`` is the {path -> mtime_ns} map captured just
+        before the render ran, used to determine which files under
+        ``output_path`` are *this* task's output vs. leftovers from prior
+        chunks in the same session. When None (unexpected), we fall back to
+        treating every post-render file as new — that reproduces the
+        pre-snapshot behavior of over-shelving in chunked jobs.
+
+        Empty/missing ``submit_mode`` → no-op. When ``submit_mode`` IS set,
+        this method is the only delivery path for render outputs: the
+        submitter clears ``output_directories`` in that mode so Job
+        Attachments no longer uploads render outputs to S3. Any failure
+        (missing prerequisites, staging error, or P4 shelve failure)
+        therefore raises so the task fails and Deadline can retry — a
+        silent skip would drop the frames on the floor.
+        """
+        submit_mode = (run_data.get("submit_mode") or "").strip()
+        if not submit_mode:
+            return
+
+        output_path = run_data.get("output_path")
+        if not output_path:
+            # submit_mode is set → this is the only delivery path (see
+            # docstring). Missing output_path means we have nothing to
+            # deliver anywhere. Fail loudly.
+            raise RuntimeError(
+                f"submit_mode={submit_mode!r} but run_data has no output_path; "
+                "cannot deliver render outputs. Job Attachments upload of "
+                "outputs is disabled when SubmitMode is active, so the "
+                "frames would land nowhere. Check the render step template."
+            )
+
+        # Imported lazily so the adaptor doesn't pull in p4python on render-only
+        # workers that never set submit_mode.
+        try:
+            from deadline.unreal_perforce_utils import app as p4_app
+        except ImportError as e:
+            raise RuntimeError(
+                f"submit_mode={submit_mode!r} requested but unreal_perforce_utils "
+                f"is unavailable (import failed: {e}). This worker cannot "
+                "deliver render outputs via Perforce."
+            ) from e
+
+        project_name = (run_data.get("project_name") or "").strip()
+        if not project_name:
+            raise RuntimeError(
+                f"submit_mode={submit_mode!r} but run_data has no project_name. "
+                "The P4 render step template must pass project_name through "
+                "run-data — make sure the template is from this version of "
+                "the plugin. Failing the task instead of silently dropping "
+                "render outputs (JA upload is disabled in SubmitMode)."
+            )
+
+        project_relative_path = (run_data.get("project_relative_path") or "").strip()
+        if not project_relative_path:
+            raise RuntimeError(
+                f"submit_mode={submit_mode!r} but run_data has no "
+                "project_relative_path. The P4 render step template must "
+                "pass project_relative_path through run-data. Failing the "
+                "task instead of silently dropping render outputs (JA "
+                "upload is disabled in SubmitMode)."
+            )
+
+        p4_client_directory = os.environ.get("P4_CLIENT_DIRECTORY", "").strip()
+        if not p4_client_directory:
+            raise RuntimeError(
+                f"submit_mode={submit_mode!r} but P4_CLIENT_DIRECTORY env var "
+                "is unset. This env var is set by create_workspace at the "
+                "start of the P4 sync environment, so its absence means the "
+                "P4 environment didn't run or its output wasn't propagated. "
+                "Failing the task — JA output upload is disabled in "
+                "SubmitMode, so the frames would land nowhere."
+            )
+
+        # Identify files this task produced. Chunked tasks share output_path,
+        # so a bare `copytree(output_path, ...)` picks up every prior task's
+        # frames too. Diff against the pre-render snapshot: a file is "ours"
+        # if it was absent before or its mtime changed.
+        from pathlib import Path
+        import shutil
+        import stat
+
+        session_output_root = Path(output_path)
+        snapshot = pre_render_snapshot or {}
+        this_task_files: list[Path] = []
+        if session_output_root.exists():
+            for child in session_output_root.rglob("*"):
+                if not child.is_file():
+                    continue
+                try:
+                    current_mtime = child.stat().st_mtime_ns
+                except OSError:
+                    continue
+                prior_mtime = snapshot.get(str(child))
+                if prior_mtime is None or prior_mtime != current_mtime:
+                    this_task_files.append(child)
+
+        if not this_task_files:
+            logger.info(
+                "submit_mode=%r: no new/modified files under %r since render "
+                "started (pre-snapshot: %d files, post-render walk: %d files). "
+                "Nothing to shelve for this task.",
+                submit_mode,
+                output_path,
+                len(snapshot),
+                0,
+            )
+            return
+
+        logger.info(
+            "submit_mode=%r: %d file(s) attributable to this task's render "
+            "(pre-snapshot had %d file(s) under %r).",
+            submit_mode,
+            len(this_task_files),
+            len(snapshot),
+            output_path,
+        )
+
+        # Stage those files into the P4 workspace at their canonical location
+        # (Saved/<output_leaf>/...). We preserve the relative layout so the
+        # depot path matches: e.g. session/.../MovieRenders/shot0010/frame.exr
+        # lands at workspace/.../Saved/MovieRenders/shot0010/frame.exr.
+        # `submit_renders` reconciles only these specific paths, so prior
+        # chunks' files sitting in the same workspace dir don't leak into
+        # this task's shelve.
+        project_dir_relative = Path(project_relative_path).parent
+        output_leaf = Path(output_path).name or "MovieRenders"
+        workspace_output_dir = (
+            Path(p4_client_directory) / project_dir_relative / "Saved" / output_leaf
+        )
+
+        # Clear read-only on files we're about to overwrite. P4 syncs files
+        # read-only (noallwrite); without this, copying over a previously-
+        # submitted frame fails with PermissionError. Only touch destinations
+        # that exist and correspond to files we're staging.
+        #
+        # All-or-nothing staging: SubmitMode is the sole delivery path for
+        # render outputs (JA output upload is disabled in `get_asset_references`),
+        # so a partial stage would silently drop the frames that failed to
+        # copy — the task would report success and downstream `assemble_shelves`
+        # would aggregate an incomplete set with no operator alert. Collect
+        # every failure and raise once the loop finishes, so operators see
+        # the full failure list in one shot.
+        workspace_paths_for_reconcile: list[str] = []
+        staging_failures: list[tuple[str, str, str]] = []  # (src, dst, error)
+        for src in this_task_files:
+            try:
+                rel = src.relative_to(session_output_root)
+            except ValueError:
+                # rglob under session_output_root should always be relative,
+                # but skip if not.
+                continue
+            dst = workspace_output_dir / rel
+            if dst.exists() and dst.is_file():
+                try:
+                    dst.chmod(stat.S_IWRITE | stat.S_IREAD)
+                except OSError:
+                    # Best-effort clearing of the P4-set read-only bit; if the
+                    # OS refuses (e.g. ACL-restricted, foreign filesystem), the
+                    # subsequent copy2 will surface a clearer error.
+                    pass
+            try:
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dst)
+                workspace_paths_for_reconcile.append(str(dst))
+            except Exception as e:
+                logger.warning(
+                    "Failed to stage %r -> %r for Perforce submit: %s.",
+                    str(src),
+                    str(dst),
+                    e,
                 )
+                staging_failures.append((str(src), str(dst), str(e)))
+
+        if staging_failures:
+            # Any single failed copy is a task failure. Report enough detail
+            # for postmortem: the count, the first N examples, and a pointer
+            # to the per-file WARNING logs above.
+            preview = staging_failures[:5]
+            preview_lines = "\n".join(f"  {src} -> {dst}: {err}" for (src, dst, err) in preview)
+            more = (
+                f"\n  ...and {len(staging_failures) - len(preview)} more"
+                if len(staging_failures) > len(preview)
+                else ""
+            )
+            raise RuntimeError(
+                f"submit_mode={submit_mode!r}: {len(staging_failures)} of "
+                f"{len(this_task_files)} task-produced file(s) failed to stage "
+                f"to the P4 workspace. Failing the task — JA output upload is "
+                f"disabled in SubmitMode, so partial staging would silently drop "
+                f"the un-staged frames. First failures:\n{preview_lines}{more}"
+            )
+
+        logger.info(
+            "Render succeeded; submit_mode=%r — staged %d file(s) under %r "
+            "and shelving to Perforce (project %r).",
+            submit_mode,
+            len(workspace_paths_for_reconcile),
+            str(workspace_output_dir),
+            project_name,
+        )
+        # Always shelve at the task level, even when submit_mode='submit'.
+        # In chunked/distributed jobs, one AssembleShelves step downstream
+        # collects every task's shelved CL and produces a single aggregated
+        # CL (submitted or left shelved based on the user's SubmitMode).
+        # The 'submit' vs 'shelve' distinction is now a *final-mode* choice
+        # applied by AssembleShelves, not something individual tasks decide.
+        # Emitting the CL as shelved on every task is the uniform contract
+        # the assemble step consumes.
+        try:
+            cl_number = p4_app.submit_renders(
+                unreal_project_name=project_name,
+                output_directories=[],
+                explicit_files=workspace_paths_for_reconcile,
+                mode="shelve",
+                deadline_job_id=os.environ.get("DEADLINE_JOB_ID"),
+            )
+        except Exception as e:
+            # Customer opted into P4 delivery via SubmitMode; JA output upload
+            # is skipped in this mode (see P4RenderUnrealOpenJob.get_asset_
+            # references). If the shelve fails, the frames go nowhere — silent
+            # success would be worse than a failed task the operator can retry.
+            # Let it raise; Deadline's maxRetriesPerTask handles transient
+            # failures and maxFailedTasksCount caps the overall damage.
+            logger.error(
+                "Perforce shelve failed (submit_mode=%r, staged path=%r): %s. "
+                "Failing the task so Deadline retries or surfaces the failure.",
+                submit_mode,
+                str(workspace_output_dir),
+                e,
+            )
+            raise
+
+        # Positive confirmation so operators can grep one line to verify a
+        # successful shelve, without scrolling through the interleaved render
+        # output to find the submit_renders log lines.
+        if cl_number is None:
+            # Render produced no diffs vs depot (e.g. deterministic re-render
+            # of already-committed frames). Nothing to aggregate for this task.
+            logger.info(
+                "Perforce shelve complete (submit_mode=%r): no files changed "
+                "since last sync, no changelist created for this task.",
+                submit_mode,
+            )
+        else:
+            logger.info(
+                "Perforce shelve complete: CL %d shelved for aggregation. "
+                "SHELVED_CL=%d emitted for downstream AssembleShelves step. "
+                "Final mode from SubmitMode=%r.",
+                cl_number,
+                cl_number,
+                submit_mode,
+            )
 
     def on_stop(self) -> None:
         """

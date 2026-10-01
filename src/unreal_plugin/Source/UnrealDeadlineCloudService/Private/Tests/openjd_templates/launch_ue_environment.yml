@@ -23,6 +23,8 @@ script:
       - file://{{Env.File.initData}}
       cancelation:
         mode: NOTIFY_THEN_TERMINATE
+      # Server start timeout (30s) + Unreal start timeout (86400s) + 10 minute buffer
+      timeout: 87030
     onExit:
       command: unreal-engine-openjd
       args:
@@ -32,3 +34,5 @@ script:
       - '{{Session.WorkingDirectory}}/connection.json'
       cancelation:
         mode: NOTIFY_THEN_TERMINATE
+      # Server end timeout (30s) + Unreal end timeout (30s) + 1 minute buffer
+      timeout: 120

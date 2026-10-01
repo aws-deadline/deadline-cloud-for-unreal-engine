@@ -6,10 +6,10 @@
 
 #include "MoviePipelineQueue.h"
 #include "MoviePipelinePrimaryConfig.h"
-#include "MovieRenderPipelineEditor/Public/MoviePipelineQueueSubsystem.h"
-#include "MovieRenderPipelineEditor/Public/MovieRenderPipelineSettings.h"
-#include "MovieRenderPipelineCore/Public/MoviePipelineExecutor.h"
-#include "MovieRenderPipelineCore/Public/MoviePipelineQueue.h"
+#include "MoviePipelineExecutor.h"
+#include "MoviePipelineQueueSubsystem.h"
+#include "MovieRenderPipelineSettings.h"
+
 
 #include "Editor.h"
 #include "EditorSubsystem.h"
@@ -33,6 +33,17 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Deadline Executor")
     static TSubclassOf<UMoviePipelineExecutorBase> GetDefaultDeadlineExecutor();
 
+    UFUNCTION(BlueprintCallable, Category = "Deadline Executor")
+    static void StopCsvCapture();
+
+    UFUNCTION(BlueprintPure, Category = "Deadline Executor")
+    static bool IsCsvCaptureComplete();
+
+    UFUNCTION(BlueprintCallable, Category = "Deadline Executor")
+    static void RequestMemReport();
+
+    UFUNCTION(BlueprintPure, Category = "Deadline Executor")
+    static bool IsMemReportComplete();
 };
 
 UCLASS(Blueprintable)

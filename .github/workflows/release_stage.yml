@@ -1,0 +1,76 @@
+name: "Release: Stage"
+# Tags, tests, and stages the package before the public release workflow.
+run-name: "Release: Stage ${{ github.event.head_commit.message || inputs.tag }}"
+
+on:
+  push:
+    branches:
+      - mainline
+    paths:
+      - CHANGELOG.md
+  workflow_dispatch:
+    inputs:
+      tag:
+        required: true
+        type: string
+        description: Specify a tag to re-run a release.
+
+concurrency:
+  group: release
+
+permissions:
+  contents: read
+
+jobs:
+  TagRelease:
+    uses: aws-deadline/.github/.github/workflows/reusable_tag_release.yml@mainline
+    secrets: inherit
+    with:
+      tag: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || '' }}
+
+  UnitTests:
+    needs: [TagRelease]
+    name: Unit and Integration Tests
+    uses: ./.github/workflows/code_quality.yml
+    with:
+      tag: ${{ needs.TagRelease.outputs.tag }}
+
+  IntegrationTests:
+    needs: [TagRelease]
+    name: Integration and UI Automation Tests
+    uses: aws-deadline/.github/.github/workflows/reusable_integration_test.yml@mainline
+    permissions:
+      id-token: write
+      contents: read
+    secrets: inherit
+    with:
+      repository: ${{ github.event.repository.name }}
+      # Unreal has no release integ/e2e projects; test the release tag using the mainline projects.
+      environment: mainline
+      os: windows
+      tag: ${{ needs.TagRelease.outputs.tag }}
+      run_ui_automation: true
+
+  E2ETests:
+    needs: [TagRelease]
+    name: E2E Tests
+    uses: aws-deadline/.github/.github/workflows/reusable_e2e_test.yml@mainline
+    permissions:
+      id-token: write
+      contents: read
+    secrets: inherit
+    with:
+      repository: ${{ github.event.repository.name }}
+      # Unreal has no release integ/e2e projects; test the release tag using the mainline projects.
+      environment: mainline
+      os: windows
+      tag: ${{ needs.TagRelease.outputs.tag }}
+
+  Publish:
+      needs: [TagRelease, UnitTests, IntegrationTests, E2ETests]
+      uses: aws-deadline/.github/.github/workflows/reusable_publish_python.yml@mainline
+      permissions:
+        id-token: write
+      secrets: inherit
+      with:
+          tag: ${{ needs.TagRelease.outputs.tag }}
