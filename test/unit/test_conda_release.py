@@ -9,7 +9,6 @@ from pathlib import Path
 
 import pytest
 
-
 spec = importlib.util.spec_from_file_location(
     "conda_release", Path(__file__).parents[2] / "scripts" / "conda_release.py"
 )

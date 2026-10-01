@@ -27,7 +27,7 @@ Deploy and verify the release protection App before merging this workflow replac
 The App must:
 
 1. Have access only to the intended release repositories, with Actions read, Checks
-   write, and Deployments write permissions.
+   write, Deployments write, and Contents read permissions.
 2. Handle signed `deployment_protection_rule` webhooks and subscribe to Conda
    promotion and approval events.
 3. Read the metadata artifact from the requesting workflow, validate the repository,

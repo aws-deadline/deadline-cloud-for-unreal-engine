@@ -9,7 +9,6 @@ import re
 import urllib.request
 from pathlib import Path
 
-
 PACKAGE = "unrealengine-openjd"
 PLATFORMS = ["win-64"]
 MANIFEST_URL = "https://downloads.deadlinecloud.amazonaws.com/conda/manifest.json"

@@ -498,7 +498,7 @@ if unreal:
 class UnrealRenderStepHandler(BaseStepHandler):
     cached_frame_range_start = None
     cached_frame_range_end = None
-    active_executor = None
+    active_executor: Optional["RemoteRenderMoviePipelineEditorExecutor"] = None
     render_wait_started = False
 
     def __init__(self):
