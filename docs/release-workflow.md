@@ -4,22 +4,30 @@
 
 ```mermaid
 flowchart LR
-    C[Approved changelog merge] --> T[Validate and tag release]
-    T --> Q[Unit, integration, UI and E2E tests]
-    Q --> S[Stage Python package]
-    S --> M[Upload release identity]
-    M --> W[WaitForConda: protected environment]
-    P[Conda promotion events] --> A[GitHub App: progress check and gate approval]
+    C[Approved changelog merge] --> T[TagRelease]
+    T --> Q[Existing unit, integration, UI and E2E tests]
+    Q --> S[Publish: stage package]
+    S --> M[AuthorizePublish: prepare gate metadata]
+    M --> W[CheckConda: protected wait]
+    P[Conda promotion events] --> A[GitHub App: progress and gate approval]
     A --> W
-    W --> V[Verify App approval and public manifest]
-    V --> R[Build and sign GitHub release]
-    R --> Y[Publish to PyPI]
+    W --> V[ValidateRelease]
+    V --> B[PreRelease]
+    B --> R[Release]
+    R --> Y[PublishToPyPI]
 ```
 
 Changelog review and merging remain manual. Version bump automation is separate.
 The workflow has no scheduled readiness check. While the App tracks Conda promotion,
 GitHub displays a waiting environment job and an App check with promotion progress.
 No runner is occupied during the environment wait.
+
+The combined workflow uses exactly the existing Stage and Publish job set.
+`AuthorizePublish` prepares the release metadata after the existing `Publish` staging
+job succeeds. The existing `CheckConda` job becomes the protected wait and verifies
+the App proof and public manifest after approval. No metadata, registration,
+configuration-validation, or separate wait job is added. Existing tests, builds,
+signing, and publishing steps are preserved.
 
 ## Infrastructure prerequisite
 
@@ -55,7 +63,9 @@ personal fork PoC is evidence for the mechanism; it is not a production deployme
 5. Set repository variable `EVENT_DRIVEN_CONDA_RELEASE_ENABLED` to `true`.
 6. Merge the workflow change and observe the first approved changelog release.
 
-Without those variables the workflow fails before tagging or staging. If the
+Without `EVENT_DRIVEN_CONDA_RELEASE_ENABLED=true`, the workflow skips the release
+chain before tagging or staging. `AuthorizePublish` rejects a missing or invalid
+App ID before reaching the Conda gate. If the
 environment rule is removed or bypassed, the job still requires a completed,
 successful check from that App for this release and attempt before publishing.
 The job rechecks the public manifest immediately after the gate opens.
@@ -66,7 +76,7 @@ Keep this change in draft until the infrastructure prerequisite is verified.
 
 ## App contract
 
-After staging succeeds, `ReleaseMetadata` uploads
+After staging succeeds, the existing `AuthorizePublish` job uploads
 `conda-release-metadata-<run_attempt>` containing only `release.json`:
 
 ```json
@@ -100,8 +110,8 @@ the App ID, run, attempt, release identity, and check head commit.
 
 Use **Run workflow** on `mainline` with a validated existing tag to restage a release.
 Use **Re-run all jobs** after cancellation, gate failure, or expiration so staging
-and metadata are regenerated for the new attempt. Re-running only failed jobs can
-retain an older metadata artifact; that attempt is rejected before publishing.
+and the metadata steps in `AuthorizePublish` are rerun for the new attempt.
+Re-running only failed jobs can retain an older metadata artifact; that attempt is rejected before publishing.
 
 Later changelog merges do not cancel a waiting release. Each distinct release has
 its own concurrency group. GitHub can replace pending runs within the same group,

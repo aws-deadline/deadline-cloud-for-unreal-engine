@@ -13,8 +13,10 @@ polling are unnecessary for this design.
 
 ## Repository implementation
 
-Combine the existing Stage and Publish job chains. Upload a release identity only
-after staging succeeds. Identify the approval by repository, run, attempt, package,
+Combine the existing Stage and Publish job chains without adding jobs. Keep the
+original test, build, signing, and publishing implementations. Use the existing
+`AuthorizePublish` job to upload a release identity after staging succeeds, and
+the existing `CheckConda` job for the protected wait and approval verification. Identify the approval by repository, run, attempt, package,
 version, required platforms, and immutable tagged source.
 
 Environment approval alone is insufficient: verify the configured App's successful

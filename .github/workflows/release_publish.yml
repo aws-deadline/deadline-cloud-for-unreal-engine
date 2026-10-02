@@ -21,26 +21,11 @@ permissions:
   contents: read
 
 jobs:
-  ValidateContext:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Verify event-driven release configuration
-        env:
-          REPOSITORY: ${{ github.repository }}
-          REF: ${{ github.ref }}
-          ENABLED: ${{ vars.EVENT_DRIVEN_CONDA_RELEASE_ENABLED }}
-          APP_ID: ${{ vars.CONDA_RELEASE_APP_ID }}
-        run: |
-          set -euo pipefail
-          test "$REPOSITORY" = aws-deadline/deadline-cloud-for-unreal-engine
-          test "$REF" = refs/heads/mainline
-          if [[ "$ENABLED" != true || ! "$APP_ID" =~ ^[1-9][0-9]*$ ]]; then
-            echo "::error::Configure the conda-release App protection rule before enabling event-driven releases. See docs/release-workflow.md."
-            exit 1
-          fi
-
   TagRelease:
-    needs: ValidateContext
+    if: >-
+      github.repository == 'aws-deadline/deadline-cloud-for-unreal-engine' &&
+      github.ref == 'refs/heads/mainline' &&
+      vars.EVENT_DRIVEN_CONDA_RELEASE_ENABLED == 'true'
     uses: aws-deadline/.github/.github/workflows/reusable_tag_release.yml@mainline
     secrets: inherit
     with:
@@ -84,7 +69,7 @@ jobs:
       os: windows
       tag: ${{ needs.TagRelease.outputs.tag }}
 
-  Stage:
+  Publish:
     needs: [TagRelease, UnitTests, IntegrationTests, E2ETests]
     uses: aws-deadline/.github/.github/workflows/reusable_publish_python.yml@mainline
     permissions:
@@ -93,12 +78,25 @@ jobs:
     with:
       tag: ${{ needs.TagRelease.outputs.tag }}
 
-  ReleaseMetadata:
-    needs: [TagRelease, Stage]
+  AuthorizePublish:
+    needs: [TagRelease, Publish]
     runs-on: ubuntu-latest
     outputs:
+      tag: ${{ steps.release.outputs.tag }}
       artifact_id: ${{ steps.upload.outputs.artifact-id }}
     steps:
+      - name: Verify release gate configuration
+        id: release
+        env:
+          TAG: ${{ needs.TagRelease.outputs.tag }}
+          APP_ID: ${{ vars.CONDA_RELEASE_APP_ID }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$APP_ID" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::Configure CONDA_RELEASE_APP_ID before releasing. See docs/release-workflow.md."
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
@@ -117,11 +115,14 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
-  WaitForConda:
+  CheckConda:
     name: Wait for Conda promotion
-    needs: ReleaseMetadata
+    needs: AuthorizePublish
     environment: conda-release
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.readiness.outputs.tag }}
+      ready: ${{ steps.readiness.outputs.ready }}
     permissions:
       contents: read
       checks: read
@@ -132,44 +133,58 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          artifact-ids: ${{ needs.ReleaseMetadata.outputs.artifact_id }}
+          artifact-ids: ${{ needs.AuthorizePublish.outputs.artifact_id }}
           merge-multiple: true
       - name: Verify the App approval for this run and attempt
+        id: readiness
         env:
+          TAG: ${{ needs.AuthorizePublish.outputs.tag }}
           GH_TOKEN: ${{ github.token }}
           CONDA_RELEASE_APP_ID: ${{ vars.CONDA_RELEASE_APP_ID }}
         run: |
           gh api --paginate --slurp \
             "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs?filter=all&per_page=100" > checks.json
           python scripts/conda_release.py verify release.json checks.json
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "ready=true" >> "$GITHUB_OUTPUT"
           echo "### Conda promotion approved" >> "$GITHUB_STEP_SUMMARY"
           echo "The App approved this release and the public Conda manifest contains the required package version and platform." >> "$GITHUB_STEP_SUMMARY"
 
+  ValidateRelease:
+    needs: CheckConda
+    if: needs.CheckConda.outputs.ready == 'true' && needs.CheckConda.outputs.tag != ''
+    uses: aws-deadline/.github/.github/workflows/reusable_tag_release.yml@mainline
+    permissions:
+      contents: read
+    secrets: inherit
+    with:
+      tag: ${{ needs.CheckConda.outputs.tag }}
+
   PreRelease:
-    needs: [TagRelease, WaitForConda]
-    if: needs.TagRelease.outputs.tag != ''
+    needs: ValidateRelease
+    if: needs.ValidateRelease.outputs.tag != ''
     uses: aws-deadline/.github/.github/workflows/reusable_prerelease.yml@mainline
     permissions:
       id-token: write
       contents: write
     secrets: inherit
     with:
-      tag: ${{ needs.TagRelease.outputs.tag }}
+      tag: ${{ needs.ValidateRelease.outputs.tag }}
 
   Release:
-    needs: [TagRelease, PreRelease]
-    if: needs.TagRelease.outputs.tag != ''
+    needs: [ValidateRelease, PreRelease]
+    if: needs.ValidateRelease.outputs.tag != ''
     uses: aws-deadline/.github/.github/workflows/reusable_release.yml@mainline
     secrets: inherit
     permissions:
       id-token: write
       contents: write
     with:
-      tag: ${{ needs.TagRelease.outputs.tag }}
+      tag: ${{ needs.ValidateRelease.outputs.tag }}
 
   PublishToPyPI:
-    needs: [TagRelease, Release]
-    if: needs.TagRelease.outputs.tag != ''
+    needs: [ValidateRelease, Release]
+    if: needs.ValidateRelease.outputs.tag != ''
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -179,13 +194,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.TagRelease.outputs.tag }}
+          ref: ${{ needs.ValidateRelease.outputs.tag }}
           fetch-depth: 0
           persist-credentials: false
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: ${{ needs.TagRelease.outputs.build-python-version }}
+          python-version: ${{ needs.ValidateRelease.outputs.build-python-version }}
       - name: Install dependencies
         run: pip install --upgrade hatch
       - name: Build
