@@ -11,8 +11,7 @@ flowchart LR
     M --> W[CheckConda: protected wait]
     P[Conda promotion events] --> A[GitHub App: progress and gate approval]
     A --> W
-    W --> V[ValidateRelease]
-    V --> B[PreRelease]
+    W --> B[PreRelease]
     B --> R[Release]
     R --> Y[PublishToPyPI]
 ```
@@ -22,12 +21,14 @@ The workflow has no scheduled readiness check. While the App tracks Conda promot
 GitHub displays a waiting environment job and an App check with promotion progress.
 No runner is occupied during the environment wait.
 
-The combined workflow uses exactly the existing Stage and Publish job set.
-`AuthorizePublish` prepares the release metadata after the existing `Publish` staging
-job succeeds. The existing `CheckConda` job becomes the protected wait and verifies
-the App proof and public manifest after approval. No metadata, registration,
-configuration-validation, or separate wait job is added. Existing tests, builds,
-signing, and publishing steps are preserved.
+The workflow reuses the existing Stage and Publish jobs and removes the redundant
+`ValidateRelease` job. `TagRelease` validates the tag before tests and staging;
+all publication jobs use that same tag and its Python-version output. Release tags
+must remain fixed while the release is in progress.
+`AuthorizePublish` records the release identity after staging succeeds.
+`CheckConda` is a protected wait with a completion message after the App approves.
+The App verifies final DocsUpdate completion and exact manifest availability.
+Existing tests, builds, signing, and publishing steps are preserved.
 
 ## Infrastructure prerequisite
 
@@ -65,10 +66,9 @@ personal fork PoC is evidence for the mechanism; it is not a production deployme
 
 Without `EVENT_DRIVEN_CONDA_RELEASE_ENABLED=true`, the workflow skips the release
 chain before tagging or staging. `AuthorizePublish` rejects a missing or invalid
-App ID before reaching the Conda gate. If the
-environment rule is removed or bypassed, the job still requires a completed,
-successful check from that App for this release and attempt before publishing.
-The job rechecks the public manifest immediately after the gate opens.
+App ID before reaching the Conda gate. The App protection rule must remain enabled;
+`CheckConda` relies on that rule for approval and does not duplicate Lambda's checks.
+
 
 The replacement removes both the old Stage workflow and the scheduled Publish
 workflow. Merging before the infrastructure is ready therefore blocks new releases.
@@ -102,9 +102,8 @@ The App's check has:
 - JSON `output.summary` with `approved: true` and `release` equal to the entire
   metadata object above. Additional progress fields may be included.
 
-Checks belong to a run attempt, even when multiple runs share a commit. The workflow
-uses `filter=all` and pagination, rejects missing or ambiguous checks, and compares
-the App ID, run, attempt, release identity, and check head commit.
+The App binds its Check and environment callback to the repository, release metadata,
+and current run attempt. Checks also retain progress while the workflow is waiting.
 
 ## Recovery and limits
 
@@ -128,8 +127,8 @@ credentials.
 
 ## Verification
 
-Run `hatch run test -- test/unit/test_conda_release.py --no-cov` for approval identity
-and availability guards, and validate the workflow with `actionlint`.
+Run `hatch run test -- test/unit/test_conda_release.py --no-cov` for release metadata
+validation, and validate the workflow with `actionlint`.
 
 The earlier personal fork experiment exercised actual Unreal package builds,
 the full nine-job Python/OS matrix, the environment wait, progress updates, automatic

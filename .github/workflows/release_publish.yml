@@ -83,7 +83,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.release.outputs.tag }}
-      artifact_id: ${{ steps.upload.outputs.artifact-id }}
     steps:
       - name: Verify release gate configuration
         id: release
@@ -108,7 +107,6 @@ jobs:
           export SOURCE_COMMIT="$(git rev-parse --verify "refs/tags/$RELEASE_TAG^{commit}")"
           python scripts/conda_release.py metadata release.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        id: upload
         with:
           name: conda-release-metadata-${{ github.run_attempt }}
           path: release.json
@@ -120,71 +118,35 @@ jobs:
     needs: AuthorizePublish
     environment: conda-release
     runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.readiness.outputs.tag }}
-      ready: ${{ steps.readiness.outputs.ready }}
-    permissions:
-      contents: read
-      checks: read
-      actions: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        with:
-          artifact-ids: ${{ needs.AuthorizePublish.outputs.artifact_id }}
-          merge-multiple: true
-      - name: Verify the App approval for this run and attempt
-        id: readiness
-        env:
-          TAG: ${{ needs.AuthorizePublish.outputs.tag }}
-          GH_TOKEN: ${{ github.token }}
-          CONDA_RELEASE_APP_ID: ${{ vars.CONDA_RELEASE_APP_ID }}
-        run: |
-          gh api --paginate --slurp \
-            "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs?filter=all&per_page=100" > checks.json
-          python scripts/conda_release.py verify release.json checks.json
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "ready=true" >> "$GITHUB_OUTPUT"
-          echo "### Conda promotion approved" >> "$GITHUB_STEP_SUMMARY"
-          echo "The App approved this release and the public Conda manifest contains the required package version and platform." >> "$GITHUB_STEP_SUMMARY"
-
-  ValidateRelease:
-    needs: CheckConda
-    if: needs.CheckConda.outputs.ready == 'true' && needs.CheckConda.outputs.tag != ''
-    uses: aws-deadline/.github/.github/workflows/reusable_tag_release.yml@mainline
-    permissions:
-      contents: read
-    secrets: inherit
-    with:
-      tag: ${{ needs.CheckConda.outputs.tag }}
+      - name: Conda promotion approved
+        run: echo "The release App approved Conda availability." >> "$GITHUB_STEP_SUMMARY"
 
   PreRelease:
-    needs: ValidateRelease
-    if: needs.ValidateRelease.outputs.tag != ''
+    needs: [TagRelease, CheckConda]
+    if: needs.TagRelease.outputs.tag != ''
     uses: aws-deadline/.github/.github/workflows/reusable_prerelease.yml@mainline
     permissions:
       id-token: write
       contents: write
     secrets: inherit
     with:
-      tag: ${{ needs.ValidateRelease.outputs.tag }}
+      tag: ${{ needs.TagRelease.outputs.tag }}
 
   Release:
-    needs: [ValidateRelease, PreRelease]
-    if: needs.ValidateRelease.outputs.tag != ''
+    needs: [TagRelease, PreRelease]
+    if: needs.TagRelease.outputs.tag != ''
     uses: aws-deadline/.github/.github/workflows/reusable_release.yml@mainline
     secrets: inherit
     permissions:
       id-token: write
       contents: write
     with:
-      tag: ${{ needs.ValidateRelease.outputs.tag }}
+      tag: ${{ needs.TagRelease.outputs.tag }}
 
   PublishToPyPI:
-    needs: [ValidateRelease, Release]
-    if: needs.ValidateRelease.outputs.tag != ''
+    needs: [TagRelease, Release]
+    if: needs.TagRelease.outputs.tag != ''
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -194,13 +156,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.ValidateRelease.outputs.tag }}
+          ref: ${{ needs.TagRelease.outputs.tag }}
           fetch-depth: 0
           persist-credentials: false
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: ${{ needs.ValidateRelease.outputs.build-python-version }}
+          python-version: ${{ needs.TagRelease.outputs.build-python-version }}
       - name: Install dependencies
         run: pip install --upgrade hatch
       - name: Build

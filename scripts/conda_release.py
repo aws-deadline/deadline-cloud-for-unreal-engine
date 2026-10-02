@@ -6,12 +6,10 @@ import argparse
 import json
 import os
 import re
-import urllib.request
 from pathlib import Path
 
 PACKAGE = "unrealengine-openjd"
 PLATFORMS = ["win-64"]
-MANIFEST_URL = "https://downloads.deadlinecloud.amazonaws.com/conda/manifest.json"
 
 
 def validate_metadata(metadata):
@@ -50,70 +48,12 @@ def release_metadata(environ):
     return metadata
 
 
-def verify_approval(metadata, pages, app_id, environ):
-    """Require the configured App's completed approval for exactly this run attempt."""
-    validate_metadata(metadata)
-    expected = (
-        environ["GITHUB_REPOSITORY"],
-        int(environ["GITHUB_RUN_ID"]),
-        int(environ["GITHUB_RUN_ATTEMPT"]),
-    )
-    actual = (metadata["repository"], metadata["run_id"], metadata["run_attempt"])
-    if actual != expected:
-        raise ValueError("Release metadata belongs to a different workflow attempt")
-    if app_id < 1:
-        raise ValueError("The Conda release App ID is not configured")
-    external_id = f"conda-release:{metadata['run_id']}:{metadata['run_attempt']}"
-    matches = [
-        check
-        for page in pages
-        for check in page["check_runs"]
-        if check.get("external_id") == external_id and check.get("app", {}).get("id") == app_id
-    ]
-    if len(matches) != 1:
-        raise ValueError("Expected one Conda approval check from the configured App")
-    check = matches[0]
-    if (
-        check.get("status") != "completed"
-        or check.get("conclusion") != "success"
-        or check.get("head_sha") != environ["GITHUB_SHA"]
-    ):
-        raise ValueError("The Conda App has not approved this workflow attempt")
-    state = json.loads(check["output"]["summary"])
-    if state.get("approved") is not True or state.get("release") != metadata:
-        raise ValueError("The Conda approval does not match the staged release")
-
-
-def verify_manifest(metadata, manifest):
-    """Recheck exact public availability immediately before public release work."""
-    entry = manifest.get("packages", {}).get(PACKAGE, {}).get(metadata["version"], {})
-    if not all(platform in entry.get("platforms", []) for platform in PLATFORMS):
-        raise ValueError(
-            f"Conda manifest does not contain {PACKAGE} {metadata['version']} for win-64"
-        )
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["metadata", "verify"])
+    parser.add_argument("command", choices=["metadata"])
     parser.add_argument("metadata", type=Path)
-    parser.add_argument("checks", type=Path, nargs="?")
     args = parser.parse_args()
-    if args.command == "metadata":
-        args.metadata.write_text(json.dumps(release_metadata(os.environ), indent=2) + "\n")
-    else:
-        if args.checks is None:
-            parser.error("verify requires a checks JSON file")
-        metadata = json.loads(args.metadata.read_text())
-        verify_approval(
-            metadata,
-            json.loads(args.checks.read_text()),
-            int(os.environ["CONDA_RELEASE_APP_ID"]),
-            os.environ,
-        )
-        with urllib.request.urlopen(MANIFEST_URL, timeout=30) as response:
-            verify_manifest(metadata, json.load(response))
-        print(f"Approved: {PACKAGE} {metadata['version']} for win-64")
+    args.metadata.write_text(json.dumps(release_metadata(os.environ), indent=2) + "\n")
 
 
 if __name__ == "__main__":

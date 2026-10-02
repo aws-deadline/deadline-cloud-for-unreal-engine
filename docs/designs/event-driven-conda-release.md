@@ -14,22 +14,23 @@ polling are unnecessary for this design.
 ## Repository implementation
 
 Combine the existing Stage and Publish job chains without adding jobs. Keep the
-original test, build, signing, and publishing implementations. Use the existing
-`AuthorizePublish` job to upload a release identity after staging succeeds, and
-the existing `CheckConda` job for the protected wait and approval verification. Identify the approval by repository, run, attempt, package,
-version, required platforms, and immutable tagged source.
+original test, build, signing, and publishing implementations. `TagRelease`
+validates the version before testing; remove its redundant later invocation as
+`ValidateRelease`. Use `AuthorizePublish` to upload release metadata after staging
+and `CheckConda` as a wait-only job protected by the GitHub App.
 
-Environment approval alone is insufficient: verify the configured App's successful
-check for that identity before building the public release, then recheck the public
-manifest. This also prevents publication if the environment rule is missing.
+The App verifies signed requests, exact release/run/attempt identity, final
+DocsUpdate completion and exact public manifest availability before approving.
+Publishing uses the original `TagRelease` outputs. Release tags remain fixed
+throughout an active release, and the environment protection rule remains enabled.
 
 See [the workflow contract and rollout guide](../release-workflow.md) for exact
 fields, permissions, recovery, and limits.
 
 ## Independent implementation tasks
 
-1. Repository: consolidate workflow, add metadata and approval verification,
-   test stale/missing/mismatched approvals, and document recovery.
+1. Repository: consolidate workflow, record metadata, retain the protected wait,
+   validate metadata and workflow dependencies, and document recovery.
 2. Infrastructure: implement signed webhook intake, queued promotion events,
    progress updates, exact availability reconciliation, and gate callbacks.
 3. Validate both together in a development account and personal fork before enabling
