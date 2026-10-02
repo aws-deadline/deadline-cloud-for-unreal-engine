@@ -80,6 +80,9 @@ jobs:
 
   AuthorizePublish:
     needs: [TagRelease, Publish]
+    permissions:
+      id-token: write
+      contents: read
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.release.outputs.tag }}
@@ -88,11 +91,12 @@ jobs:
         id: release
         env:
           TAG: ${{ needs.TagRelease.outputs.tag }}
-          APP_ID: ${{ vars.CONDA_RELEASE_APP_ID }}
+          REGISTRATION_ROLE: ${{ vars.CONDA_RELEASE_REGISTRATION_ROLE_ARN }}
+          QUEUE_URL: ${{ vars.CONDA_RELEASE_QUEUE_URL }}
         run: |
           set -euo pipefail
-          if [[ ! "$APP_ID" =~ ^[1-9][0-9]*$ ]]; then
-            echo "::error::Configure CONDA_RELEASE_APP_ID before releasing. See docs/release-workflow.md."
+          if [[ ! "$REGISTRATION_ROLE" =~ ^arn:aws:iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_/-]+$ ]] || [[ -z "$QUEUE_URL" ]]; then
+            echo "::error::Configure CONDA_RELEASE_REGISTRATION_ROLE_ARN and CONDA_RELEASE_QUEUE_URL. See docs/release-workflow.md."
             exit 1
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
@@ -112,6 +116,27 @@ jobs:
           path: release.json
           if-no-files-found: error
           retention-days: 90
+      - name: Authenticate release registration
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        with:
+          role-to-assume: ${{ vars.CONDA_RELEASE_REGISTRATION_ROLE_ARN }}
+          aws-region: us-west-2
+          role-session-name: conda-release-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Register the staged release
+        env:
+          QUEUE_URL: ${{ vars.CONDA_RELEASE_QUEUE_URL }}
+        run: |
+          set -euo pipefail
+          python - <<'PYTHON'
+          import json
+          from pathlib import Path
+          release = json.loads(Path("release.json").read_text())
+          request = {"kind": "register", **{key: release[key] for key in ("repository", "run_id", "run_attempt")}}
+          Path("release-request.json").write_text(json.dumps(request))
+          PYTHON
+          aws sqs send-message --queue-url "$QUEUE_URL" \
+            --message-body file://release-request.json --delay-seconds 60 \
+            --region us-west-2 --query MessageId --output text
 
   CheckConda:
     name: Wait for Conda promotion
@@ -120,7 +145,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Conda promotion approved
-        run: echo "The release App approved Conda availability." >> "$GITHUB_STEP_SUMMARY"
+        run: echo "The Conda gate verified availability and approved the deployment." >> "$GITHUB_STEP_SUMMARY"
 
   PreRelease:
     needs: [TagRelease, CheckConda]

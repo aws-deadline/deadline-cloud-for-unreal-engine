@@ -7,86 +7,107 @@ flowchart LR
     C[Approved changelog merge] --> T[TagRelease]
     T --> Q[Existing unit, integration, UI and E2E tests]
     Q --> S[Publish: stage package]
-    S --> M[AuthorizePublish: prepare gate metadata]
-    M --> W[CheckConda: protected wait]
-    P[Conda promotion events] --> A[GitHub App: progress and gate approval]
-    A --> W
+    S --> M[AuthorizePublish: metadata and OIDC registration]
+    M --> W[CheckConda: required-reviewer wait]
+    M --> SQ[SQS]
+    P[Conda promotion events via SNS] --> SQ
+    SQ --> L[One Lambda: PAT reviewer and exact availability checks]
+    L --> W
     W --> B[PreRelease]
     B --> R[Release]
     R --> Y[PublishToPyPI]
 ```
 
 Changelog review and merging remain manual. Version bump automation is separate.
-The workflow has no scheduled readiness check. While the App tracks Conda promotion,
-GitHub displays a waiting environment job and an App check with promotion progress.
-No runner is occupied during the environment wait.
+The existing test, build, signing, staging, and public publishing jobs are retained.
+`TagRelease` validates the tag and supplies it and the Python version to publication
+jobs. Release tags must remain fixed while a release is in progress.
+The redundant `ValidateRelease` job is removed; no new jobs are added.
 
-The workflow reuses the existing Stage and Publish jobs and removes the redundant
-`ValidateRelease` job. `TagRelease` validates the tag before tests and staging;
-all publication jobs use that same tag and its Python-version output. Release tags
-must remain fixed while the release is in progress.
-`AuthorizePublish` records the release identity after staging succeeds.
-`CheckConda` is a protected wait with a completion message after the App approves.
-The App verifies final DocsUpdate completion and exact manifest availability.
-Existing tests, builds, signing, and publishing steps are preserved.
+After staging, `AuthorizePublish` uploads the release metadata and sends its run
+identity to SQS using GitHub OIDC. `CheckConda` waits on a required-reviewer
+GitHub environment. No runner is occupied during the environment wait.
+
+A single Lambda receives registrations and native Conda events. It uses a PAT
+owned by the environment's required reviewer to report progress as commit statuses
+linked to the workflow run, then approve or reject the pending environment through
+GitHub's pending-deployments API. Progress appears in commit checks; this mechanism
+does not provide the custom App's comments in the environment-wait panel.
+The workflow has no scheduled readiness check, App, or webhook requirement.
 
 ## Infrastructure prerequisite
 
-Deploy and verify the release protection App before merging this workflow replacement.
-The App must:
+Configure and verify the gate before merging this workflow replacement:
 
-1. Have access only to the intended release repositories, with Actions read, Checks
-   write, Deployments write, and Contents read permissions.
-2. Handle signed `deployment_protection_rule` webhooks and subscribe to Conda
-   promotion and approval events.
-3. Read the metadata artifact from the requesting workflow, validate the repository,
-   workflow, run attempt, staged release, package, and platforms, and report progress
-   on a check attached to the workflow's `head_sha`.
-4. Approve after the final Conda approval workflow succeeds and the public manifest
-   contains the exact package version on every required platform. A newer pipeline
-   revision alone does not prove package availability.
-5. Write the completed approval check before approving the environment. On a retry,
-   reconcile the pending environment even if the check already records approval.
-   Late registration must reconcile an already published package using the same
-   availability criteria.
+1. One SQS queue receives IAM-authorized release registrations and notifications
+   from the configured Pipelines SNS topic; a DLQ isolates exhausted retries.
+2. One Lambda reads that queue, the configured pipeline, and its PAT secret.
+3. A GitHub OIDC registration role trusts only this repository's `mainline` ref
+   and allows only `sqs:SendMessage` on the registration queue. Pull requests,
+   forks, and other branches cannot assume it.
+4. The PAT belongs to the environment's required reviewer and can read Actions,
+   Contents, and Deployments, write Deployments, and write Commit statuses.
+   GitHub must explicitly report `current_user_can_approve=true` before approval.
+5. Lambda verifies successful registration in the current workflow attempt,
+   the metadata artifact digest, repository, workflow, run, tag, package, and
+   platforms. Final authorization requires the completed DocsUpdate approval
+   workflow and the exact version/platforms in the public manifest.
+6. Every approval retry repeats the final availability checks. A newer pipeline
+   revision alone does not prove that the requested package is available.
 
-The infrastructure deployment and its event handling have their own review. The
-personal fork PoC is evidence for the mechanism; it is not a production deployment.
+No database, S3 registration record, scheduled poller, or reporting Lambda is used.
+GitHub commit statuses identify registered run attempts; pipeline discovery state
+is recomputed from authoritative APIs. Native events trigger reconciliation.
+
+The Gamma infrastructure is configured manually. The existing production CDK CR
+remains draft and unchanged; its App implementation must be adapted to this PAT
+contract in the later production infrastructure review before cutover.
 
 ## Enable the workflow
 
-1. Install the release App on this repository.
-2. Create the protected environment (`conda-gamma` for the Gamma-backed gate,
-   `conda-release` for production). Enable the App's custom deployment protection
-   rule and restrict deployment branches to `mainline`.
-3. Set repository variable `CONDA_RELEASE_ENVIRONMENT` to that environment name
-   and `CONDA_RELEASE_APP_ID` to its numeric App ID. The environment defaults to
-   `conda-release` when the variable is unset.
-4. Verify signed webhooks, the event subscription, exact package matching, progress,
-   final approval, rejection, and retry handling in the development account and fork.
-5. Set repository variable `EVENT_DRIVEN_CONDA_RELEASE_ENABLED` to `true`.
-6. Merge the workflow change and observe the first approved changelog release.
+1. Create `conda-gamma` for the Gamma gate, or `conda-release` for production.
+2. Restrict deployment branches to `mainline`. Configure exactly one required
+   user reviewer: the PAT owner. Leave wait timers and custom App rules disabled.
+   If that account triggers releases, leave **Prevent self-review** unchecked.
+   The gate still checks GitHub's actual approval eligibility on each request.
+3. Store the authorized PAT as the `token` field in the Lambda's configured secret.
+   Set its `PAT_REVIEWER_LOGIN` to that account's GitHub login. The PAT stays in AWS;
+   it is never passed to the release workflow. Organization PAT policies apply.
+4. Confirm the pipeline subscription and verify the PAT's permissions and reviewer
+   eligibility before enabling the SQS consumer.
+5. Set repository variables:
 
-The Gamma gate is used by the actual release workflow: staging and public
-publishing jobs remain enabled. Use it for an intended release after the App and
-subscription are configured. To cut over, provision and verify the production
-gate, then switch `CONDA_RELEASE_ENVIRONMENT` and `CONDA_RELEASE_APP_ID` before
-starting the next release. Let active Gamma waits finish before retiring that gate.
+   | Variable | Gamma value |
+   | --- | --- |
+   | `CONDA_RELEASE_ENVIRONMENT` | `conda-gamma` |
+   | `CONDA_RELEASE_REGISTRATION_ROLE_ARN` | `arn:aws:iam::527561604569:role/kavmur-conda-gate-gamma-register` |
+   | `CONDA_RELEASE_QUEUE_URL` | `https://sqs.us-west-2.amazonaws.com/527561604569/kavmur-conda-gate-gamma-events` |
 
-Without `EVENT_DRIVEN_CONDA_RELEASE_ENABLED=true`, the workflow skips the release
-chain before tagging or staging. `AuthorizePublish` rejects a missing or invalid
-App ID before reaching the Conda gate. The App protection rule must remain enabled;
-`CheckConda` relies on that rule for approval and does not duplicate Lambda's checks.
+   The environment defaults to `conda-release` when its variable is unset.
+   `CONDA_RELEASE_APP_ID` is no longer used.
+6. After review and infrastructure verification, enable
+   `EVENT_DRIVEN_CONDA_RELEASE_ENABLED=true`, merge this change, and observe the
+   next intended release. The real staging and public publication jobs remain
+   enabled; no extra test harness or public test release is required.
 
+Without release opt-in, the workflow skips before tagging or staging.
+`AuthorizePublish` rejects missing registration configuration before entering the
+wait. Required-reviewer protection must remain enabled: `CheckConda` relies on
+that protection and does not duplicate Lambda's availability checks.
 
-The replacement removes both the old Stage workflow and the scheduled Publish
-workflow. Merging before the infrastructure is ready therefore blocks new releases.
-Keep this change in draft until the infrastructure prerequisite is verified.
+The replacement removes the old Stage workflow and scheduled Publish workflow.
+Merging before the gate is configured blocks new releases; keep this PR draft
+until its prerequisites are verified.
 
-## App contract
+For production cutover, provision and verify the production queue, Lambda, PAT,
+OIDC role, environment, and event subscription, then switch the three repository
+variables before starting the next release. Let active Gamma waits finish before
+retiring that gate. This is more than changing the environment name alone.
 
-After staging succeeds, the existing `AuthorizePublish` job uploads
-`conda-release-metadata-<run_attempt>` containing only `release.json`:
+## Registration contract
+
+After staging, `AuthorizePublish` uploads `conda-release-metadata-<run_attempt>`
+containing only `release.json`:
 
 ```json
 {
@@ -102,44 +123,52 @@ After staging succeeds, the existing `AuthorizePublish` job uploads
 }
 ```
 
-The artifact lasts 90 days, outliving GitHub's maximum 30-day environment wait.
-The App's check has:
+The same job sends this IAM-authenticated message to SQS:
 
-- `head_sha`: the requesting workflow run's head commit.
-- `external_id`: `conda-release:<run_id>:<run_attempt>`.
-- `status: completed`, `conclusion: success` when approval is ready.
-- JSON `output.summary` with `approved: true` and `release` equal to the entire
-  metadata object above. Additional progress fields may be included.
+```json
+{
+  "kind": "register",
+  "repository": "aws-deadline/deadline-cloud-for-unreal-engine",
+  "run_id": 123,
+  "run_attempt": 1
+}
+```
 
-The App binds its Check and environment callback to the repository, release metadata,
-and current run attempt. Checks also retain progress while the workflow is waiting.
+A 60-second delivery delay lets the registration job finish and the protected
+wait appear; it is not a periodic Conda check. The artifact lasts 90 days,
+outliving GitHub's maximum 30-day environment wait.
+
+Progress statuses use context `conda-release:<run_id>:<run_attempt>` on the run's
+head commit. Lambda accepts its configured PAT owner's statuses only. It writes
+success before reviewing the environment; if the callback fails, it revalidates
+DocsUpdate and public availability before retrying approval. Invalid release
+metadata results in a failure status and rejection of that environment only.
 
 ## Recovery and limits
 
 Use **Run workflow** on `mainline` with a validated existing tag to restage a release.
-Use **Re-run all jobs** after cancellation, gate failure, or expiration so staging
-and the metadata steps in `AuthorizePublish` are rerun for the new attempt.
-Re-running only failed jobs can retain an older metadata artifact; that attempt is rejected before publishing.
+Use **Re-run all jobs** after cancellation, gate failure, or expiration so staging,
+metadata, and registration are recreated for the new attempt. Re-running only
+failed jobs can retain an older artifact; the gate rejects stale identity.
 
-Later changelog merges do not cancel a waiting release. Each distinct release has
-its own concurrency group. GitHub can replace pending runs within the same group,
-so avoid dispatching duplicate releases of the same tag.
+Later changelog merges do not cancel a waiting release. Each release has its own
+concurrency group. Avoid dispatching duplicates of the same tag.
 
-On a gate rejection or manifest mismatch, public release jobs remain skipped and
-the run fails. Diagnose the App's progress check and event delivery before rerunning.
-An event-driven gate does not send periodic age reminders when no events arrive;
-GitHub's environment timeout is the final limit.
+For rejection or missing availability, inspect the commit status, Lambda logs,
+and event delivery before rerunning. No periodic reminders are sent when events
+stop; GitHub's environment timeout is the final limit. Expired/revoked PATs and
+organization access changes fail closed until credentials are restored.
 
-The existing test projects, release environment approvals, signing, and PyPI
-publishing mechanism are retained. The App does not receive signing or publishing
-credentials.
+Existing release approvals and signing/publication credentials remain unchanged.
+The Lambda receives no signing or publishing credentials.
 
 ## Verification
 
-Run `hatch run test -- test/unit/test_conda_release.py --no-cov` for release metadata
-validation, and validate the workflow with `actionlint`.
+Run `hatch run test -- test/unit/test_conda_release.py --no-cov` for metadata guards
+and `actionlint` for workflow validation.
 
-The earlier personal fork experiment exercised actual Unreal package builds,
-the full nine-job Python/OS matrix, the environment wait, progress updates, automatic
-approval from controlled development events, and post-gate artifact validation.
-Native Conda event delivery still needs separate verification before rollout.
+The earlier dev/fork PoC verified real builds, the protected wait, progress,
+controlled App approval, and continuation. It does not prove the PAT approval path.
+The manual Gamma PAT handler passed focused mocked tests for approval, exact
+availability, reviewer eligibility, mismatched identity, and callback retries.
+Live PAT approval and native pipeline event delivery remain rollout prerequisites.

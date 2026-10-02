@@ -2,43 +2,44 @@
 
 ## Approved direction
 
-A release should visibly wait for its Conda adaptor in the same GitHub workflow
-that stages and publishes it. Keep manual changelog approval and merging.
-Use a GitHub App custom deployment protection rule for the wait; report promotion
-progress through GitHub Checks and resume on approval.
+A release waits for its Conda adaptor in the same GitHub workflow that stages and
+publishes it. Changelog approval and merging remain manual.
 
-The event processor uses a queue and one handler, with progress state in GitHub.
-Separate database storage, a second reporting handler, and periodic readiness
-polling are unnecessary for this design.
+The initial App mechanism was demonstrated in dev. The approved Gamma direction
+uses a required-reviewer environment and that reviewer's PAT to avoid a new GitHub
+App installation. Progress uses commit statuses linked to the run; approval uses
+GitHub's pending-deployments API. Organization PAT policies still apply.
+
+One queue and one Lambda handle direct registrations and native pipeline events.
+No database, S3 tracking record, reporting Lambda, webhook, or periodic poller is
+required. Discovery state is recomputed; GitHub statuses identify registered runs.
 
 ## Repository implementation
 
-Combine the existing Stage and Publish job chains without adding jobs. Keep the
-original test, build, signing, and publishing implementations. `TagRelease`
-validates the version before testing; remove its redundant later invocation as
-`ValidateRelease`. Use `AuthorizePublish` to upload release metadata after staging
-and `CheckConda` as a wait-only job protected by the GitHub App.
+Combine the existing Stage and Publish chains without adding jobs. Keep their
+original tests, builds, signing, and publishing. `TagRelease` validates the version
+before testing; remove the redundant `ValidateRelease` job.
 
-The App verifies signed requests, exact release/run/attempt identity, final
-DocsUpdate completion and exact public manifest availability before approving.
-Publishing uses the original `TagRelease` outputs. Release tags remain fixed
-throughout an active release, and the environment protection rule remains enabled.
+`AuthorizePublish` uploads immutable release metadata after staging and registers
+its run/attempt with SQS using a mainline-only OIDC role. `CheckConda` remains a
+wait-only job with required-reviewer protection.
 
-See [the workflow contract and rollout guide](../release-workflow.md) for exact
-fields, permissions, recovery, and limits.
+Lambda validates current-attempt registration, artifact identity, the tag, exact
+package/platform availability, and completed DocsUpdate approval before reviewing
+the pending environment. Publication uses the original `TagRelease` outputs.
+Release tags and environment protection remain fixed during an active release.
 
-## Independent implementation tasks
+See [the workflow contract and rollout guide](../release-workflow.md) for fields,
+permissions, configuration, recovery, and limits.
 
-1. Repository: consolidate workflow, record metadata, retain the protected wait,
-   validate metadata and workflow dependencies, and document recovery.
-2. Infrastructure: implement signed webhook intake, queued promotion events,
-   progress updates, exact availability reconciliation, and gate callbacks.
-3. Validate both together in a development account and personal fork before enabling
-   the repository workflow.
+## Infrastructure and rollout
 
-## Verification status
+The Gamma queue, Lambda, PAT secret, and OIDC role are configured manually.
+The production CDK CR remains draft and unchanged as requested. Its App-specific
+implementation will need the PAT adaptation during the later production review;
+it cannot be deployed unchanged with this workflow contract.
 
-The earlier fork experiment verified a real environment pause, progress reporting,
-automatic resume from controlled events, and preserved build artifacts. It did not
-prove delivery of native promotion events. That verification and production App
-configuration remain prerequisites for merging and enabling the replacement.
+Use the actual consolidated workflow for the next intended release after the
+Gamma PAT/reviewer configuration and native event subscription are verified.
+A second disposable harness is unnecessary after the completed dev experiment.
+No public release has been triggered by this change.

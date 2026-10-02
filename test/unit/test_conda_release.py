@@ -1,6 +1,6 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
-"""Metadata supplied to the release protection App."""
+"""Metadata supplied to the Conda release gate."""
 
 import importlib.util
 from pathlib import Path
