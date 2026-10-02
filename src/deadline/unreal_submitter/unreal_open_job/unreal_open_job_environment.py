@@ -137,8 +137,6 @@ class LaunchEditorUnrealOpenJobEnvironment(UnrealOpenJobEnvironment):
 class UgsUnrealOpenJobEnvironment(UnrealOpenJobEnvironment):
     """Parent class for predefined UGS Environment"""
 
-    pass
-
 
 class UgsLaunchEditorUnrealOpenJobEnvironment(UgsUnrealOpenJobEnvironment):
     """Predefined Environment for launching the Unreal Editor in UGS case"""

@@ -446,7 +446,7 @@ def initial_workspace_sync(
         try:
             workspace.sync(path, changelist=changelist, force=True)
         except Exception as e:
-            logger.error(f"Initial workspace sync exception: {str(e)}")
+            logger.error(f"Initial workspace sync exception: {e!s}")
 
     # Sync job dependencies without force — P4's have-list will skip files
     # already at the correct revision, making reuse near-instant.
@@ -457,7 +457,7 @@ def initial_workspace_sync(
             try:
                 workspace.sync(path, changelist=changelist, force=False)
             except Exception as e:
-                logger.error(f"Dependency sync exception: {str(e)}")
+                logger.error(f"Dependency sync exception: {e!s}")
 
     if job_dependencies_descriptor_path and os.path.exists(job_dependencies_descriptor_path):
         logger.info("openjd_env: DEPENDENCIES_SYNCED=true")
