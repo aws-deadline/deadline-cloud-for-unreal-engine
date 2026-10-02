@@ -56,13 +56,22 @@ personal fork PoC is evidence for the mechanism; it is not a production deployme
 ## Enable the workflow
 
 1. Install the release App on this repository.
-2. Create environment `conda-release`. Enable the App's custom deployment protection
+2. Create the protected environment (`conda-gamma` for the Gamma-backed gate,
+   `conda-release` for production). Enable the App's custom deployment protection
    rule and restrict deployment branches to `mainline`.
-3. Set repository variable `CONDA_RELEASE_APP_ID` to the numeric production App ID.
+3. Set repository variable `CONDA_RELEASE_ENVIRONMENT` to that environment name
+   and `CONDA_RELEASE_APP_ID` to its numeric App ID. The environment defaults to
+   `conda-release` when the variable is unset.
 4. Verify signed webhooks, the event subscription, exact package matching, progress,
    final approval, rejection, and retry handling in the development account and fork.
 5. Set repository variable `EVENT_DRIVEN_CONDA_RELEASE_ENABLED` to `true`.
 6. Merge the workflow change and observe the first approved changelog release.
+
+The Gamma gate is used by the actual release workflow: staging and public
+publishing jobs remain enabled. Use it for an intended release after the App and
+subscription are configured. To cut over, provision and verify the production
+gate, then switch `CONDA_RELEASE_ENVIRONMENT` and `CONDA_RELEASE_APP_ID` before
+starting the next release. Let active Gamma waits finish before retiring that gate.
 
 Without `EVENT_DRIVEN_CONDA_RELEASE_ENABLED=true`, the workflow skips the release
 chain before tagging or staging. `AuthorizePublish` rejects a missing or invalid

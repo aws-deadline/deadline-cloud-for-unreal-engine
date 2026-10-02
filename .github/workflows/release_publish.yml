@@ -116,7 +116,7 @@ jobs:
   CheckConda:
     name: Wait for Conda promotion
     needs: AuthorizePublish
-    environment: conda-release
+    environment: ${{ vars.CONDA_RELEASE_ENVIRONMENT || 'conda-release' }}
     runs-on: ubuntu-latest
     steps:
       - name: Conda promotion approved
