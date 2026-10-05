@@ -40,6 +40,13 @@ implementation will need the PAT adaptation during the later production review;
 it cannot be deployed unchanged with this workflow contract.
 
 Use the actual consolidated workflow for the next intended release after the
-Gamma PAT/reviewer configuration and native event subscription are verified.
+Gamma PAT/reviewer configuration and event subscription are configured.
+Native event delivery and live PAT approval are verified during that release.
 A second disposable harness is unnecessary after the completed dev experiment.
 No public release has been triggered by this change.
+
+After that release succeeds, adapt and deploy the production CDK implementation.
+Configure its registration role and queue in the production repository variables
+while the environment remains `conda-gamma`. Then switch
+`CONDA_RELEASE_ENVIRONMENT` to `conda-release`; the same workflow selects the
+matching production queue and role. Existing Gamma runs must finish first.

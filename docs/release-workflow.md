@@ -37,7 +37,7 @@ The workflow has no scheduled readiness check, App, or webhook requirement.
 
 ## Infrastructure prerequisite
 
-Configure and verify the gate before merging this workflow replacement:
+Configure the gate before merging this workflow replacement:
 
 1. One SQS queue receives IAM-authorized release registrations and notifications
    from the configured Pipelines SNS topic; a DLQ isolates exhausted retries.
@@ -74,20 +74,22 @@ contract in the later production infrastructure review before cutover.
    Set its `PAT_REVIEWER_LOGIN` to that account's GitHub login. The PAT stays in AWS;
    it is never passed to the release workflow. Organization PAT policies apply.
 4. Confirm the pipeline subscription and verify the PAT's permissions and reviewer
-   eligibility before enabling the SQS consumer.
+   configuration before enabling the SQS consumer. GitHub checks approval eligibility
+   when the actual release reaches its wait.
 5. Set repository variables:
 
    | Variable | Gamma value |
    | --- | --- |
    | `CONDA_RELEASE_ENVIRONMENT` | `conda-gamma` |
-   | `CONDA_RELEASE_REGISTRATION_ROLE_ARN` | `arn:aws:iam::527561604569:role/kavmur-conda-gate-gamma-register` |
-   | `CONDA_RELEASE_QUEUE_URL` | `https://sqs.us-west-2.amazonaws.com/527561604569/kavmur-conda-gate-gamma-events` |
+   | `CONDA_RELEASE_GAMMA_REGISTRATION_ROLE_ARN` | `arn:aws:iam::527561604569:role/kavmur-conda-gate-gamma-register` |
+   | `CONDA_RELEASE_GAMMA_QUEUE_URL` | `https://sqs.us-west-2.amazonaws.com/527561604569/kavmur-conda-gate-gamma-events` |
 
    The environment defaults to `conda-release` when its variable is unset.
-   `CONDA_RELEASE_APP_ID` is no longer used.
-6. After review and infrastructure verification, enable
-   `EVENT_DRIVEN_CONDA_RELEASE_ENABLED=true`, merge this change, and observe the
-   next intended release. The real staging and public publication jobs remain
+   `CONDA_RELEASE_APP_ID` is no longer used. Production registration variables
+   `CONDA_RELEASE_REGISTRATION_ROLE_ARN` and `CONDA_RELEASE_QUEUE_URL` are configured
+   after the production infrastructure is deployed; Gamma uses its own variables.
+6. Review and merge this PR, then enable `EVENT_DRIVEN_CONDA_RELEASE_ENABLED=true`
+   with `CONDA_RELEASE_ENVIRONMENT=conda-gamma`. Observe the next intended release. The real staging and public publication jobs remain
    enabled; no extra test harness or public test release is required.
 
 Without release opt-in, the workflow skips before tagging or staging.
@@ -99,10 +101,30 @@ The replacement removes the old Stage workflow and scheduled Publish workflow.
 Merging before the gate is configured blocks new releases; keep this PR draft
 until its prerequisites are verified.
 
-For production cutover, provision and verify the production queue, Lambda, PAT,
-OIDC role, environment, and event subscription, then switch the three repository
-variables before starting the next release. Let active Gamma waits finish before
-retiring that gate. This is more than changing the environment name alone.
+## Gamma-first rollout
+
+1. Keep the production CDK CR unchanged while the manually configured Gamma gate
+   handles the next intended release in this repository.
+2. Use the actual workflow from this PR, including its existing tests, staging,
+   signing, GitHub release, and PyPI jobs. No alternate test workflow is required.
+3. That release verifies native SNS delivery, promotion progress, the PAT's actual
+   approval eligibility, automatic resume, and public publication. These have not
+   all been verified by the earlier App PoC or the read-only PAT probe. They are
+   acceptance criteria for that first Gamma-backed release, not prerequisites for
+   creating a separate test release.
+4. If the release does not progress as expected, diagnose and fix the Gamma gate
+   while the public publishing jobs remain behind `CheckConda`.
+5. After a successful real release, adapt/review the draft CDK implementation for
+   the PAT contract and deploy the production queue, Lambda, OIDC role, credential
+   access, environment, and event subscription. The existing production CI-bot PAT
+   can be reused after its identity and permissions are verified.
+6. Set production `CONDA_RELEASE_REGISTRATION_ROLE_ARN` and `CONDA_RELEASE_QUEUE_URL`
+   to the deployed resources while `CONDA_RELEASE_ENVIRONMENT` stays `conda-gamma`.
+   Gamma continues using its separate queue and role throughout this preparation.
+7. Let active Gamma releases finish. Change only `CONDA_RELEASE_ENVIRONMENT` to
+   `conda-release` before the next release. This selects the production wait,
+   registration queue, and OIDC role together; no workflow code change is needed.
+   Switching the setting does not migrate an already running release.
 
 ## Registration contract
 
@@ -171,4 +193,5 @@ The earlier dev/fork PoC verified real builds, the protected wait, progress,
 controlled App approval, and continuation. It does not prove the PAT approval path.
 The manual Gamma PAT handler passed focused mocked tests for approval, exact
 availability, reviewer eligibility, mismatched identity, and callback retries.
-Live PAT approval and native pipeline event delivery remain rollout prerequisites.
+Live PAT approval and native event delivery are verified by the next intended
+Gamma-backed release before production infrastructure rollout.

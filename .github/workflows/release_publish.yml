@@ -91,12 +91,17 @@ jobs:
         id: release
         env:
           TAG: ${{ needs.TagRelease.outputs.tag }}
-          REGISTRATION_ROLE: ${{ vars.CONDA_RELEASE_REGISTRATION_ROLE_ARN }}
-          QUEUE_URL: ${{ vars.CONDA_RELEASE_QUEUE_URL }}
+          GATE_ENVIRONMENT: ${{ vars.CONDA_RELEASE_ENVIRONMENT || 'conda-release' }}
+          REGISTRATION_ROLE: ${{ vars[vars.CONDA_RELEASE_ENVIRONMENT == 'conda-gamma' && 'CONDA_RELEASE_GAMMA_REGISTRATION_ROLE_ARN' || 'CONDA_RELEASE_REGISTRATION_ROLE_ARN'] }}
+          QUEUE_URL: ${{ vars[vars.CONDA_RELEASE_ENVIRONMENT == 'conda-gamma' && 'CONDA_RELEASE_GAMMA_QUEUE_URL' || 'CONDA_RELEASE_QUEUE_URL'] }}
         run: |
           set -euo pipefail
+          if [[ "$GATE_ENVIRONMENT" != "conda-gamma" && "$GATE_ENVIRONMENT" != "conda-release" ]]; then
+            echo "::error::CONDA_RELEASE_ENVIRONMENT must be conda-gamma or conda-release."
+            exit 1
+          fi
           if [[ ! "$REGISTRATION_ROLE" =~ ^arn:aws:iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_/-]+$ ]] || [[ -z "$QUEUE_URL" ]]; then
-            echo "::error::Configure CONDA_RELEASE_REGISTRATION_ROLE_ARN and CONDA_RELEASE_QUEUE_URL. See docs/release-workflow.md."
+            echo "::error::Configure the registration role and queue for the selected Conda gate. See docs/release-workflow.md."
             exit 1
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
@@ -119,12 +124,12 @@ jobs:
       - name: Authenticate release registration
         uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
         with:
-          role-to-assume: ${{ vars.CONDA_RELEASE_REGISTRATION_ROLE_ARN }}
+          role-to-assume: ${{ vars[vars.CONDA_RELEASE_ENVIRONMENT == 'conda-gamma' && 'CONDA_RELEASE_GAMMA_REGISTRATION_ROLE_ARN' || 'CONDA_RELEASE_REGISTRATION_ROLE_ARN'] }}
           aws-region: us-west-2
           role-session-name: conda-release-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Register the staged release
         env:
-          QUEUE_URL: ${{ vars.CONDA_RELEASE_QUEUE_URL }}
+          QUEUE_URL: ${{ vars[vars.CONDA_RELEASE_ENVIRONMENT == 'conda-gamma' && 'CONDA_RELEASE_GAMMA_QUEUE_URL' || 'CONDA_RELEASE_QUEUE_URL'] }}
         run: |
           set -euo pipefail
           python - <<'PYTHON'
