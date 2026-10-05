@@ -51,7 +51,7 @@ class PerforceConnection:
             p4.connect()
         except P4Exception as e:
             raise exceptions.PerforceConnectionError(
-                f"Could not connect Perforce server {p4.port} as user {p4.user}\n{str(e)}"
+                f"Could not connect Perforce server {p4.port} as user {p4.user}\n{e!s}"
             )
 
         p4.input = "y"
@@ -169,7 +169,7 @@ class PerforceClient:
             else:
                 logger.info("Sync: file(s) up-to-date")
         except Exception as e:
-            logger.error(f"Error during p4 sync: {str(e)}")
+            logger.error(f"Error during p4 sync: {e!s}")
 
     def where(self, depot_path: str) -> Optional[str]:
         """

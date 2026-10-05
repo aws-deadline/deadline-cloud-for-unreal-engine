@@ -31,8 +31,6 @@ logger = logging.getLogger(__name__)
 class UnrealNotRunningError(Exception):
     """Error that is raised when attempting to use Unreal while it is not running"""
 
-    pass
-
 
 class UnrealSubprocessWithLogs(LoggingSubprocess): ...
 
@@ -1038,7 +1036,6 @@ class UnrealAdaptor(Adaptor[AdaptorConfiguration]):
         """
         Execute stop action
         """
-        pass
 
     def on_cleanup(self):
         """
