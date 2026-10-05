@@ -616,12 +616,12 @@ class TestRenderUnrealOpenJob:
         [
             (
                 "C:/Workspaces/Workspace1",
-                "C:/Workspaces/Workspace1\Project1.uproject",
+                r"C:/Workspaces/Workspace1\Project1.uproject",
                 "Project1.uproject",
             ),
             (
-                "C:\Workspaces/workspace1",
-                "C:/workspaces/Workspace1/UE5\Project1.uproject",
+                r"C:\Workspaces/workspace1",
+                r"C:/workspaces/Workspace1/UE5\Project1.uproject",
                 "UE5/Project1.uproject",
             ),
         ],
@@ -643,8 +643,8 @@ class TestRenderUnrealOpenJob:
     @pytest.mark.parametrize(
         "workspace_root, project_path",
         [
-            ("C:/Workspaces/Workspace1", "C:/Workspaces/Workspace2\Project1.uproject"),
-            ("C:\Workspaces/workspace1", "C:/workspaces/Workspace2/UE5\Project1.uproject"),
+            ("C:/Workspaces/Workspace1", r"C:/Workspaces/Workspace2\Project1.uproject"),
+            (r"C:\Workspaces/workspace1", r"C:/workspaces/Workspace2/UE5\Project1.uproject"),
         ],
     )
     def test__get_project_path_relative_to_workspace_root_failed(
@@ -723,12 +723,12 @@ class TestRenderUnrealOpenJob:
                 {},
                 set(),
             ),
-            # No marketplace dir exists
+            # No marketplace dir exists: enabled marketplace plugins are not scanned
             (
                 ["PluginA"],
-                [],
+                ["PaidPlugin"],
                 False,
-                {"PluginA": True},
+                {"PluginA": True, "PaidPlugin": True},
                 {f"{PROJECT_PLUGINS}/PluginA"},
             ),
         ],

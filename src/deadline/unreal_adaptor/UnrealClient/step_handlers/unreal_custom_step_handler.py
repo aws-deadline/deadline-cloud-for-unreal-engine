@@ -89,14 +89,14 @@ class UnrealCustomStepHandler(BaseStepHandler):
         except KeyError as e:
             logger.error(traceback.format_exc())
             logger.error(
-                f"Custom Step Executor: Error: {str(e)}. "
+                f"Custom Step Executor: Error: {e!s}. "
                 f"It is possible `script_path` missed from args {args}"
             )
             return False
         except RuntimeError as e:
             logger.error(traceback.format_exc())
             logger.error(
-                f"Custom Step Executor: Error: {str(e)}"
+                f"Custom Step Executor: Error: {e!s}"
                 f"Error occurred while executing the given script {args.get('script_path')} "
                 f"with args {args.get('script_args')} via "
                 f"unreal.PythonScriptLibrary.execute_python_command_ex"
@@ -105,7 +105,7 @@ class UnrealCustomStepHandler(BaseStepHandler):
         except Exception as e:
             logger.error(traceback.format_exc())
             logger.error(
-                f"Custom Step Executor: Error: {str(e)}"
+                f"Custom Step Executor: Error: {e!s}"
                 f"Unexpected error occurred while executing the given script "
                 f"{args.get('script_path')}"
             )
