@@ -479,7 +479,7 @@ if unreal:
             Since the executor will work with Play in Editor widget, each rendered frame will match with widget frame tick.
             """
 
-            super(RemoteRenderMoviePipelineEditorExecutor, self).on_begin_frame()
+            super().on_begin_frame()
 
             # Since PIEExecutor launching Play in Editor before mrq is rendering, we should ensure, that
             # executor actually rendering the sequence.

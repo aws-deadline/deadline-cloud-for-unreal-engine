@@ -1171,7 +1171,7 @@ class TestUnrealAdaptor_on_cleanup:
 
         if adaptor_exc_info:
             with pytest.raises(RuntimeError) as exc_info:
-                adaptor._has_exception
+                adaptor._has_exception  # noqa: B018 (property raises on access)
 
             assert exc_info.value == adaptor_exc_info
         else:

@@ -6,7 +6,7 @@ from typing import Any, Tuple
 import threading
 from botocore.client import BaseClient
 import boto3
-import deadline.client.config as config
+from deadline.client import config
 
 from deadline.client import api
 from deadline.client.api import AwsCredentialsSource, AwsAuthenticationStatus, precache_clients
@@ -108,7 +108,7 @@ class DeadlineCloudSettingsLibraryImplementation(unreal.DeadlineCloudSettingsLib
             return str(result)
 
         except Exception as e:
-            logger.error(f"Error in get_aws_string_config_setting: {str(e)}")
+            logger.error(f"Error in get_aws_string_config_setting: {e!s}")
             return ""
 
     @unreal.ufunction(override=True)
@@ -121,7 +121,7 @@ class DeadlineCloudSettingsLibraryImplementation(unreal.DeadlineCloudSettingsLib
             else:
                 logger.info(f"{setting_name} unchanged (already {setting_value}), skipping update")
         except Exception as e:
-            logger.error(f"Error in set_aws_string_config_setting: {str(e)}")
+            logger.error(f"Error in set_aws_string_config_setting: {e!s}")
 
     @unreal.ufunction(override=True)
     def get_farms(self) -> list:

@@ -66,8 +66,7 @@ def find_unreal_engine(folder: str, version: Optional[str] = None) -> str:
         for subfolder in os.listdir(folder):
             if subfolder.startswith("UE_"):
                 version = subfolder.split("_")[1]
-                if version > check_version:
-                    check_version = version
+                check_version = max(check_version, version)
 
     engine_root = os.path.join(folder, "UE_" + check_version)
     if not os.path.exists(os.path.join(engine_root, "Engine")):

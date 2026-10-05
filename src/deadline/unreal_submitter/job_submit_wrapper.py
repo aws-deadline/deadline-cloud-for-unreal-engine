@@ -99,7 +99,7 @@ def main():
     except Exception as e:
         import traceback
 
-        error_msg = f"{str(e)}\n{traceback.format_exc()}"
+        error_msg = f"{e!s}\n{traceback.format_exc()}"
         print(json.dumps({"type": "error", "message": error_msg}), flush=True)
         sys.exit(1)
 
