@@ -176,9 +176,7 @@ class DependencyCollector:
 
         if not synced:
             logger.info(
-                "Failed to complete the synchronization process. Reason: {}".format(
-                    unreal.SourceControl.last_error_msg()
-                )
+                f"Failed to complete the synchronization process. Reason: {unreal.SourceControl.last_error_msg()}"
             )
 
         unreal.AssetRegistryHelpers().get_asset_registry().scan_modified_asset_files(asset_paths)

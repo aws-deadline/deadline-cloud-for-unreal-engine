@@ -2,7 +2,9 @@
 
 import sys
 import pytest
+import yaml
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import patch, Mock, MagicMock
 from openjd.model import parse_model
 from openjd.model.v2023_09 import (
@@ -189,6 +191,153 @@ class TestUnrealOpenJob:
             assert p["name"], p.get("default") in [
                 (p["name"], p["value"]) for p in parameter_values
             ]
+
+    SUBMIT_MODE_TEMPLATE: dict[str, Any] = {
+        "specificationVersion": "jobtemplate-2023-09",
+        "name": "JobA",
+        "parameterDefinitions": [
+            # Empty default that must reach the bundle as '' rather than null.
+            {
+                "name": "SubmitMode",
+                "type": "STRING",
+                "default": "",
+                "allowedValues": ["", "submit", "shelve"],
+            },
+            {"name": "FramesPerTask", "type": "INT", "default": 0},
+            # Submitter-computed, no default to fall back to.
+            {"name": "ProjectFilePath", "type": "PATH"},
+        ],
+    }
+
+    @patch(
+        "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
+        "UnrealOpenJobEntity.get_template_object",
+        return_value=SUBMIT_MODE_TEMPLATE,
+    )
+    def test__apply_template_defaults_to_unset_values(self, get_template_object_mock: Mock):
+        """
+        Anything still carrying no value when the bundle is written must pick up its
+        template default. OpenJD reads `value: null` as a supplied value that
+        overrides the default rather than deferring to it, then rejects it — a null
+        SubmitMode fails validation with "not in allowedValues" even though '' is
+        legal.
+        """
+        # GIVEN
+        open_job = UnrealOpenJob(file_path="", name="JobA")
+        parameter_values = [
+            {"name": "SubmitMode", "value": None},
+            {"name": "FramesPerTask", "value": None},
+            {"name": "ProjectFilePath", "value": None},
+        ]
+
+        # WHEN
+        result = {
+            p["name"]: p["value"]
+            for p in open_job._apply_template_defaults_to_unset_values(parameter_values)
+        }
+
+        # THEN
+        assert result["SubmitMode"] == ""
+        assert result["FramesPerTask"] == 0
+        # No default declared, so there is nothing to substitute.
+        assert result["ProjectFilePath"] is None
+
+    @patch(
+        "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
+        "UnrealOpenJobEntity.get_template_object",
+        return_value=SUBMIT_MODE_TEMPLATE,
+    )
+    def test__apply_template_defaults_to_unset_values_keeps_supplied_values(
+        self, get_template_object_mock: Mock
+    ):
+        """
+        Only None is replaced. Values the user chose or the submitter computed —
+        including falsy ones — must be left exactly as they are.
+        """
+        # GIVEN
+        open_job = UnrealOpenJob(file_path="", name="JobA")
+        parameter_values: list[dict] = [
+            {"name": "SubmitMode", "value": "shelve"},
+            {"name": "FramesPerTask", "value": 10},
+            {"name": "ProjectFilePath", "value": ""},
+        ]
+
+        # WHEN
+        result = {
+            p["name"]: p["value"]
+            for p in open_job._apply_template_defaults_to_unset_values(parameter_values)
+        }
+
+        # THEN
+        assert result == {"SubmitMode": "shelve", "FramesPerTask": 10, "ProjectFilePath": ""}
+
+    @patch(
+        "deadline.unreal_submitter.unreal_open_job.unreal_open_job_entity."
+        "UnrealOpenJobEntity.get_template_object",
+        return_value=SUBMIT_MODE_TEMPLATE,
+    )
+    def test_create_job_bundle_substitutes_template_default_at_bundle_write(
+        self, get_template_object_mock: Mock, tmp_path
+    ):
+        """
+        The default substitution has to be wired into the bundle write, not merely
+        available — an unset SubmitMode reaching parameter_values.yaml as null makes
+        the job unsubmittable.
+
+        Scope note: only parameters that declare a template default are
+        substituted. A parameter with no default that is still unset is written
+        as `value: null` exactly as it was before this fix (pre-existing
+        behavior, left for a follow-up).
+        """
+        # GIVEN
+        open_job = UnrealOpenJob(file_path="", name="JobA")
+
+        # WHEN
+        with (
+            patch.object(UnrealOpenJob, "build_template", MagicMock()),
+            patch.object(UnrealOpenJob, "serialize_template", MagicMock(return_value={})),
+            patch.object(
+                UnrealOpenJob, "get_asset_references", MagicMock(return_value=AssetReferences())
+            ),
+            patch.object(
+                UnrealOpenJob,
+                "_build_parameter_values",
+                MagicMock(return_value=[{"name": "SubmitMode", "value": None}]),
+            ),
+            patch(
+                "deadline.unreal_submitter.unreal_open_job.unreal_open_job."
+                "create_job_history_bundle_dir",
+                MagicMock(return_value=str(tmp_path)),
+            ),
+        ):
+            open_job.create_job_bundle()
+
+        # THEN
+        written = yaml.safe_load((tmp_path / "parameter_values.yaml").read_text(encoding="utf8"))
+        assert written["parameterValues"] == [{"name": "SubmitMode", "value": ""}]
+
+    @pytest.mark.parametrize("param_type", ["STRING", "PATH", "INT", "FLOAT"])
+    def test_from_unreal_param_definition_treats_empty_string_as_unset(self, param_type):
+        """
+        Guards the sentinel that RenderUnrealOpenJob._build_parameter_values depends
+        on. FParameterDefinition::Value is an FString defaulting to "", so every
+        parameter the submitter is expected to compute (ProjectFilePath,
+        MarketplacePluginsDir, the P4/UGS values) arrives as ''. It must become None
+        so that partition classifies it as unfilled and auto-population runs; if ''
+        were preserved here those parameters would be treated as already filled and
+        silently never populated.
+        """
+        # GIVEN
+        u_param = MagicMock()
+        u_param.name = "ProjectFilePath"
+        u_param.type.name = param_type
+        u_param.value = ""
+
+        # WHEN
+        param = UnrealOpenJobParameterDefinition.from_unreal_param_definition(u_param)
+
+        # THEN
+        assert param.value is None
 
     @patch("builtins.open", MagicMock())
     @patch("yaml.safe_load", MagicMock(side_effect=[fixtures.f_job_template_default()]))
@@ -616,12 +765,12 @@ class TestRenderUnrealOpenJob:
         [
             (
                 "C:/Workspaces/Workspace1",
-                "C:/Workspaces/Workspace1\Project1.uproject",
+                r"C:/Workspaces/Workspace1\Project1.uproject",
                 "Project1.uproject",
             ),
             (
-                "C:\Workspaces/workspace1",
-                "C:/workspaces/Workspace1/UE5\Project1.uproject",
+                r"C:\Workspaces/workspace1",
+                r"C:/workspaces/Workspace1/UE5\Project1.uproject",
                 "UE5/Project1.uproject",
             ),
         ],
@@ -643,8 +792,8 @@ class TestRenderUnrealOpenJob:
     @pytest.mark.parametrize(
         "workspace_root, project_path",
         [
-            ("C:/Workspaces/Workspace1", "C:/Workspaces/Workspace2\Project1.uproject"),
-            ("C:\Workspaces/workspace1", "C:/workspaces/Workspace2/UE5\Project1.uproject"),
+            ("C:/Workspaces/Workspace1", r"C:/Workspaces/Workspace2\Project1.uproject"),
+            (r"C:\Workspaces/workspace1", r"C:/workspaces/Workspace2/UE5\Project1.uproject"),
         ],
     )
     def test__get_project_path_relative_to_workspace_root_failed(
@@ -723,12 +872,12 @@ class TestRenderUnrealOpenJob:
                 {},
                 set(),
             ),
-            # No marketplace dir exists
+            # No marketplace dir exists: enabled marketplace plugins are not scanned
             (
                 ["PluginA"],
-                [],
+                ["PaidPlugin"],
                 False,
-                {"PluginA": True},
+                {"PluginA": True, "PaidPlugin": True},
                 {f"{PROJECT_PLUGINS}/PluginA"},
             ),
         ],
@@ -1223,6 +1372,100 @@ class TestRenderUnrealOpenJob:
         render_job.mrq_job = mrq_job
 
         assert render_job.profiling_settings == ProfilingSettings(insights_gpu=True, memreport=True)
+
+
+class TestRenderUnrealOpenJobAutoPopulation:
+    """
+    RenderUnrealOpenJob._build_parameter_values decides which parameters the
+    submitter is allowed to compute by testing ``p["value"] is None``, and applies
+    every update_job_parameter_values call to that partition only. Every parameter
+    coming off the data asset arrives as '' (FParameterDefinition::Value is an
+    FString defaulting to ""), so anything that preserves that '' instead of
+    letting it become None reclassifies these as already filled and they silently
+    stop being populated.
+    """
+
+    TEMPLATE: dict[str, Any] = {
+        "specificationVersion": "jobtemplate-2023-09",
+        "name": "RenderJob",
+        "parameterDefinitions": [
+            # Submitter-computed, no default to fall back to.
+            {"name": "ProjectFilePath", "type": "PATH"},
+            # Submitter-computed *and* declares an empty default.
+            {"name": "MarketplacePluginsDir", "type": "PATH", "default": ""},
+            # User-facing, empty default must survive to the bundle.
+            {"name": "SubmitMode", "type": "STRING", "default": ""},
+        ],
+        "steps": [],
+    }
+
+    def _make_job(self):
+        """Bypass __init__, which needs a live Unreal MRQ Job."""
+        job = RenderUnrealOpenJob.__new__(RenderUnrealOpenJob)
+        u_params = []
+        for yaml_p in self.TEMPLATE["parameterDefinitions"]:
+            u_param = MagicMock()
+            u_param.name = yaml_p["name"]
+            u_param.type.name = yaml_p["type"]
+            # Seeded from the template default when there is one, else the
+            # FString default -- either way, '' for all three.
+            u_param.value = ""
+            u_params.append(u_param)
+        job._extra_parameters = [
+            UnrealOpenJobParameterDefinition.from_unreal_param_definition(p) for p in u_params
+        ]
+        job._job_shared_settings = None  # type: ignore[assignment]
+        job._asset_references = AssetReferences()
+        job._transfer_files_strategy = None  # type: ignore[assignment]
+        job._mrq_job = None
+        return job
+
+    def test_submitter_computed_parameters_are_populated_from_empty_data_asset_values(self):
+        # GIVEN
+        job = self._make_job()
+
+        # WHEN
+        with (
+            patch.object(UnrealOpenJob, "get_template_object", return_value=self.TEMPLATE),
+            patch.object(UnrealOpenJob, "check_conda_package_version", return_value=True),
+            patch.object(
+                UnrealOpenJob, "get_marketplace_plugins_dir", return_value="C:/Epic/Marketplace"
+            ),
+            patch.object(RenderUnrealOpenJob, "_plugins_ignored", return_value=False),
+            patch.object(RenderUnrealOpenJob, "_is_using_dynamic_chunking", return_value=False),
+            patch.object(RenderUnrealOpenJob, "get_user_extra_cmd_args", return_value=""),
+            patch.object(RenderUnrealOpenJob, "get_executor_cmd_args", return_value=""),
+            patch.object(RenderUnrealOpenJob, "get_profiling_cmd_args", return_value=""),
+            patch(
+                "deadline.unreal_submitter.unreal_open_job.unreal_open_job."
+                "common.get_project_file_path",
+                return_value="C:/proj/Proj.uproject",
+            ),
+            patch(
+                "deadline.unreal_submitter.unreal_open_job.unreal_open_job."
+                "common.create_deadline_cloud_temp_file",
+                return_value="C:/temp/args.txt",
+            ),
+        ):
+            built = {p["name"]: p["value"] for p in job._build_parameter_values()}
+
+            # THEN
+            assert built["ProjectFilePath"] == "C:/proj/Proj.uproject"
+            assert built["MarketplacePluginsDir"] == "C:/Epic/Marketplace"
+            # Not submitter-computed, so it is still unset at this stage and only
+            # picks up its default when the bundle is written.
+            assert built["SubmitMode"] is None
+
+            # AND the bundle-write substitution turns that into the template default
+            final = {
+                p["name"]: p["value"]
+                for p in job._apply_template_defaults_to_unset_values(
+                    [dict(name=k, value=v) for k, v in built.items()]
+                )
+            }
+            assert final["SubmitMode"] == ""
+            assert final["ProjectFilePath"] == "C:/proj/Proj.uproject"
+            assert final["MarketplacePluginsDir"] == "C:/Epic/Marketplace"
 
 
 class TestP4RenderUnrealOpenJobSubmitModeSkipsJA:

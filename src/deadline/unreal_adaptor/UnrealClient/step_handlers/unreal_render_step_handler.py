@@ -15,7 +15,7 @@ except Exception:
     )
     unreal = None
 
-from typing import Optional
+from typing import Any, Optional
 
 from .base_step_handler import BaseStepHandler
 from deadline.unreal_logger import get_logger
@@ -479,7 +479,7 @@ if unreal:
             Since the executor will work with Play in Editor widget, each rendered frame will match with widget frame tick.
             """
 
-            super(RemoteRenderMoviePipelineEditorExecutor, self).on_begin_frame()
+            super().on_begin_frame()
 
             # Since PIEExecutor launching Play in Editor before mrq is rendering, we should ensure, that
             # executor actually rendering the sequence.
@@ -498,7 +498,11 @@ if unreal:
 class UnrealRenderStepHandler(BaseStepHandler):
     cached_frame_range_start = None
     cached_frame_range_end = None
-    active_executor: Optional["RemoteRenderMoviePipelineEditorExecutor"] = None
+    # Holds a RemoteRenderMoviePipelineEditorExecutor between run() and
+    # wait_result(). Annotated as Any because that class only exists when the
+    # unreal module imported, and an unannotated None is inferred as type None
+    # (mypy >= 2.4 rejects the executor assignment in run()).
+    active_executor: Optional[Any] = None
     render_wait_started = False
 
     def __init__(self):

@@ -551,6 +551,40 @@ class UnrealOpenJob(UnrealOpenJobEntity):
 
         return parameter_values
 
+    def _apply_template_defaults_to_unset_values(self, parameter_values: list[dict]) -> list[dict]:
+        """
+        Replace any still-unset parameter value with the template default.
+
+        Must run only once, immediately before serialization. A value of None
+        means "nothing has supplied this yet", and
+        :meth:`RenderUnrealOpenJob._build_parameter_values` relies on that to
+        decide which parameters the submitter should compute, so the None has to
+        survive until after auto-population. By the time the bundle is written,
+        anything still None simply had no value.
+
+        OpenJD has no concept of a null parameter value: `value: null` is read as
+        an explicit value that overrides the template default rather than
+        deferring to it, and is then rejected. SubmitMode declares `default: ''`
+        with `allowedValues: ['', submit, shelve]`, so a null fails validation
+        with "not in allowedValues" even though the empty default is legal.
+
+        :param parameter_values: Parameter values about to be serialized
+        :type parameter_values: list[dict[str, Any]]
+
+        :return: Given list with unset values replaced by their template default
+        :rtype: list[dict[str, Any]]
+        """
+
+        template_defaults = {
+            p["name"]: p["default"]
+            for p in self.get_template_object()["parameterDefinitions"]
+            if "default" in p
+        }
+        for p in parameter_values:
+            if p.get("value") is None and p["name"] in template_defaults:
+                p["value"] = template_defaults[p["name"]]
+        return parameter_values
+
     def _check_parameters_consistency(self):
         """
         Check Job parameters consistency
@@ -734,7 +768,9 @@ class UnrealOpenJob(UnrealOpenJobEntity):
             deadline_yaml_dump(job_template_dict, f, indent=1)
 
         with open(job_bundle_path + "/parameter_values.yaml", "w", encoding="utf8") as f:
-            param_values = self._build_parameter_values()
+            param_values = self._apply_template_defaults_to_unset_values(
+                self._build_parameter_values()
+            )
             deadline_yaml_dump(dict(parameterValues=param_values), f, indent=1)
 
         with open(job_bundle_path + "/asset_references.yaml", "w", encoding="utf8") as f:

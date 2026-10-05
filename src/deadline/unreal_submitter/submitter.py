@@ -257,9 +257,7 @@ class UnrealSubmitter:
         :rtype: bool
         """
         self.submit_status = UnrealSubmitStatus.HASHING
-        logger.info(
-            "Hash progress: {} {}".format(hash_metadata.progress, hash_metadata.progressMessage)
-        )
+        logger.info(f"Hash progress: {hash_metadata.progress} {hash_metadata.progressMessage}")
         self.submit_message = hash_metadata.progressMessage
         self.progress_list.append(hash_metadata.progress)
         return self.continue_submission
@@ -276,9 +274,7 @@ class UnrealSubmitter:
 
         self.submit_status = UnrealSubmitStatus.UPLOADING
         logger.info(
-            "Upload progress: {} {}".format(
-                upload_metadata.progress, upload_metadata.progressMessage
-            )
+            f"Upload progress: {upload_metadata.progress} {upload_metadata.progressMessage}"
         )
         self.submit_message = upload_metadata.progressMessage
         self.progress_list.append(upload_metadata.progress)
