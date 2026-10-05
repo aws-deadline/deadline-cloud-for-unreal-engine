@@ -15,7 +15,7 @@ except Exception:
     )
     unreal = None
 
-from typing import Optional
+from typing import Any, Optional
 
 from .base_step_handler import BaseStepHandler
 from deadline.unreal_logger import get_logger
@@ -498,7 +498,11 @@ if unreal:
 class UnrealRenderStepHandler(BaseStepHandler):
     cached_frame_range_start = None
     cached_frame_range_end = None
-    active_executor = None
+    # Holds a RemoteRenderMoviePipelineEditorExecutor between run() and
+    # wait_result(). Annotated as Any because that class only exists when the
+    # unreal module imported, and an unannotated None is inferred as type None
+    # (mypy >= 2.4 rejects the executor assignment in run()).
+    active_executor: Optional[Any] = None
     render_wait_started = False
 
     def __init__(self):
