@@ -93,9 +93,11 @@ contract in the later production infrastructure review before cutover.
    enabled; no extra test harness or public test release is required.
 
 Without release opt-in, the workflow skips before tagging or staging.
-`AuthorizePublish` rejects missing registration configuration before entering the
-wait. Required-reviewer protection must remain enabled: `CheckConda` relies on
-that protection and does not duplicate Lambda's availability checks.
+`AuthorizePublish` rejects missing registration configuration and verifies that
+the selected environment exists with `client-software-ci` as its sole required
+reviewer before entering the wait. Required-reviewer protection must remain
+enabled throughout the wait: `CheckConda` relies on that protection and does not
+duplicate Lambda's availability checks.
 
 The replacement removes the old Stage workflow and scheduled Publish workflow.
 Merging before the gate is configured blocks new releases; keep this PR draft

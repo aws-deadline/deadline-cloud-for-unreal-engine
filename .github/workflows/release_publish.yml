@@ -83,6 +83,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      actions: read
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.release.outputs.tag }}
@@ -90,6 +91,7 @@ jobs:
       - name: Verify release gate configuration
         id: release
         env:
+          GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.TagRelease.outputs.tag }}
           GATE_ENVIRONMENT: ${{ vars.CONDA_RELEASE_ENVIRONMENT || 'conda-release' }}
           REGISTRATION_ROLE: ${{ vars[vars.CONDA_RELEASE_ENVIRONMENT == 'conda-gamma' && 'CONDA_RELEASE_GAMMA_REGISTRATION_ROLE_ARN' || 'CONDA_RELEASE_REGISTRATION_ROLE_ARN'] }}
@@ -102,6 +104,18 @@ jobs:
           fi
           if [[ ! "$REGISTRATION_ROLE" =~ ^arn:aws:iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_/-]+$ ]] || [[ -z "$QUEUE_URL" ]]; then
             echo "::error::Configure the registration role and queue for the selected Conda gate. See docs/release-workflow.md."
+            exit 1
+          fi
+          if ! gh api "repos/$GITHUB_REPOSITORY/environments/$GATE_ENVIRONMENT" \
+            | jq -e '
+                [.protection_rules[]? | select(.type == "required_reviewers")] |
+                length == 1 and
+                (.[0].reviewers |
+                  length == 1 and
+                  .[0].type == "User" and
+                  .[0].reviewer.login == "client-software-ci")
+              ' > /dev/null; then
+            echo "::error::$GATE_ENVIRONMENT must exist with client-software-ci as its sole required reviewer. See docs/release-workflow.md."
             exit 1
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
