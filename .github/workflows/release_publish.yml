@@ -162,9 +162,25 @@ jobs:
     needs: AuthorizePublish
     environment: ${{ vars.CONDA_RELEASE_ENVIRONMENT || 'conda-release' }}
     runs-on: ubuntu-latest
+    permissions:
+      statuses: read
     steps:
-      - name: Conda promotion approved
-        run: echo "The Conda gate verified availability and approved the deployment." >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify Conda gate approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATUS_CONTEXT: conda-release:${{ github.run_id }}:${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          if ! gh api --paginate --slurp \
+            "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/statuses?per_page=100" \
+            | jq -e --arg context "$STATUS_CONTEXT" '
+                [.[][] | select(.context == $context)][0] |
+                .state == "success" and .creator.login == "client-software-ci"
+              ' > /dev/null; then
+            echo "::error::Missing successful Conda gate status from client-software-ci for this run and attempt."
+            exit 1
+          fi
+          echo "The Conda gate verified availability and approved the deployment." >> "$GITHUB_STEP_SUMMARY"
 
   PreRelease:
     needs: [TagRelease, CheckConda]

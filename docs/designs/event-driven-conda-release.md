@@ -22,7 +22,9 @@ before testing; remove the redundant `ValidateRelease` job.
 
 `AuthorizePublish` uploads immutable release metadata after staging and registers
 its run/attempt with SQS using a mainline-only OIDC role. `CheckConda` remains a
-wait-only job with required-reviewer protection.
+job with required-reviewer protection. After the wait, it checks the CI bot's
+success status for the exact workflow run and attempt before publication.
+Availability verification remains in Lambda.
 
 Lambda validates current-attempt registration, artifact identity, the tag, exact
 package/platform availability, and completed DocsUpdate approval before reviewing

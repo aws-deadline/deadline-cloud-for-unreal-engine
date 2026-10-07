@@ -27,6 +27,10 @@ The redundant `ValidateRelease` job is removed; no new jobs are added.
 After staging, `AuthorizePublish` uploads the release metadata and sends its run
 identity to SQS using GitHub OIDC. `CheckConda` waits on a required-reviewer
 GitHub environment. No runner is occupied during the environment wait.
+After the wait opens, `CheckConda` requires the latest status for this exact run
+and attempt on the workflow's head commit to be `success`, created by
+`client-software-ci`. Manual approval or removal of reviewer protection alone
+cannot satisfy this check. The job does not query Conda again.
 
 A single Lambda receives registrations and native Conda events. It uses a PAT
 owned by the environment's required reviewer to report progress as commit statuses
@@ -97,7 +101,8 @@ Without release opt-in, the workflow skips before tagging or staging.
 the selected environment exists with `client-software-ci` as its sole required
 reviewer before entering the wait. Required-reviewer protection must remain
 enabled throughout the wait: `CheckConda` relies on that protection and does not
-duplicate Lambda's availability checks.
+duplicate Lambda's availability checks. Its status check also rejects a wait
+opened without the CI bot's current-attempt success status.
 
 The replacement removes the old Stage workflow and scheduled Publish workflow.
 Merging before the gate is configured blocks new releases; keep this PR draft
@@ -173,7 +178,9 @@ metadata results in a failure status and rejection of that environment only.
 Use **Run workflow** on `mainline` with a validated existing tag to restage a release.
 Use **Re-run all jobs** after cancellation, gate failure, or expiration so staging,
 metadata, and registration are recreated for the new attempt. Re-running only
-failed jobs can retain an older artifact; the gate rejects stale identity.
+failed jobs can retain an older artifact and leave the new attempt waiting
+without registration. If that wait is opened manually, `CheckConda` rejects
+the missing current-attempt success status.
 
 Later changelog merges do not cancel a waiting release. Each release has its own
 concurrency group. Avoid dispatching duplicates of the same tag.
@@ -185,6 +192,9 @@ organization access changes fail closed until credentials are restored.
 
 Existing release approvals and signing/publication credentials remain unchanged.
 The Lambda receives no signing or publishing credentials.
+The status check trusts the CI bot's credential: someone with that PAT can also
+write a success status. It protects against approval bypass, not compromise of
+the bot credential.
 
 ## Verification
 
