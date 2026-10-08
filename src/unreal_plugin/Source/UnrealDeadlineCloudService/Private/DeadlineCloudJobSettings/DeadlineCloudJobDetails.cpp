@@ -30,6 +30,8 @@
 #include "Framework/MetaData/DriverMetaData.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
+#include "Misc/Paths.h"
+#include "PythonAPILibraries/PythonYamlLibrary.h"
 
 #define LOCTEXT_NAMESPACE "JobDetails"
 
@@ -400,6 +402,20 @@ FDeadlineCloudJobParametersArrayBuilder::FDeadlineCloudJobParametersArrayBuilder
     ArrayProperty(InPropertyHandle->AsArray()),
     BaseProperty(InPropertyHandle)
 {
+    // Older serialized presets/queues do not contain AllowedValues. Read UI
+    // metadata once per builder from the template without changing saved values.
+    UDeadlineCloudJob* SourceJob = FDeadlineCloudDetailsWidgetsHelper::GetPropertyOuter<UDeadlineCloudJob>(InPropertyHandle);
+    if (auto ExecutorJob = FDeadlineCloudDetailsWidgetsHelper::GetMrqJob(InPropertyHandle))
+    {
+        SourceJob = ExecutorJob->JobPreset;
+    }
+    if (IsValid(SourceJob) && FPaths::FileExists(SourceJob->PathToTemplate.FilePath))
+    {
+        if (auto Library = UPythonYamlLibrary::Get())
+        {
+            TemplateParameters = Library->OpenJobFile(SourceJob->PathToTemplate.FilePath);
+        }
+    }
 }
 
 
@@ -523,9 +539,9 @@ void FDeadlineCloudJobParametersArrayBuilder::OnGenerateEntry(TSharedRef<IProper
     NameHandle->GetValue(ParameterName);
 
     const TSharedPtr<IPropertyHandle> ValueHandle = ElementProperty->GetChildHandle("Value", false);
-    if (!NameHandle.IsValid())
+    if (!ValueHandle.IsValid())
     {
-        UE_LOG(LogTemp, Error, TEXT("FDeadlineCloudStepParametersArrayBuilder Name handle is not valid"));
+        UE_LOG(LogTemp, Error, TEXT("FDeadlineCloudJobParametersArrayBuilder Value handle is not valid"));
         return;
     }
 
@@ -554,7 +570,41 @@ void FDeadlineCloudJobParametersArrayBuilder::OnGenerateEntry(TSharedRef<IProper
     TSharedPtr<SWidget> ValueWidget;
 
     PropertyRow.GetDefaultWidgets(NameWidget, ValueWidget);
-    ValueWidget = FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByType(ValueHandle, Type, EValueValidationType::JobParameterValue);
+    FParameterDefinition Parameter;
+    Parameter.Type = Type;
+    const auto TemplateParameter = TemplateParameters.FindByPredicate([&](const FParameterDefinition& Candidate)
+    {
+        return Candidate.Name == ParameterName && Candidate.Type == Type;
+    });
+    if (TemplateParameter)
+    {
+        Parameter = *TemplateParameter;
+    }
+    else
+    {
+        // Also support parameters supplied programmatically without a template.
+        const auto ControlHandle = ElementProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FParameterDefinition, UserInterfaceControl));
+        uint8 Control = static_cast<uint8>(EUserInterfaceControl::LINE_EDIT);
+        if (ControlHandle.IsValid() && ControlHandle->GetValue(Control) == FPropertyAccess::Success)
+        {
+            Parameter.UserInterfaceControl = static_cast<EUserInterfaceControl>(Control);
+        }
+        const auto ChoicesHandle = ElementProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FParameterDefinition, AllowedValues));
+        if (ChoicesHandle.IsValid() && ChoicesHandle->AsArray().IsValid())
+        {
+            uint32 Count = 0;
+            ChoicesHandle->AsArray()->GetNumElements(Count);
+            for (uint32 Index = 0; Index < Count; ++Index)
+            {
+                FString Choice;
+                if (ChoicesHandle->AsArray()->GetElement(Index)->GetValue(Choice) == FPropertyAccess::Success)
+                {
+                    Parameter.AllowedValues.Add(Choice);
+                }
+            }
+        }
+    }
+    ValueWidget = FDeadlineCloudDetailsWidgetsHelper::CreateJobParameterWidget(ValueHandle, Parameter);
 	FName Tag = FName("JobParameter." + ParameterName);
 	ValueWidget->AddMetadata(FDriverMetaData::Id(Tag));
 

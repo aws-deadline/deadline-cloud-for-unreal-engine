@@ -899,6 +899,7 @@ const FString MRQScrollBarPath = MRQDetailsPath + "//<SScrollBar>";
 const FString MRQEditorPath = "<SStandaloneAssetEditorToolkitHost>//<SMoviePipelineQueueEditor>";
 
 const FString StringParametersPath = "#JobParameter.StringParameter//<SEditableTextBox>";
+const FString DropdownParametersPath = "#JobParameter.IgnorePlugins//#JobParameterDropdown";
 const FString PathParametersPath = "#JobParameter.PathParameter//<SEditableTextBox>";
 const FString FloatParametersPath = "#JobParameter.FloatParameter//<SEditableText>";
 const FString IntParametersPath = "#JobParameter.IntParameter//<SEditableText>";
@@ -1024,6 +1025,17 @@ void FDeadlinePluginUISpec::Define()
 
 			CreatedRenderJobDataAsset->JobPresetStruct.JobAttachments.InputFiles.Files.Paths.Add(FFilePath("C:/Temp/InputFile1.txt"));
 			CreatedRenderJobDataAsset->JobPresetStruct.JobAttachments.InputDirectories.Directories.Paths.Add(FDirectoryPath("C:/Temp/InputDir1"));
+
+			// Simulate a preset saved before UI choices were serialized. The
+			// details builder must recover the dropdown metadata from the YAML.
+			for (FParameterDefinition& Parameter : CreatedRenderJobDataAsset->ParameterDefinition.Parameters)
+			{
+				if (Parameter.Name == TEXT("IgnorePlugins"))
+				{
+					Parameter.UserInterfaceControl = EUserInterfaceControl::LINE_EDIT;
+					Parameter.AllowedValues.Empty();
+				}
+			}
 
 			ShowTestEnvironmentParameters();
 			ShowTestStepParameters();
@@ -1226,6 +1238,7 @@ void FDeadlinePluginUISpec::Define()
 				});
 
 			VisibilityTest("StringParameters", StringParametersPath, true);
+			VisibilityTest("IgnorePlugins", DropdownParametersPath, true);
 			VisibilityTest("PathParameters", PathParametersPath, true);
 			VisibilityTest("FloatParameters", FloatParametersPath, true);
 			VisibilityTest("IntParameters", IntParametersPath, true);
@@ -1399,10 +1412,14 @@ void FDeadlinePluginUISpec::Define()
 			FDriverElementRef DescriptionWidget = Driver->FindElement(By::Path(DescriptionPath));
 
 			FDriverElementRef StringParametersWidget = Driver->FindElement(By::Path(StringParametersPath));
+			FDriverElementRef DropdownParametersWidget = Driver->FindElement(By::Path(DropdownParametersPath));
 			FDriverElementRef PathParametersPathWidget = Driver->FindElement(By::Path(PathParametersPath));
 			FDriverElementRef FloatParametersWidget = Driver->FindElement(By::Path(FloatParametersPath));
 			FDriverElementRef IntParametersWidget = Driver->FindElement(By::Path(IntParametersPath));
 			FDriverElementRef HiddenParametersWidget = Driver->FindElement(By::Path(HiddenParametersPath));
+
+			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), DropdownParametersWidget, 50);
+			TestTrue("IgnorePlugins should render as a dropdown in the job preset", DropdownParametersWidget->Exists());
 
 			//JobName
 			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), JobNameWidget, 50);
