@@ -21,6 +21,10 @@ public:
 		FText Tooltip = FText::GetEmpty()
 	);
 	static TSharedPtr<SWidget> TryCreatePropertyWidgetFromMetadata(TSharedPtr<IPropertyHandle> ParameterHandle);
+	static TSharedRef<SWidget> CreateJobParameterWidget(
+		TSharedPtr<IPropertyHandle> ValueHandle,
+		const FParameterDefinition& Parameter
+	);
 	static TSharedRef<SWidget> CreateNameWidget(FString Parameter);
 
 	static TSharedRef<SWidget> CreateConsistencyWidget(FString ResultString);

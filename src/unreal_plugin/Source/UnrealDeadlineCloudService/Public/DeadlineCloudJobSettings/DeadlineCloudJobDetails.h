@@ -67,6 +67,7 @@ private:
     void ResetToDefaultHandler(TSharedPtr<IPropertyHandle> PropertyHandle, FString InParameterName) const;
     TSharedPtr<IPropertyHandleArray> ArrayProperty;
     TSharedRef<IPropertyHandle> BaseProperty;
+    TArray<FParameterDefinition> TemplateParameters;
 
     bool IsEyeWidgetEnabled(FName Parameter) const;
     bool IsParameterVisibilityChangedFromDefault(FName Parameter) const;
