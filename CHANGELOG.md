@@ -1,3 +1,8 @@
+## 1.1.1 (2026-10-12)
+
+### Bug Fixes
+* Job Template Overrides and job presets now show dropdown parameters (such as IgnorePlugins and SubmitMode) as dropdowns listing the template's allowed values. Before, they appeared as plain text fields. Selected values, including empty choices, are kept, and this also works for older saved presets and queues. (#420)
+* Job parameters you haven't set, such as SubmitMode, now get the template's default value instead of `null`. Before, these jobs could fail at submit time with "Parameter SubmitMode value (None) not in allowedValues". (#411)
 ## 1.1.0 (2026-09-22)
 
 ### Features
