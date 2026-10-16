@@ -116,89 +116,101 @@ try {
         -FilePath "hatch" `
         -ArgumentList @("run", "${setupEnvironment}:setup")
 
+    $failedVersions = @()
     foreach ($version in $Versions) {
         Write-Host "=== BEGIN UE $version $($Suite.ToUpperInvariant()) ==="
         $env:UE_VERSION = $version
 
-        $buildArgs = @(
-            (Join-Path $SourceRoot "scripts\build_plugin.py"),
-            "--ueversion=$version",
-            "--install",
-            "--test"
-        )
-        if ($Suite -eq "e2e") {
-            $buildArgs += "--worker"
-        }
-        Invoke-Checked `
-            -Description "Build and install the plugin for UE $version" `
-            -FilePath "python" `
-            -ArgumentList $buildArgs
-
-        if ($Suite -eq "integration") {
+        try {
+            $buildArgs = @(
+                (Join-Path $SourceRoot "scripts\build_plugin.py"),
+                "--ueversion=$version",
+                "--install",
+                "--test"
+            )
+            if ($Suite -eq "e2e") {
+                $buildArgs += "--worker"
+            }
             Invoke-Checked `
-                -Description "Integration tests for UE $version" `
-                -FilePath "hatch" `
-                -ArgumentList @(
-                    "run",
-                    "integ-ci:integ",
-                    "--",
-                    "test/integ",
-                    "--ueversion=$version"
-                )
+                -Description "Build and install the plugin for UE $version" `
+                -FilePath "python" `
+                -ArgumentList $buildArgs
 
-            if ($env:RUN_UI_AUTOMATION -eq "true") {
+            if ($Suite -eq "integration") {
                 Invoke-Checked `
-                    -Description "Offline Unreal automation tests for UE $version" `
-                    -FilePath "powershell.exe" `
+                    -Description "Integration tests for UE $version" `
+                    -FilePath "hatch" `
                     -ArgumentList @(
-                        "-NoProfile",
-                        "-ExecutionPolicy",
-                        "Bypass",
-                        "-File",
-                        (Join-Path $SourceRoot "scripts\ci\run_unreal_automation_tests.ps1"),
-                        "-SourceRoot",
-                        $SourceRoot,
-                        "-UEVersion",
-                        $version
+                        "run",
+                        "integ-ci:integ",
+                        "--",
+                        "test/integ",
+                        "--ueversion=$version"
+                    )
+
+                if ($env:RUN_UI_AUTOMATION -eq "true") {
+                    Invoke-Checked `
+                        -Description "Offline Unreal automation tests for UE $version" `
+                        -FilePath "powershell.exe" `
+                        -ArgumentList @(
+                            "-NoProfile",
+                            "-ExecutionPolicy",
+                            "Bypass",
+                            "-File",
+                            (Join-Path $SourceRoot "scripts\ci\run_unreal_automation_tests.ps1"),
+                            "-SourceRoot",
+                            $SourceRoot,
+                            "-UEVersion",
+                            $version
+                        )
+                }
+            }
+            else {
+                foreach ($requiredVariable in @(
+                    "FARM_ID",
+                    "UNREAL_WORKER_QUEUE_ID",
+                    "UNREAL_WORKER_FLEET_ID"
+                )) {
+                    if (-not (Get-Item "Env:\$requiredVariable" -ErrorAction SilentlyContinue).Value) {
+                        throw "$requiredVariable is required for CMF worker-agent tests"
+                    }
+                }
+
+                Clear-CmfTestWorkers `
+                    -FarmId $env:FARM_ID `
+                    -FleetId $env:UNREAL_WORKER_FLEET_ID
+
+                $workerState = Join-Path $SourceRoot "worker-agent-state"
+                Remove-Item $workerState -Recurse -Force -ErrorAction SilentlyContinue
+
+                Invoke-Checked `
+                    -Description "CMF worker-agent tests for UE $version" `
+                    -FilePath "hatch" `
+                    -ArgumentList @(
+                        "run",
+                        "e2e-ci:worker",
+                        "--",
+                        "test/end_to_end/test_worker_agent.py",
+                        "--ueversion=$version",
+                        "--farm-id",
+                        $env:FARM_ID,
+                        "--queue-id",
+                        $env:UNREAL_WORKER_QUEUE_ID,
+                        "-s"
                     )
             }
         }
-        else {
-            foreach ($requiredVariable in @(
-                "FARM_ID",
-                "UNREAL_WORKER_QUEUE_ID",
-                "UNREAL_WORKER_FLEET_ID"
-            )) {
-                if (-not (Get-Item "Env:\$requiredVariable" -ErrorAction SilentlyContinue).Value) {
-                    throw "$requiredVariable is required for CMF worker-agent tests"
-                }
-            }
-
-            Clear-CmfTestWorkers `
-                -FarmId $env:FARM_ID `
-                -FleetId $env:UNREAL_WORKER_FLEET_ID
-
-            $workerState = Join-Path $SourceRoot "worker-agent-state"
-            Remove-Item $workerState -Recurse -Force -ErrorAction SilentlyContinue
-
-            Invoke-Checked `
-                -Description "CMF worker-agent tests for UE $version" `
-                -FilePath "hatch" `
-                -ArgumentList @(
-                    "run",
-                    "e2e-ci:worker",
-                    "--",
-                    "test/end_to_end/test_worker_agent.py",
-                    "--ueversion=$version",
-                    "--farm-id",
-                    $env:FARM_ID,
-                    "--queue-id",
-                    $env:UNREAL_WORKER_QUEUE_ID,
-                    "-s"
-                )
+        catch {
+            # Keep going so a failure on one engine version doesn't hide results for later versions.
+            Write-Host "UE $version $($Suite.ToUpperInvariant()) FAILED: $($_.Exception.Message)"
+            $failedVersions += $version
         }
 
         Write-Host "=== END UE $version $($Suite.ToUpperInvariant()) ==="
+    }
+
+    if ($failedVersions.Count -gt 0) {
+        throw "$Suite tests failed for UE version(s): $($failedVersions -join ', ')"
     }
 }
 finally {
