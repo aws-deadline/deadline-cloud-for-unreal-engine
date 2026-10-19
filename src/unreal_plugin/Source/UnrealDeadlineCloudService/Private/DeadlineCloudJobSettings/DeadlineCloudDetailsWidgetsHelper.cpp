@@ -6,6 +6,7 @@
 #include "Widgets/Input/SFilePathPicker.h"
 #include "DetailLayoutBuilder.h"
 #include "Widgets/Input/SNumericEntryBox.h"
+#include "Widgets/Input/SComboBox.h"
 #include "EditorDirectories.h"
 #include "Widgets/Notifications/SPopUpErrorText.h"
 #include "DesktopPlatformModule.h"
@@ -1167,6 +1168,114 @@ TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreatePropertyWidgetByTy
 	}
 
 	return SNullWidget::NullWidget;
+}
+
+// Own the options for as long as SComboBox references them. Read the displayed
+// value from the property handle so reset, undo and external edits remain visible.
+class SDeadlineCloudDropdownWidget : public SCompoundWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SDeadlineCloudDropdownWidget) {}
+		SLATE_ARGUMENT(TSharedPtr<IPropertyHandle>, ValueHandle)
+		SLATE_ARGUMENT(TArray<FString>, AllowedValues)
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs)
+	{
+		ValueHandle = InArgs._ValueHandle;
+		for (const FString& Value : InArgs._AllowedValues)
+		{
+			Options.Add(MakeShared<FString>(Value));
+		}
+
+		ChildSlot
+		[
+			SAssignNew(ComboBox, SComboBox<TSharedPtr<FString>>)
+				.OptionsSource(&Options)
+				.OnComboBoxOpening(this, &SDeadlineCloudDropdownWidget::SynchronizeSelection)
+				.OnGenerateWidget_Lambda([](TSharedPtr<FString> Item)
+				{
+					return SNew(STextBlock)
+						.Font(IDetailLayoutBuilder::GetDetailFont())
+						.Text(FText::FromString(Item.IsValid() ? *Item : FString()));
+				})
+				.OnSelectionChanged(this, &SDeadlineCloudDropdownWidget::OnSelectionChanged)
+				[
+					SNew(STextBlock)
+						.Font(IDetailLayoutBuilder::GetDetailFont())
+						.Text(this, &SDeadlineCloudDropdownWidget::GetText)
+				]
+		];
+		ComboBox->AddMetadata(FDriverMetaData::Id(FName(TEXT("JobParameterDropdown"))));
+		ValueHandle->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(this, &SDeadlineCloudDropdownWidget::SynchronizeSelection));
+		SynchronizeSelection();
+	}
+
+private:
+	FText GetText() const
+	{
+		FString Value;
+		ValueHandle->GetValue(Value);
+		return FText::FromString(Value);
+	}
+
+	void SynchronizeSelection()
+	{
+		// Refreshing the display must not write to the property.
+		TGuardValue<bool> Guard(bSynchronizingSelection, true);
+		FString Value;
+		if (ValueHandle->GetValue(Value) != FPropertyAccess::Success)
+		{
+			ComboBox->ClearSelection();
+			return;
+		}
+		for (const TSharedPtr<FString>& Option : Options)
+		{
+			if (*Option == Value)
+			{
+				ComboBox->SetSelectedItem(Option);
+				return;
+			}
+		}
+		// Do not silently replace a saved value that is absent from the choices.
+		ComboBox->ClearSelection();
+	}
+
+	void OnSelectionChanged(TSharedPtr<FString> Item, ESelectInfo::Type SelectInfo)
+	{
+		if (Item.IsValid() && !bSynchronizingSelection)
+		{
+			FString Value;
+			if (ValueHandle->GetValue(Value) != FPropertyAccess::Success || Value != *Item)
+			{
+				ValueHandle->SetValue(*Item);
+			}
+		}
+	}
+
+	bool bSynchronizingSelection = false;
+	TSharedPtr<IPropertyHandle> ValueHandle;
+	TArray<TSharedPtr<FString>> Options;
+	TSharedPtr<SComboBox<TSharedPtr<FString>>> ComboBox;
+};
+
+TSharedRef<SWidget> FDeadlineCloudDetailsWidgetsHelper::CreateJobParameterWidget(
+	TSharedPtr<IPropertyHandle> ValueHandle,
+	const FParameterDefinition& Parameter)
+{
+	if (!ValueHandle.IsValid() || !ValueHandle->IsValidHandle())
+	{
+		return SNullWidget::NullWidget;
+	}
+	if (Parameter.UserInterfaceControl == EUserInterfaceControl::DROPDOWN_LIST &&
+		!Parameter.AllowedValues.IsEmpty())
+	{
+		return SNew(SDeadlineCloudDropdownWidget)
+			.ValueHandle(ValueHandle)
+			.AllowedValues(Parameter.AllowedValues);
+	}
+
+	return CreatePropertyWidgetByType(ValueHandle, Parameter.Type, EValueValidationType::JobParameterValue);
 }
 
 TSharedPtr<SWidget> FDeadlineCloudDetailsWidgetsHelper::TryCreatePropertyWidgetFromMetadata(TSharedPtr<IPropertyHandle> ParameterHandle)

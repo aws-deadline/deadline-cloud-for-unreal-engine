@@ -23,8 +23,16 @@ parameterDefinitions:
   default: '5'
   userInterface: 
    control: LINE_EDIT  
+- name: IgnorePlugins
+  type: STRING
+  default: 'false'
+  allowedValues:
+  - 'false'
+  - 'true'
+  userInterface:
+    control: DROPDOWN_LIST
 - name: HiddenParameter
   type: STRING
   default: 'HiddenParameter'
   userInterface:    
-    control: HIDDEN  
+    control: HIDDEN

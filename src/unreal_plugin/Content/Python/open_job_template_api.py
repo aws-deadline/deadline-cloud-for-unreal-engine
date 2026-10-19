@@ -41,6 +41,9 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
         u_parameter_definition = unreal.ParameterDefinition()
         u_parameter_definition.name = job_parameter["name"]
         u_parameter_definition.type = getattr(unreal.ValueType, job_parameter["type"])
+        u_parameter_definition.allowed_values = [
+            str(value) for value in job_parameter.get("allowedValues", [])
+        ]
 
         if job_parameter.get("value") is not None:
             u_parameter_definition.value = str(job_parameter["value"])
@@ -48,9 +51,12 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
         elif job_parameter.get("default") is not None:
             u_parameter_definition.value = str(job_parameter["default"])
 
-        # Map userInterface.control to UserInterfaceControl enum
-        if "userInterface" in job_parameter and "control" in job_parameter["userInterface"]:
-            control_value = job_parameter["userInterface"]["control"]
+        # OpenJD defaults to a dropdown when choices are provided, including
+        # when userInterface itself is absent. Explicit controls take precedence.
+        control_value = job_parameter.get("userInterface", {}).get("control")
+        if control_value is None and u_parameter_definition.allowed_values:
+            control_value = "DROPDOWN_LIST"
+        if control_value is not None:
             # Map YAML control values to Unreal enum values
             control_mapping = {
                 "LINE_EDIT": unreal.UserInterfaceControl.LINE_EDIT,

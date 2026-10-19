@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "Misc/App.h"
 #include "Misc/ScopeExit.h"
+#include "Misc/ScopeLock.h"
+#include "HAL/CriticalSection.h"
 #include "Async/Async.h"
 #include "Async/Future.h"
 #include "Engine/Engine.h"
@@ -449,15 +451,70 @@ static FString ConvertLocalPathToFull(const FString& Path)
 	return FullPath;
 }
 
+// AutomationDriver runs one action sequence at a time. It rejects an overlapping sequence with
+// "Parallel execution of multiple action sequences is not supported", and that input is lost.
+// Each IDriverElement action (Click, Type, Focus, ScrollBy, ...) is its own sequence, so
+// back-to-back element calls can overlap. In CI this dropped keystrokes in JobUI and
+// EnvironmentUI. Route all simulated input in this spec through RunDriverAction /
+// PerformDriverSequence. They hold one lock, so only one sequence is in flight even if a
+// timed-out It() is still running on the thread pool, and they let the driver settle before the
+// next sequence starts.
+static FCriticalSection DriverSequenceLock;
+static const FTimespan DriverSequenceSettleDelay = FTimespan::FromMilliseconds(50);
+
+// Time for Slate to process an Enter commit before callers read the value back.
+static const FTimespan TextCommitSettleDelay = FTimespan::FromMilliseconds(150);
+
+static bool RunDriverAction(TFunctionRef<bool()> Action)
+{
+	FScopeLock Lock(&DriverSequenceLock);
+	const bool bPerformed = Action();
+	FPlatformProcess::Sleep(static_cast<float>(DriverSequenceSettleDelay.GetTotalSeconds()));
+	return bPerformed;
+}
+
+// Builds one explicit sequence and performs it to completion, so multi-key input (select-all,
+// delete, type, commit) can't interleave with another sequence partway through.
+static bool PerformDriverSequence(FAutomationDriverPtr Driver, TFunctionRef<void(IActionSequence&)> AddActions)
+{
+	check(Driver.IsValid());
+	return RunDriverAction([&]()
+	{
+		FDriverSequenceRef Sequence = Driver->CreateSequence();
+		AddActions(Sequence->Actions());
+		return Sequence->Perform();
+	});
+}
+
+static bool FocusElement(FDriverElementRef Element)
+{
+	return RunDriverAction([&]() { return Element->Focus(); });
+}
+
+static bool ClickElement(FDriverElementRef Element, EMouseButtons::Type MouseButton)
+{
+	return RunDriverAction([&]() { return Element->Click(MouseButton); });
+}
+
+static bool ScrollElementBy(FDriverElementRef Element, float Delta)
+{
+	return RunDriverAction([&]() { return Element->ScrollBy(Delta); });
+}
+
+static bool ScrollElementToBeginning(FDriverElementRef Element)
+{
+	return RunDriverAction([&]() { return Element->ScrollToBeginning(); });
+}
+
 // Hover and retry to avoid intermittent "Element found but not located under the cursor" failures
 // when the synthetic cursor has not settled over the target yet.
 static bool RobustClick(FAutomationDriverPtr Driver, FDriverElementRef Element, EMouseButtons::Type MouseButton, int32 MaxAttempts = 3)
 {
 	for (int32 Attempt = 0; Attempt < MaxAttempts; ++Attempt)
 	{
-		Element->Hover();
+		RunDriverAction([&]() { Element->Hover(); return true; });
 		Driver->Wait(FTimespan::FromMilliseconds(50));
-		if (Element->Click(MouseButton))
+		if (ClickElement(Element, MouseButton))
 		{
 			return true;
 		}
@@ -478,7 +535,7 @@ static void ExpandAllProperties(const FString DetailsPath, FAutomationDriverPtr 
 	FDriverElementCollectionRef PopupElements = Driver->FindElements(By::Path(PopupElementsPath));
 	if (!PopupElements->GetElements().IsEmpty())
 	{
-		PopupElements->GetElements()[2]->Focus();
+		FocusElement(PopupElements->GetElements()[2]);
 		RobustClick(Driver, PopupElements->GetElements()[2], EMouseButtons::Type::Left);
 	}
 }
@@ -496,7 +553,7 @@ static void ScrollToElement(FAutomationDriverPtr Driver, FDriverElementRef List,
 	}
 
 	// Start from the top so the target is reachable regardless of the prior scroll offset.
-	List->ScrollToBeginning();
+	ScrollElementToBeginning(List);
 	FPlatformProcess::Sleep(0.1f);
 
 	uint32 CurrentAttempts = 0;
@@ -509,8 +566,8 @@ static void ScrollToElement(FAutomationDriverPtr Driver, FDriverElementRef List,
 			return;
 		}
 
-		List->ScrollBy(-1);
-		FPlatformProcess::Sleep(0.05f);
+		// ScrollElementBy already waits DriverSequenceSettleDelay after the scroll.
+		ScrollElementBy(List, -1);
 		CurrentAttempts++;
 	}
 }
@@ -531,7 +588,7 @@ static FDriverElementPtr FindVisibleElementByPath(
 		return nullptr;
 	}
 
-	List->ScrollToBeginning();
+	ScrollElementToBeginning(List);
 	FPlatformProcess::Sleep(0.1f);
 
 	auto FindCandidate = [&]() -> FDriverElementPtr
@@ -569,8 +626,7 @@ static FDriverElementPtr FindVisibleElementByPath(
 				return FindCandidate();
 			}
 
-			List->ScrollBy(ScrollAmount);
-			FPlatformProcess::Sleep(0.05f);
+			ScrollElementBy(List, ScrollAmount);
 		}
 		return FDriverElementPtr();
 	};
@@ -588,8 +644,7 @@ static FDriverElementPtr FindVisibleElementByPath(
 	}
 
 	// Reverse traversal materializes rows skipped by downward virtualization.
-	List->ScrollBy(0.5f);
-	FPlatformProcess::Sleep(0.05f);
+	ScrollElementBy(List, 0.5f);
 	bool bReachedBeginning = false;
 	if (FDriverElementPtr Candidate =
 		Scan(1, [&ScrollBar]() { return ScrollBar->IsScrolledToBeginning(); }, bReachedBeginning))
@@ -649,24 +704,43 @@ AssetType* CreateAndOpenAsset(
     return Asset;
 }
 
-static void InputText(FDriverElementRef Widget, const FString& Text, bool bRemoveTextBeforeInput, FAutomationDriverPtr Driver = nullptr)
+// Keyboard text entry as a single action sequence. Select-all, delete, type and Enter run
+// together, so another sequence can't interleave and leave the old text in place.
+static bool InputText(FDriverElementRef Widget, const FString& Text, bool bRemoveTextBeforeInput, FAutomationDriverPtr Driver)
 {
-	if (bRemoveTextBeforeInput)
+	const bool bPerformed = PerformDriverSequence(Driver, [&](IActionSequence& Actions)
 	{
-		Widget->TypeChord(EKeys::LeftControl, EKeys::A);
-		Widget->Type(EKeys::Delete);
-	}
-	if (!Text.IsEmpty())
-	{
-		Widget->Type(Text);
-	}
-	Widget->Type(EKeys::Enter);
+		if (bRemoveTextBeforeInput)
+		{
+			Actions.TypeChord(Widget, EKeys::LeftControl, EKeys::A);
+			Actions.Type(Widget, EKeys::Delete);
+		}
+		if (!Text.IsEmpty())
+		{
+			Actions.Type(Widget, Text);
+		}
+		Actions.Type(Widget, EKeys::Enter);
+	});
 
 	// Enter commits asynchronously; wait so callers don't read back the stale pre-commit value.
-	if (Driver.IsValid())
+	FPlatformProcess::Sleep(static_cast<float>(TextCommitSettleDelay.GetTotalSeconds()));
+	return bPerformed;
+}
+
+// Click into the field, move the caret off the click selection, append Text, and commit, all as
+// one action sequence.
+static bool ClickAndAppendText(FDriverElementRef Widget, const FString& Text, FAutomationDriverPtr Driver)
+{
+	const bool bPerformed = PerformDriverSequence(Driver, [&](IActionSequence& Actions)
 	{
-		Driver->Wait(FTimespan::FromMilliseconds(150));
-	}
+		Actions.Click(Widget, EMouseButtons::Type::Left);
+		Actions.Type(Widget, EKeys::Left);
+		Actions.Type(Widget, Text);
+		Actions.Type(Widget, EKeys::Enter);
+	});
+
+	FPlatformProcess::Sleep(static_cast<float>(TextCommitSettleDelay.GetTotalSeconds()));
+	return bPerformed;
 }
 
 // Headless only. Interactive editor runs keep the real keyboard path so dev runs catch widget-wiring regressions.
@@ -899,6 +973,7 @@ const FString MRQScrollBarPath = MRQDetailsPath + "//<SScrollBar>";
 const FString MRQEditorPath = "<SStandaloneAssetEditorToolkitHost>//<SMoviePipelineQueueEditor>";
 
 const FString StringParametersPath = "#JobParameter.StringParameter//<SEditableTextBox>";
+const FString DropdownParametersPath = "#JobParameter.IgnorePlugins//#JobParameterDropdown";
 const FString PathParametersPath = "#JobParameter.PathParameter//<SEditableTextBox>";
 const FString FloatParametersPath = "#JobParameter.FloatParameter//<SEditableText>";
 const FString IntParametersPath = "#JobParameter.IntParameter//<SEditableText>";
@@ -945,7 +1020,7 @@ inline bool Init(UObject* Asset, const FString& InDetailsPath, const FString& In
         TestTrue(TEXT("Details view should exist"), false);
         return false;
     }
-    Details->Focus();
+    FocusElement(Details.ToSharedRef());
 
     // Locate List and ScrollBar
     List = Driver->FindElement(By::Path(InListPath));
@@ -1025,6 +1100,17 @@ void FDeadlinePluginUISpec::Define()
 			CreatedRenderJobDataAsset->JobPresetStruct.JobAttachments.InputFiles.Files.Paths.Add(FFilePath("C:/Temp/InputFile1.txt"));
 			CreatedRenderJobDataAsset->JobPresetStruct.JobAttachments.InputDirectories.Directories.Paths.Add(FDirectoryPath("C:/Temp/InputDir1"));
 
+			// Simulate a preset saved before UI choices were serialized. The
+			// details builder must recover the dropdown metadata from the YAML.
+			for (FParameterDefinition& Parameter : CreatedRenderJobDataAsset->ParameterDefinition.Parameters)
+			{
+				if (Parameter.Name == TEXT("IgnorePlugins"))
+				{
+					Parameter.UserInterfaceControl = EUserInterfaceControl::LINE_EDIT;
+					Parameter.AllowedValues.Empty();
+				}
+			}
+
 			ShowTestEnvironmentParameters();
 			ShowTestStepParameters();
 
@@ -1076,7 +1162,7 @@ void FDeadlinePluginUISpec::Define()
 				TestTrue(TEXT("MRQ Job widget should exist"), false);
 				return;
 			}
-			MrqJobWidget->Focus();
+			FocusElement(MrqJobWidget.ToSharedRef());
 			RobustClick(Driver, MrqJobWidget.ToSharedRef(), EMouseButtons::Type::Left);
 
 			if (!InitForMRQ(MRQJob))
@@ -1226,6 +1312,7 @@ void FDeadlinePluginUISpec::Define()
 				});
 
 			VisibilityTest("StringParameters", StringParametersPath, true);
+			VisibilityTest("IgnorePlugins", DropdownParametersPath, true);
 			VisibilityTest("PathParameters", PathParametersPath, true);
 			VisibilityTest("FloatParameters", FloatParametersPath, true);
 			VisibilityTest("IntParameters", IntParametersPath, true);
@@ -1282,7 +1369,7 @@ void FDeadlinePluginUISpec::Define()
 				TestTrue(TEXT("MRQ Job widget should exist"), false);
 				return;
 			}
-			MrqJobWidget->Focus();
+			FocusElement(MrqJobWidget.ToSharedRef());
 			RobustClick(Driver, MrqJobWidget.ToSharedRef(), EMouseButtons::Type::Left);
 
 			if (!InitForMRQ(MRQJob))
@@ -1399,10 +1486,14 @@ void FDeadlinePluginUISpec::Define()
 			FDriverElementRef DescriptionWidget = Driver->FindElement(By::Path(DescriptionPath));
 
 			FDriverElementRef StringParametersWidget = Driver->FindElement(By::Path(StringParametersPath));
+			FDriverElementRef DropdownParametersWidget = Driver->FindElement(By::Path(DropdownParametersPath));
 			FDriverElementRef PathParametersPathWidget = Driver->FindElement(By::Path(PathParametersPath));
 			FDriverElementRef FloatParametersWidget = Driver->FindElement(By::Path(FloatParametersPath));
 			FDriverElementRef IntParametersWidget = Driver->FindElement(By::Path(IntParametersPath));
 			FDriverElementRef HiddenParametersWidget = Driver->FindElement(By::Path(HiddenParametersPath));
+
+			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), DropdownParametersWidget, 50);
+			TestTrue("IgnorePlugins should render as a dropdown in the job preset", DropdownParametersWidget->Exists());
 
 			//JobName
 			ScrollToElement(Driver, List.ToSharedRef(), ScrollBar.ToSharedRef(), JobNameWidget, 50);
@@ -1440,11 +1531,11 @@ void FDeadlinePluginUISpec::Define()
 				for (int i = 0; i < 2045; ++i) LongString += TEXT("A");
 
 				CreatedJobDataAsset->JobPresetStruct.JobSharedSettings.Description = LongString;
-				InputText(DescriptionWidget, "LongString", false);
+				InputText(DescriptionWidget, "LongString", false, Driver);
 				TEST_EQUAL(CreatedJobDataAsset->JobPresetStruct.JobSharedSettings.Description, LongString);
 
 				FString ValidDescription = TEXT("This is a job description.");
-				InputText(DescriptionWidget, ValidDescription, true);
+				InputText(DescriptionWidget, ValidDescription, true, Driver);
 				TEST_EQUAL(CreatedJobDataAsset->JobPresetStruct.JobSharedSettings.Description, ValidDescription);	
 			}
 
@@ -1457,17 +1548,14 @@ void FDeadlinePluginUISpec::Define()
 				FString PathParameterOldValue = CreatedJobDataAsset->ParameterDefinition.Parameters[0].Value;
 				FString PathParametersText = "ThisInputIsWayTooLongForValidation";
 				//Click on the widget to make it editable and remove text selection
-				PathParametersPathWidget->Click(EMouseButtons::Type::Left);
-				PathParametersPathWidget->Type(EKeys::Left);
-				PathParametersPathWidget->Type(PathParametersText);
-				PathParametersPathWidget->Type(EKeys::Enter);
+				ClickAndAppendText(PathParametersPathWidget, PathParametersText, Driver);
 				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[0].Value, PathParameterOldValue);
 
-				InputText(PathParametersPathWidget, "", true);
+				InputText(PathParametersPathWidget, "", true, Driver);
 				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[0].Value, "");
 
 				FString PathParametersTextValid = "ValidString";
-				InputText(PathParametersPathWidget, PathParametersTextValid, true);
+				InputText(PathParametersPathWidget, PathParametersTextValid, true, Driver);
 				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[0].Value, PathParametersTextValid);							
 			}
 
@@ -1478,14 +1566,14 @@ void FDeadlinePluginUISpec::Define()
 			if (bStringParametersWidgetExists)
 			{
 				FString StringParameterOldValue = CreatedJobDataAsset->ParameterDefinition.Parameters[1].Value;
-				InputText(StringParametersWidget, "ThisInputIsWayTooLongForValidation", false);
+				InputText(StringParametersWidget, "ThisInputIsWayTooLongForValidation", false, Driver);
 				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[1].Value, StringParameterOldValue);
 
-				InputText(StringParametersWidget, "", true);
+				InputText(StringParametersWidget, "", true, Driver);
 				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[1].Value, "");
 
 				FString StringParametersTextValid = "ValidString";
-				InputText(StringParametersWidget, StringParametersTextValid, true);
+				InputText(StringParametersWidget, StringParametersTextValid, true, Driver);
 				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[1].Value, StringParametersTextValid);							
 			}
 
@@ -1497,14 +1585,14 @@ void FDeadlinePluginUISpec::Define()
 			{
 				FString FloatParametersOldValue = CreatedJobDataAsset->ParameterDefinition.Parameters[2].Value;
 
-				InputText(FloatParametersWidget, "InvalidValue", false);
+				InputText(FloatParametersWidget, "InvalidValue", false, Driver);
 				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[2].Value, FloatParametersOldValue);
 
-				InputText(FloatParametersWidget, "", true);
+				InputText(FloatParametersWidget, "", true, Driver);
 				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[2].Value, FloatParametersOldValue);
 
 				FString FloatParametersTextValid = "123.456";
-				InputText(FloatParametersWidget, FloatParametersTextValid, true);
+				InputText(FloatParametersWidget, FloatParametersTextValid, true, Driver);
 				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[2].Value, FloatParametersTextValid);							
 			}
 
@@ -1516,18 +1604,18 @@ void FDeadlinePluginUISpec::Define()
 			{
 				FString IntParametersOldValue = CreatedJobDataAsset->ParameterDefinition.Parameters[3].Value;
 
-				InputText(IntParametersWidget, "InvalidValue", true);
+				InputText(IntParametersWidget, "InvalidValue", true, Driver);
 				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[3].Value, IntParametersOldValue);
 
-				InputText(IntParametersWidget, "", true);
+				InputText(IntParametersWidget, "", true, Driver);
 				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[3].Value, IntParametersOldValue);
 
 				FString IntParametersTextValid = "123";
-				InputText(IntParametersWidget, IntParametersTextValid, true);
+				InputText(IntParametersWidget, IntParametersTextValid, true, Driver);
 				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[3].Value, IntParametersTextValid);
 
 				FString IntParametersTextInvalid = "123.456";
-				InputText(IntParametersWidget, IntParametersTextInvalid, true);
+				InputText(IntParametersWidget, IntParametersTextInvalid, true, Driver);
 				TEST_EQUAL(CreatedJobDataAsset->ParameterDefinition.Parameters[3].Value, IntParametersTextValid);							
 			}		
 
@@ -1619,17 +1707,14 @@ void FDeadlinePluginUISpec::Define()
 				FString PathParameterOldValue = PathParameter.Range[0];
 				FString PathParametersText = "ThisInputIsWayTooLongForValidation";
 				//Click on the widget to make it editable and remove text selection
-				PathParametersPathWidget->Click(EMouseButtons::Type::Left);
-				PathParametersPathWidget->Type(EKeys::Left);
-				PathParametersPathWidget->Type(PathParametersText);
-				PathParametersPathWidget->Type(EKeys::Enter);
+				ClickAndAppendText(PathParametersPathWidget, PathParametersText, Driver);
 				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[1].Range[0], PathParameterOldValue);
 
-				InputText(PathParametersPathWidget, "", true);
+				InputText(PathParametersPathWidget, "", true, Driver);
 				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[1].Range[0], PathParameterOldValue);
 
 				FString PathParametersTextValid = "ValidString";
-				InputText(PathParametersPathWidget, PathParametersTextValid, true);
+				InputText(PathParametersPathWidget, PathParametersTextValid, true, Driver);
 				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[1].Range[0], PathParametersTextValid);
 			}
 
@@ -1643,14 +1728,14 @@ void FDeadlinePluginUISpec::Define()
 				TEST_TRUE(FloatParameter.Type == EValueType::FLOAT)
 
 				FString FloatParameterOldValue = FloatParameter.Range[0];
-				InputText(FloatParametersWidget, "InvalidValue", false);
+				InputText(FloatParametersWidget, "InvalidValue", false, Driver);
 				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[2].Range[0], FloatParameterOldValue);
 
-				InputText(FloatParametersWidget, "", true);
+				InputText(FloatParametersWidget, "", true, Driver);
 				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[2].Range[0], FloatParameterOldValue);
 
 				FString FloatParametersTextValid = "123.456";
-				InputText(FloatParametersWidget, FloatParametersTextValid, true);
+				InputText(FloatParametersWidget, FloatParametersTextValid, true, Driver);
 				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[2].Range[0], FloatParametersTextValid);
 			}
 
@@ -1664,18 +1749,18 @@ void FDeadlinePluginUISpec::Define()
 				TEST_TRUE(IntParameter.Type == EValueType::INT)
 
 				FString IntParameterOldValue = IntParameter.Range[0];
-				InputText(IntParametersWidget, "InvalidValue", false);
+				InputText(IntParametersWidget, "InvalidValue", false, Driver);
 				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[3].Range[0], IntParameterOldValue);
 
-				InputText(IntParametersWidget, "", true);
+				InputText(IntParametersWidget, "", true, Driver);
 				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[3].Range[0], IntParameterOldValue);
 
 				FString IntParametersTextValid = "123";
-				InputText(IntParametersWidget, IntParametersTextValid, true);
+				InputText(IntParametersWidget, IntParametersTextValid, true, Driver);
 				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[3].Range[0], IntParametersTextValid);
 
 				FString IntParametersTextInvalid = "123.456";
-				InputText(IntParametersWidget, IntParametersTextInvalid, true);
+				InputText(IntParametersWidget, IntParametersTextInvalid, true, Driver);
 				TEST_EQUAL(CreatedStepDataAsset->TaskParameterDefinitions.Parameters[3].Range[0], IntParametersTextValid);
 			}
 
@@ -1743,7 +1828,7 @@ void FDeadlinePluginUISpec::Define()
 			if (bVariable2WidgetExists)
 			{
 				FString Variable2OldValue = CreatedEnvironmentDataAsset->Variables.Variables["Variable2"];
-				InputText(Variable2Widget, "ThisInputIsWayTooLongForValidation", false);
+				InputText(Variable2Widget, "ThisInputIsWayTooLongForValidation", false, Driver);
 				TEST_EQUAL(CreatedEnvironmentDataAsset->Variables.Variables["Variable2"], Variable2OldValue);
 			}
 
@@ -1904,7 +1989,7 @@ void FDeadlinePluginUISpec::Define()
 				return;
 			}
 
-			DialogWidget->Focus();
+			FocusElement(DialogWidget);
 
 			if (!NameWidget->Exists())
 			{
@@ -1918,17 +2003,17 @@ void FDeadlinePluginUISpec::Define()
 				return;
 			}
 
-			InputText(NameWidget, "", true);
+			InputText(NameWidget, "", true, Driver);
 			Driver->Wait(FTimespan::FromSeconds(0.5f));
 			TestTrue("Error widget should be visible when name is empty", ErrorWidget->IsVisible());
 			TestFalse("Create button widget should be disabled when name is empty", CreateButton->IsInteractable());
 
-			InputText(NameWidget, "Invalid/", true);
+			InputText(NameWidget, "Invalid/", true, Driver);
 			Driver->Wait(FTimespan::FromSeconds(0.5f));
 			TestTrue("Error widget should be visible when name contains invalid characters", ErrorWidget->IsVisible());
 			TestFalse("Create button widget should be disabled when name contains invalid characters", CreateButton->IsInteractable());
 
-			InputText(NameWidget, "ValidName", true);
+			InputText(NameWidget, "ValidName", true, Driver);
 			Driver->Wait(FTimespan::FromSeconds(0.5f));
 			TestFalse("Error widget should be hidden when name is valid", ErrorWidget->IsVisible());
 			TestTrue("Create button widget should be enabled when name is valid", CreateButton->IsInteractable());
@@ -1939,7 +2024,7 @@ void FDeadlinePluginUISpec::Define()
 				return;
 			}
 
-			CancelButton->Click(EMouseButtons::Type::Left);
+			ClickElement(CancelButton, EMouseButtons::Type::Left);
 			Driver->Wait(FTimespan::FromSeconds(1));
 			TestFalse("Dialog widget should be closed after CancelButton click", DialogWidget->Exists());
 		});

@@ -70,6 +70,9 @@ struct FParameterDefinition
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
 	EUserInterfaceControl UserInterfaceControl;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
+	TArray<FString> AllowedValues;
+
 	FParameterDefinition()
 		: Name("DefaultName"),
 		 Type(EValueType::STRING),
