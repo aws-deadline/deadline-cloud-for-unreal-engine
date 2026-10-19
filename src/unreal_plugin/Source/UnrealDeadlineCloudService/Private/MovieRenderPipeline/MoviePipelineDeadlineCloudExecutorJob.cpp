@@ -553,6 +553,11 @@ bool UMoviePipelineDeadlineCloudExecutorJob::ReconcileJobTemplateParameters(
 	if (bApply && bChanged)
 	{
 		Modify();
+		// Normalize newly inherited defaults, then restore matching artist values.
+		if (auto* Library = UDeadlineCloudJobBundleLibrary::Get())
+		{
+			EditableParameters = Library->ValidateMrqJobParameters(EditableParameters);
+		}
 		JobTemplateOverrides.Parameters = Merge(EditableParameters, JobTemplateOverrides.Parameters);
 		if (bPresetChanged)
 		{
@@ -579,6 +584,7 @@ bool UMoviePipelineDeadlineCloudExecutorJob::CheckForTemplateUpdates(
 	auto* YamlLibrary = UPythonYamlLibrary::Get();
 	int32 ChangedJobs = 0;
 	bool bAlreadyPrompted = false;
+	bool bCheckFailed = false;
 	for (auto* QueueJob : Queue->GetJobs())
 	{
 		auto* Job = Cast<UMoviePipelineDeadlineCloudExecutorJob>(QueueJob);
@@ -595,8 +601,9 @@ bool UMoviePipelineDeadlineCloudExecutorJob::CheckForTemplateUpdates(
 		if (!YamlLibrary || !IsValid(Job->JobPreset)
 			|| !FPaths::FileExists(Job->JobPreset->PathToTemplate.FilePath))
 		{
-			UE_LOG(LogTemp, Warning, TEXT("Cannot check Deadline Cloud job template for %s"), *Job->JobName);
-			return false;
+			UE_LOG(LogTemp, Warning, TEXT("Cannot check Deadline Cloud job template for %s; skipping this job"), *Job->JobName);
+			bCheckFailed = true;
+			continue;
 		}
 		if (!Templates.Contains(Job->JobPreset))
 		{
@@ -604,8 +611,9 @@ bool UMoviePipelineDeadlineCloudExecutorJob::CheckForTemplateUpdates(
 			// Distinguish a valid parameter-free template from Python's empty error return.
 			if (!YamlLibrary->bJobFileReadSucceeded)
 			{
-				UE_LOG(LogTemp, Warning, TEXT("Cannot read Deadline Cloud job template for %s"), *Job->JobName);
-				return false;
+				UE_LOG(LogTemp, Warning, TEXT("Cannot read Deadline Cloud job template for %s; skipping this job"), *Job->JobName);
+				bCheckFailed = true;
+				continue;
 			}
 			Templates.Add(Job->JobPreset, MoveTemp(Parameters));
 		}
@@ -618,7 +626,7 @@ bool UMoviePipelineDeadlineCloudExecutorJob::CheckForTemplateUpdates(
 	}
 	if (PendingJobs.IsEmpty())
 	{
-		return true;
+		return !bCheckFailed;
 	}
 	if (ChangedJobs > 0)
 	{
@@ -659,7 +667,7 @@ bool UMoviePipelineDeadlineCloudExecutorJob::CheckForTemplateUpdates(
 		}
 	}
 	Queue->SetIsDirty(true);
-	return true;
+	return !bCheckFailed;
 }
 
 void UMoviePipelineDeadlineCloudExecutorJob::GetPresetObjectsNames(const UMoviePipelineDeadlineCloudExecutorJob* MrqJob, TMap<UDataAsset*, FString>& OutPresetPackageNames)

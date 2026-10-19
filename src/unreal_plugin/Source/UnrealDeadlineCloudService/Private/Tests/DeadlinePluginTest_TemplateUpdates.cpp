@@ -7,6 +7,7 @@
 #include "UObject/Package.h"
 #include "Misc/FileHelper.h"
 #include "Misc/App.h"
+#include "Misc/EngineVersion.h"
 #include "HAL/FileManager.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDeadlineCloudTemplateUpdates,
@@ -70,6 +71,36 @@ bool FDeadlineCloudTemplateUpdates::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Shared preset definitions updated"), Preset->ParameterDefinition.Parameters.Num(), 5);
 	TestEqual(TEXT("Shared preset is refreshed once"), PresetNotifications, 1);
 	Preset->GetHiddenManager().OnChanged.Unbind();
+
+	auto* CondaPreset = NewObject<UDeadlineCloudRenderJob>();
+	auto* CondaJob = NewObject<UMoviePipelineDeadlineCloudExecutorJob>(Queue);
+	CondaJob->JobPreset = CondaPreset;
+	const TArray<FParameterDefinition> CondaDefaults = {
+		Parameter(TEXT("CondaPackages"), TEXT("unrealengine=0.0")),
+		Parameter(TEXT("CondaChannels"), TEXT("template-channel"))
+	};
+	const FString EnginePackage = FString::Printf(TEXT("unrealengine=%d.%d"),
+		FEngineVersion::Current().GetMajor(), FEngineVersion::Current().GetMinor());
+	const FString ChannelOverride = FPlatformMisc::GetEnvironmentVariable(TEXT("DEADLINE_CONDA_CHANNELS"));
+	for (int32 Mode = 0; Mode < 3; ++Mode)
+	{
+		const EValueType SavedType = Mode == 1 ? EValueType::INT : EValueType::STRING;
+		CondaPreset->ParameterDefinition.Parameters = Mode == 0 ? TArray<FParameterDefinition>{} : TArray<FParameterDefinition>{
+			Parameter(TEXT("CondaPackages"), TEXT("unrealengine=9.9"), SavedType),
+			Parameter(TEXT("CondaChannels"), TEXT("artist-channel"), SavedType)
+		};
+		CondaJob->JobTemplateOverrides.Parameters = CondaPreset->ParameterDefinition.Parameters;
+		CondaJob->JobTemplateOverrides.Parameters.Add(Parameter(TEXT("Removed"), TEXT("old")));
+		TestTrue(TEXT("Preview detects Conda definition changes"), CondaJob->ReconcileJobTemplateParameters(CondaDefaults, false));
+		TestEqual(TEXT("Preview preserves saved parameters"), CondaJob->JobTemplateOverrides.Parameters.Num(), Mode == 0 ? 1 : 3);
+		TestTrue(TEXT("Apply Conda definition update"), CondaJob->ReconcileJobTemplateParameters(CondaDefaults, true));
+		TestTrue(TEXT("New/retyped engine defaults normalize; matching values stay saved"),
+			CondaJob->JobTemplateOverrides.Parameters[0].Value.Contains(Mode == 2 ? TEXT("unrealengine=9.9") : EnginePackage));
+		TestEqual(TEXT("New/retyped channels inherit the override; matching values stay saved"),
+			CondaJob->JobTemplateOverrides.Parameters[1].Value,
+			Mode == 2 ? FString(TEXT("artist-channel")) : ChannelOverride.IsEmpty() ? FString(TEXT("template-channel")) : ChannelOverride);
+		TestFalse(TEXT("Conda update is idempotent"), CondaJob->ReconcileJobTemplateParameters(CondaDefaults, false));
+	}
 
 	auto* Job = Cast<UMoviePipelineDeadlineCloudExecutorJob>(Queue->GetJobs()[0]);
 	Current[0].Value = TEXT("another-default");
@@ -138,6 +169,31 @@ bool FDeadlineCloudTemplateUpdates::RunTest(const FString& Parameters)
 	TestFalse(TEXT("Version-only check does not require saving the package"), QueuePackage->IsDirty());
 	TestEqual(TEXT("Version-only check records the current version"), DisabledJob->LastCheckedPluginVersion, FString(TEXT("1.3.0")));
 	TestTrue(TEXT("Version marker makes the working queue dirty"), DisabledQueue->IsDirty());
+	auto* MixedQueue = NewObject<UMoviePipelineQueue>();
+	auto* BrokenPreset = NewObject<UDeadlineCloudRenderJob>();
+	BrokenPreset->PathToTemplate.FilePath = FPaths::CreateTempFilename(*FPaths::ProjectSavedDir(), TEXT("DeadlineBrokenTemplate"), TEXT(".yml"));
+	FFileHelper::SaveStringToFile(TEXT("parameterDefinitions:\n- {}\n"), *BrokenPreset->PathToTemplate.FilePath);
+	for (auto* InvalidPreset : TArray<UDeadlineCloudRenderJob*>{ nullptr, Preset, BrokenPreset })
+	{
+		auto* InvalidJob = Cast<UMoviePipelineDeadlineCloudExecutorJob>(MixedQueue->AllocateNewJob(UMoviePipelineDeadlineCloudExecutorJob::StaticClass()));
+		InvalidJob->JobPreset = InvalidPreset;
+		InvalidJob->LastCheckedPluginVersion = TEXT("1.2.0");
+		InvalidJob->JobTemplateOverrides.Parameters = { Parameter(TEXT("Saved"), TEXT("artist-value")) };
+	}
+	auto* ValidJob = Cast<UMoviePipelineDeadlineCloudExecutorJob>(MixedQueue->AllocateNewJob(UMoviePipelineDeadlineCloudExecutorJob::StaticClass()));
+	ValidJob->JobPreset = EmptyPreset;
+	ValidJob->JobTemplateOverrides.Parameters.Reset();
+	AddExpectedError(TEXT("KeyError: 'name'"), EAutomationExpectedErrorFlags::Contains, 1);
+	AddExpectedError(TEXT("PythonYamlLibraryImplementation.OpenJobFile"), EAutomationExpectedErrorFlags::Contains, 1);
+	TestFalse(TEXT("Invalid jobs leave part of the check pending"), UMoviePipelineDeadlineCloudExecutorJob::CheckForTemplateUpdates(MixedQueue, TEXT("1.3.0"), true));
+	TestEqual(TEXT("Invalid jobs do not prevent checking a valid job"), ValidJob->LastCheckedPluginVersion, FString(TEXT("1.3.0")));
+	for (int32 Index = 0; Index < 3; ++Index)
+	{
+		auto* InvalidJob = Cast<UMoviePipelineDeadlineCloudExecutorJob>(MixedQueue->GetJobs()[Index]);
+		TestEqual(TEXT("Skipped job keeps its version marker"), InvalidJob->LastCheckedPluginVersion, FString(TEXT("1.2.0")));
+		TestEqual(TEXT("Skipped job keeps its saved value"), InvalidJob->JobTemplateOverrides.Parameters[0].Value, FString(TEXT("artist-value")));
+	}
+	IFileManager::Get().Delete(*BrokenPreset->PathToTemplate.FilePath);
 	if (FApp::IsUnattended())
 	{
 		FFileHelper::SaveStringToFile(
