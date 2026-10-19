@@ -627,16 +627,18 @@ bool UMoviePipelineDeadlineCloudExecutorJob::CheckForTemplateUpdates(
 			return false;
 		}
 		// Latch before the modal: Details can rebuild while the dialog is open.
-		for (auto* Job : PendingJobs)
+		for (auto* QueueJob : Queue->GetJobs())
 		{
-			Job->bTemplateUpdatePrompted = true;
+			if (auto* Job = Cast<UMoviePipelineDeadlineCloudExecutorJob>(QueueJob); Job && (PendingJobs.Contains(Job) || (bForSubmission && !Job->IsEnabled())))
+			{
+				Job->bTemplateUpdatePrompted = true;
+			}
 		}
 		const FText Message = FText::FromString(FString::Printf(
-			TEXT("Deadline Cloud %s: job template parameters changed for %d jobs in this queue.\n\n")
-			TEXT("Update all affected jobs and their presets? Matching saved values will be kept. ")
-			TEXT("Removed parameters will be discarded; parameters with changed types will use preset or template defaults.\n\n")
-			TEXT("Save the queue and modified presets to retain the update."),
-			*PluginVersion, ChangedJobs));
+			TEXT("Job or preset parameters changed for %d jobs.\n\n")
+			TEXT("Update job and preset parameters?\n")
+			TEXT("Removed parameters are discarded; changed types use defaults."),
+			ChangedJobs));
 		if (FMessageDialog::Open(EAppMsgType::YesNo, Message) != EAppReturnType::Yes)
 		{
 			return false;
@@ -645,7 +647,7 @@ bool UMoviePipelineDeadlineCloudExecutorJob::CheckForTemplateUpdates(
 	const FScopedTransaction Transaction(FText::FromString(TEXT("Update Deadline Cloud job parameters")), ChangedJobs > 0);
 	for (auto* Job : PendingJobs)
 	{
-		Job->ReconcileJobTemplateParameters(Templates[Job->JobPreset], true);
+		const bool bJobChanged = Job->ReconcileJobTemplateParameters(Templates[Job->JobPreset], true);
 		if (ChangedJobs > 0)
 		{
 			Job->Modify();
@@ -655,6 +657,10 @@ bool UMoviePipelineDeadlineCloudExecutorJob::CheckForTemplateUpdates(
 			Job->MarkPackageDirty();
 		}
 		Job->LastCheckedPluginVersion = PluginVersion;
+		if (bJobChanged)
+		{
+			Job->OnRequestDetailsRefresh.ExecuteIfBound();
+		}
 	}
 	Queue->SetIsDirty(true);
 	return true;

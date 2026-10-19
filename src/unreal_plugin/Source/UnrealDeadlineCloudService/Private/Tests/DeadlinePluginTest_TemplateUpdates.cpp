@@ -5,6 +5,7 @@
 #include "Serialization/ObjectReader.h"
 #include "Serialization/ObjectWriter.h"
 #include "Misc/FileHelper.h"
+#include "Misc/App.h"
 #include "HAL/FileManager.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDeadlineCloudTemplateUpdates,
@@ -132,6 +133,28 @@ bool FDeadlineCloudTemplateUpdates::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Valid template without parameters can submit"),
 		UMoviePipelineDeadlineCloudExecutorJob::CheckForTemplateUpdates(DisabledQueue, TEXT("1.3.0"), true));
 	TestTrue(TEXT("Version marker makes the working queue dirty"), DisabledQueue->IsDirty());
+	if (FApp::IsUnattended())
+	{
+		FFileHelper::SaveStringToFile(
+			TEXT("parameterDefinitions:\n- name: NewParameter\n  type: STRING\n  default: new-default\n"),
+			*EmptyPreset->PathToTemplate.FilePath);
+		EmptyPreset->ParameterDefinition.Parameters = { Parameter(TEXT("Saved"), TEXT("preset-value")) };
+		DisabledJob->JobTemplateOverrides.Parameters = { Parameter(TEXT("Saved"), TEXT("artist-value")) };
+		DisabledJob->LastCheckedPluginVersion = TEXT("1.2.0");
+		TestFalse(TEXT("Unattended changed-template check leaves update pending"),
+			UMoviePipelineDeadlineCloudExecutorJob::CheckForTemplateUpdates(DisabledQueue, TEXT("1.3.0"), true));
+		TestEqual(TEXT("Unattended check preserves job parameter count"), DisabledJob->JobTemplateOverrides.Parameters.Num(), 1);
+		TestEqual(TEXT("Unattended check preserves job parameter name"), DisabledJob->JobTemplateOverrides.Parameters[0].Name, FString(TEXT("Saved")));
+		TestEqual(TEXT("Unattended check preserves saved value"), DisabledJob->JobTemplateOverrides.Parameters[0].Value, FString(TEXT("artist-value")));
+		TestEqual(TEXT("Unattended check preserves preset parameter count"), EmptyPreset->ParameterDefinition.Parameters.Num(), 1);
+		TestEqual(TEXT("Unattended check preserves preset parameter name"), EmptyPreset->ParameterDefinition.Parameters[0].Name, FString(TEXT("Saved")));
+		TestEqual(TEXT("Unattended check preserves preset value"), EmptyPreset->ParameterDefinition.Parameters[0].Value, FString(TEXT("preset-value")));
+		TestEqual(TEXT("Unattended check preserves version marker"), DisabledJob->LastCheckedPluginVersion, FString(TEXT("1.2.0")));
+	}
+	else
+	{
+		AddWarning(TEXT("Run with -unattended to cover changed-template checks without a modal."));
+	}
 	IFileManager::Get().Delete(*EmptyPreset->PathToTemplate.FilePath);
 	return true;
 }

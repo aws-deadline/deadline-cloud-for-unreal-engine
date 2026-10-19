@@ -67,6 +67,7 @@ def remote_executor():
     )
 
     unreal_mock = MagicMock()
+    unreal_mock.SystemLibrary.is_unattended.return_value = False
     unreal_mock.uclass.return_value = lambda cls: cls
     unreal_mock.ufunction.return_value = lambda fn: fn
     unreal_mock.MoviePipelinePythonHostExecutor = type(
@@ -271,19 +272,64 @@ def test__is_frame_based_job_returns_false_without_job_preset(remote_executor):
     job.get_parameter_definition_with_overrides.assert_not_called()
 
 
-def test_template_update_declined_cancels_submission(remote_executor):
+def test_template_update_declined_continues_submission(remote_executor):
+    job = _job("Saved", enabled=True, shot_states=(True,))
     queue = MagicMock()
-    queue.get_jobs.return_value = [_job("Saved", enabled=True, shot_states=(True,))]
+    queue.get_jobs.return_value = [job]
     check = remote_executor.unreal.MoviePipelineDeadlineCloudExecutorJob.check_for_template_updates
     check.return_value = False
     executor = remote_executor.MoviePipelineDeadlineCloudRemoteExecutor()
     executor.on_executor_finished_impl = MagicMock()
-    executor.check_dirty_packages = MagicMock()
+    executor.check_dirty_packages = MagicMock(return_value=True)
+    executor.check_maps = MagicMock(return_value=True)
 
     with patch.object(remote_executor, "UnrealMrqJobSubmitter") as submitter:
         executor.execute_delayed(queue)
 
     check.assert_called_once_with(queue, remote_executor.version, True)
-    executor.on_executor_finished_impl.assert_called_once_with()
-    executor.check_dirty_packages.assert_not_called()
+    executor.on_executor_finished_impl.assert_not_called()
+    executor.check_dirty_packages.assert_called_once_with()
+    executor.check_maps.assert_called_once_with([job])
+    submitter.assert_called_once_with(silent_mode=False)
+    submitter.return_value.add_job.assert_called_once_with(job)
+    submitter.return_value.submit_jobs.assert_called_once_with()
+
+
+def test_template_update_declined_still_runs_existing_validation(remote_executor):
+    job = _job("Saved", enabled=True, shot_states=(True,))
+    queue = MagicMock()
+    queue.get_jobs.return_value = [job]
+    remote_executor.unreal.MoviePipelineDeadlineCloudExecutorJob.check_for_template_updates.return_value = (
+        False
+    )
+    executor = remote_executor.MoviePipelineDeadlineCloudRemoteExecutor()
+    executor.check_dirty_packages = MagicMock(return_value=True)
+    executor.check_maps = MagicMock(return_value=False)
+
+    with patch.object(remote_executor, "UnrealMrqJobSubmitter") as submitter:
+        executor.execute_delayed(queue)
+
+    executor.check_maps.assert_called_once_with([job])
     submitter.assert_not_called()
+
+
+def test_unattended_submission_skips_template_update_check(remote_executor):
+    job = _job("Saved", enabled=True, shot_states=(True,))
+    queue = MagicMock()
+    queue.get_jobs.return_value = [job]
+    remote_executor.unreal.SystemLibrary.is_unattended.return_value = True
+    check = remote_executor.unreal.MoviePipelineDeadlineCloudExecutorJob.check_for_template_updates
+    check.return_value = False
+    executor = remote_executor.MoviePipelineDeadlineCloudRemoteExecutor()
+    executor.check_dirty_packages = MagicMock(return_value=True)
+    executor.check_maps = MagicMock(return_value=True)
+
+    with patch.object(remote_executor, "UnrealMrqJobSubmitter") as submitter:
+        executor.execute_delayed(queue)
+
+    check.assert_not_called()
+    executor.check_dirty_packages.assert_called_once_with()
+    executor.check_maps.assert_called_once_with([job])
+    submitter.assert_called_once_with(silent_mode=True)
+    submitter.return_value.add_job.assert_called_once_with(job)
+    submitter.return_value.submit_jobs.assert_called_once_with()
