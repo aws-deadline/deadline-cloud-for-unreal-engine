@@ -652,10 +652,6 @@ bool UMoviePipelineDeadlineCloudExecutorJob::CheckForTemplateUpdates(
 		{
 			Job->Modify();
 		}
-		else
-		{
-			Job->MarkPackageDirty();
-		}
 		Job->LastCheckedPluginVersion = PluginVersion;
 		if (bJobChanged)
 		{

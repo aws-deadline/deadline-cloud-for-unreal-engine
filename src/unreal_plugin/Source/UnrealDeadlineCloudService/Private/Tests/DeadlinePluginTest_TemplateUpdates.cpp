@@ -4,6 +4,7 @@
 #include "MovieRenderPipeline/MoviePipelineDeadlineCloudExecutorJob.h"
 #include "Serialization/ObjectReader.h"
 #include "Serialization/ObjectWriter.h"
+#include "UObject/Package.h"
 #include "Misc/FileHelper.h"
 #include "Misc/App.h"
 #include "HAL/FileManager.h"
@@ -113,7 +114,8 @@ bool FDeadlineCloudTemplateUpdates::RunTest(const FString& Parameters)
 	TestFalse(TEXT("Same-version queue rechecks an unsaved preset"), UMoviePipelineDeadlineCloudExecutorJob::CheckForTemplateUpdates(Queue, TEXT("1.2.0")));
 	TestFalse(TEXT("Unavailable template leaves migration pending"), UMoviePipelineDeadlineCloudExecutorJob::CheckForTemplateUpdates(Queue, TEXT("1.3.0")));
 	TestEqual(TEXT("Failed check preserves marker"), Job->LastCheckedPluginVersion, FString(TEXT("1.2.0")));
-	auto* DisabledQueue = NewObject<UMoviePipelineQueue>();
+	auto* QueuePackage = CreatePackage(*FString::Printf(TEXT("/Temp/DeadlineTemplateUpdate_%s"), *FGuid::NewGuid().ToString()));
+	auto* DisabledQueue = NewObject<UMoviePipelineQueue>(QueuePackage);
 	auto* DisabledJob = Cast<UMoviePipelineDeadlineCloudExecutorJob>(
 		DisabledQueue->AllocateNewJob(UMoviePipelineDeadlineCloudExecutorJob::StaticClass()));
 	DisabledJob->JobPreset = Preset;
@@ -130,8 +132,11 @@ bool FDeadlineCloudTemplateUpdates::RunTest(const FString& Parameters)
 	DisabledJob->JobTemplateOverrides.Parameters.Reset();
 	DisabledJob->SetIsEnabled(true);
 	DisabledQueue->SetIsDirty(false);
+	QueuePackage->SetDirtyFlag(false);
 	TestTrue(TEXT("Valid template without parameters can submit"),
 		UMoviePipelineDeadlineCloudExecutorJob::CheckForTemplateUpdates(DisabledQueue, TEXT("1.3.0"), true));
+	TestFalse(TEXT("Version-only check does not require saving the package"), QueuePackage->IsDirty());
+	TestEqual(TEXT("Version-only check records the current version"), DisabledJob->LastCheckedPluginVersion, FString(TEXT("1.3.0")));
 	TestTrue(TEXT("Version marker makes the working queue dirty"), DisabledQueue->IsDirty());
 	if (FApp::IsUnattended())
 	{
