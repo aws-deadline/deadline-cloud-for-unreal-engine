@@ -91,6 +91,7 @@ public:
     void ReloadDataFromJobPreset();
 
     // Compare/apply job-template definitions without resetting shared settings or attachments.
+    UFUNCTION(BlueprintCallable, Category = "DeadlineCloud")
     bool ReconcileJobTemplateParameters(const TArray<FParameterDefinition>& TemplateParameters, bool bApply);
 
     UFUNCTION(BlueprintCallable, Category = "DeadlineCloud")

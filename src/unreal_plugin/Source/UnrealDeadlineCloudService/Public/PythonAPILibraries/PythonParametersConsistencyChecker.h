@@ -35,6 +35,10 @@ public:
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void FixJobParametersConsistency (UDeadlineCloudJob* Job);
+
+	// Template parameters in template order with saved values kept for matching name and type
+	UFUNCTION(BlueprintImplementableEvent)
+	TArray<FParameterDefinition> ReconcileJobParameters(const TArray<FParameterDefinition>& TemplateParameters, const TArray<FParameterDefinition>& SavedParameters);
    
 	UFUNCTION(BlueprintImplementableEvent)
 	FParametersConsistencyCheckResult	CheckStepParametersConsistency(const UDeadlineCloudStep* Step);

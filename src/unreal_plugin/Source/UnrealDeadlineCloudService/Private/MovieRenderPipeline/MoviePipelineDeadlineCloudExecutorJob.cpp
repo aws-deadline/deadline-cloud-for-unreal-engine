@@ -19,6 +19,7 @@
 #include "AssetToolsModule.h"
 #include "PackageTools.h"
 #include "PythonAPILibraries/PythonYamlLibrary.h"
+#include "PythonAPILibraries/PythonParametersConsistencyChecker.h"
 #include "PythonAPILibraries/DeadlineCloudPreGuiHookLibrary.h"
 #include "ObjectTools.h"
 #include "UObject/SavePackage.h"
@@ -508,25 +509,11 @@ void UMoviePipelineDeadlineCloudExecutorJob::ReloadDataFromJobPreset()
 bool UMoviePipelineDeadlineCloudExecutorJob::ReconcileJobTemplateParameters(
 	const TArray<FParameterDefinition>& TemplateParameters, bool bApply)
 {
-	if (!IsValid(JobPreset))
+	auto* Checker = UPythonParametersConsistencyChecker::Get();
+	if (!IsValid(JobPreset) || !Checker)
 	{
 		return false;
 	}
-	auto Merge = [](TArray<FParameterDefinition> Current, const TArray<FParameterDefinition>& Saved)
-	{
-		for (auto& Parameter : Current)
-		{
-			const auto* Previous = Saved.FindByPredicate([&](const FParameterDefinition& P)
-			{
-				return P.Name == Parameter.Name && P.Type == Parameter.Type;
-			});
-			if (Previous)
-			{
-				Parameter.Value = Previous->Value;
-			}
-		}
-		return Current;
-	};
 	// Preserve artist visibility choices unless template visibility itself changed.
 	TSet<FName> Hidden;
 	for (const auto& Parameter : TemplateParameters)
@@ -542,7 +529,7 @@ bool UMoviePipelineDeadlineCloudExecutorJob::ReconcileJobTemplateParameters(
 			Hidden.Add(FName(*Parameter.Name));
 		}
 	}
-	auto PresetParameters = Merge(TemplateParameters, JobPreset->ParameterDefinition.Parameters);
+	auto PresetParameters = Checker->ReconcileJobParameters(TemplateParameters, JobPreset->ParameterDefinition.Parameters);
 	auto EditableParameters = PresetParameters.FilterByPredicate([&](const FParameterDefinition& P)
 	{
 		return !Hidden.Contains(FName(*P.Name));
@@ -558,7 +545,7 @@ bool UMoviePipelineDeadlineCloudExecutorJob::ReconcileJobTemplateParameters(
 		{
 			EditableParameters = Library->ValidateMrqJobParameters(EditableParameters);
 		}
-		JobTemplateOverrides.Parameters = Merge(EditableParameters, JobTemplateOverrides.Parameters);
+		JobTemplateOverrides.Parameters = Checker->ReconcileJobParameters(EditableParameters, JobTemplateOverrides.Parameters);
 		if (bPresetChanged)
 		{
 			JobPreset->Modify();
@@ -592,13 +579,7 @@ bool UMoviePipelineDeadlineCloudExecutorJob::CheckForTemplateUpdates(
 		{
 			continue;
 		}
-		// A saved queue may be reopened with a preset whose migration was not saved.
-		if (Job->LastCheckedPluginVersion == PluginVersion && IsValid(Job->JobPreset)
-			&& DefinitionsMatch(Job->JobPreset->GetParametersDataToOverride(), Job->JobTemplateOverrides.Parameters))
-		{
-			continue;
-		}
-		if (!YamlLibrary || !IsValid(Job->JobPreset)
+		if (!YamlLibrary || !UPythonParametersConsistencyChecker::Get() || !IsValid(Job->JobPreset)
 			|| !FPaths::FileExists(Job->JobPreset->PathToTemplate.FilePath))
 		{
 			UE_LOG(LogTemp, Warning, TEXT("Cannot check Deadline Cloud job template for %s; skipping this job"), *Job->JobName);
@@ -607,17 +588,22 @@ bool UMoviePipelineDeadlineCloudExecutorJob::CheckForTemplateUpdates(
 		}
 		if (!Templates.Contains(Job->JobPreset))
 		{
-			auto Parameters = YamlLibrary->OpenJobFile(Job->JobPreset->PathToTemplate.FilePath);
-			// Distinguish a valid parameter-free template from Python's empty error return.
-			if (!YamlLibrary->bJobFileReadSucceeded)
+			auto Result = YamlLibrary->ReadJobFile(Job->JobPreset->PathToTemplate.FilePath);
+			if (!Result.bSucceeded)
 			{
 				UE_LOG(LogTemp, Warning, TEXT("Cannot read Deadline Cloud job template for %s; skipping this job"), *Job->JobName);
 				bCheckFailed = true;
 				continue;
 			}
-			Templates.Add(Job->JobPreset, MoveTemp(Parameters));
+			Templates.Add(Job->JobPreset, MoveTemp(Result.Parameters));
 		}
-		if (Job->ReconcileJobTemplateParameters(Templates[Job->JobPreset], false))
+		const bool bJobChanged = Job->ReconcileJobTemplateParameters(Templates[Job->JobPreset], false);
+		// Read current YAML even after a completed version check: studios can edit templates.
+		if (Job->LastCheckedPluginVersion == PluginVersion && !bJobChanged)
+		{
+			continue;
+		}
+		if (bJobChanged)
 		{
 			++ChangedJobs;
 			bAlreadyPrompted |= Job->bTemplateUpdatePrompted;
@@ -644,7 +630,7 @@ bool UMoviePipelineDeadlineCloudExecutorJob::CheckForTemplateUpdates(
 		}
 		const FText Message = FText::FromString(FString::Printf(
 			TEXT("Job or preset parameters changed for %d jobs.\n\n")
-			TEXT("Update job and preset parameters?\n")
+			TEXT("Update job parameters and shared job presets?\n")
 			TEXT("Removed parameters are discarded; changed types use defaults."),
 			ChangedJobs));
 		if (FMessageDialog::Open(EAppMsgType::YesNo, Message) != EAppReturnType::Yes)

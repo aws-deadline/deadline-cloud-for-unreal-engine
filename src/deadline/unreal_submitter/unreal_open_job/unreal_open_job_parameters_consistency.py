@@ -1,5 +1,6 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
+import copy
 import yaml
 from typing import Any
 from dataclasses import dataclass
@@ -222,6 +223,47 @@ class ParametersConsistencyChecker:
         return fixed_variables
 
     @staticmethod
+    def reconcile_job_parameters(
+        template_parameters: list[dict[str, Any]], saved_parameters: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """
+        Return copies of the template parameters in template order, keeping the saved "value"
+        of each parameter whose name and type still match.
+        """
+        missed_in_yaml, missed_in_data_asset = ParametersConsistencyChecker.symmetric_difference(
+            left=[(p["name"], p["type"]) for p in template_parameters],
+            right=[(p["name"], p["type"]) for p in saved_parameters],
+        )
+
+        # Without differences fix_parameters_consistency returns the template, dropping values
+        matched_parameters = saved_parameters
+        if missed_in_yaml or missed_in_data_asset:
+            matched_parameters = [
+                p
+                for p in ParametersConsistencyChecker.fix_parameters_consistency(
+                    missed_in_yaml=missed_in_yaml,
+                    missed_in_data_asset=missed_in_data_asset,
+                    yaml_parameters=template_parameters,
+                    data_asset_parameters=saved_parameters,
+                )
+                if (p["name"], p["type"]) not in missed_in_data_asset
+            ]
+
+        saved_values: dict[tuple[str, str], Any] = {}
+        for p in matched_parameters:
+            if p.get("value") is not None:
+                saved_values.setdefault((p["name"], p["type"]), p["value"])
+
+        reconciled_parameters = []
+        for p in template_parameters:
+            parameter = copy.deepcopy(p)
+            if (p["name"], p["type"]) in saved_values:
+                parameter["value"] = saved_values[(p["name"], p["type"])]
+            reconciled_parameters.append(parameter)
+
+        return reconciled_parameters
+
+    @staticmethod
     def check_job_parameters_consistency(
         job_template_path: str, job_parameters: list[dict[str, Any]]
     ) -> ParametersConsistencyCheckResult:
@@ -243,7 +285,9 @@ class ParametersConsistencyChecker:
             job_template = yaml.safe_load(f)
 
         return ParametersConsistencyChecker.check_parameters_consistency(
-            yaml_parameters=[(p["name"], p["type"]) for p in job_template["parameterDefinitions"]],
+            yaml_parameters=[
+                (p["name"], p["type"]) for p in job_template.get("parameterDefinitions", [])
+            ],
             data_asset_parameters=[(p["name"], p["type"]) for p in job_parameters],
         )
 
@@ -268,16 +312,9 @@ class ParametersConsistencyChecker:
         with open(job_template_path, "r") as f:
             job_template = yaml.safe_load(f)
 
-        missed_in_yaml, missed_in_data_asset = ParametersConsistencyChecker.symmetric_difference(
-            left=[(p["name"], p["type"]) for p in job_template["parameterDefinitions"]],
-            right=[(p["name"], p["type"]) for p in job_parameters],
-        )
-
-        fixed_parameters = ParametersConsistencyChecker.fix_parameters_consistency(
-            missed_in_yaml=missed_in_yaml,
-            missed_in_data_asset=missed_in_data_asset,
-            yaml_parameters=job_template["parameterDefinitions"],
-            data_asset_parameters=job_parameters,
+        fixed_parameters = ParametersConsistencyChecker.reconcile_job_parameters(
+            template_parameters=job_template.get("parameterDefinitions", []),
+            saved_parameters=job_parameters,
         )
 
         logger.info(f"Fixed OpenJob parameters: {fixed_parameters}")
