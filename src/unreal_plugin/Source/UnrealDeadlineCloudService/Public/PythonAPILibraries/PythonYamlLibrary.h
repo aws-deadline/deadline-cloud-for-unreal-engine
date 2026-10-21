@@ -82,6 +82,21 @@ struct FParameterDefinition
 
 
 };
+
+/*
+ Job .yaml read result: distinguishes a template without parameters from a failed read
+ */
+USTRUCT(BlueprintType)
+struct FJobTemplateReadResult
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
+	TArray<FParameterDefinition> Parameters;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Job")
+	bool bSucceeded = false;
+};
 /*
 Step .yaml struct
  */
@@ -210,6 +225,9 @@ public:
 	// job
 	UFUNCTION(BlueprintImplementableEvent)
 	TArray <FParameterDefinition> OpenJobFile(const FString& Path);
+
+	UFUNCTION(BlueprintImplementableEvent)
+	FJobTemplateReadResult ReadJobFile(const FString& Path);
 
 	// steps 
 	UFUNCTION(BlueprintImplementableEvent)

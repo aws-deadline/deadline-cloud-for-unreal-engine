@@ -61,6 +61,10 @@ public:
 
 private:
 
+    const FString* GetMrqDefaultValue(const FString& ParameterName) const;
+    mutable TMap<FString, FString> MrqDefaults;
+    mutable bool bMrqDefaultsLoaded = false;
+
     void OnGenerateEntry(TSharedRef<IPropertyHandle> ElementProperty, int32 ElementIndex, IDetailChildrenBuilder& ChildrenBuilder) const;
     bool IsResetToDefaultVisible(TSharedPtr<IPropertyHandle> PropertyHandle, FString InParameterName) const;
 
@@ -165,4 +169,3 @@ private:
     EVisibility GetEnvironmentErrorWidgetVisibility() const;
     EVisibility GetEnvironmentDefaultWidgetVisibility() const;
 };
-

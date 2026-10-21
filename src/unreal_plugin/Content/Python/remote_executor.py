@@ -4,6 +4,7 @@ import unreal
 
 from deadline.unreal_logger import get_logger
 from deadline.unreal_submitter.submitter import UnrealMrqJobSubmitter
+from deadline.unreal_submitter._version import version
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_dynamic_chunking import (
     DynamicChunkingHelper,
 )
@@ -32,6 +33,15 @@ class MoviePipelineDeadlineCloudRemoteExecutor(unreal.MoviePipelinePythonHostExe
         if not pipeline_queue or (not pipeline_queue.get_jobs()):
             self.on_executor_finished_impl()
             return
+
+        # Updating saved parameters is optional; existing validation still decides submission.
+        if not unreal.SystemLibrary.is_unattended():
+            if not unreal.MoviePipelineDeadlineCloudExecutorJob.check_for_template_updates(
+                pipeline_queue, version, True
+            ):
+                logger.info(
+                    "Using saved job parameters; continuing with existing submission validation."
+                )
 
         jobs_to_submit = [
             job

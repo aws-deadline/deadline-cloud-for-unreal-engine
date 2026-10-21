@@ -19,6 +19,7 @@
 #include "AssetToolsModule.h"
 #include "PackageTools.h"
 #include "PythonAPILibraries/PythonYamlLibrary.h"
+#include "PythonAPILibraries/PythonParametersConsistencyChecker.h"
 #include "PythonAPILibraries/DeadlineCloudPreGuiHookLibrary.h"
 #include "ObjectTools.h"
 #include "UObject/SavePackage.h"
@@ -26,9 +27,28 @@
 #include "Framework/MetaData/DriverMetaData.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
+#include "Misc/App.h"
+#include "Misc/MessageDialog.h"
+#include "ScopedTransaction.h"
+#include "UObject/StrongObjectPtr.h"
+#include "Containers/Ticker.h"
+#include "IPropertyUtilities.h"
+#include "Editor.h"
 
 namespace
 {
+	bool DefinitionsMatch(const TArray<FParameterDefinition>& A, const TArray<FParameterDefinition>& B)
+	{
+		return A.Num() == B.Num() && !A.ContainsByPredicate([&](const FParameterDefinition& P)
+		{
+			return !B.ContainsByPredicate([&](const FParameterDefinition& Other)
+			{
+				return P.Name == Other.Name && P.Type == Other.Type
+					&& P.UserInterfaceControl == Other.UserInterfaceControl;
+			});
+		});
+	}
+
 	inline bool MatchesSourcePath(const FSoftObjectPath& OverridePath, const UObject* SourceObj)
 	{
 		return OverridePath.IsValid() && OverridePath == FSoftObjectPath(SourceObj);
@@ -445,6 +465,8 @@ void UMoviePipelineDeadlineCloudExecutorJob::UpdateInputFilesProperty()
 
 void UMoviePipelineDeadlineCloudExecutorJob::ReloadDataFromJobPreset()
 {
+	LastCheckedPluginVersion.Reset();
+	bTemplateUpdatePrompted = false;
 	PresetOverrides.JobSharedSettings = JobPreset->JobPresetStruct.JobSharedSettings;
 
 	PresetOverrides.JobAttachments.InputFiles.Files =
@@ -482,6 +504,156 @@ void UMoviePipelineDeadlineCloudExecutorJob::ReloadDataFromJobPreset()
 	{
 		UE_LOG(LogTemp, Error, TEXT("Error get DeadlineCloudJobBundleLibrary"));
 	}
+}
+
+bool UMoviePipelineDeadlineCloudExecutorJob::ReconcileJobTemplateParameters(
+	const TArray<FParameterDefinition>& TemplateParameters, bool bApply)
+{
+	auto* Checker = UPythonParametersConsistencyChecker::Get();
+	if (!IsValid(JobPreset) || !Checker)
+	{
+		return false;
+	}
+	// Preserve artist visibility choices unless template visibility itself changed.
+	TSet<FName> Hidden;
+	for (const auto& Parameter : TemplateParameters)
+	{
+		const auto* Previous = JobPreset->ParameterDefinition.Parameters.FindByPredicate(
+			[&](const FParameterDefinition& P) { return P.Name == Parameter.Name; });
+		const bool bTemplateHidden = Parameter.UserInterfaceControl == EUserInterfaceControl::HIDDEN;
+		const bool bPreviouslyHidden = Previous && Previous->UserInterfaceControl == EUserInterfaceControl::HIDDEN;
+		const bool bSavedHidden = JobPreset->GetHiddenManager().Contains(FName(*Parameter.Name));
+		if (Previous && bTemplateHidden == bPreviouslyHidden ? bSavedHidden
+			: bTemplateHidden || (Previous && !bPreviouslyHidden && bSavedHidden))
+		{
+			Hidden.Add(FName(*Parameter.Name));
+		}
+	}
+	auto PresetParameters = Checker->ReconcileJobParameters(TemplateParameters, JobPreset->ParameterDefinition.Parameters);
+	auto EditableParameters = PresetParameters.FilterByPredicate([&](const FParameterDefinition& P)
+	{
+		return !Hidden.Contains(FName(*P.Name));
+	});
+	const bool bPresetChanged = !DefinitionsMatch(PresetParameters, JobPreset->ParameterDefinition.Parameters);
+	const bool bChanged = bPresetChanged
+		|| !DefinitionsMatch(EditableParameters, JobTemplateOverrides.Parameters);
+	if (bApply && bChanged)
+	{
+		Modify();
+		// Normalize newly inherited defaults, then restore matching artist values.
+		if (auto* Library = UDeadlineCloudJobBundleLibrary::Get())
+		{
+			EditableParameters = Library->ValidateMrqJobParameters(EditableParameters);
+		}
+		JobTemplateOverrides.Parameters = Checker->ReconcileJobParameters(EditableParameters, JobTemplateOverrides.Parameters);
+		if (bPresetChanged)
+		{
+			JobPreset->Modify();
+			JobPreset->ParameterDefinition.Parameters = MoveTemp(PresetParameters);
+			JobPreset->GetHiddenManager().Hidden = MoveTemp(Hidden);
+			JobPreset->GetHiddenManager().OnChanged.ExecuteIfBound();
+		}
+	}
+	return bChanged;
+}
+
+bool UMoviePipelineDeadlineCloudExecutorJob::CheckForTemplateUpdates(
+	UMoviePipelineQueue* Queue, const FString& PluginVersion, bool bForSubmission)
+{
+	if (!Queue || PluginVersion.IsEmpty())
+	{
+		return false;
+	}
+	// Keep the queue, its jobs and referenced presets alive across the modal.
+	TStrongObjectPtr<UMoviePipelineQueue> QueueGuard(Queue);
+	TArray<UMoviePipelineDeadlineCloudExecutorJob*> PendingJobs;
+	TMap<UDeadlineCloudRenderJob*, TArray<FParameterDefinition>> Templates;
+	auto* YamlLibrary = UPythonYamlLibrary::Get();
+	int32 ChangedJobs = 0;
+	bool bAlreadyPrompted = false;
+	bool bCheckFailed = false;
+	for (auto* QueueJob : Queue->GetJobs())
+	{
+		auto* Job = Cast<UMoviePipelineDeadlineCloudExecutorJob>(QueueJob);
+		if (!Job || (bForSubmission && !Job->IsEnabled()))
+		{
+			continue;
+		}
+		if (!YamlLibrary || !UPythonParametersConsistencyChecker::Get() || !IsValid(Job->JobPreset)
+			|| !FPaths::FileExists(Job->JobPreset->PathToTemplate.FilePath))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Cannot check Deadline Cloud job template for %s; skipping this job"), *Job->JobName);
+			bCheckFailed = true;
+			continue;
+		}
+		if (!Templates.Contains(Job->JobPreset))
+		{
+			auto Result = YamlLibrary->ReadJobFile(Job->JobPreset->PathToTemplate.FilePath);
+			if (!Result.bSucceeded)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("Cannot read Deadline Cloud job template for %s; skipping this job"), *Job->JobName);
+				bCheckFailed = true;
+				continue;
+			}
+			Templates.Add(Job->JobPreset, MoveTemp(Result.Parameters));
+		}
+		const bool bJobChanged = Job->ReconcileJobTemplateParameters(Templates[Job->JobPreset], false);
+		// Read current YAML even after a completed version check: studios can edit templates.
+		if (Job->LastCheckedPluginVersion == PluginVersion && !bJobChanged)
+		{
+			continue;
+		}
+		if (bJobChanged)
+		{
+			++ChangedJobs;
+			bAlreadyPrompted |= Job->bTemplateUpdatePrompted;
+		}
+		PendingJobs.Add(Job);
+	}
+	if (PendingJobs.IsEmpty())
+	{
+		return !bCheckFailed;
+	}
+	if (ChangedJobs > 0)
+	{
+		if ((!bForSubmission && bAlreadyPrompted) || FApp::IsUnattended())
+		{
+			return false;
+		}
+		// Latch before the modal: Details can rebuild while the dialog is open.
+		for (auto* QueueJob : Queue->GetJobs())
+		{
+			if (auto* Job = Cast<UMoviePipelineDeadlineCloudExecutorJob>(QueueJob); Job && (PendingJobs.Contains(Job) || (bForSubmission && !Job->IsEnabled())))
+			{
+				Job->bTemplateUpdatePrompted = true;
+			}
+		}
+		const FText Message = FText::FromString(FString::Printf(
+			TEXT("Job or preset parameters changed for %d jobs.\n\n")
+			TEXT("Update job parameters and shared job presets?\n")
+			TEXT("Removed parameters are discarded; changed types use defaults."),
+			ChangedJobs));
+		if (FMessageDialog::Open(EAppMsgType::YesNo, Message) != EAppReturnType::Yes)
+		{
+			return false;
+		}
+	}
+	const FScopedTransaction Transaction(FText::FromString(TEXT("Update Deadline Cloud job parameters")), ChangedJobs > 0);
+	for (auto* Job : PendingJobs)
+	{
+		const bool bJobChanged = Job->ReconcileJobTemplateParameters(Templates[Job->JobPreset], true);
+		if (ChangedJobs > 0)
+		{
+			Job->Modify();
+		}
+		Job->LastCheckedPluginVersion = PluginVersion;
+		if (bJobChanged)
+		{
+			Job->OnRequestDetailsRefresh.ExecuteIfBound();
+		}
+	}
+	Queue->SetIsDirty(true);
+	return !bCheckFailed;
 }
 
 void UMoviePipelineDeadlineCloudExecutorJob::GetPresetObjectsNames(const UMoviePipelineDeadlineCloudExecutorJob* MrqJob, TMap<UDataAsset*, FString>& OutPresetPackageNames)
@@ -954,9 +1126,42 @@ void FMoviePipelineDeadlineCloudExecutorJobCustomization::CustomizeDetails(IDeta
 	DetailBuilder.GetObjectsBeingCustomized(ObjectsBeingCustomized);
 
 	MrqJob = Cast<UMoviePipelineDeadlineCloudExecutorJob>(ObjectsBeingCustomized[0].Get());
-	MrqJob->OnRequestDetailsRefresh.BindLambda([&DetailBuilder]()
+	if (MrqJob.IsValid())
+	{
+		if (auto* Library = UDeadlineCloudJobBundleLibrary::Get())
 		{
-			DetailBuilder.ForceRefreshDetails();
+			// A modal must not pump Slate events while this layout is being built.
+			FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda(
+				[Job = MrqJob, Version = Library->GetPluginVersion()](float)
+			{
+				if (!Job.IsValid() || IsEngineExitRequested())
+				{
+					return false;
+				}
+				if ((GEditor && GEditor->PlayWorld)
+					|| (FSlateApplication::IsInitialized() && FSlateApplication::Get().GetActiveModalWindow().IsValid()))
+				{
+					return true;
+				}
+				const bool bNeedsRefresh = Job->LastCheckedPluginVersion != Version
+					|| (IsValid(Job->JobPreset) && !DefinitionsMatch(
+						Job->JobPreset->GetParametersDataToOverride(), Job->JobTemplateOverrides.Parameters));
+				if (UMoviePipelineDeadlineCloudExecutorJob::CheckForTemplateUpdates(
+					Job->GetTypedOuter<UMoviePipelineQueue>(), Version) && bNeedsRefresh && Job.IsValid())
+				{
+					Job->OnRequestDetailsRefresh.ExecuteIfBound();
+				}
+				return false;
+			}));
+		}
+	}
+	TWeakPtr<IPropertyUtilities> PropertyUtilities = DetailBuilder.GetPropertyUtilities();
+	MrqJob->OnRequestDetailsRefresh.BindLambda([PropertyUtilities]()
+		{
+			if (auto Utilities = PropertyUtilities.Pin())
+			{
+				Utilities->ForceRefresh();
+			}
 		});
 
 	/*

@@ -88,7 +88,21 @@ public:
 		const UMoviePipelineDeadlineCloudExecutorJob* MrqJob,
 		TMap<UDataAsset*, FString>& OutPresetPackageNames);
 
-	void ReloadDataFromJobPreset();
+    void ReloadDataFromJobPreset();
+
+    // Compare/apply job-template definitions without resetting shared settings or attachments.
+    UFUNCTION(BlueprintCallable, Category = "DeadlineCloud")
+    bool ReconcileJobTemplateParameters(const TArray<FParameterDefinition>& TemplateParameters, bool bApply);
+
+    UFUNCTION(BlueprintCallable, Category = "DeadlineCloud")
+    static bool CheckForTemplateUpdates(UMoviePipelineQueue* Queue, const FString& PluginVersion, bool bForSubmission = false);
+
+    /** Stored per job so queues copied or combined retain their migration state. */
+    UPROPERTY()
+    FString LastCheckedPluginVersion;
+
+    UPROPERTY(Transient)
+    bool bTemplateUpdatePrompted = false;
    
     bool IsUsingDefaultPreset() const;
     static void SaveLastUsedFrom(const UMoviePipelineDeadlineCloudExecutorJob* Source);

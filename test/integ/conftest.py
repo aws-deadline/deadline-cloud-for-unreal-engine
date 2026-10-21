@@ -11,7 +11,7 @@ import tempfile
 import pytest
 
 from pathlib import Path
-from typing import Generator, List, Tuple
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 # Add repository root to path
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "../.."))
@@ -143,6 +143,65 @@ def create_test_project(request) -> Generator[Tuple[str, str], None, None]:
         logger.warning(f"Failed to clean up project folder {temp_dir}: {e}")
 
 
+def run_unreal_python_script(
+    request,
+    uproject_file: str,
+    script_path: str,
+    env_updates: Dict[str, str],
+    timeout: Optional[float] = None,
+) -> Tuple[int, str]:
+    """
+    Launch UnrealEditor-Cmd -unattended with -ExecutePythonScript and wait for it to exit.
+
+    UE's print() does not reach parent process stdout, so scripts report results through
+    marker files named in env_updates. The UE exit code alone does not indicate success.
+
+    Returns:
+        Tuple containing (UE exit code, combined UE output)
+    """
+    engine_root = find_engine_root(request.config.getoption("--ueversion"))
+    editor_exe = os.path.join(engine_root, "Engine", "Binaries", "Win64", "UnrealEditor-Cmd.exe")
+    if not os.path.exists(editor_exe):
+        pytest.fail(f"Could not find UnrealEditor-Cmd.exe at {editor_exe}")
+    if not os.path.exists(script_path):
+        pytest.fail(f"Could not find script at {script_path}")
+
+    # No API credentials are needed: scripts generate bundles locally with zero network access
+    env = os.environ.copy()
+    env.update(env_updates)
+
+    cmd = [
+        editor_exe,
+        uproject_file,
+        f"-ExecutePythonScript={script_path}",
+        "-stdout",
+        "-unattended",
+        "-nullrhi",
+        "-nosplash",
+        "-nosound",
+        "-nopause",
+    ]
+
+    logger.info("Launching UE via -ExecutePythonScript")
+    logger.info(f"Command: {' '.join(cmd)}")
+    logger.info(f"Environment updates: {env_updates}")
+
+    process = subprocess.run(
+        cmd,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        env=env,
+        timeout=timeout,
+    )
+    logger.info(f"UE exited with return code {process.returncode}")
+    return process.returncode, process.stdout or ""
+
+
+def _output_tail(output: str, lines: int = 100) -> str:
+    return "".join(output.splitlines(keepends=True)[-lines:])
+
+
 @pytest.fixture
 def run_unreal_bundle_only(request, create_test_project) -> Path:
     """
@@ -157,17 +216,8 @@ def run_unreal_bundle_only(request, create_test_project) -> Path:
     """
     _, uproject_file = create_test_project
 
-    # Locate the editor executable
-    engine_root = find_engine_root(request.config.getoption("--ueversion"))
-    editor_exe = os.path.join(engine_root, "Engine", "Binaries", "Win64", "UnrealEditor-Cmd.exe")
-    if not os.path.exists(editor_exe):
-        pytest.fail(f"Could not find UnrealEditor-Cmd.exe at {editor_exe}")
-
     # Locate the generate_bundle.py script relative to the repository root
-    repo_root = get_source_root()
-    generate_bundle_script = os.path.join(repo_root, "pipeline", "generate_bundle.py")
-    if not os.path.exists(generate_bundle_script):
-        pytest.fail(f"Could not find generate_bundle.py at {generate_bundle_script}")
+    generate_bundle_script = os.path.join(get_source_root(), "pipeline", "generate_bundle.py")
 
     # Create a temporary marker file for the script to write the bundle path into
     marker_fd, marker_file_path = tempfile.mkstemp(prefix="deadline_bundle_marker_", suffix=".txt")
@@ -176,50 +226,19 @@ def run_unreal_bundle_only(request, create_test_project) -> Path:
     # Ensure it starts empty so we can detect if the script never wrote to it
     marker_file.write_text("")
 
-    # Set up environment -- only the marker file env var is needed, no API credentials
-    env = os.environ.copy()
-    env["DEADLINE_CLOUD_INTEG_MARKER_FILE"] = str(marker_file)
-
-    # Build the UE command line
-    cmd = [
-        editor_exe,
+    returncode, ue_output = run_unreal_python_script(
+        request,
         uproject_file,
-        f"-ExecutePythonScript={generate_bundle_script}",
-        "-stdout",
-        "-unattended",
-        "-nullrhi",
-        "-nosplash",
-        "-nosound",
-        "-nopause",
-    ]
-
-    logger.info("Launching UE to generate bundle via -ExecutePythonScript")
-    logger.info(f"Editor: {editor_exe}")
-    logger.info(f"Project: {uproject_file}")
-    logger.info(f"Script: {generate_bundle_script}")
-    logger.info(f"Marker file: {marker_file}")
-    logger.info(f"Command: {' '.join(cmd)}")
-
-    # Run UE and wait for it to exit
-    process = subprocess.run(
-        cmd,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        env=env,
+        generate_bundle_script,
+        {"DEADLINE_CLOUD_INTEG_MARKER_FILE": str(marker_file)},
     )
-
-    ue_output = process.stdout or ""
-
-    logger.info(f"UE exited with return code {process.returncode}")
 
     # Read the marker file to get the bundle path
     if not marker_file.exists():
         pytest.fail(
             f"Marker file was not created at {marker_file}.\n"
-            f"UE exit code: {process.returncode}\n"
-            f"UE output (last 100 lines):\n"
-            f"{''.join(ue_output.splitlines(keepends=True)[-100:])}"
+            f"UE exit code: {returncode}\n"
+            f"UE output (last 100 lines):\n{_output_tail(ue_output)}"
         )
 
     bundle_path = marker_file.read_text().strip()
@@ -234,17 +253,76 @@ def run_unreal_bundle_only(request, create_test_project) -> Path:
         pytest.fail(
             f"Marker file at {marker_file_path} exists but is empty. "
             f"The generate_bundle.py script may have failed to write the bundle path.\n"
-            f"UE exit code: {process.returncode}\n"
-            f"UE output (last 100 lines):\n"
-            f"{''.join(ue_output.splitlines(keepends=True)[-100:])}"
+            f"UE exit code: {returncode}\n"
+            f"UE output (last 100 lines):\n{_output_tail(ue_output)}"
         )
 
     bundle = Path(bundle_path)
     if not bundle.exists():
         pytest.fail(
             f"Bundle path reported by script does not exist: {bundle}\n"
-            f"UE exit code: {process.returncode}"
+            f"UE exit code: {returncode}"
         )
 
     logger.info(f"Bundle generated at: {bundle}")
     return bundle
+
+
+@pytest.fixture(scope="session")
+def run_template_update_bundles(request, build_plugin, create_test_project) -> Dict[str, Any]:
+    """
+    Launch UE once to generate MRQ job template update bundles.
+
+    See pipeline/generate_template_update_bundles.py for the cases. Bundles, the JSON marker
+    and the UE log are preserved in DEADLINE_CLOUD_INTEG_ARTIFACTS_DIR (or a new temp
+    directory) for inspection; temporary template YAML files are removed.
+
+    Returns:
+        Marker JSON with per-case results and bundle paths.
+    """
+    _, uproject_file = create_test_project
+    script = os.path.join(get_source_root(), "pipeline", "generate_template_update_bundles.py")
+    artifacts_dir = Path(
+        os.environ.get("DEADLINE_CLOUD_INTEG_ARTIFACTS_DIR")
+        or tempfile.mkdtemp(prefix="deadline_template_update_bundles_")
+    )
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    work_dir = Path(tempfile.mkdtemp(prefix="deadline_template_update_work_"))
+    marker_file = work_dir / "marker.json"
+    # Keep CondaChannels deterministic for Conda default normalization
+    conda_channels = os.environ.pop("DEADLINE_CONDA_CHANNELS", None)
+    try:
+        returncode, ue_output = run_unreal_python_script(
+            request,
+            uproject_file,
+            script,
+            {
+                "DEADLINE_CLOUD_INTEG_MARKER_FILE": str(marker_file),
+                "DEADLINE_CLOUD_INTEG_WORK_DIR": str(work_dir),
+                "DEADLINE_CLOUD_INTEG_ARTIFACTS_DIR": str(artifacts_dir),
+            },
+            timeout=1800,
+        )
+        (artifacts_dir / "unreal_output.log").write_text(ue_output, encoding="utf-8")
+        marker_text = marker_file.read_text(encoding="utf-8") if marker_file.exists() else ""
+        if marker_text:
+            (artifacts_dir / "marker.json").write_text(marker_text, encoding="utf-8")
+    finally:
+        if conda_channels is not None:
+            os.environ["DEADLINE_CONDA_CHANNELS"] = conda_channels
+        shutil.rmtree(work_dir, ignore_errors=True)
+
+    logger.info(f"Template update artifacts: {artifacts_dir}")
+    if not marker_text:
+        pytest.fail(
+            f"Template update marker was not written. UE exit code: {returncode}\n"
+            f"Artifacts: {artifacts_dir}\nUE output (last 100 lines):\n{_output_tail(ue_output)}"
+        )
+    result = json.loads(marker_text)
+    if result.get("status") != "ok":
+        pytest.fail(
+            f"Template update script failed: {result.get('error')}\n{result.get('traceback')}\n"
+            f"UE exit code: {returncode}\nArtifacts: {artifacts_dir}"
+        )
+    result["artifacts_dir"] = str(artifacts_dir)
+    return result

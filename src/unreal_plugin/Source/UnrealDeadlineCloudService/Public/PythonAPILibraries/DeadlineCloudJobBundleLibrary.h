@@ -18,6 +18,9 @@ class UNREALDEADLINECLOUDSERVICE_API UDeadlineCloudJobBundleLibrary : public UOb
     GENERATED_BODY()
 
 public:
+    UFUNCTION(BlueprintImplementableEvent)
+    FString GetPluginVersion();
+
     /**
      * Collect list of rendered Level and Level Sequence assets
      * @param MrqJob Unreal MRQ job

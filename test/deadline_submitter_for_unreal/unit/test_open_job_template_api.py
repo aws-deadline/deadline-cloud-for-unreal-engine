@@ -10,6 +10,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+import yaml
 
 
 class ValueType(Enum):
@@ -27,6 +28,28 @@ class ParameterDefinition(SimpleNamespace):
         return copy.deepcopy(self)
 
 
+class JobTemplateReadResult(SimpleNamespace):
+    def __init__(self):
+        super().__init__(parameters=[], succeeded=False)
+
+
+def u_parameter(name, param_type, value="", control="LINE_EDIT", allowed_values=None):
+    parameter = ParameterDefinition()
+    parameter.name = name
+    parameter.type = ValueType[param_type]
+    parameter.value = value
+    parameter.user_interface_control = control
+    parameter.allowed_values = allowed_values or []
+    return parameter
+
+
+def as_tuples(parameters):
+    return [
+        (p.name, p.type.name, p.value, p.user_interface_control, p.allowed_values)
+        for p in parameters
+    ]
+
+
 @pytest.fixture
 def template_api(monkeypatch):
     unreal = MagicMock()
@@ -35,6 +58,7 @@ def template_api(monkeypatch):
     unreal.PythonYamlLibrary = type("PythonYamlLibrary", (), {})
     unreal.PythonParametersConsistencyChecker = type("PythonParametersConsistencyChecker", (), {})
     unreal.ParameterDefinition = ParameterDefinition
+    unreal.JobTemplateReadResult = JobTemplateReadResult
     unreal.ValueType = ValueType
     unreal.UserInterfaceControl = SimpleNamespace(
         **{
@@ -140,3 +164,93 @@ def test_shipped_dropdown_choices(template_api, file_name, name, choices, defaul
     assert parameter.user_interface_control == "DROPDOWN_LIST"
     assert parameter.allowed_values == choices
     assert parameter.value == default
+
+
+@pytest.mark.parametrize(
+    "contents, succeeded",
+    [
+        ("name: Empty\n", True),
+        ("parameterDefinitions: []\n", True),
+        (None, False),
+        ("", False),
+        ("- not a mapping", False),
+        ("parameterDefinitions: [", False),
+        ("parameterDefinitions: [{}]", False),
+        ("parameterDefinitions:\n- name: Bad\n  type: UNKNOWN\n", False),
+    ],
+)
+def test_read_job_file_result_per_call(template_api, tmp_path, contents, succeeded):
+    library = template_api.PythonYamlLibraryImplementation()
+    template = tmp_path / "job.yml"
+    template.write_text("parameterDefinitions:\n- name: Saved\n  type: STRING\n  default: value\n")
+    first = library.read_job_file(str(template))
+    template.unlink() if contents is None else template.write_text(contents)
+    second = library.read_job_file(str(template))
+
+    assert (first.succeeded, [p.value for p in first.parameters]) == (True, ["value"])
+    assert (second.succeeded, second.parameters) == (succeeded, [])
+    assert not hasattr(library, "job_file_read_succeeded")
+    if not succeeded and contents is not None:
+        with pytest.raises((AttributeError, KeyError, ValueError, yaml.YAMLError)):
+            library.open_job_file(str(template))
+
+
+def test_reconcile_job_parameters_bridge(template_api):
+    template_parameters = [
+        u_parameter("Kept", "STRING", "new-default", "MULTILINE_EDIT"),
+        u_parameter("Added", "STRING", "false", "DROPDOWN_LIST", ["false", "true"]),
+        u_parameter("Retyped", "INT", "1"),
+        u_parameter("InvalidInt", "INT", "2", "SPIN_BOX"),
+        u_parameter("Empty", "STRING", "template-default"),
+    ]
+    saved_parameters = [
+        u_parameter("Removed", "STRING", "old"),
+        u_parameter("Empty", "STRING", ""),
+        u_parameter("InvalidInt", "INT", "not-an-int"),
+        u_parameter("Retyped", "STRING", "saved-string"),
+        u_parameter("Kept", "STRING", "artist-value"),
+    ]
+
+    reconciled = template_api.ParametersConsistencyCheckerImplementation().reconcile_job_parameters(
+        template_parameters, saved_parameters
+    )
+
+    assert as_tuples(reconciled) == [
+        ("Kept", "STRING", "artist-value", "MULTILINE_EDIT", []),
+        ("Added", "STRING", "false", "DROPDOWN_LIST", ["false", "true"]),
+        ("Retyped", "INT", "1", "LINE_EDIT", []),
+        ("InvalidInt", "INT", "not-an-int", "SPIN_BOX", []),
+        ("Empty", "STRING", "", "LINE_EDIT", []),
+    ]
+
+
+@pytest.mark.parametrize(
+    "contents, saved, expected",
+    [
+        # No definition differences: saved values must survive
+        (
+            "parameterDefinitions:\n"
+            "- name: Mode\n  type: STRING\n  default: a\n  allowedValues: [a, b]\n"
+            "- name: Count\n  type: INT\n  default: 1\n",
+            [u_parameter("Count", "INT", "not-an-int"), u_parameter("Mode", "STRING", "b")],
+            [
+                ("Mode", "STRING", "b", "DROPDOWN_LIST", ["a", "b"]),
+                ("Count", "INT", "not-an-int", "LINE_EDIT", []),
+            ],
+        ),
+        ("name: Empty\n", [u_parameter("Removed", "STRING", "old")], []),
+    ],
+)
+def test_fix_job_parameters_consistency_bridge(template_api, tmp_path, contents, saved, expected):
+    template = tmp_path / "job.yml"
+    template.write_text(contents)
+    open_job = MagicMock()
+    open_job.path_to_template.file_path = str(template)
+    open_job.get_job_parameters.return_value = saved
+
+    template_api.ParametersConsistencyCheckerImplementation().fix_job_parameters_consistency(
+        open_job
+    )
+
+    (fixed,), _ = open_job.set_job_parameters.call_args
+    assert as_tuples(fixed) == expected

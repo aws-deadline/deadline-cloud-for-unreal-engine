@@ -4,9 +4,6 @@ import yaml
 import unreal
 from typing import Any, Optional
 
-from deadline.unreal_submitter.unreal_open_job.unreal_open_job import (
-    UnrealOpenJobParameterDefinition,
-)
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_step import (
     UnrealOpenJobStepParameterDefinition,
 )
@@ -134,6 +131,25 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
 
         return u_environment
 
+    @staticmethod
+    def _read_job_parameters(path: str) -> list[unreal.ParameterDefinition]:
+        """Build unreal.ParameterDefinition list from the job template. Raise if invalid."""
+        with open(path, "r") as f:
+            job_template = yaml.safe_load(f)
+
+        if not isinstance(job_template, dict):
+            raise ValueError(f"Job template is not a mapping: {path}")
+
+        u_parameter_definitions: list[unreal.ParameterDefinition] = []
+
+        for parameter_definition in job_template.get("parameterDefinitions", []):
+            u_param = PythonYamlLibraryImplementation.job_parameter_to_u_parameter_definition(
+                parameter_definition
+            )
+            u_parameter_definitions.append(u_param.copy())
+
+        return u_parameter_definitions
+
     @unreal.ufunction(override=True)
     def open_job_file(self, path: str) -> list[unreal.ParameterDefinition]:
         """
@@ -144,18 +160,19 @@ class PythonYamlLibraryImplementation(unreal.PythonYamlLibrary):
 
         :return: list of unreal.ParameterDefinition
         """
-        with open(path, "r") as f:
-            job_template = yaml.safe_load(f)
+        return PythonYamlLibraryImplementation._read_job_parameters(path)
 
-        u_parameter_definitions: list[unreal.ParameterDefinition] = []
-
-        for parameter_definition in job_template["parameterDefinitions"]:
-            u_param = PythonYamlLibraryImplementation.job_parameter_to_u_parameter_definition(
-                parameter_definition
-            )
-            u_parameter_definitions.append(u_param.copy())
-
-        return u_parameter_definitions
+    @unreal.ufunction(override=True)
+    def read_job_file(self, path: str) -> unreal.JobTemplateReadResult:
+        """Read the job template without raising; the C++ caller reports failures."""
+        result = unreal.JobTemplateReadResult()
+        try:
+            result.parameters = PythonYamlLibraryImplementation._read_job_parameters(path)
+            result.succeeded = True
+        except Exception:
+            result.parameters = []
+            result.succeeded = False
+        return result
 
     @staticmethod
     def _load_yaml(path: str) -> dict:
@@ -505,6 +522,44 @@ class ParametersConsistencyCheckerImplementation(unreal.PythonParametersConsiste
         result.reason = consistency_check_result.reason
         return result
 
+    @staticmethod
+    def u_parameter_definition_to_dict(
+        u_parameter_definition: unreal.ParameterDefinition,
+    ) -> dict[str, Any]:
+        """Keep the raw string value: typed conversion would reject invalid saved input."""
+        return {
+            "name": u_parameter_definition.name,
+            "type": u_parameter_definition.type.name,
+            "value": u_parameter_definition.value,
+        }
+
+    @unreal.ufunction(override=True)
+    def reconcile_job_parameters(
+        self,
+        template_parameters: list[unreal.ParameterDefinition],
+        saved_parameters: list[unreal.ParameterDefinition],
+    ) -> list[unreal.ParameterDefinition]:
+        """Return template parameter copies with saved values for matching name and type."""
+        reconciled_parameters = ParametersConsistencyChecker.reconcile_job_parameters(
+            template_parameters=[
+                ParametersConsistencyCheckerImplementation.u_parameter_definition_to_dict(p)
+                for p in template_parameters
+            ],
+            saved_parameters=[
+                ParametersConsistencyCheckerImplementation.u_parameter_definition_to_dict(p)
+                for p in saved_parameters
+            ],
+        )
+
+        # Reconciled parameters follow template order; copy structs to keep UI metadata
+        u_parameter_definitions: list[unreal.ParameterDefinition] = []
+        for u_template_parameter, parameter in zip(template_parameters, reconciled_parameters):
+            u_parameter_definition = u_template_parameter.copy()
+            u_parameter_definition.value = parameter["value"]
+            u_parameter_definitions.append(u_parameter_definition)
+
+        return u_parameter_definitions
+
     @unreal.ufunction(override=True)
     def check_job_parameters_consistency(
         self, open_job: unreal.DeadlineCloudJob
@@ -520,7 +575,7 @@ class ParametersConsistencyCheckerImplementation(unreal.PythonParametersConsiste
         result = ParametersConsistencyChecker.check_job_parameters_consistency(
             job_template_path=open_job.path_to_template.file_path,
             job_parameters=[
-                UnrealOpenJobParameterDefinition.from_unreal_param_definition(param).to_dict()
+                ParametersConsistencyCheckerImplementation.u_parameter_definition_to_dict(param)
                 for param in open_job.get_job_parameters()
             ],
         )
@@ -537,18 +592,18 @@ class ParametersConsistencyCheckerImplementation(unreal.PythonParametersConsiste
         fixed_parameters = ParametersConsistencyChecker.fix_job_parameters_consistency(
             job_template_path=open_job.path_to_template.file_path,
             job_parameters=[
-                UnrealOpenJobParameterDefinition.from_unreal_param_definition(param).to_dict()
+                ParametersConsistencyCheckerImplementation.u_parameter_definition_to_dict(param)
                 for param in open_job.get_job_parameters()
             ],
         )
 
-        if fixed_parameters:
-            open_job.set_job_parameters(
-                [
-                    PythonYamlLibraryImplementation.job_parameter_to_u_parameter_definition(fixed)
-                    for fixed in fixed_parameters
-                ]
-            )
+        # Set even an empty list to clear parameters removed from the template
+        open_job.set_job_parameters(
+            [
+                PythonYamlLibraryImplementation.job_parameter_to_u_parameter_definition(fixed)
+                for fixed in fixed_parameters
+            ]
+        )
 
     @unreal.ufunction(override=True)
     def check_step_parameters_consistency(

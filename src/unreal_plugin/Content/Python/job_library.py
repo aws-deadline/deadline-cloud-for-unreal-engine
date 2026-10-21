@@ -7,6 +7,7 @@ import unreal
 
 from deadline.unreal_submitter import common
 from deadline.unreal_logger import get_logger
+from deadline.unreal_submitter._version import version
 from deadline.unreal_submitter.unreal_dependency_collector import (
     DependencyCollector,
     DependencyFilters,
@@ -23,6 +24,10 @@ logger = get_logger()
 
 @unreal.uclass()
 class DeadlineCloudJobBundleLibraryImplementation(unreal.DeadlineCloudJobBundleLibrary):
+    @unreal.ufunction(override=True)
+    def get_plugin_version(self):
+        return version
+
     @unreal.ufunction(override=True)
     def get_job_dependencies(self, mrq_job):
         level_sequence_path = common.soft_obj_path_to_str(mrq_job.sequence)

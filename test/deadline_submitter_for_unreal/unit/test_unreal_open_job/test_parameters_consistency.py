@@ -1,6 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import pytest
+from typing import Any
 from unittest.mock import patch, MagicMock
 
 from deadline.unreal_submitter.unreal_open_job.unreal_open_job_parameters_consistency import (
@@ -245,10 +246,7 @@ class TestParametersConsistencyChecker:
     def test_fix_job_parameters_consistency(self):
         # GIVEN
         checker = ParametersConsistencyChecker()
-        expected_fixed_parameters = [
-            {"name": p["name"], "type": p["type"], "default": p["default"]}
-            for p in fixtures.f_job_template_default()["parameterDefinitions"]
-        ]
+        expected_fixed_parameters = fixtures.f_job_template_default()["parameterDefinitions"]
 
         # WHEN
         with patch("yaml.safe_load", MagicMock(side_effect=[fixtures.f_job_template_default()])):
@@ -257,6 +255,69 @@ class TestParametersConsistencyChecker:
 
         # THEN
         assert fixed == expected_fixed_parameters
+
+    def test_job_parameters_consistency_without_parameter_definitions(self):
+        # GIVEN
+        checker = ParametersConsistencyChecker()
+        saved = [{"name": "Removed", "type": "STRING", "value": "old"}]
+
+        # WHEN
+        with patch("yaml.safe_load", MagicMock(side_effect=[{"name": "Empty"}] * 2)):
+            with patch("builtins.open", MagicMock()):
+                fixed = checker.fix_job_parameters_consistency("", saved)
+                result = checker.check_job_parameters_consistency("", fixed)
+
+        # THEN
+        assert fixed == []
+        assert result.passed
+
+    @pytest.mark.parametrize(
+        "saved, expected_values",
+        [
+            # No definition differences: the generic fixer would return the template as-is
+            (
+                [
+                    {"name": "A", "type": "INT", "value": "2"},
+                    {"name": "B", "type": "STRING", "value": ""},
+                ],
+                {"A": "2", "B": ""},
+            ),
+            (
+                [
+                    {"name": "Removed", "type": "STRING", "value": "old"},
+                    {"name": "A", "type": "INT", "value": "2"},
+                ],
+                {"A": "2"},
+            ),
+            (
+                [
+                    {"name": "A", "type": "STRING", "value": "x"},
+                    {"name": "B", "type": "STRING", "value": None},
+                ],
+                {},
+            ),
+        ],
+    )
+    def test_reconcile_job_parameters(self, saved, expected_values):
+        # GIVEN
+        template: list[dict[str, Any]] = [
+            {
+                "name": "B",
+                "type": "STRING",
+                "default": "new",
+                "userInterface": {"control": "HIDDEN"},
+            },
+            {"name": "A", "type": "INT", "default": 1, "allowedValues": [1, 2]},
+        ]
+
+        # WHEN
+        reconciled = ParametersConsistencyChecker.reconcile_job_parameters(template, saved)
+
+        # THEN
+        assert reconciled == [
+            {**p, "value": expected_values[p["name"]]} if p["name"] in expected_values else p
+            for p in template
+        ]
 
     def test_fix_step_parameters_consistency(self):
         # GIVEN
