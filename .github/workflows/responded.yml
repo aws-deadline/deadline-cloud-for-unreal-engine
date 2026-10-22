@@ -1,6 +1,9 @@
 name: Contributor Responded
 on:
-  issue_comment:
+  # The shared workflow only updates issue/PR labels using a quoted issue number
+  # from an environment variable. It never checks out contributor code or
+  # executes comment text. Reassess this exception if the shared workflow changes.
+  issue_comment: # zizmor: ignore[dangerous-triggers]
     types: [created, edited]
 
 jobs:
