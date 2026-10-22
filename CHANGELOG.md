@@ -1,3 +1,9 @@
+## 1.1.1 (2026-10-22)
+
+### Bug Fixes
+* After a plugin upgrade, saved Movie Render Queue jobs no longer hold on to outdated job parameter definitions. You now get one prompt per queue to update affected jobs and the presets they reference. Saved values are kept when the parameter name and type still match, new parameters are added, and obsolete ones are removed. Each parameter also has a reset-to-default control, and submission is blocked if a required update hasn't been finished. (#427)
+* Dropdown job template parameters such as IgnorePlugins and SubmitMode now appear as dropdowns of the template's allowed values in MRQ Job Template Overrides and job presets, instead of plain text fields. Your selections are kept, including empty choices. (#420)
+* Fixed a bug where unset job parameters, such as SubmitMode, were saved as null instead of their template default. Submission failed with an error like "Parameter SubmitMode value (None) not in allowedValues". (#411)
 ## 1.1.0 (2026-09-22)
 
 ### Features
