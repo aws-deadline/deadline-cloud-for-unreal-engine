@@ -1,3 +1,9 @@
+## 1.1.1 (2026-10-22)
+
+### Bug Fixes
+* After a plugin upgrade, saved Movie Render Queue jobs and the presets they reference no longer keep outdated job parameter definitions. You now get one prompt per queue to update them. Saved values are kept when a parameter's name and type still match, new parameters are added, and obsolete ones are removed. Each parameter also has a new reset control that restores the current template default. Submission is blocked if a required update hasn't been finished. (#427)
+* In Job Template Overrides and job presets, dropdown parameters such as IgnorePlugins and SubmitMode now show the template's choices as a dropdown instead of a plain text field. Selected values are saved, including empty choices. (#420)
+* Jobs no longer fail at submission with "Parameter SubmitMode value (None) not in allowedValues". Job parameters you haven't set are now written with their template default instead of null. (#411)
 ## 1.1.0 (2026-09-22)
 
 ### Features
