@@ -345,12 +345,32 @@ def _is_executor_profiling_complete(executor) -> bool:
     return complete
 
 
+def _report_executor_progress(executor) -> None:
+    """Log overall progress from MRQ's per-job progress, weighted by each job's output frames."""
+    total_frames = sum(executor.jobFrameCounts)
+    if total_frames <= 0:
+        return
+    rendered = sum(
+        frames * job.get_status_progress()
+        for job, frames in zip(executor.renderJobs, executor.jobFrameCounts)
+    )
+    progress = min(rendered / total_frames * 100, 100.0)
+    # Progress only changes when MRQ finishes output frames; don't log it on every tick.
+    # lastReportedProgress is a 32-bit uproperty, so an exact comparison never matches.
+    if abs(progress - executor.lastReportedProgress) >= 1e-3:
+        executor.lastReportedProgress = progress
+        logger.info(f"Render Executor: Progress: {progress}")
+
+
 if unreal:
 
     @unreal.uclass()
     class RemoteRenderMoviePipelineEditorExecutor(unreal.MoviePipelinePIEExecutor):
         totalFrameRange = unreal.uproperty(int)  # Total frame range of the job's level sequence
-        currentFrame = unreal.uproperty(int)  # Current frame handler that will be updating later
+        # Output frame count of each job, used to weight MRQ's per-job progress
+        renderJobs = unreal.uproperty(unreal.Array(unreal.MoviePipelineExecutorJob))
+        jobFrameCounts = unreal.uproperty(unreal.Array(int))
+        lastReportedProgress = unreal.uproperty(float)
         csvCaptureFrames = unreal.uproperty(int)
         csvFramesObserved = unreal.uproperty(int)
         csvStartAttempted = unreal.uproperty(bool)
@@ -375,7 +395,7 @@ if unreal:
             Note that this is different from the standard __init__ function of Python
             """
             self.totalFrameRange = 0
-            self.currentFrame = 0
+            self.lastReportedProgress = -1.0
             _initialize_executor_profiling_state(self)
 
         def _start_csv_capture(self):
@@ -415,6 +435,7 @@ if unreal:
                 return
 
             for job in jobs:
+                frames_before_job = self.totalFrameRange
                 # get output settings block
                 output_settings = job.get_configuration().find_or_add_setting_by_class(
                     unreal.MoviePipelineOutputSetting
@@ -464,6 +485,9 @@ if unreal:
                             level_sequence.get_playback_end() - level_sequence.get_playback_start()
                         )
 
+                self.renderJobs.append(job)
+                self.jobFrameCounts.append(self.totalFrameRange - frames_before_job)
+
                 if self.totalFrameRange == 0:
                     logger.error(
                         "Render Executor: Error: Cannot render the Queue with frame range of zero length"
@@ -475,8 +499,9 @@ if unreal:
         @unreal.ufunction(override=True)
         def on_begin_frame(self):
             """
-            Called once at the beginning of each engine frame (e.g. tick, fps)
-            Since the executor will work with Play in Editor widget, each rendered frame will match with widget frame tick.
+            Called once at the beginning of each engine frame (e.g. tick, fps).
+            MRQ can tick several times per output frame (temporal samples, warm-up frames),
+            so progress comes from MRQ's job progress, not from counting ticks.
             """
 
             super().on_begin_frame()
@@ -486,13 +511,7 @@ if unreal:
             if self.is_rendering():
                 self.renderStarted = True
                 _observe_executor_csv_frame(self)
-                self.currentFrame += 1
-                progress = self.currentFrame / self.totalFrameRange * 100
-
-                # Executor work with the render queue after all frames are rendered - do all
-                # support stuff, handle safe quit, etc, so we should ignore progress that more than 100.
-                if progress <= 100:
-                    logger.info(f"Render Executor: Progress: {progress}")
+                _report_executor_progress(self)
 
 
 class UnrealRenderStepHandler(BaseStepHandler):

@@ -1,5 +1,6 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
+import struct
 import sys
 import pytest
 from types import SimpleNamespace
@@ -99,6 +100,66 @@ class TestUnrealRenderStepHandler:
             log_mock.assert_called_with(
                 f"Shots in task: {[shot.outer_name for shot in enabled_shots]}"
             )
+
+
+class TestReportExecutorProgress:
+    @staticmethod
+    def _executor(job_progress_and_frames):
+        jobs = [
+            MagicMock(**{"get_status_progress.return_value": p}) for p, _ in job_progress_and_frames
+        ]
+        return SimpleNamespace(
+            renderJobs=jobs,
+            jobFrameCounts=[frames for _, frames in job_progress_and_frames],
+            lastReportedProgress=-1.0,
+        )
+
+    def _report(self, executor):
+        from deadline.unreal_adaptor.UnrealClient.step_handlers import (
+            unreal_render_step_handler,
+        )
+
+        with patch.object(unreal_render_step_handler.logger, "info") as log_info:
+            unreal_render_step_handler._report_executor_progress(executor)
+        return [c.args[0] for c in log_info.call_args_list]
+
+    def test_reports_mrq_job_progress_not_tick_count(self):
+        # Halfway through MRQ's own progress is 50%, however many engine ticks that took.
+        executor = self._executor([(0.5, 500)])
+
+        assert self._report(executor) == ["Render Executor: Progress: 50.0"]
+
+    def test_weights_jobs_by_output_frames(self):
+        # First job (100 frames) done, second job (300 frames) a third of the way.
+        executor = self._executor([(1.0, 100), (1 / 3, 300)])
+
+        assert self._report(executor) == ["Render Executor: Progress: 50.0"]
+
+    def test_logs_only_when_progress_changes(self):
+        executor = self._executor([(0.25, 40)])
+
+        assert len(self._report(executor)) == 1
+        assert self._report(executor) == []
+
+    def test_logs_once_when_stored_progress_loses_precision(self):
+        # Unreal stores lastReportedProgress as a 32-bit float.
+        executor = self._executor([(1 / 3, 346)])
+
+        assert len(self._report(executor)) == 1
+        executor.lastReportedProgress = float(
+            struct.unpack("f", struct.pack("f", executor.lastReportedProgress))[0]
+        )
+        assert self._report(executor) == []
+
+    def test_caps_progress_at_100(self):
+        executor = self._executor([(1.2, 10)])
+
+        assert self._report(executor) == ["Render Executor: Progress: 100.0"]
+
+    def test_no_frames_reports_nothing(self):
+        executor = self._executor([(0.5, 0)])
+
+        assert self._report(executor) == []
 
 
 class TestCsvCaptureHelpers:

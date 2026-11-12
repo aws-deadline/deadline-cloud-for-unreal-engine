@@ -1,6 +1,8 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
 import sys
+from contextlib import ExitStack
+
 import pytest
 import yaml
 from types import SimpleNamespace
@@ -46,6 +48,20 @@ from deadline.unreal_submitter import exceptions  # noqa: E402
 from deadline.unreal_cmd_utils import (  # noqa: E402
     parse_command_line,
 )
+
+
+@pytest.fixture
+def patch_unreal():
+    """Patch an attribute of the unreal module as seen by unreal_open_job.
+
+    pytest 9's monkeypatch deletes an attribute it didn't find in __dict__ when it
+    undoes the patch, which removes the auto-created MagicMock child for every later
+    test. unittest.mock.patch restores it.
+    """
+    with ExitStack() as stack:
+        yield lambda name, value: stack.enter_context(
+            patch(f"deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.{name}", value)
+        )
 
 
 class TestUnrealOpenJobStepParameterDefinition:
@@ -885,6 +901,7 @@ class TestRenderUnrealOpenJob:
     def test_get_plugins_references(
         self,
         monkeypatch,
+        patch_unreal,
         project_plugins,
         marketplace_plugins,
         marketplace_exists,
@@ -896,10 +913,7 @@ class TestRenderUnrealOpenJob:
             name for name, is_enabled in enabled.items() if is_enabled
         ]
 
-        monkeypatch.setattr(
-            "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.PluginBlueprintLibrary",
-            fake_lib,
-        )
+        patch_unreal("PluginBlueprintLibrary", fake_lib)
 
         fake_paths = MagicMock()
         fake_paths.project_plugins_dir.return_value = "Plugins/"
@@ -914,9 +928,7 @@ class TestRenderUnrealOpenJob:
 
         fake_paths.convert_relative_path_to_full.side_effect = fake_convert
 
-        monkeypatch.setattr(
-            "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.Paths", fake_paths
-        )
+        patch_unreal("Paths", fake_paths)
 
         def fake_scan(scan_dir):
             normalized = scan_dir.replace("\\", "/")
@@ -935,14 +947,12 @@ class TestRenderUnrealOpenJob:
         refs: AssetReferences = UnrealOpenJob.get_plugins_references()
         assert refs.input_directories == expected_dirs
 
-    def test_get_marketplace_plugins_dir_exists(self, monkeypatch):
+    def test_get_marketplace_plugins_dir_exists(self, monkeypatch, patch_unreal):
         fake_paths = MagicMock()
         fake_paths.engine_plugins_dir.return_value = "Engine/Plugins/"
         fake_paths.convert_relative_path_to_full.return_value = self.ENGINE_PLUGINS
 
-        monkeypatch.setattr(
-            "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.Paths", fake_paths
-        )
+        patch_unreal("Paths", fake_paths)
         monkeypatch.setattr(
             "deadline.unreal_submitter.unreal_open_job.unreal_open_job.os.path.isdir",
             lambda p: True,
@@ -951,14 +961,12 @@ class TestRenderUnrealOpenJob:
         result = UnrealOpenJob.get_marketplace_plugins_dir()
         assert "Marketplace" in result
 
-    def test_get_marketplace_plugins_dir_not_exists(self, monkeypatch):
+    def test_get_marketplace_plugins_dir_not_exists(self, monkeypatch, patch_unreal):
         fake_paths = MagicMock()
         fake_paths.engine_plugins_dir.return_value = "Engine/Plugins/"
         fake_paths.convert_relative_path_to_full.return_value = self.ENGINE_PLUGINS
 
-        monkeypatch.setattr(
-            "deadline.unreal_submitter.unreal_open_job.unreal_open_job.unreal.Paths", fake_paths
-        )
+        patch_unreal("Paths", fake_paths)
         monkeypatch.setattr(
             "deadline.unreal_submitter.unreal_open_job.unreal_open_job.os.path.isdir",
             lambda p: False,
