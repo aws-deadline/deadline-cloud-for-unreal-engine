@@ -330,6 +330,10 @@ class TestUnrealAdaptor_on_start:
         assert str(exc_info.value) == error_msg
 
     @patch.object(UnrealAdaptor, "_unreal_is_running", False)
+    @patch(
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.telemetry_client",
+        new_callable=PropertyMock,
+    )
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.ActionsQueue.__len__", return_value=1)
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealSubprocessWithLogs")
     @patch("deadline.unreal_adaptor.UnrealAdaptor.adaptor.AdaptorServer")
@@ -338,6 +342,7 @@ class TestUnrealAdaptor_on_start:
         mock_server: Mock,
         mock_logging_subprocess: Mock,
         mock_actions_queue: Mock,
+        mock_telemetry_client: Mock,
     ) -> None:
         """
         Tests that an RuntimeError is raised if the unreal client encounters an exception
@@ -1180,8 +1185,13 @@ class TestUnrealAdaptor_on_cleanup:
     @patch.object(
         UnrealAdaptor, "_unreal_is_running", new_callable=PropertyMock(return_value=False)
     )
+    @patch(
+        "deadline.unreal_adaptor.UnrealAdaptor.adaptor.UnrealAdaptor.telemetry_client",
+        new_callable=PropertyMock,
+    )
     def test_raises_if_unreal_not_running(
         self,
+        mock_telemetry_client: Mock,
         init_data: dict,
         run_data: dict,
     ) -> None:
