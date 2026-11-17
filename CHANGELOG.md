@@ -1,3 +1,7 @@
+## 1.1.2 (2026-11-16)
+
+### Bug Fixes
+* Render task progress is now based on Movie Render Queue's own job progress, not on engine ticks. Before this fix, progress could hit 100% partway through a render when temporal samples or warm-up frames were used. It could also stay low and then jump straight to 100% on jobs that render one shot per task. (#435)
 ## 1.1.1 (2026-10-22)
 
 ### Bug Fixes
