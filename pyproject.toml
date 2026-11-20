@@ -28,7 +28,9 @@ classifiers = [
 ]
 
 dependencies = [
-    # 0.60.4 is the floor because AWS Console sign-in landed there and nowhere earlier:
+    # 0.60.12 is the floor because it lists farms reached only through a queue or fleet
+    # membership (ListMemberships); older releases show those users an empty farm list.
+    # AWS Console sign-in also needs 0.60.4 or later, since it landed there and nowhere earlier:
     # 0.60.1 through 0.60.3 have no AWS_CONSOLE_LOGIN credentials source, and do not
     # declare a `console` extra at all.
     #
@@ -43,7 +45,7 @@ dependencies = [
     # install paths request the extra themselves: the dependency bundle in depsBundle.py,
     # the .uplugin in its PythonRequirements, and direct pip installs through this
     # package's own `console` extra (declared below).
-    "deadline >= 0.60.4,< 0.61",
+    "deadline >= 0.60.12,< 0.61",
     "openjd-adaptor-runtime >= 0.9.4,< 0.10",
     "openjd-model >= 0.10.0, < 0.15",
     'p4python == 2026.1.3027817; python_version >= "3.10"',
@@ -58,7 +60,7 @@ dependencies = [
 # unavailable (see the comment above). A unit test keeps this restated range equal to the
 # deadline pin in dependencies.
 console = [
-    "deadline[console] >= 0.60.4,< 0.61",
+    "deadline[console] >= 0.60.12,< 0.61",
 ]
 
 [project.urls]
