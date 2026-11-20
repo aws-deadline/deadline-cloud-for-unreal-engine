@@ -33,7 +33,9 @@ def create_aws_entity(entity_descriptor: dict[str, Any], id_field: str) -> unrea
 
     aws_entity = unreal.UnrealAwsEntity()
     aws_entity.id = entity_descriptor[id_field]
-    aws_entity.name = entity_descriptor["displayName"]
+    # Farms reached only through a queue or fleet membership have no displayName, so
+    # name them by their ID instead of dropping the whole list.
+    aws_entity.name = entity_descriptor.get("displayName") or entity_descriptor[id_field]
     return aws_entity
 
 
