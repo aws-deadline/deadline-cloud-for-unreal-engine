@@ -1,3 +1,7 @@
+## 1.1.3 (2026-11-23)
+
+### Bug Fixes
+* Fixed the farm list in the plugin settings showing up empty for users who can reach a farm only through queue or fleet membership. These farms now appear in the list, and the farm ID is shown when no display name is available. The plugin now requires deadline 0.60.12 or later. (#439)
 ## 1.1.2 (2026-11-16)
 
 ### Bug Fixes
